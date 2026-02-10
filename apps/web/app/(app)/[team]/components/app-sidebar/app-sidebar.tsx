@@ -7,7 +7,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/registr
 import { NavMain } from './nav-main';
 import { NavUser } from './nav-user';
 import { authClient } from '@/lib/auth-client';
-import { FileChartColumnIncreasing, Gamepad2Icon, SquareCode } from 'lucide-react';
+import { FileChartColumnIncreasing, SquareCode } from 'lucide-react';
 import { NavSecondary } from './nav-secondary';
 import { ConnectionSwitcher } from './connection-switcher';
 import { Separator } from '@/registry/new-york-v4/ui/separator';
@@ -50,11 +50,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
             url: connectionId ? `/${team}/${connectionId}/privileges` : `/${team}/privileges`,
             icon: IconUsers,
             requiresConnection: true,
-        },
-        {
-            title: 'Snake',
-            url: `/${team}/snake`,
-            icon: Gamepad2Icon,
         },
     ];
 
