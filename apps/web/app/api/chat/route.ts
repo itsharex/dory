@@ -1,14 +1,23 @@
 import 'server-only';
 import { NextRequest } from 'next/server';
-import { convertToModelMessages, type UIMessage, createIdGenerator, stepCountIs } from 'ai';
-import { streamText } from '@/lib/ai/gateway';
-import { getModelBundle, getProviderModel } from '@/lib/ai/model';
+import {
+    convertToModelMessages,
+    createUIMessageStream,
+    createUIMessageStreamResponse,
+    readUIMessageStream,
+    type ModelMessage,
+    type UIMessage,
+    type UIMessageChunk,
+} from 'ai';
+import { getModelBundle } from '@/lib/ai/model';
 import { compileSystemPrompt } from '@/lib/ai/model/compile-system';
 import { isMissingAiEnvError } from '@/lib/ai/errors';
 
 import { getSessionFromRequest } from '@/lib/auth/session';
 import { getDBService } from '@/lib/database';
 import { buildSchemaContext, getDefaultSchemaSampleLimits } from '@/lib/ai/prompts';
+import { fetchCloudUiMessageStream, type CloudStreamRequest } from '@/lib/ai/cloud-client';
+import { buildCloudToolDeclarations } from '@/lib/ai/cloud-tools';
 import { createSqlRunnerTool } from './sql-runner';
 import { createChartBuilderTool } from './chart-builder';
 import { MAX_HISTORY_MESSAGES, SYSTEM_PROMPT } from '@/lib/ai/prompts';
@@ -92,9 +101,8 @@ async function handleChatRequest(req: NextRequest) {
     const connectionId =
         connectionIdFromBody ?? req.headers.get('x-connection-id') ?? null;
 
-    const { model: defaultModel, preset } = getModelBundle('chat');
+    const { preset } = getModelBundle('chat');
     const providerModelName = requestedModel || preset.model;
-    const model = providerModelName === preset.model ? defaultModel : getProviderModel(providerModelName);
     const compiledSystem = compileSystemPrompt(preset.system);
 
     const db = userId ? await getDBService() : null;
@@ -305,87 +313,364 @@ async function handleChatRequest(req: NextRequest) {
         }
     }
 
-    const result = streamText({
-        model,
-        system: systemPrompt,
-        messages: modelMessages,
-        tools,
-        toolChoice: 'auto',
-        stopWhen: stepCountIs(4),
-        temperature: preset.temperature,
-        context: {
-            teamId,
-            userId,
-            feature: 'chat',
-            model: providerModelName,
-        },
+    const cloudBaseUrl = resolveCloudBaseUrl(req);
+    const cloudUrl = new URL('/api/ai/stream', cloudBaseUrl).toString();
+    const cloudTools = buildCloudToolDeclarations({
+        includeSqlRunner: sqlToolEnabled,
+        sqlRunnerDescription: tools.sqlRunner?.description,
+        chartBuilderDescription: tools.chartBuilder?.description,
     });
 
-    const response = result.toUIMessageStreamResponse({
+    const maxSteps = 4;
+    const baseCloudPayload: Omit<CloudStreamRequest, 'messages'> = {
+        system: systemPrompt,
+        tools: cloudTools,
+        toolChoice: 'auto',
+        temperature: preset.temperature,
+        maxSteps: 1,
+        model: providerModelName,
+    };
+
+    let initialCloudResponse: Awaited<
+        ReturnType<typeof fetchCloudUiMessageStream>
+    > | null = null;
+
+    try {
+        initialCloudResponse = await fetchCloudUiMessageStream({
+            url: cloudUrl,
+            payload: {
+                ...baseCloudPayload,
+                messages: modelMessages,
+            },
+        });
+    } catch (error) {
+        console.error('[chat] cloud stream unavailable', error);
+        return new Response('AI_SERVICE_UNAVAILABLE', {
+            status: 502,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+    }
+
+    if (!initialCloudResponse.response.ok) {
+        const status = initialCloudResponse.response.status || 502;
+        return new Response('AI_SERVICE_UNAVAILABLE', {
+            status,
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        });
+    }
+
+    const stream = createUIMessageStream<UIMessage>({
         originalMessages: uiMessages,
-        generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
+        execute: async ({ writer }) => {
+            let step = 0;
+            let nextResponse = initialCloudResponse;
+            let nextMessages = [...modelMessages];
+            const executedToolCallIds = new Set<string>();
 
-        onFinish: async ({ messages }) => {
-            if (!db || !userId || !teamId || !chatId) return;
+            while (step < maxSteps && nextResponse) {
+                const { response, stream: cloudStream } = nextResponse;
 
-            try {
-                const finishMessages = Array.isArray(messages) ? messages : [];
-                const debugInfo = await result.debugReady;
+                if (!response.ok) {
+                    writer.write({
+                        type: 'error',
+                        errorText: 'AI_SERVICE_UNAVAILABLE',
+                    } as UIMessageChunk);
+                    return;
+                }
 
-                const newMessages = finishMessages.filter(m => {
-                    const id =
-                        typeof (m as any)?.id === 'string' && (m as any).id
-                            ? (m as any).id
-                            : null;
-                    return id ? !existedMessageIds.has(id) : true;
-                });
+                const [streamForClient, streamForProcessing] =
+                    cloudStream.tee();
+                const [streamForMessages, streamForTools] =
+                    streamForProcessing.tee();
 
-                for (const m of newMessages) {
-                    const mid =
-                        typeof (m as any)?.id === 'string' && (m as any).id
-                            ? (m as any).id
+                writer.merge(streamForClient);
+
+                const [assistantMessage, toolCalls] = await Promise.all([
+                    readFinalAssistantMessage(streamForMessages),
+                    collectToolCalls(streamForTools),
+                ]);
+
+                if (assistantMessage && db && userId && teamId && chatId) {
+                    const messageId =
+                        typeof (assistantMessage as any)?.id === 'string' &&
+                        (assistantMessage as any).id
+                            ? (assistantMessage as any).id
                             : newEntityId();
-                    const existingMetadata =
-                        ((m as any).metadata ?? null) as Record<string, unknown> | null;
-                    const enrichedMetadata: Record<string, unknown> = {
-                        ...(existingMetadata ?? {}),
-                        model: providerModelName,
-                        latencyMs:
-                            typeof debugInfo.latencyMs === 'number'
-                                ? debugInfo.latencyMs
-                                : existingMetadata?.latencyMs,
-                        tokenUsage: debugInfo.usage ?? existingMetadata?.tokenUsage,
-                        requestId: debugInfo.requestId ?? existingMetadata?.requestId,
-                    };
 
-                    await db.chat.appendMessage({
-                        teamId,
-                        sessionId: chatId,
-                        actorUserId: userId,
-                        message: {
-                            id: mid,
-                            teamId,
-                            sessionId: chatId,
-                            userId: null,
-                            connectionId: connectionId ?? null,
-                            role: m.role as any,
-                            parts: ((m as any).parts ?? []) as any,
-                            metadata: Object.keys(enrichedMetadata).length ? enrichedMetadata : null,
-                            createdAt: new Date(),
+                    if (!existedMessageIds.has(messageId)) {
+                        try {
+                            await db.chat.appendMessage({
+                                teamId,
+                                sessionId: chatId,
+                                actorUserId: userId,
+                                message: {
+                                    id: messageId,
+                                    teamId,
+                                    sessionId: chatId,
+                                    userId: null,
+                                    connectionId: connectionId ?? null,
+                                    role: assistantMessage.role as any,
+                                    parts: ((assistantMessage as any).parts ?? []) as any,
+                                    metadata:
+                                        (assistantMessage as any).metadata ?? null,
+                                    createdAt: new Date(),
+                                },
+                            });
+
+                            existedMessageIds.add(messageId);
+                        } catch (err) {
+                            console.error('[chat] persist assistant messages failed', err);
+                        }
+                    }
+                }
+
+                if (!toolCalls.length) {
+                    return;
+                }
+
+                const toolResultMessages: ModelMessage[] = [];
+
+                for (const toolCall of toolCalls) {
+                    if (executedToolCallIds.has(toolCall.toolCallId)) {
+                        continue;
+                    }
+
+                    executedToolCallIds.add(toolCall.toolCallId);
+                    toolResultMessages.push(
+                        buildToolCallModelMessage(toolCall),
+                    );
+
+                    if (!tools[toolCall.toolName]?.execute) {
+                        const errorText = `Tool not available: ${toolCall.toolName}`;
+                        writer.write({
+                            type: 'tool-output-error',
+                            toolCallId: toolCall.toolCallId,
+                            errorText,
+                        } as UIMessageChunk);
+
+                        toolResultMessages.push({
+                            role: 'tool',
+                            content: [
+                                {
+                                    type: 'tool-result',
+                                    toolCallId: toolCall.toolCallId,
+                                    toolName: toolCall.toolName,
+                                    output: {
+                                        type: 'error-text',
+                                        value: errorText,
+                                    },
+                                },
+                            ],
+                        } as ModelMessage);
+                        continue;
+                    }
+
+                    let toolOutput: unknown = null;
+                    let toolErrorText: string | null = null;
+
+                    try {
+                        toolOutput = await tools[toolCall.toolName].execute(
+                            toolCall.input,
+                        );
+                    } catch (err) {
+                        toolErrorText =
+                            err instanceof Error ? err.message : String(err);
+                    }
+
+                    if (toolErrorText) {
+                        writer.write({
+                            type: 'tool-output-error',
+                            toolCallId: toolCall.toolCallId,
+                            errorText: toolErrorText,
+                        } as UIMessageChunk);
+
+                        toolResultMessages.push({
+                            role: 'tool',
+                            content: [
+                                {
+                                    type: 'tool-result',
+                                    toolCallId: toolCall.toolCallId,
+                                    toolName: toolCall.toolName,
+                                    output: {
+                                        type: 'error-text',
+                                        value: toolErrorText,
+                                    },
+                                },
+                            ],
+                        } as ModelMessage);
+                    } else {
+                        writer.write({
+                            type: 'tool-output-available',
+                            toolCallId: toolCall.toolCallId,
+                            output: toolOutput,
+                        } as UIMessageChunk);
+                        toolResultMessages.push(
+                            buildToolResultModelMessage(toolCall, toolOutput),
+                        );
+                    }
+
+                    if (db && userId && teamId && chatId) {
+                        const toolMessageId = newEntityId();
+                        try {
+                            const ok =
+                                toolOutput &&
+                                typeof toolOutput === 'object' &&
+                                'ok' in (toolOutput as Record<string, unknown>)
+                                    ? Boolean(
+                                          (toolOutput as Record<string, unknown>)
+                                              .ok,
+                                      )
+                                    : toolErrorText === null;
+
+                            await db.chat.appendMessage({
+                                teamId,
+                                sessionId: chatId,
+                                actorUserId: userId,
+                                message: {
+                                    id: toolMessageId,
+                                    teamId,
+                                    sessionId: chatId,
+                                    userId: null,
+                                    connectionId: connectionId ?? null,
+                                    role: 'tool',
+                                    parts: [
+                                        {
+                                            type: 'tool_result',
+                                            callId: toolCall.toolCallId,
+                                            ok,
+                                            result: ok ? toolOutput : undefined,
+                                            error: ok ? undefined : toolErrorText ?? 'Tool error',
+                                        },
+                                    ] as any,
+                                    metadata: null,
+                                    createdAt: new Date(),
+                                },
+                            });
+
+                            existedMessageIds.add(toolMessageId);
+                        } catch (err) {
+                            console.error('[chat] persist tool result failed', err);
+                        }
+                    }
+                }
+
+                nextMessages = [...nextMessages, ...toolResultMessages];
+                step += 1;
+
+                try {
+                    nextResponse = await fetchCloudUiMessageStream({
+                        url: cloudUrl,
+                        payload: {
+                            ...baseCloudPayload,
+                            messages: nextMessages,
                         },
                     });
-
-                    existedMessageIds.add(mid);
+                } catch (error) {
+                    console.error('[chat] cloud stream unavailable', error);
+                    writer.write({
+                        type: 'error',
+                        errorText: 'AI_SERVICE_UNAVAILABLE',
+                    } as UIMessageChunk);
+                    return;
                 }
-            } catch (err) {
-                console.error('[chat] persist assistant messages failed', err);
             }
         },
     });
 
-    if (chatId) {
-        response.headers.set('x-chat-id', chatId);
-    }
+    const response = createUIMessageStreamResponse({
+        stream,
+        headers: chatId ? { 'x-chat-id': chatId } : undefined,
+    });
 
     return response;
+}
+
+type CollectedToolCall = {
+    toolCallId: string;
+    toolName: string;
+    input: unknown;
+};
+
+async function collectToolCalls(
+    stream: ReadableStream<UIMessageChunk>,
+): Promise<CollectedToolCall[]> {
+    const reader = stream.getReader();
+    const toolCalls: CollectedToolCall[] = [];
+
+    while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        if (
+            value.type === 'tool-input-available' &&
+            !value.providerExecuted &&
+            typeof value.toolName === 'string'
+        ) {
+            toolCalls.push({
+                toolCallId: value.toolCallId,
+                toolName: value.toolName,
+                input: value.input,
+            });
+        }
+    }
+
+    return toolCalls;
+}
+
+async function readFinalAssistantMessage(
+    stream: ReadableStream<UIMessageChunk>,
+): Promise<UIMessage | null> {
+    let lastMessage: UIMessage | null = null;
+    const iterable = readUIMessageStream<UIMessage>({ stream });
+    for await (const message of iterable) {
+        lastMessage = message;
+    }
+    if (lastMessage?.role !== 'assistant') return null;
+    return lastMessage;
+}
+
+function buildToolCallModelMessage(
+    toolCall: CollectedToolCall,
+): ModelMessage {
+    return {
+        role: 'assistant',
+        content: [
+            {
+                type: 'tool-call',
+                toolCallId: toolCall.toolCallId,
+                toolName: toolCall.toolName,
+                input: toolCall.input,
+            },
+        ],
+    } as ModelMessage;
+}
+
+function buildToolResultModelMessage(
+    toolCall: CollectedToolCall,
+    output: unknown,
+): ModelMessage {
+    return {
+        role: 'tool',
+        content: [
+            {
+                type: 'tool-result',
+                toolCallId: toolCall.toolCallId,
+                toolName: toolCall.toolName,
+                output: {
+                    type: 'json',
+                    value: output,
+                },
+            },
+        ],
+    } as ModelMessage;
+}
+
+function resolveCloudBaseUrl(req: NextRequest): string {
+    const envUrl = process.env.DORY_AI_CLOUD_URL;
+    if (envUrl && envUrl.trim()) return envUrl.trim();
+    try {
+        return new URL(req.url).origin;
+    } catch {
+        return 'http://localhost:3000';
+    }
 }

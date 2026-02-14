@@ -81,6 +81,10 @@ export function createSqlRunnerTool({
                     database: targetDatabase ?? undefined,
                 });
                 const durationMs = Date.now() - started;
+                console.info('[chat][sqlRunner] executed', {
+                    datasourceId,
+                    durationMs,
+                });
 
                 const rows = Array.isArray(result.rows) ? result.rows : [];
                 const previewRows = rows.slice(0, ROW_LIMIT).map(row => serializeRow(row));

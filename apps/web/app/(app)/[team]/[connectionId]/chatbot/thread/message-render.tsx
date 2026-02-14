@@ -38,8 +38,10 @@ export function getSqlResultFromPart(part: any, fallbackMessage?: string): SqlRe
 
     const candidate = (() => {
         if (part?.type === 'tool-result' && part.result) return part.result;
+        if (part?.type === 'tool_result' && part.result) return part.result;
         if (part?.type === 'data' && part.data) return part.data;
         if (part?.type === 'tool-call-output' && part.output) return part.output;
+        if (part?.type === 'tool-sqlRunner' && part.output) return part.output;
         if (typeof part?.type === 'string' && part.type.startsWith('tool-') && part.output) return part.output;
         return null;
     })();
@@ -77,6 +79,7 @@ export function getChartResultFromPart(part: any): ChartResultPart | null {
 
     const candidate = (() => {
         if (part?.type === 'tool-result' && part.result) return part.result;
+        if (part?.type === 'tool_result' && part.result) return part.result;
         if (part?.type === 'data' && part.data) return part.data;
         if (part?.type === 'tool-call-output' && part.output) return part.output;
         if (part?.type === 'tool-chartBuilder' && part.output) return part.output;
@@ -141,6 +144,128 @@ const MessageRenderer = ({
     const userRequestedChart = didUserRequestChart(messages, messageIndex);
 
     const showCopilotSqlActions = mode === 'copilot' && typeof onExecuteAction === 'function';
+    const getToolCallId = (part: any) => {
+        if (!part || typeof part !== 'object') return null;
+        if (typeof part.callId === 'string') return part.callId;
+        if (typeof part.toolCallId === 'string') return part.toolCallId;
+        return null;
+    };
+    const isToolCallPart = (part: any) => {
+        if (!part || typeof part !== 'object') return false;
+        if (part.type === 'tool_call' || part.type === 'tool-call') return true;
+        if (
+            typeof part.type === 'string' &&
+            part.type.startsWith('tool-') &&
+            part.state === 'input-available'
+        ) {
+            return true;
+        }
+        return false;
+    };
+    const toolCallFirstIndex = new Map<string, number>();
+    messages.forEach((msg, index) => {
+        (msg.parts ?? []).forEach((part: any) => {
+            const id = getToolCallId(part);
+            if (id && isToolCallPart(part) && !toolCallFirstIndex.has(id)) {
+                toolCallFirstIndex.set(id, index);
+            }
+        });
+    });
+    const shouldRenderToolCall = (part: any) => {
+        const id = getToolCallId(part);
+        if (!id) return true;
+        return toolCallFirstIndex.get(id) === messageIndex;
+    };
+    const toolCallIdsPresent = new Set(
+        messages
+            .flatMap(msg => (Array.isArray(msg.parts) ? msg.parts : []))
+            .filter((part: any) => isToolCallPart(part))
+            .map((part: any) => getToolCallId(part))
+            .filter((id: any): id is string => typeof id === 'string'),
+    );
+    const getToolResultId = (part: any) => {
+        if (!part || typeof part !== 'object') return null;
+        if (typeof part.callId === 'string') return part.callId;
+        if (typeof part.toolCallId === 'string') return part.toolCallId;
+        return null;
+    };
+    const toolResultFirstIndex = new Map<string, number>();
+    messages.forEach((msg, index) => {
+        (msg.parts ?? []).forEach((part: any) => {
+            if (
+                part?.type === 'tool_result' ||
+                part?.type === 'tool-result' ||
+                (typeof part?.type === 'string' && part.type.startsWith('tool-') && part.output)
+            ) {
+                const id = getToolResultId(part);
+                if (id && !toolResultFirstIndex.has(id)) {
+                    toolResultFirstIndex.set(id, index);
+                }
+            }
+        });
+    });
+    const shouldRenderToolResult = (part: any) => {
+        const id = getToolResultId(part);
+        if (!id) return true;
+        return toolResultFirstIndex.get(id) === messageIndex;
+    };
+    const inferToolNameFromResult = (part: any) => {
+        const result = part?.result ?? part?.output ?? part?.data;
+        if (result?.type === 'sql-result') return 'sqlRunner';
+        if (result?.type === 'chart') return 'chartBuilder';
+        return t('Errors.UnknownTool');
+    };
+    const inferToolArgsFromResult = (part: any) => {
+        const result = part?.result ?? part?.output ?? part?.data;
+        if (result?.type === 'sql-result' && typeof result.sql === 'string') {
+            return { sql: result.sql };
+        }
+        if (result?.type === 'chart') {
+            const rawData = Array.isArray(result.data) ? result.data : [];
+            const maxPreview = 20;
+            const dataPreview = rawData.slice(0, maxPreview);
+            return {
+                chartType: result.chartType,
+                xKey: result.xKey,
+                yKeys: result.yKeys,
+                categoryKey: result.categoryKey,
+                valueKey: result.valueKey,
+                data: rawData.length <= maxPreview ? rawData : dataPreview,
+                dataCount: rawData.length,
+            };
+        }
+        return { toolCallId: getToolResultId(part) };
+    };
+    const renderToolCallCard = (_toolName: string, _args: unknown, _key: string) => {
+        // Tool-call UI is intentionally suppressed for now.
+    };
+    const maybeRenderFallbackToolCall = (part: any, index: number) => {
+        const id = getToolResultId(part);
+        if (!id) return;
+        if (toolCallIdsPresent.has(id)) return;
+        if (renderedToolCallIds.has(id)) return;
+        const toolName = inferToolNameFromResult(part);
+        const args = inferToolArgsFromResult(part);
+        renderedToolCallIds.add(id);
+        renderToolCallCard(toolName, args, `${message.id}-tool-call-fallback-${index}`);
+    };
+    const toolPartCallIds = new Set(
+        messages
+            .flatMap(msg => (Array.isArray(msg.parts) ? msg.parts : []))
+            .filter(
+                (part: any) =>
+                    typeof part?.type === 'string' &&
+                    part.type.startsWith('tool-') &&
+                    typeof part.toolCallId === 'string',
+            )
+            .map((part: any) => part.toolCallId as string),
+    );
+    const renderedToolCallIds = new Set(
+        messages
+            .flatMap(msg => (Array.isArray(msg.parts) ? msg.parts : []))
+            .filter((part: any) => part?.type === 'tool_call' && typeof part.callId === 'string')
+            .map((part: any) => part.callId as string),
+    );
 
     
     if (assistantMessage && message.parts?.some((part: any) => part.type === 'source-url')) {
@@ -159,65 +284,26 @@ const MessageRenderer = ({
 
     message.parts?.forEach((part: any, i: number) => {
         // tool-call
-        if (part.type === 'tool-call') {
-            const toolName = part.toolName ?? part.name ?? t('Errors.UnknownTool');
-            const args = part.args ?? part.arguments ?? {};
-            contentItems.push(
-                <Card key={`${message.id}-tool-call-${i}`} className="mt-3 border-primary/40 bg-muted/20">
-                    <CardHeader>
-                        <CardTitle className="text-base font-semibold">{t('Tools.Call', { name: toolName })}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <pre className="whitespace-pre-wrap wrap-break-word text-xs">{JSON.stringify(args, null, 2)}</pre>
-                    </CardContent>
-                </Card>,
-            );
+        if (part.type === 'tool-call' || part.type === 'tool_call') {
+            return;
+        }
+
+        if (typeof part.type === 'string' && part.type.startsWith('tool-') && part.input && part.state === 'input-available') {
             return;
         }
 
         // tool-error
         if (part.type === 'tool-error') {
-            contentItems.push(
-                <Card key={`${message.id}-tool-error-${i}`} className="mt-3 border-destructive/40 bg-destructive/10">
-                    <CardHeader>
-                        <CardTitle className="text-base font-semibold text-destructive">{t('Tools.Failed')}</CardTitle>
-                    </CardHeader>
-                    <CardContent className="text-sm">
-                        <div className="space-y-1">
-                            <div>
-                                <b>{t('Tools.ToolLabel')}:</b> {part.toolName ?? t('Errors.UnknownTool')}
-                            </div>
-                            <div>
-                                <b>{t('Tools.MessageLabel')}:</b> {part.error ?? t('Errors.ToolErrorUnknown')}
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>,
-            );
             return;
         }
 
         
-        if (part.type === 'tool-result') {
-            const result = part.result ?? part.output ?? part.data;
-            const isKnown = result && typeof result === 'object' && (result.type === 'sql-result' || result.type === 'chart');
-
-            if (!isKnown) {
-                contentItems.push(
-                    <Card key={`${message.id}-tool-result-raw-${i}`} className="mt-3 bg-muted/10">
-                        <CardHeader>
-                            <CardTitle className="text-base font-semibold">{t('Tools.ResultRaw')}</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <pre className="whitespace-pre-wrap wrap-break-word text-xs">{JSON.stringify(result, null, 2)}</pre>
-                        </CardContent>
-                    </Card>,
-                );
-            }
-            
+        if (!shouldRenderToolResult(part)) {
+            return;
         }
 
-        
+        // Tool-call UI suppressed; skip fallback tool-call rendering.
+
         const chartResult = getChartResultFromPart(part);
         if (chartResult) {
             chartResults.push(chartResult);
@@ -291,8 +377,25 @@ const MessageRenderer = ({
     }
 
     
-    if (assistantMessage && contentItems.length === 0 && (!isLatestAssistant || !isStreaming)) {
+    const hasToolParts = !!message.parts?.some((part: any) => {
+        if (!part || typeof part !== 'object') return false;
+        if (part.type === 'tool-call' || part.type === 'tool_call') return false;
+        if (part.type === 'tool-error') return true;
+        if (part.type === 'tool-result' || part.type === 'tool_result') return true;
+        return typeof part.type === 'string' && part.type.startsWith('tool-');
+    });
+
+    if (
+        assistantMessage &&
+        contentItems.length === 0 &&
+        (!isLatestAssistant || !isStreaming) &&
+        !hasToolParts
+    ) {
         contentItems.push(<AssistantFallbackCard key={`${message.id}-fallback`} />);
+    }
+
+    if (contentItems.length === 0) {
+        return null;
     }
 
     
@@ -302,7 +405,7 @@ const MessageRenderer = ({
     return (
         <div key={message.id} className="space-y-2 w-full">
             <Message from={message.role} className={isAssistant ? 'w-full' : undefined}>
-                <MessageContent className={isAssistant ? 'w-full max-w-none bg-transparent' : undefined}>
+                <MessageContent className={isAssistant ? 'w-full max-w-none bg-transparent' : 'w-full'}>
                     {contentItems}
                 </MessageContent>
             </Message>
