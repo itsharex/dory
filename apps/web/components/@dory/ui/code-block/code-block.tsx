@@ -12,7 +12,6 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { studioPrismDarkTheme, studioPrismLightTheme } from './studio-prism-theme';
 
-// 注册需要的语言（只注册 sql/json，减少体积）
 SyntaxHighlighter.registerLanguage('sql', sql);
 SyntaxHighlighter.registerLanguage('json', json);
 
@@ -21,12 +20,11 @@ type ContentType = 'text' | 'sql' | 'json' | 'auto';
 interface SmartCodeBlockProps {
     label?: string;
     value: string;
-    type?: ContentType; // 默认 auto
+    type?: ContentType;
     showLineNumbers?: boolean;
-    maxHeightClassName?: string; // 比如 "max-h-80"
-    theme?: SyntaxHighlighterProps['style']; // 手动指定主题（优先级最高）
+    maxHeightClassName?: string;
+    theme?: SyntaxHighlighterProps['style'];
     className?: string;
-    // 可选：强制某个 code block 使用 light/dark，而不是跟随全局
     forceThemeMode?: 'light' | 'dark';
     onCopy?: () => void;
 }
@@ -50,12 +48,10 @@ export function SmartCodeBlock({
 
         const trimmed = value.trim();
 
-        // 尝试 JSON
         if ((trimmed.startsWith('{') || trimmed.startsWith('[')) && isJson(trimmed)) {
             return 'json';
         }
 
-        // 简单 SQL 判断
         const upper = trimmed.slice(0, 200).toUpperCase();
         if (/\bSELECT\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b|\bCREATE\b|\bALTER\b|\bDROP\b|\bFROM\b|\bWHERE\b/.test(upper)) {
             return 'sql';
@@ -66,7 +62,6 @@ export function SmartCodeBlock({
 
     const language = effectiveType === 'sql' ? 'sql' : effectiveType === 'json' ? 'json' : undefined;
 
-    // 计算最终主题：props.theme > forceThemeMode > 全局主题
     const finalTheme = React.useMemo<SyntaxHighlighterProps['style'] | undefined>(() => {
         if (theme) return theme;
 
@@ -114,7 +109,6 @@ export function SmartCodeBlock({
 
     const contentNode =
         language == null ? (
-            // 普通文本模式
             <pre
                 className={cn(
                     'whitespace-pre-wrap break-words rounded-lg bg-muted/60 p-3 font-mono text-[11px] leading-relaxed text-foreground',
@@ -125,7 +119,6 @@ export function SmartCodeBlock({
                 {value}
             </pre>
         ) : (
-            // 高亮模式
             <SyntaxHighlighter
                 language={language}
                 style={finalTheme}
@@ -151,7 +144,6 @@ export function SmartCodeBlock({
             {label && <span className="text-xs font-medium text-muted-foreground">{label}</span>}
 
             <div className={cn('relative group rounded-lg border bg-muted/40', maxHeightClassName, 'overflow-hidden')}>
-                {/* 复制按钮 */}
                 <Button
                     type="button"
                     size="icon"
