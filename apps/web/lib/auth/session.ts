@@ -71,17 +71,14 @@ function jwtToSessionLoose(token: string) {
     const payload = decodeJwtPayload(token);
     if (!payload) return null;
 
-    // exp 校验
     const now = Math.floor(Date.now() / 1000);
     if (typeof payload.exp === 'number' && payload.exp <= now) return null;
 
-    // iss/aud 校验（按你 token 里 demo.getdory.dev 来；后续可做白名单/多环境）
     const allowedIss = new Set(['https://demo.getdory.dev']);
     const allowedAud = new Set(['https://demo.getdory.dev']);
 
     if (typeof payload.iss === 'string' && !allowedIss.has(payload.iss)) return null;
     if (typeof payload.aud === 'string' && !allowedAud.has(payload.aud)) return null;
-    // 有些实现 aud 可能是数组
     if (Array.isArray(payload.aud) && !payload.aud.some((x: any) => typeof x === 'string' && allowedAud.has(x))) return null;
 
     const userId = payload.sub ?? payload.id;
@@ -104,20 +101,15 @@ export async function getSessionFromRequest(req?: NextRequest) {
     const auth = await getAuth();
     const reqHeaders = req ? req.headers : await headers();
 
-    // ✅ 0) 先走 JWT（Bearer 或 Cookie）——用于 Electron/SSR 稳定登录态
     const bearerToken = readBearerToken(reqHeaders);
     const cookieToken = await readCookieToken(req);
     const token = bearerToken ?? cookieToken;
-
-    // 你想继续观察日志可打开
-    // console.log('[session] bearer?', Boolean(bearerToken), 'cookie?', Boolean(cookieToken), 'tokenLen', token?.length ?? 0);
 
     if (token) {
         const s = jwtToSessionLoose(token);
         if (s) return s;
     }
 
-    // ✅ 1) Desktop runtime：再尝试代理到云端 get-session（可保留）
     if (shouldProxyAuthRequest()) {
         const sessionUrl = getCloudAuthSessionUrl();
         const cloudBase = getCloudApiBaseUrl();
@@ -137,7 +129,6 @@ export async function getSessionFromRequest(req?: NextRequest) {
         }
     }
 
-    // ✅ 2) 最后：本地 cookie session（Web / 本地场景）
     const session = await auth.api
         .getSession({
             headers: reqHeaders,
