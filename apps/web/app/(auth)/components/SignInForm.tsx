@@ -13,7 +13,7 @@ import { IconBrandGithub } from '@tabler/icons-react';
 import { authClient, signInViaGithub } from '@/lib/auth-client'; //Introducing authClient
 import { InputPassword } from '@/components/originui/input-password';
 import { authFetch } from '@/lib/client/auth-fetch';
-import { setAuthToken } from '@/lib/client/auth-token';
+import { clearAuthToken, setAuthToken } from '@/lib/client/auth-token';
 import { useTranslations } from 'next-intl';
 
 export function SignInForm({ className, imageUrl, ...props }: React.ComponentProps<'div'> & { imageUrl?: string }) {
@@ -45,11 +45,32 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
         const unsubscribe = window.authBridge.onCallback(async deepLink => {
             try {
                 const url = new URL(deepLink);
+                const code = url.searchParams.get('code');
                 const token = url.searchParams.get('token');
                 const error = url.searchParams.get('error');
 
                 if (error) {
                     setErr(t('SignIn.AuthFailed', { error }));
+                    return;
+                }
+
+                if (code) {
+                    const finalizeRes = await authFetch('/api/electron/auth/finalize', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ code }),
+                    });
+                    if (!finalizeRes.ok) {
+                        const data = await finalizeRes.json().catch(() => null);
+                        throw new Error(data?.message ?? t('SignIn.AuthFailed', { error: 'finalize_failed' }));
+                    }
+                    await clearAuthToken();
+                    const sessionRes = await authFetch('/api/auth/get-session', { method: 'GET' });
+                    const session = sessionRes.ok ? await sessionRes.json().catch(() => null) : null;
+                    const defaultTeamId = typeof session?.user?.defaultTeamId === 'string' ? session.user.defaultTeamId : null;
+                    setMsg(t('SignIn.SuccessRefreshing'));
+                    router.refresh();
+                    router.replace(defaultTeamId ? `/${defaultTeamId}/connections` : '/');
                     return;
                 }
 
@@ -61,12 +82,13 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
                 await setAuthToken(token);
                 setMsg(t('SignIn.SuccessRefreshing'));
                 const payload = decodeJwtPayload(token);
+                console.log('payload', payload);
                 const defaultTeamId = typeof payload?.defaultTeamId === 'string' ? payload.defaultTeamId : null;
                 router.refresh();
                 if (defaultTeamId) {
                     router.replace(`/${defaultTeamId}/connections`);
                 } else {
-                    router.push(`/${defaultTeamId}/connections`);
+                    router.replace(`/`);
                 }
             } catch (e) {
                 setErr(t('SignIn.InvalidCallback'));
@@ -253,7 +275,7 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
                             </div>
                         </div>
                     </form>
-{/* 
+                    {/* 
                     <div className="bg-primary/50 relative hidden md:block">
                         {imageUrl && <Image fill src={imageUrl} alt="Image" className="absolute inset-0 h-full w-full object-cover" />}
                     </div> */}
@@ -261,9 +283,7 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
             </Card>
 
             <div className="text-muted-foreground *:[a]:hover:text-primary text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
-                {t('SignIn.ContinueAgreement')}{' '}
-                <a href="#">{t('SignIn.Terms')}</a> {t('SignIn.And')}{' '}
-                <a href="#">{t('SignIn.Privacy')}</a>.
+                {t('SignIn.ContinueAgreement')} <a href="#">{t('SignIn.Terms')}</a> {t('SignIn.And')} <a href="#">{t('SignIn.Privacy')}</a>.
             </div>
         </div>
     );

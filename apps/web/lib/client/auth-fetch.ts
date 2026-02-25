@@ -1,6 +1,7 @@
-import { getAuthToken } from './auth-token';
+
 import { X_CONNECTION_ID_KEY } from '@/app/config/app';
 import { getAuthBaseUrl, isAuthPath } from './auth-runtime';
+import { getAuthToken } from './auth-token';
 
 function getStoredConnectionId(): string | null {
     if (typeof window === 'undefined') return null;

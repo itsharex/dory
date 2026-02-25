@@ -12,3 +12,4 @@ export const DEFAULT_ACTIVE_TAB: SQLTab = {
 };
 
 export const DEFAULT_PGLITE_DB_PATH = '/app/data/dory.db';
+export const TOKEN_COOKIE_KEY = 'dory_access_token';
