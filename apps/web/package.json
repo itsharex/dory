@@ -10,7 +10,7 @@
         "prebuild": "yarn run client:migrate:compile",
         "build": "yarn run build:bootstrap && next build",
         "build:cf": "next build && opennextjs-cloudflare build",
-        "build:bootstrap": "bun build scripts/bootstrap.ts --target=node --format=esm --outfile=./dist-scripts/bootstrap.mjs",
+        "build:bootstrap": "bun build scripts/bootstrap.ts --target=node --format=esm --outfile=./dist-scripts/bootstrap.mjs && node scripts/copy-pglite-assets.mjs",
         "start": "next start",
         "studio": "drizzle-kit studio",
         "pglite:studio": "drizzle-kit studio --config ./drizzle.pglite.config.ts",
