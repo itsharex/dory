@@ -55,7 +55,10 @@ function rewriteSetCookie(value: string, isSecureRequest: boolean): string {
 }
 
 function rewriteCookieHeaderForUpstream(value: string): string {
-    const parts = value.split(';').map(part => part.trim()).filter(Boolean);
+    const parts = value
+        .split(';')
+        .map(part => part.trim())
+        .filter(Boolean);
     const withoutSecure = parts.filter(part => !part.startsWith('__Secure-better-auth.session_token='));
 
     return withoutSecure
@@ -68,10 +71,20 @@ function rewriteCookieHeaderForUpstream(value: string): string {
         .join('; ');
 }
 
-export function createAuthProxyHeaders(incoming: Headers): Headers {
+export function createAuthProxyHeaders(incoming: Headers, baseUrl: string): Headers {
     const headers = new Headers(incoming);
+
     headers.delete('host');
     headers.delete('connection');
+
+    const upstreamOrigin = new URL(baseUrl).origin;
+    if (headers.has('origin')) headers.set('origin', upstreamOrigin);
+
+    const referer = headers.get('referer');
+    if (referer) {
+        const u = new URL(referer);
+        headers.set('referer', upstreamOrigin + u.pathname + u.search);
+    }
 
     const cookieHeader = headers.get('cookie');
     if (cookieHeader) {
@@ -92,7 +105,7 @@ export async function proxyAuthRequest(req: Request): Promise<Response> {
 
     const incomingUrl = new URL(req.url);
     const targetUrl = new URL(incomingUrl.pathname + incomingUrl.search, baseUrl);
-    const headers = createAuthProxyHeaders(req.headers);
+    const headers = createAuthProxyHeaders(req.headers, baseUrl);
 
     headers.delete('host');
     headers.delete('connection');
@@ -121,10 +134,7 @@ export async function proxyAuthRequest(req: Request): Promise<Response> {
     }
 
     if (!isSecureRequest) {
-        responseHeaders.append(
-            'set-cookie',
-            '__Secure-better-auth.session_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax',
-        );
+        responseHeaders.append('set-cookie', '__Secure-better-auth.session_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax');
     }
 
     return new Response(upstream.body, {

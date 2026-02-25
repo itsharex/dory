@@ -20,7 +20,7 @@ export async function getSessionFromRequest(req?: NextRequest) {
         if (sessionUrl) {
             try {
                 const res = await fetch(sessionUrl, {
-                    headers: createAuthProxyHeaders(reqHeaders),
+                    headers: createAuthProxyHeaders(reqHeaders, sessionUrl),
                 });
                 if (res.ok) {
                     const session = (await res.json()) as ReturnType<typeof auth.api.getSession>;
