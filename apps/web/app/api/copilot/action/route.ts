@@ -7,6 +7,7 @@ import type { CopilotFixInput } from '@/app/(app)/[team]/[connectionId]/chatbot/
 import { getServerLocale } from '@/lib/i18n/server-locale';
 import { translate } from '@/lib/i18n/i18n';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
+import { isDesktopCloudRuntime, isMissingAiEnvError } from '@/lib/ai/errors';
 
 export const POST = withUserAndTeamHandler(async ({ req }) => {
     const locale = await getServerLocale();
@@ -21,8 +22,8 @@ export const POST = withUserAndTeamHandler(async ({ req }) => {
         return NextResponse.json(result);
     } catch (e: any) {
         const rawMessage = typeof e?.message === 'string' ? e.message : '';
-        const isMissingEnv = rawMessage.includes('DORY_AI_API_KEY') || rawMessage.includes('DORY_AI_URL');
-        if (isMissingEnv) {
+        const isMissingEnv = isMissingAiEnvError(e);
+        if (isMissingEnv && !isDesktopCloudRuntime()) {
             return NextResponse.json(
                 {
                     code: 'MISSING_AI_ENV',

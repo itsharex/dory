@@ -40,6 +40,20 @@ export function getModelPreset<R extends ModelRole>(role: R) {
 }
 
 /**
+ * (Optional) get preset only without initializing a provider model
+ * - Use for cloud-only request paths
+ */
+export function getModelPresetOnly<R extends ModelRole>(role: R) {
+    const basePreset = MODEL_PRESETS[role];
+    if (!basePreset) {
+        throw new Error(`Unknown model role: ${role}`);
+    }
+
+    const modelName = resolveModelName(role);
+    return { ...basePreset, model: modelName };
+}
+
+/**
  * (Optional) get chatModel by provider model name
  * - Only when a specific model name is required
  */

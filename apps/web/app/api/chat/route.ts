@@ -9,9 +9,9 @@ import {
     type UIMessage,
     type UIMessageChunk,
 } from 'ai';
-import { getModelBundle } from '@/lib/ai/model';
+import { getModelPresetOnly } from '@/lib/ai/model';
 import { compileSystemPrompt } from '@/lib/ai/model/compile-system';
-import { isMissingAiEnvError } from '@/lib/ai/errors';
+import { isDesktopCloudRuntime, isMissingAiEnvError } from '@/lib/ai/errors';
 
 import { getSessionFromRequest } from '@/lib/auth/session';
 import { getDBService } from '@/lib/database';
@@ -34,7 +34,7 @@ export const POST = withUserAndTeamHandler(async ({ req }) => {
     try {
         return await handleChatRequest(req);
     } catch (error) {
-        if (isMissingAiEnvError(error)) {
+        if (isMissingAiEnvError(error) && !isDesktopCloudRuntime()) {
             return new Response('MISSING_AI_ENV', {
                 status: 500,
                 headers: { 'Content-Type': 'text/plain; charset=utf-8' },
@@ -101,7 +101,7 @@ async function handleChatRequest(req: NextRequest) {
     const connectionId =
         connectionIdFromBody ?? req.headers.get('x-connection-id') ?? null;
 
-    const { preset } = getModelBundle('chat');
+    const preset = getModelPresetOnly('chat');
     const providerModelName = requestedModel || preset.model;
     const compiledSystem = compileSystemPrompt(preset.system);
 
@@ -336,6 +336,11 @@ async function handleChatRequest(req: NextRequest) {
     > | null = null;
 
     try {
+        console.info('[chat] cloud request start', {
+            url: cloudUrl,
+            model: providerModelName,
+            messageCount: modelMessages.length,
+        });
         initialCloudResponse = await fetchCloudUiMessageStream({
             url: cloudUrl,
             payload: {
@@ -343,8 +348,13 @@ async function handleChatRequest(req: NextRequest) {
                 messages: modelMessages,
             },
         });
+        console.info('[chat] cloud response received', {
+            url: cloudUrl,
+            status: initialCloudResponse.response.status,
+            ok: initialCloudResponse.response.ok,
+        });
     } catch (error) {
-        console.error('[chat] cloud stream unavailable', error);
+        console.error('[chat] cloud stream unavailable', { url: cloudUrl, error });
         return new Response('AI_SERVICE_UNAVAILABLE', {
             status: 502,
             headers: { 'Content-Type': 'text/plain; charset=utf-8' },
@@ -668,6 +678,8 @@ function buildToolResultModelMessage(
 function resolveCloudBaseUrl(req: NextRequest): string {
     const envUrl = process.env.DORY_AI_CLOUD_URL;
     if (envUrl && envUrl.trim()) return envUrl.trim();
+    const publicEnvUrl = process.env.NEXT_PUBLIC_DORY_CLOUD_API_URL;
+    if (publicEnvUrl && publicEnvUrl.trim()) return publicEnvUrl.trim();
     try {
         return new URL(req.url).origin;
     } catch {
