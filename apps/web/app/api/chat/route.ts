@@ -11,7 +11,7 @@ import {
 } from 'ai';
 import { getModelPresetOnly } from '@/lib/ai/model';
 import { compileSystemPrompt } from '@/lib/ai/model/compile-system';
-import { isDesktopCloudRuntime, isMissingAiEnvError } from '@/lib/ai/errors';
+import { isMissingAiEnvError } from '@/lib/ai/errors';
 
 import { getSessionFromRequest } from '@/lib/auth/session';
 import { getDBService } from '@/lib/database';
@@ -27,6 +27,7 @@ import type { CopilotEnvelopeV1 } from '@/app/(app)/[team]/[connectionId]/chatbo
 import { toPromptContext } from '@/app/(app)/[team]/[connectionId]/chatbot/copilot/copilot-envelope';
 import { getApiLocale } from '@/app/api/utils/i18n';
 import { withUserAndTeamHandler } from '../utils/with-team-handler';
+import { USE_CLOUD_AI } from '@/app/config/app';
 
 export const runtime = 'nodejs';
 
@@ -34,7 +35,7 @@ export const POST = withUserAndTeamHandler(async ({ req }) => {
     try {
         return await handleChatRequest(req);
     } catch (error) {
-        if (isMissingAiEnvError(error) && !isDesktopCloudRuntime()) {
+        if (isMissingAiEnvError(error) && !USE_CLOUD_AI) {
             return new Response('MISSING_AI_ENV', {
                 status: 500,
                 headers: { 'Content-Type': 'text/plain; charset=utf-8' },
@@ -313,6 +314,7 @@ async function handleChatRequest(req: NextRequest) {
         }
     }
 
+    const useCloud = USE_CLOUD_AI;
     const cloudBaseUrl = resolveCloudBaseUrl(req);
     const cloudUrl = new URL('/api/ai/stream', cloudBaseUrl).toString();
     const cloudTools = buildCloudToolDeclarations({
@@ -336,7 +338,7 @@ async function handleChatRequest(req: NextRequest) {
     > | null = null;
 
     try {
-        console.info('[chat] cloud request start', {
+        console.info(useCloud ? '[chat] cloud request start' : '[chat] local request start', {
             url: cloudUrl,
             model: providerModelName,
             messageCount: modelMessages.length,
@@ -348,13 +350,16 @@ async function handleChatRequest(req: NextRequest) {
                 messages: modelMessages,
             },
         });
-        console.info('[chat] cloud response received', {
+        console.info(useCloud ? '[chat] cloud response received' : '[chat] local response received', {
             url: cloudUrl,
             status: initialCloudResponse.response.status,
             ok: initialCloudResponse.response.ok,
         });
     } catch (error) {
-        console.error('[chat] cloud stream unavailable', { url: cloudUrl, error });
+        console.error(useCloud ? '[chat] cloud stream unavailable' : '[chat] local stream unavailable', {
+            url: cloudUrl,
+            error,
+        });
         return new Response('AI_SERVICE_UNAVAILABLE', {
             status: 502,
             headers: { 'Content-Type': 'text/plain; charset=utf-8' },
@@ -676,6 +681,13 @@ function buildToolResultModelMessage(
 }
 
 function resolveCloudBaseUrl(req: NextRequest): string {
+    if (!USE_CLOUD_AI) {
+        try {
+            return new URL(req.url).origin;
+        } catch {
+            return 'http://localhost:3000';
+        }
+    }
     const envUrl = process.env.DORY_AI_CLOUD_URL;
     if (envUrl && envUrl.trim()) return envUrl.trim();
     const publicEnvUrl = process.env.NEXT_PUBLIC_DORY_CLOUD_API_URL;

@@ -5,7 +5,8 @@ import { createIdGenerator, stepCountIs } from 'ai';
 import { streamText } from '@/lib/ai/gateway';
 import { getModelBundle, getProviderModel } from '@/lib/ai/model';
 import { buildCloudToolSet } from '@/lib/ai/cloud-tools';
-import { isDesktopCloudRuntime, isMissingAiEnvError } from '@/lib/ai/errors';
+import { isMissingAiEnvError } from '@/lib/ai/errors';
+import { USE_CLOUD_AI } from '@/app/config/app';
 
 export const runtime = 'nodejs';
 
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
             generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
         });
     } catch (error) {
-        if (isMissingAiEnvError(error) && !isDesktopCloudRuntime()) {
+        if (isMissingAiEnvError(error) && !USE_CLOUD_AI) {
             return new Response('MISSING_AI_ENV', {
                 status: 500,
                 headers: { 'Content-Type': 'text/plain; charset=utf-8' },

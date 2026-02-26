@@ -1,7 +1,7 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/registry/new-york-v4/ui/card";
 import { AlertCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { isDesktopCloudRuntime } from "@/lib/ai/errors";
+import { USE_CLOUD_AI } from "@/app/config/app";
 
 type AssistantFallbackCardProps = {
     reason?: string;
@@ -9,7 +9,7 @@ type AssistantFallbackCardProps = {
 
 export function AssistantFallbackCard({ reason }: AssistantFallbackCardProps) {
     const t = useTranslations("DoryUI");
-    const isDesktopCloud = isDesktopCloudRuntime();
+    const isDesktopCloud = USE_CLOUD_AI;
     const isMissingEnvReason =
         typeof reason === 'string' &&
         (reason.includes('DORY_AI_API_KEY') || reason.includes('DORY_AI_URL') || reason.includes('MISSING_AI_ENV'));

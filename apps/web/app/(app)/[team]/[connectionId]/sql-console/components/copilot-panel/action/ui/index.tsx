@@ -10,7 +10,8 @@ import { QuickActionList, QuickActionListItem } from './QuickActionList';
 import { ActionResultPanel } from './ActionResultPanel/ActionResultPanel';
 import { CopilotFixInput } from '@/app/(app)/[team]/[connectionId]/chatbot/copilot/types/copilot-fix-input';
 import { useTranslations } from 'next-intl';
-import { isDesktopCloudRuntime, isMissingAiEnvError } from '@/lib/ai/errors';
+import { isMissingAiEnvError } from '@/lib/ai/errors';
+import { USE_CLOUD_AI } from '@/app/config/app';
 
 type ApplySqlResult = {
     previousSql: string;
@@ -36,7 +37,7 @@ export type ActionTabProps = {
 
 export function ActionTab({ input, onApplySql, onExecuted, autoRun, onAutoRunHandled }: ActionTabProps) {
     const t = useTranslations('SqlConsole') as any;
-    const suppressMissingAiEnv = isDesktopCloudRuntime();
+    const suppressMissingAiEnv = USE_CLOUD_AI;
     const [result, setResult] = useState<ActionResult | null>(null);
     const [running, setRunning] = useState(false);
     const [runError, setRunError] = useState<string | null>(null);

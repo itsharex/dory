@@ -6,12 +6,3 @@ export function isMissingAiEnvError(error: unknown) {
         message.includes('MISSING_AI_ENV')
     );
 }
-
-export function isDesktopCloudRuntime() {
-    const runtime = process.env.NEXT_PUBLIC_DORY_RUNTIME?.trim() ?? '';
-    const cloudUrl =
-        process.env.NEXT_PUBLIC_DORY_CLOUD_API_URL?.trim() ??
-        process.env.DORY_CLOUD_API_URL?.trim() ??
-        '';
-    return runtime === 'desktop' && Boolean(cloudUrl);
-}
