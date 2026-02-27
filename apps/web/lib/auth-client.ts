@@ -13,6 +13,7 @@ export const authClient = createAuthClient({
     ...(authBaseUrl ? { baseURL: authBaseUrl } : {}),
 });
 
+
 // ==== Wrapper: social login ====
 export function signInViaGithub(redirectTo = '/') {
     // Usually triggers a redirect; return value is not used

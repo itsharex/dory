@@ -30,6 +30,18 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
         const unsubscribe = window.authBridge.onCallback(async deepLink => {
             try {
                 const url = new URL(deepLink);
+                const path = url.pathname && url.pathname !== '/' ? url.pathname : `/${url.hostname}`;
+                const token = url.searchParams.get('token');
+
+                if (path === '/reset-password') {
+                    if (!token) {
+                        setErr(t('SignIn.MissingToken'));
+                        return;
+                    }
+                    router.replace(`/reset-password?token=${encodeURIComponent(token)}`);
+                    return;
+                }
+
                 const ticket = url.searchParams.get('ticket');
                 const error = url.searchParams.get('error');
 
@@ -134,17 +146,39 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
         setMsg(null);
         setLoading(true);
         try {
-            const { error } = await authClient.requestPasswordReset({
+            const redirectTo = window.authBridge?.openExternal
+                ? 'dory://reset-password'
+                : `${window.location.origin}/reset-password`;
+            console.log('[auth] request-password-reset start', {
                 email,
-                //After the link opens, it jumps to your reset password page (this page completes resetPassword from the token in the URL)
-                redirectTo: `${window.location.origin}/reset-password`,
+                origin: window.location.origin,
+                redirectTo,
+                runtime: process.env.NEXT_PUBLIC_DORY_RUNTIME,
+                cloudApi: process.env.NEXT_PUBLIC_DORY_CLOUD_API_URL,
             });
-            if (error) {
-                setErr(error.message ?? t('SignIn.ResetEmailFailed'));
-            } else {
-                setMsg(t('SignIn.ResetEmailSent'));
+            const res = await authFetch('/api/auth/request-password-reset', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email,
+                    // After the link opens, it jumps to your reset password page
+                    redirectTo,
+                }),
+            });
+            const data = await res.json().catch(() => null);
+            console.log('[auth] request-password-reset response', {
+                ok: res.ok,
+                status: res.status,
+                data,
+            });
+            if (!res.ok) {
+                const message = typeof data?.error === 'string' ? data.error : t('SignIn.ResetEmailFailed');
+                setErr(message);
+                return;
             }
+            setMsg(t('SignIn.ResetEmailSent'));
         } catch (e: any) {
+            console.error('[auth] request-password-reset error', e);
             setErr(e?.message ?? t('SignIn.SendFailedRetry'));
         } finally {
             setLoading(false);

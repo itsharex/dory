@@ -127,6 +127,22 @@
                 "Subject": "Verify your email address",
                 "Text": "Click the link to verify your email: {url}"
             }
+        },
+        "ResetPassword": {
+            "Title": "Reset your password",
+            "Description": "Enter a new password for your account.",
+            "NewPassword": "New password",
+            "ConfirmPassword": "Confirm password",
+            "Submitting": "Resetting…",
+            "Submit": "Reset password",
+            "GoToSignIn": "Back to sign in",
+            "InvalidLink": "The reset link is invalid or expired.",
+            "MissingToken": "Missing reset token. Please use the link in your email.",
+            "PasswordRequired": "Please enter and confirm your new password.",
+            "PasswordMismatch": "Passwords do not match.",
+            "Failed": "Reset failed. Please try again.",
+            "NetworkError": "Network error. Please try again later.",
+            "Success": "Password reset successfully. You can sign in now."
         }
     },
     "HomePage": {

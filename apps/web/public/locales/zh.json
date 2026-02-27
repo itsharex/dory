@@ -131,6 +131,22 @@
                 "Subject": "验证你的邮箱地址",
                 "Text": "点击链接验证你的邮箱：{url}"
             }
+        },
+        "ResetPassword": {
+            "Title": "重置密码",
+            "Description": "请输入你的新密码。",
+            "NewPassword": "新密码",
+            "ConfirmPassword": "确认密码",
+            "Submitting": "正在重置…",
+            "Submit": "重置密码",
+            "GoToSignIn": "返回登录",
+            "InvalidLink": "重置链接无效或已过期。",
+            "MissingToken": "缺少重置令牌，请使用邮件中的链接。",
+            "PasswordRequired": "请输入并确认新密码。",
+            "PasswordMismatch": "两次输入的密码不一致。",
+            "Failed": "重置失败，请重试。",
+            "NetworkError": "网络错误，请稍后重试。",
+            "Success": "密码重置成功，现在可以登录了。"
         }
     },
     "HomePage": {
