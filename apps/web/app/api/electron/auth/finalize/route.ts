@@ -1,5 +1,9 @@
 import { getAuth } from '@/lib/auth';
+import { schema } from '@/lib/database/schema';
+import { getClient } from '@/lib/database/postgres/client';
+import type { PostgresDBClient } from '@/types';
 import { randomUUID } from 'crypto';
+import { eq } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -88,7 +92,16 @@ export async function GET(req: Request) {
         return NextResponse.json({ error: 'missing_session' }, { status: 401 });
     }
 
-    const user = session.user as TicketUser;
+    const db = (await getClient()) as PostgresDBClient;
+    const [dbUser] = await db.select().from(schema.user).where(eq(schema.user.id, session.user.id));
+    const user = {
+        id: dbUser?.id ?? session.user.id,
+        email: dbUser?.email ?? session.user.email ?? null,
+        name: dbUser?.name ?? session.user.name ?? null,
+        image: dbUser?.image ?? session.user.image ?? null,
+        emailVerified: dbUser?.emailVerified ?? session.user.emailVerified ?? false,
+        defaultTeamId: dbUser?.defaultTeamId ?? (session.user as TicketUser).defaultTeamId ?? null,
+    } satisfies TicketUser;
     const ticket = await createTicket(auth, { user });
     const deepLinkUrl = new URL(DEEP_LINK);
     deepLinkUrl.searchParams.set('ticket', ticket);
