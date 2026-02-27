@@ -8,14 +8,29 @@ export const dynamic = 'force-dynamic';
 const DEEP_LINK = 'dory://auth-complete';
 const TICKET_TTL_MS = 5 * 60 * 1000;
 
-function readCookieValue(cookieHeader: string, name: string): string | null {
-    const parts = cookieHeader.split(';').map(part => part.trim());
-    for (const part of parts) {
-        if (!part.startsWith(`${name}=`)) continue;
-        const value = part.slice(name.length + 1);
-        return value ? decodeURIComponent(value) : null;
+type TicketUser = {
+    id: string;
+    email: string | null;
+    name: string | null;
+    image: string | null;
+    emailVerified: boolean;
+    defaultTeamId?: string | null;
+};
+
+function getSetCookies(headers: Headers): string[] {
+    const anyHeaders = headers as unknown as { getSetCookie?: () => string[] };
+    if (typeof anyHeaders.getSetCookie === 'function') {
+        return anyHeaders.getSetCookie();
     }
-    return null;
+
+    const raw = headers.get('set-cookie');
+    if (!raw) return [];
+    return [raw];
+}
+
+function readCookieValueFromSetCookie(setCookie: string, name: string): string | null {
+    const match = setCookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
 
 function normalizeCookieName(name: string): string[] {
@@ -25,23 +40,22 @@ function normalizeCookieName(name: string): string[] {
     return Array.from(new Set(names));
 }
 
-function extractSessionTokenFromRequest(req: Request, cookieName: string): string | null {
-    const cookieHeader = req.headers.get('cookie') ?? '';
-    if (!cookieHeader) return null;
-
-    for (const name of normalizeCookieName(cookieName)) {
-        const value = readCookieValue(cookieHeader, name);
-        if (value) return value;
+function extractSessionTokenFromHeaders(headers: Headers, cookieName: string): string | null {
+    const cookieNames = normalizeCookieName(cookieName);
+    for (const cookie of getSetCookies(headers)) {
+        for (const name of cookieNames) {
+            const value = readCookieValueFromSetCookie(cookie, name);
+            if (value) return value;
+        }
     }
-
     return null;
 }
 
-async function createTicket(auth: Awaited<ReturnType<typeof getAuth>>, sessionToken: string) {
+async function createTicket(auth: Awaited<ReturnType<typeof getAuth>>, payload: { user: TicketUser }) {
     const ctx = await auth.$context;
     const ticket = `electron-${randomUUID()}`;
     const verification = await ctx.internalAdapter.createVerificationValue({
-        value: JSON.stringify({ sessionToken }),
+        value: JSON.stringify(payload),
         identifier: ticket,
         expiresAt: new Date(Date.now() + TICKET_TTL_MS),
     });
@@ -56,13 +70,26 @@ async function createTicket(auth: Awaited<ReturnType<typeof getAuth>>, sessionTo
 export async function GET(req: Request) {
     const auth = await getAuth();
 
+    const response = await auth.api.callbackOAuth({
+        headers: req.headers,
+        params: { id: 'github' },
+        query: Object.fromEntries(new URL(req.url).searchParams),
+        asResponse: true,
+    });
+
     const ctx = await auth.$context;
-    const sessionToken = extractSessionTokenFromRequest(req, ctx.authCookies.sessionToken.name);
+    const sessionToken = extractSessionTokenFromHeaders(response.headers ?? new Headers(), ctx.authCookies.sessionToken.name);
     if (!sessionToken) {
         return NextResponse.json({ error: 'missing_session_cookie' }, { status: 401 });
     }
 
-    const ticket = await createTicket(auth, sessionToken);
+    const session = await ctx.internalAdapter.findSession(sessionToken);
+    if (!session) {
+        return NextResponse.json({ error: 'missing_session' }, { status: 401 });
+    }
+
+    const user = session.user as TicketUser;
+    const ticket = await createTicket(auth, { user });
     const deepLinkUrl = new URL(DEEP_LINK);
     deepLinkUrl.searchParams.set('ticket', ticket);
 
