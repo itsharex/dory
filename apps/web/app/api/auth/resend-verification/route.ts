@@ -5,6 +5,8 @@ import { proxyAuthRequest, shouldProxyAuthRequest } from '@/lib/auth/auth-proxy'
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
+export const runtime = 'nodejs';
+
 const schema = z.object({
     email: z.string().email(),
     callbackURL: z.string().url().optional(),

@@ -149,11 +149,13 @@ function createAuth() {
                 sendResetPassword: async ({ user, url, token }, request) => {
                     const locale = await getServerLocale();
                     const t = (key: string, values?: Record<string, unknown>) => translate(locale, key, values);
+                    const r = console.log('[auth] sendVerificationEmail hook', { to: user.email, url });
                     await sendEmail({
                         to: user.email,
                         subject: t('Auth.Emails.ResetPassword.Subject'),
                         text: t('Auth.Emails.ResetPassword.Text', { url }),
                     });
+                    console.log('[auth] sendEmail result', r);
                 },
             },
 

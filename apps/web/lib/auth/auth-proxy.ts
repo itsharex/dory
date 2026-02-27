@@ -71,6 +71,22 @@ function rewriteCookieHeaderForUpstream(value: string): string {
         .join('; ');
 }
 
+function redactHeaderValue(name: string, value: string): string {
+    const key = name.toLowerCase();
+    if (key === 'authorization' || key === 'cookie' || key === 'set-cookie') {
+        return '[redacted]';
+    }
+    return value;
+}
+
+function formatHeadersForLog(headers: Headers): Record<string, string> {
+    const result: Record<string, string> = {};
+    headers.forEach((value, key) => {
+        result[key] = redactHeaderValue(key, value);
+    });
+    return result;
+}
+
 export function createAuthProxyHeaders(incoming: Headers, baseUrl: string): Headers {
     const headers = new Headers(incoming);
 
@@ -113,11 +129,24 @@ export async function proxyAuthRequest(req: Request): Promise<Response> {
     const method = req.method.toUpperCase();
     const body = method === 'GET' || method === 'HEAD' ? undefined : await req.arrayBuffer();
 
+    console.log('[auth-proxy] upstream request', {
+        method,
+        targetUrl: targetUrl.toString(),
+        headers: formatHeadersForLog(headers),
+        bodyBytes: body ? body.byteLength : 0,
+    });
+
     const upstream = await fetch(targetUrl.toString(), {
         method,
         headers,
         body,
         redirect: 'manual',
+    });
+
+    console.log('[auth-proxy] upstream response', {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: formatHeadersForLog(upstream.headers),
     });
 
     const responseHeaders = new Headers(upstream.headers);
