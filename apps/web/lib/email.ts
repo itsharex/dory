@@ -20,6 +20,7 @@ export async function sendEmail({
 }) {
     // Sender must use a verified domain/subdomain and include a friendly name
     const from = 'Dory<noreply@getdory.dev>'; // Example: your verified subdomain
+    logger.info(`[email] payload to=${to} subject="${subject}" html=${Boolean(html)} htmlLen=${html?.length || 0} textLen=${text?.length || 0}`);
     try {
         const { data, error } = await resend.emails.send({
             from,

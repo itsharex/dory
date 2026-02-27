@@ -125,11 +125,19 @@
         "Emails": {
             "ResetPassword": {
                 "Subject": "重置你的密码",
-                "Text": "点击链接重置你的密码：{url}"
+                "Text": "点击链接重置你的密码：{url}",
+                "Intro": "点击下方按钮重置密码。",
+                "BrandName": "Dory",
+                "Button": "重置密码",
+                "Fallback": "如果按钮无法使用，请复制下面的链接到浏览器打开："
             },
             "VerifyEmail": {
                 "Subject": "验证你的邮箱地址",
-                "Text": "点击链接验证你的邮箱：{url}"
+                "Text": "点击链接验证你的邮箱：{url}",
+                "Intro": "点击下方按钮验证你的邮箱。",
+                "BrandName": "Dory",
+                "Button": "验证邮箱",
+                "Fallback": "如果按钮无法使用，请复制下面的链接到浏览器打开："
             }
         },
         "ResetPassword": {

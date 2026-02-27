@@ -121,11 +121,19 @@
         "Emails": {
             "ResetPassword": {
                 "Subject": "Reset your password",
-                "Text": "Click the link to reset your password: {url}"
+                "Text": "Click the link to reset your password: {url}",
+                "Intro": "Click the button below to reset your password.",
+                "BrandName": "Dory",
+                "Button": "Reset password",
+                "Fallback": "If the button doesn’t work, copy and paste this link into your browser:"
             },
             "VerifyEmail": {
                 "Subject": "Verify your email address",
-                "Text": "Click the link to verify your email: {url}"
+                "Text": "Click the link to verify your email: {url}",
+                "Intro": "Click the button below to verify your email address.",
+                "BrandName": "Dory",
+                "Button": "Verify email",
+                "Fallback": "If the button doesn’t work, copy and paste this link into your browser:"
             }
         },
         "ResetPassword": {

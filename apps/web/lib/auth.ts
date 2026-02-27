@@ -154,6 +154,29 @@ function createAuth() {
                         to: user.email,
                         subject: t('Auth.Emails.ResetPassword.Subject'),
                         text: t('Auth.Emails.ResetPassword.Text', { url }),
+                        html: `
+                            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #0f172a; padding: 24px;">
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+                                    <img src="https://demo.getdory.dev/logo.png" width="32" height="32" alt="${t('Auth.Emails.ResetPassword.BrandName')}" style="display: inline-block; border-radius: 6px;" />
+                                    <span style="font-size: 16px; font-weight: 600; color: #0f172a;">${t('Auth.Emails.ResetPassword.BrandName')}</span>
+                                </div>
+                                <h2 style="margin: 0 0 12px; font-size: 20px;">${t('Auth.Emails.ResetPassword.Subject')}</h2>
+                                <p style="margin: 0 0 16px; font-size: 14px; color: #334155;">
+                                    ${t('Auth.Emails.ResetPassword.Intro')}
+                                </p>
+                                <p style="margin: 0 0 24px;">
+                                    <a href="${url}" style="display: inline-block; padding: 10px 18px; background: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px;">
+                                        ${t('Auth.Emails.ResetPassword.Button')}
+                                    </a>
+                                </p>
+                                <p style="margin: 0 0 8px; font-size: 12px; color: #64748b;">
+                                    ${t('Auth.Emails.ResetPassword.Fallback')}
+                                </p>
+                                <p style="margin: 0; font-size: 12px; color: #2563eb; word-break: break-all;">
+                                    <a href="${url}" style="color: #2563eb; text-decoration: underline;">${url}</a>
+                                </p>
+                            </div>
+                        `.trim(),
                     });
                     console.log('[auth] sendEmail result', r);
                 },
@@ -169,6 +192,29 @@ function createAuth() {
                         to: user.email,
                         subject: t('Auth.Emails.VerifyEmail.Subject'),
                         text: t('Auth.Emails.VerifyEmail.Text', { url }),
+                        html: `
+                            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #0f172a; padding: 24px;">
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+                                    <img src="https://demo.getdory.dev/logo.png" width="32" height="32" alt="${t('Auth.Emails.VerifyEmail.BrandName')}" style="display: inline-block; border-radius: 6px;" />
+                                    <span style="font-size: 16px; font-weight: 600; color: #0f172a;">${t('Auth.Emails.VerifyEmail.BrandName')}</span>
+                                </div>
+                                <h2 style="margin: 0 0 12px; font-size: 20px;">${t('Auth.Emails.VerifyEmail.Subject')}</h2>
+                                <p style="margin: 0 0 16px; font-size: 14px; color: #334155;">
+                                    ${t('Auth.Emails.VerifyEmail.Intro')}
+                                </p>
+                                <p style="margin: 0 0 24px;">
+                                    <a href="${url}" style="display: inline-block; padding: 10px 18px; background: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px;">
+                                        ${t('Auth.Emails.VerifyEmail.Button')}
+                                    </a>
+                                </p>
+                                <p style="margin: 0 0 8px; font-size: 12px; color: #64748b;">
+                                    ${t('Auth.Emails.VerifyEmail.Fallback')}
+                                </p>
+                                <p style="margin: 0; font-size: 12px; color: #2563eb; word-break: break-all;">
+                                    <a href="${url}" style="color: #2563eb; text-decoration: underline;">${url}</a>
+                                </p>
+                            </div>
+                        `.trim(),
                     });
                 },
 
