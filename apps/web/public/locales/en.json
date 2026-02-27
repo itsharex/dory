@@ -44,6 +44,12 @@
         "connectionErrorDetails": "Connection error details",
         "connectionErrorRetry": "Connection error, please retry"
     },
+    "NotFoundPage": {
+        "title": "The page you are looking for does not exist",
+        "description": "The link may be outdated or the page may have moved. You can return to the homepage to keep browsing.",
+        "backToHome": "Back to Home",
+        "contactSupport": "Contact Support"
+    },
     "Auth": {
         "EmailVerifyRequired": "Email verification required. Please verify your email.",
         "SignInFailed": "Sign-in failed",
