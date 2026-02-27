@@ -21,22 +21,6 @@ type TicketUser = {
     defaultTeamId?: string | null;
 };
 
-function getSetCookies(headers: Headers): string[] {
-    const anyHeaders = headers as unknown as { getSetCookie?: () => string[] };
-    if (typeof anyHeaders.getSetCookie === 'function') {
-        return anyHeaders.getSetCookie();
-    }
-
-    const raw = headers.get('set-cookie');
-    if (!raw) return [];
-    return [raw];
-}
-
-function readCookieValueFromSetCookie(setCookie: string, name: string): string | null {
-    const match = setCookie.match(new RegExp(`(?:^|;\\s*)${name}=([^;]+)`));
-    return match?.[1] ? decodeURIComponent(match[1]) : null;
-}
-
 function normalizeCookieName(name: string): string[] {
     const names = [name];
     if (name.startsWith('__Secure-')) names.push(name.replace(/^__Secure-/, ''));
@@ -44,15 +28,46 @@ function normalizeCookieName(name: string): string[] {
     return Array.from(new Set(names));
 }
 
-function extractSessionTokenFromHeaders(headers: Headers, cookieName: string): string | null {
+function extractSessionTokenFromRequest(req: Request, cookieName: string): string | null {
+    const cookieHeader = req.headers.get('cookie');
+    if (!cookieHeader) return null;
+
     const cookieNames = normalizeCookieName(cookieName);
-    for (const cookie of getSetCookies(headers)) {
-        for (const name of cookieNames) {
-            const value = readCookieValueFromSetCookie(cookie, name);
-            if (value) return value;
+    for (const part of cookieHeader.split(';')) {
+        const [rawName, ...rest] = part.split('=');
+        const name = rawName?.trim();
+        if (!name || !cookieNames.includes(name)) continue;
+        const value = rest.join('=').trim();
+        if (!value) return null;
+        return decodeURIComponent(value);
+    }
+
+    return null;
+}
+
+function buildDeepLinkUrl(params: Record<string, string | undefined | null>) {
+    const deepLinkUrl = new URL(DEEP_LINK);
+    for (const [key, value] of Object.entries(params)) {
+        if (value) {
+            deepLinkUrl.searchParams.set(key, value);
         }
     }
-    return null;
+    return deepLinkUrl.toString();
+}
+
+function createDeepLinkResponse(deepLinkUrl: string) {
+    return new NextResponse(
+        `
+      <html>
+        <body>
+          <script>
+            window.location.href = ${JSON.stringify(deepLinkUrl)};
+          </script>
+        </body>
+      </html>
+    `,
+        { headers: { 'Content-Type': 'text/html' } },
+    );
 }
 
 async function createTicket(auth: Awaited<ReturnType<typeof getAuth>>, payload: { user: TicketUser }) {
@@ -72,17 +87,19 @@ async function createTicket(auth: Awaited<ReturnType<typeof getAuth>>, payload: 
 }
 
 export async function GET(req: Request) {
+    const url = new URL(req.url);
+    const error = url.searchParams.get('error');
+    if (error) {
+        const deepLinkUrl = buildDeepLinkUrl({
+            error,
+            error_description: url.searchParams.get('error_description') ?? undefined,
+        });
+        return createDeepLinkResponse(deepLinkUrl);
+    }
+
     const auth = await getAuth();
-
-    const response = await auth.api.callbackOAuth({
-        headers: req.headers,
-        params: { id: 'github' },
-        query: Object.fromEntries(new URL(req.url).searchParams),
-        asResponse: true,
-    });
-
     const ctx = await auth.$context;
-    const sessionToken = extractSessionTokenFromHeaders(response.headers ?? new Headers(), ctx.authCookies.sessionToken.name);
+    const sessionToken = extractSessionTokenFromRequest(req, ctx.authCookies.sessionToken.name);
     if (!sessionToken) {
         return NextResponse.json({ error: 'missing_session_cookie' }, { status: 401 });
     }
@@ -103,21 +120,7 @@ export async function GET(req: Request) {
         defaultTeamId: dbUser?.defaultTeamId ?? (session.user as TicketUser).defaultTeamId ?? null,
     } satisfies TicketUser;
     const ticket = await createTicket(auth, { user });
-    const deepLinkUrl = new URL(DEEP_LINK);
-    deepLinkUrl.searchParams.set('ticket', ticket);
+    const deepLinkUrl = buildDeepLinkUrl({ ticket });
 
-    const res = new NextResponse(
-        `
-      <html>
-        <body>
-          <script>
-            window.location.href = "${deepLinkUrl.toString()}";
-          </script>
-        </body>
-      </html>
-    `,
-        { headers: { 'Content-Type': 'text/html' } },
-    );
-
-    return res;
+    return createDeepLinkResponse(deepLinkUrl);
 }
