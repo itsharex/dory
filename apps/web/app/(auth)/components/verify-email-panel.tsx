@@ -53,9 +53,9 @@ export function VerifyEmailPanel(props: {
     }
 
     return (
-        <div className="rounded-xl border p-4 md:p-6 space-y-4 bg-white">
+        <div className="rounded-xl border border-border bg-card text-card-foreground p-4 md:p-6 space-y-4">
             <div className="flex items-start gap-3">
-                <Mail className="mt-0.5 h-5 w-5" />
+                <Mail className="mt-0.5 h-5 w-5 text-muted-foreground" />
                 <div>
                     <h2 className="text-base font-semibold">{t('VerifyEmail.Title')}</h2>
                     <p className="text-sm text-muted-foreground">
@@ -78,8 +78,8 @@ export function VerifyEmailPanel(props: {
                 <p className="text-xs text-muted-foreground">{t('VerifyEmail.Hint')}</p>
             </div>
 
-            {err && <p className="text-sm text-red-500">{err}</p>}
-            {msg && <p className="text-sm text-green-600">{msg}</p>}
+            {err && <p className="text-sm text-red-600 dark:text-red-400">{err}</p>}
+            {msg && <p className="text-sm text-green-600 dark:text-green-400">{msg}</p>}
 
             <div className="flex flex-wrap gap-2">
                 <Button type="button" onClick={openMailApp} variant="outline">
