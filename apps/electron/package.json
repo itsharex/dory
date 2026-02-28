@@ -4,7 +4,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "compile": "tsc -p tsconfig.json",
+        "compile": "tsc -p tsconfig.json && node ./scripts/copy-assets.cjs",
         "dev": "yarn run compile && electron ./dist-electron/main.js",
         "dev:app": "yarn run compile && electron-builder --mac --dir && open \"dist/mac-arm64/Dory.app\"",
         "electron:standalone": "bash ../../scripts/build-app-standalone.sh",
@@ -20,6 +20,7 @@
         "typescript": "^5.9.3"
     },
     "dependencies": {
-        "electron-log": "^5.4.3"
+        "electron-log": "^5.4.3",
+        "electron-store": "^9.0.0"
     }
 }
