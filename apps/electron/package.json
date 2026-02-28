@@ -9,7 +9,9 @@
         "dev:app": "yarn run compile && electron-builder --mac --dir && open \"dist/mac-arm64/Dory.app\"",
         "electron:standalone": "bash ../../scripts/build-app-standalone.sh",
         "build": "yarn --cwd ../web run build && yarn run compile && electron-builder",
-        "electron:build:apple": "yarn run compile && electron-builder --mac"
+        "electron:build:apple": "yarn run compile && electron-builder --mac",
+        "electron:build:apple:quick": "yarn run compile && SKIP_NOTARIZE=1 electron-builder --mac zip",
+        "electron:build:apple:unsigned": "yarn run compile && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac --dir"
     },
     "devDependencies": {
         "@types/node": "^24.3.1",
