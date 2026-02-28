@@ -2,6 +2,10 @@
   "name": "dory",
   "version": "0.1.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dorylab/dory.git"
+  },
   "packageManager": "yarn@1.22.22",
   "scripts": {
     "dev": "yarn workspace v4 run dev",
