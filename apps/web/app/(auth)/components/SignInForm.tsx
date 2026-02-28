@@ -95,6 +95,22 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
         }
     }
 
+    async function signInViaGoogleElectron() {
+        setErr(null);
+        setMsg(null);
+        try {
+            const res = await authFetch('/api/electron/auth/start/google', { method: 'GET' });
+            console.log('Google OAuth start response:', res);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || !data?.url) {
+                throw new Error(data?.message || t('SignIn.GoogleStartFailed'));
+            }
+            await window.authBridge?.openExternal(data.url);
+        } catch (e: any) {
+            setErr(e?.message ?? t('SignIn.GoogleStartFailed'));
+        }
+    }
+
     async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setErr(null);
@@ -276,7 +292,7 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
                                     className="w-full"
                                     onClick={() => {
                                         if (window.authBridge?.openExternal) {
-                                            setErr(t('SignIn.GoogleNotSupportedDesktop'));
+                                            void signInViaGoogleElectron();
                                         } else {
                                             signInViaGoogle();
                                         }

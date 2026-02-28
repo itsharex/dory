@@ -86,6 +86,7 @@
             "SuccessRefreshing": "登录成功，正在刷新…",
             "InvalidCallback": "无效的回调链接，请重试",
             "GithubStartFailed": "启动 GitHub 登录失败",
+            "GoogleStartFailed": "启动 Google 登录失败",
             "GoogleNotSupportedDesktop": "桌面端暂不支持 Google 登录。",
             "LoginFailedRetry": "登录失败，请稍后重试",
             "NetworkErrorRetry": "网络异常，请稍后重试",

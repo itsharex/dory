@@ -68,13 +68,14 @@ async function getSessionFromFinalizeRequest(auth: Awaited<ReturnType<typeof get
     const sessionFromRequest = await auth.api.getSession({ headers: req.headers }).catch(() => null);
     if (sessionFromRequest) return sessionFromRequest;
 
+    const provider = url.searchParams.get('provider') === 'google' ? 'google' : 'github';
     if (!url.searchParams.get('code') || !url.searchParams.get('state')) {
         return null;
     }
 
     const response = await auth.api.callbackOAuth({
         headers: req.headers,
-        params: { id: 'github' },
+        params: { id: provider },
         query: Object.fromEntries(url.searchParams),
         asResponse: true,
     });

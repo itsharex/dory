@@ -16,12 +16,12 @@ export async function GET(req: Request) {
         process.env.NEXT_PUBLIC_DORY_ELECTRON_ORIGIN?.trim() ||
         '';
     const origin = envOrigin || new URL(req.url).origin;
-    const finalizeUrl = `${origin}/api/electron/auth/finalize?provider=github`;
+    const finalizeUrl = `${origin}/api/electron/auth/finalize?provider=google`;
 
     const { response, headers } = await auth.api.signInSocial({
         headers: req.headers,
         body: {
-            provider: 'github',
+            provider: 'google',
             callbackURL: finalizeUrl,
             errorCallbackURL: finalizeUrl,
             disableRedirect: true,
