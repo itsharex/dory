@@ -1418,6 +1418,13 @@
             "InternalError": "服务器内部错误",
             "Unauthorized": "用户未登录"
         },
+        "ElectronAuthFinalize": {
+            "Title": "登录已完成",
+            "Description": "正在尝试回到 Dory 应用。完成后你可以直接关闭当前页面。",
+            "OpenApp": "返回 Dory",
+            "ClosePage": "关闭页面",
+            "Hint": "如果没有自动返回，请点击“返回 Dory”。"
+        },
         "Connection": {
             "Errors": {
                 "Unauthorized": "用户未登录或无权限",

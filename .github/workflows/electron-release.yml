@@ -1,0 +1,102 @@
+name: Electron Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Version bump type"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+      prerelease:
+        description: "Create as prerelease"
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: electron-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-latest
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Bump version in package.json files
+        id: version
+        run: |
+          npm version "${{ inputs.bump }}" --no-git-tag-version
+          NEW_VERSION="$(node -p "require('./package.json').version")"
+          npm --prefix apps/electron version "$NEW_VERSION" --no-git-tag-version
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Commit version and tag
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json apps/electron/package.json
+          git commit -m "chore(release): v$VERSION"
+          git tag "v$VERSION"
+          git push origin "HEAD:${{ github.ref_name }}"
+          git push origin "v$VERSION"
+
+      - name: Create GitHub Release
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          PRERELEASE_FLAG=""
+          if [ "${{ inputs.prerelease }}" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
+          fi
+          gh release create "v$VERSION" \
+            --title "v$VERSION" \
+            --generate-notes \
+            $PRERELEASE_FLAG
+
+      - name: Prepare Apple notarization env
+        run: |
+          cat > apps/electron/.env.apple <<EOF
+          APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID_PASSWORD=${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_ID=${{ secrets.APPLE_ID }}
+          EOF
+
+      - name: Build Electron app (mac)
+        env:
+          CSC_LINK: ${{ secrets.APPLE_CERT_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+          CSC_IDENTITY_AUTO_DISCOVERY: true
+        run: yarn electron:build:apple
+
+      - name: Upload Electron assets to Release
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          find apps/electron/dist -maxdepth 1 -type f \
+            \( -name "*.dmg" -o -name "*.zip" -o -name "*.blockmap" -o -name "latest*.yml" \) \
+            -print0 | xargs -0 -I {} gh release upload "v$VERSION" "{}" --clobber

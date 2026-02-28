@@ -1416,6 +1416,13 @@
             "InternalError": "Internal server error",
             "Unauthorized": "Unauthorized"
         },
+        "ElectronAuthFinalize": {
+            "Title": "Sign-in complete",
+            "Description": "We are redirecting you back to Dory. You can close this page after it finishes.",
+            "OpenApp": "Back to Dory",
+            "ClosePage": "Close page",
+            "Hint": "If the app does not open automatically, click \"Back to Dory\"."
+        },
         "Connection": {
             "Errors": {
                 "Unauthorized": "Unauthorized or insufficient permissions",
