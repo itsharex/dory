@@ -6,6 +6,7 @@ import { createSplashWindow, getSplashShownAt, getSplashWindow } from './splash.
 let mainWindow: BrowserWindow | null = null;
 let pendingAuthCallback: string | null = null;
 let windowStateSaveTimer: NodeJS.Timeout | null = null;
+let isQuitting = false;
 const MIN_WINDOW_WIDTH = 480;
 const MIN_WINDOW_HEIGHT = 360;
 
@@ -105,10 +106,19 @@ export function createMainWindow({ preloadPath, targetUrl, log }: CreateMainWind
     mainWindow.on('maximize', scheduleWindowStateSave);
     mainWindow.on('unmaximize', scheduleWindowStateSave);
 
-    mainWindow.on('close', () => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-            saveWindowState(mainWindow, log);
+    mainWindow.on('close', event => {
+        if (!mainWindow || mainWindow.isDestroyed()) return;
+
+        if (!isQuitting) {
+            event.preventDefault();
+            if (mainWindow.isFullScreen()) {
+                mainWindow.setFullScreen(false);
+            } else {
+                mainWindow.hide();
+            }
         }
+
+        saveWindowState(mainWindow, log);
     });
 
     mainWindow.on('closed', () => {
@@ -136,11 +146,16 @@ export function setPendingAuthCallback(url: string) {
 export function focusMainWindow() {
     if (!mainWindow || mainWindow.isDestroyed()) return;
     if (mainWindow.isMinimized()) mainWindow.restore();
+    if (!mainWindow.isVisible()) mainWindow.show();
     mainWindow.focus();
 }
 
 export function hasMainWindow() {
     return Boolean(mainWindow && !mainWindow.isDestroyed());
+}
+
+export function setMainWindowQuitting(quitting: boolean) {
+    isQuitting = quitting;
 }
 
 function loadWindowState(log: LogFn): WindowState | null {

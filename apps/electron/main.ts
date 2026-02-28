@@ -12,6 +12,7 @@ import {
   hasMainWindow,
   sendAuthCallback,
   setPendingAuthCallback,
+  setMainWindowQuitting,
 } from './main/window.js';
 import { getUserDataPath } from './paths.js';
 
@@ -124,6 +125,7 @@ if (!gotLock) {
   app.on('activate', () => {
     log('[electron] app activate');
     if (!hasMainWindow()) launch();
+    focusMainWindow();
   });
 
   app.on('window-all-closed', () => {
@@ -134,6 +136,7 @@ if (!gotLock) {
 
 app.on('before-quit', () => {
   log('[electron] before-quit');
+  setMainWindowQuitting(true);
   serverManager.stopStandaloneServer();
 });
 
