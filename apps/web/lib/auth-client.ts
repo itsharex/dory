@@ -25,6 +25,16 @@ export function signInViaGithub(redirectTo = '/') {
     });
 }
 
+export function signInViaGoogle(redirectTo = '/') {
+    // Usually triggers a redirect; return value is not used
+    return authClient.signIn.social({
+        provider: 'google',
+        callbackURL: redirectTo,
+        // Recommended: add an error redirect
+        errorCallbackURL: '/auth/error',
+    });
+}
+
 // ==== Sign up ====
 export async function signUpViaEmail(name: string, email: string, password: string, redirectTo = '/') {
     // Sign-up usually auto-signs-in (can be disabled server-side)

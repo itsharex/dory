@@ -82,6 +82,7 @@
             "SuccessRefreshing": "Login successful. Refreshing…",
             "InvalidCallback": "Invalid callback link. Please try again.",
             "GithubStartFailed": "Failed to start GitHub login",
+            "GoogleNotSupportedDesktop": "Google login isn't supported in the desktop app yet.",
             "LoginFailedRetry": "Login failed. Please try again later.",
             "NetworkErrorRetry": "Network error. Please try again later.",
             "ForgotPasswordEmailRequired": "Please enter your email before clicking “Forgot password”.",
