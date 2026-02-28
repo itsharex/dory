@@ -1,9 +1,9 @@
-import { app, dialog, ipcMain, shell } from 'electron';
+import { app, dialog, ipcMain, shell, Menu, type MenuItemConstructorOptions } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { APP_ID, PROTOCOL, isDev } from './main/constants.js';
 import { ensureDirectoryExists } from './main/filesystem.js';
-import { setupMainLogger } from './main/logger.js';
+import { getMainLogFilePath, setupMainLogger } from './main/logger.js';
 import { registerProtocolClient } from './main/protocol.js';
 import { createStandaloneServerManager } from './main/server.js';
 import {
@@ -39,6 +39,34 @@ const serverManager = createStandaloneServerManager({
   logWarn,
   logError,
 });
+
+function setupAppMenu() {
+  const logFilePath = getMainLogFilePath();
+  const template: MenuItemConstructorOptions[] = [
+    { role: 'appMenu' },
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+    {
+      role: 'help',
+      submenu: [
+        {
+          label: 'Open Log',
+          click: async () => {
+            const result = await shell.openPath(logFilePath);
+            if (result) {
+              logWarn('[electron] open log file failed:', result);
+              dialog.showErrorBox('Open Log Failed', result);
+            }
+          },
+        },
+      ],
+    },
+  ];
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
 
 async function launch() {
   try {
@@ -82,6 +110,7 @@ if (!gotLock) {
   app.whenReady().then(() => {
     log('[electron] app ready');
     registerProtocolClient(PROTOCOL, log);
+    setupAppMenu();
 
     const deepLinkArg = process.argv.find(arg => arg.startsWith(`${PROTOCOL}://`));
     if (deepLinkArg) {

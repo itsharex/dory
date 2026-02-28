@@ -56,3 +56,7 @@ export function setupMainLogger({
 
   return { log, logWarn, logError };
 }
+
+export function getMainLogFilePath() {
+  return electronLog.transports.file.getFile().path;
+}
