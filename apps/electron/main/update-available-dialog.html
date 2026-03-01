@@ -56,11 +56,11 @@
     }
 
     .logo {
-      width: 48px;
-      height: 48px;
+      width: 58px;
+      height: 58px;
       border-radius: 12px;
-      background: var(--logo-bg);
-      border: 1px solid var(--logo-border);
+      background: transparent;
+      border: none;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -68,6 +68,14 @@
       font-weight: 700;
       flex: none;
       user-select: none;
+      overflow: hidden;
+    }
+
+    .logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
 
     .main {
@@ -152,7 +160,9 @@
 <body>
   <div class="dialog">
     <div class="content">
-      <div class="logo">◎</div>
+      <div class="logo">
+        <img id="logoImg" src="./logo.png" alt="App Logo" />
+      </div>
       <div class="main">
         <p class="message" id="message">A new version is available.</p>
         <p class="detail" id="detail">Download and install now?</p>
@@ -178,8 +188,13 @@
     const tertiaryBtn = document.getElementById('tertiaryBtn');
     const secondaryBtn = document.getElementById('secondaryBtn');
     const primaryBtn = document.getElementById('primaryBtn');
+    const logoImg = document.getElementById('logoImg');
     const autoDownloadLabel = document.getElementById('autoDownloadLabel');
     const autoDownloadCheckbox = document.getElementById('autoDownloadCheckbox');
+
+    logoImg.addEventListener('error', () => {
+      logoImg.src = '../../web/public/logo.png';
+    }, { once: true });
 
     const applyState = state => {
       document.documentElement.lang = state.lang || 'en';
