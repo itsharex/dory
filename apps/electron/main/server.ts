@@ -74,6 +74,8 @@ export function createStandaloneServerManager({
         cwd: standaloneDir,
         env: {
           ...process.env,
+          DB_TYPE: 'pglite',
+          NEXT_PUBLIC_DORY_RUNTIME: 'desktop',
           PORT: String(port),
           HOSTNAME: hostname,
           NODE_ENV: 'production',
@@ -105,6 +107,8 @@ export function createStandaloneServerManager({
       cwd: standaloneDir,
       env: {
         ...process.env,
+        DB_TYPE: 'pglite',
+        NEXT_PUBLIC_DORY_RUNTIME: 'desktop',
         PORT: String(port),
         HOSTNAME: hostname,
         DATABASE_URL: databasePath,
