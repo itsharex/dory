@@ -39,6 +39,8 @@ interface ProgressDialogState {
     progressText: string;
     secondaryLabel: string | null;
     primaryLabel: string | null;
+    secondaryAction: UpdateAction;
+    primaryAction: UpdateAction | null;
 }
 
 interface SetupUpdaterOptions {
@@ -57,6 +59,9 @@ let isManualCheck = false;
 let checkInProgress = false;
 let downloadInProgress = false;
 let availableVersion: string | null = null;
+let currentLocale = 'en-US';
+let debugPreviewMode = false;
+let debugProgressTimer: NodeJS.Timeout | null = null;
 
 const updaterPreferenceStore = new Store<{
     autoDownloadInstall: boolean;
@@ -102,6 +107,12 @@ function closeProgressDialog() {
 function closeAllDialogs() {
     closeAvailableDialog();
     closeProgressDialog();
+}
+
+function stopDebugProgressTimer() {
+    if (!debugProgressTimer) return;
+    clearInterval(debugProgressTimer);
+    debugProgressTimer = null;
 }
 
 function openAvailableDialog(title: string) {
@@ -162,10 +173,10 @@ function openProgressDialog(title: string) {
     }
 
     progressDialog = new BrowserWindow({
-        width: 860,
-        height: 320,
-        minWidth: 760,
-        minHeight: 300,
+        width: 400,
+        height: 150,
+        minWidth: 400,
+        minHeight: 150,
         resizable: false,
         maximizable: false,
         minimizable: false,
@@ -230,6 +241,8 @@ function showCheckInProgress(locale: string, t: MainTranslator) {
         progressText: '',
         secondaryLabel: t('updater.cancel'),
         primaryLabel: null,
+        secondaryAction: 'dismiss',
+        primaryAction: null,
     });
 }
 
@@ -262,6 +275,8 @@ function showDownloading(locale: string, t: MainTranslator, progress: ProgressIn
         progressText: `${formatBytes(progress.transferred)} / ${formatBytes(progress.total)}`,
         secondaryLabel: t('updater.cancel'),
         primaryLabel: null,
+        secondaryAction: 'cancel-download',
+        primaryAction: null,
     });
 }
 
@@ -280,7 +295,44 @@ function showDownloaded(locale: string, t: MainTranslator, info: UpdateInfo) {
         progressText: t('updater.downloadComplete'),
         secondaryLabel: t('updater.restartLater'),
         primaryLabel: t('updater.restartInstall'),
+        secondaryAction: 'dismiss',
+        primaryAction: 'restart-now',
     });
+}
+
+function showDebugDownloading(t: MainTranslator, percent: number) {
+    const totalBytes = 157.7 * 1024 * 1024;
+    const transferred = (totalBytes * Math.max(0, Math.min(100, percent))) / 100;
+    showProgressDialog({
+        lang: currentLocale,
+        title: t('updater.downloadingTitle'),
+        message: t('updater.downloading'),
+        detail: t('updater.downloadWillPrompt'),
+        progress: percent / 100,
+        progressText: `${formatBytes(transferred)} / ${formatBytes(totalBytes)}`,
+        secondaryLabel: t('updater.cancel'),
+        primaryLabel: null,
+        secondaryAction: 'cancel-download',
+        primaryAction: null,
+    });
+}
+
+function startDebugDownloadFlow(log: LogFn, t: MainTranslator) {
+    stopDebugProgressTimer();
+    downloadInProgress = true;
+    let percent = 0;
+    showDebugDownloading(t, percent);
+
+    debugProgressTimer = setInterval(() => {
+        percent = Math.min(100, percent + 6);
+        showDebugDownloading(t, percent);
+        if (percent >= 100) {
+            stopDebugProgressTimer();
+            log('[updater] debug download completed');
+            downloadInProgress = false;
+            showDownloaded(currentLocale, t, { version: '1.2026.048' } as UpdateInfo);
+        }
+    }, 160);
 }
 
 function showNoUpdateDialog(t: MainTranslator) {
@@ -316,11 +368,16 @@ function showUpdateError(logError: LogFn, t: MainTranslator, error: unknown) {
 function handleUpdateAction(log: LogFn, t: MainTranslator, action: UpdateAction) {
     switch (action) {
         case 'dismiss': {
+            stopDebugProgressTimer();
             closeAllDialogs();
             break;
         }
         case 'install-update': {
             log('[updater] download requested by user');
+            if (debugPreviewMode) {
+                startDebugDownloadFlow(log, t);
+                break;
+            }
             downloadInProgress = true;
             autoUpdater.downloadUpdate().catch((error: unknown) => {
                 downloadInProgress = false;
@@ -330,6 +387,9 @@ function handleUpdateAction(log: LogFn, t: MainTranslator, action: UpdateAction)
         }
         case 'cancel-download': {
             log('[updater] user clicked cancel download');
+            if (debugPreviewMode) {
+                stopDebugProgressTimer();
+            }
             try {
                 const updaterWithCancel = autoUpdater as typeof autoUpdater & {
                     cancelDownload?: () => void;
@@ -348,6 +408,10 @@ function handleUpdateAction(log: LogFn, t: MainTranslator, action: UpdateAction)
             break;
         }
         case 'restart-now': {
+            if (debugPreviewMode) {
+                closeAllDialogs();
+                break;
+            }
             log('[updater] quitAndInstall');
             autoUpdater.quitAndInstall();
             break;
@@ -363,6 +427,7 @@ function handleUpdateAction(log: LogFn, t: MainTranslator, action: UpdateAction)
 }
 
 export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdaterOptions) {
+    currentLocale = locale;
     const updateConfigPath = path.join(process.resourcesPath, 'app-update.yml');
     const hasUpdateConfig = fs.existsSync(updateConfigPath);
     if (!hasUpdateConfig) {
@@ -405,6 +470,7 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
     };
 
     const openUpdateDialogDebug = () => {
+        debugPreviewMode = true;
         showAvailableDialog({
             lang: locale,
             title: t('updater.title'),
@@ -418,9 +484,18 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         });
     };
 
+    ipcMain.on('updater:action', (_event, action: UpdateAction) => {
+        handleUpdateAction(log, t, action);
+    });
+
+    ipcMain.on('updater:auto-download', (_event, enabled: boolean) => {
+        updaterPreferenceStore.set('autoDownloadInstall', Boolean(enabled));
+    });
+
     if (!hasUpdateConfig) {
         return {
             checkForUpdatesFromMenu: async () => {
+                debugPreviewMode = false;
                 showNotConfiguredDialog();
             },
             clearSkippedVersionFromMenu: () => {
@@ -433,21 +508,15 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
 
-    ipcMain.on('updater:action', (_event, action: UpdateAction) => {
-        handleUpdateAction(log, t, action);
-    });
-
-    ipcMain.on('updater:auto-download', (_event, enabled: boolean) => {
-        updaterPreferenceStore.set('autoDownloadInstall', Boolean(enabled));
-    });
-
     autoUpdater.on('checking-for-update', () => {
+        debugPreviewMode = false;
         log('[updater] checking-for-update');
         checkInProgress = true;
         showCheckInProgress(locale, t);
     });
 
     autoUpdater.on('update-available', (info: UpdateInfo) => {
+        debugPreviewMode = false;
         log('[updater] update-available:', info.version);
         checkInProgress = false;
         availableVersion = info.version;
@@ -475,6 +544,7 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
     });
 
     autoUpdater.on('update-not-available', (info: UpdateInfo) => {
+        debugPreviewMode = false;
         log('[updater] update-not-available:', info.version);
         checkInProgress = false;
         closeAllDialogs();
@@ -485,6 +555,7 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
     });
 
     autoUpdater.on('download-progress', (progress: ProgressInfo) => {
+        debugPreviewMode = false;
         if (!downloadInProgress) {
             downloadInProgress = true;
         }
@@ -492,6 +563,7 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
     });
 
     autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
+        debugPreviewMode = false;
         log('[updater] update-downloaded:', info.version);
         downloadInProgress = false;
         isManualCheck = false;
@@ -500,6 +572,8 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
     });
 
     autoUpdater.on('error', (error: Error) => {
+        debugPreviewMode = false;
+        stopDebugProgressTimer();
         checkInProgress = false;
         downloadInProgress = false;
         isManualCheck = false;
@@ -510,6 +584,7 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
 
     return {
         checkForUpdatesFromMenu: async () => {
+            debugPreviewMode = false;
             if (checkInProgress || downloadInProgress) {
                 logWarn('[updater] check ignored: update flow already in progress');
                 return;
@@ -519,6 +594,7 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
                 isManualCheck = true;
                 await autoUpdater.checkForUpdates();
             } catch (error) {
+                stopDebugProgressTimer();
                 checkInProgress = false;
                 downloadInProgress = false;
                 isManualCheck = false;

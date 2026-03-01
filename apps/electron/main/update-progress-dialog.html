@@ -6,15 +6,15 @@
   <title>Software Update</title>
   <style>
     :root {
-      --bg: #f3f3f5;
-      --surface: #f3f3f5;
-      --text: #1f2328;
-      --muted: #676b73;
-      --primary: #0a84ff;
-      --btn: #e3e3e7;
+      --bg: white;
+      --surface: white;
+      --text: black;
+      --muted: black;
+      --primary: #007aff;
+      --btn: #d9d9dc;
       --logo-bg: #ececef;
       --logo-border: #d7d7dc;
-      --progress-track: #e2e3e7;
+      --progress-track: #dcdde0;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -23,7 +23,7 @@
         --surface: #232326;
         --text: #f4f4f5;
         --muted: #b7bac1;
-        --btn: #3a3a3f;
+        --btn: #3d3f44;
         --logo-bg: #2e2f34;
         --logo-border: #3f4148;
         --progress-track: #3a3d45;
@@ -45,31 +45,34 @@
       width: 100%;
       height: 100%;
       background: var(--surface);
-      padding: 56px 28px 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
+      padding: 22px 16px;
+      margin-top: 16px;
     }
 
-    .content {
+    .row {
       display: flex;
-      align-items: flex-start;
-      gap: 14px;
+      align-items: center;
+      gap: 16px;
     }
 
     .logo {
-      width: 72px;
-      height: 72px;
-      border-radius: 18px;
-      background: var(--logo-bg);
-      border: 1px solid var(--logo-border);
+      width: 64px;
+      height: 64px;
+      border-radius: 22px;
+      background: transparent;
+      border: none;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 28px;
-      font-weight: 700;
+      overflow: hidden;
       flex: none;
-      user-select: none;
+    }
+
+    .logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
 
     .main {
@@ -80,75 +83,68 @@
     .message {
       margin: 0;
       font-size: 14px;
-      line-height: 1.45;
+      line-height: 1.35;
       font-weight: 700;
-      letter-spacing: 0.1px;
-    }
-
-    .detail {
-      margin: 4px 0 0;
-      font-size: 12px;
-      line-height: 1.45;
-      color: var(--muted);
-      min-height: 18px;
     }
 
     .progress {
       width: 100%;
-      height: 8px;
+      height: 6px;
       border-radius: 999px;
       background: var(--progress-track);
       overflow: hidden;
-      margin-top: 10px;
+      margin: 14px 0;
     }
 
     .bar {
       height: 100%;
       width: 0;
       background: var(--primary);
-      transition: width 160ms linear;
+      transition: width 180ms linear;
     }
 
     .bar.indeterminate {
-      width: 28%;
+      width: 24%;
       animation: indeterminate 1.15s ease-in-out infinite;
     }
 
     @keyframes indeterminate {
       0% { transform: translateX(-120%); }
-      100% { transform: translateX(370%); }
+      100% { transform: translateX(420%); }
     }
 
     .progress-text {
-      margin-top: 8px;
-      min-height: 16px;
       font-size: 12px;
       line-height: 1.4;
-      color: var(--muted);
+      color: var(--text);
     }
 
-    .actions {
+    .footer {
       display: flex;
-      justify-content: flex-end;
-      gap: 10px;
-      margin-top: auto;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 4px;
     }
 
-    button {
-      min-width: 150px;
-      height: 34px;
+    .spacer {
+      flex: 1;
+    }
+
+    .action-btn {
       border: 0;
-      border-radius: 17px;
+      border-radius: 14px;
       background: var(--btn);
       color: var(--text);
-      font-size: 14px;
+      font-size: 12px;
       line-height: 1;
-      font-weight: 600;
+      font-weight: 400;
       cursor: pointer;
-      padding: 0 18px;
+      padding: 8px 16px;
+      white-space: nowrap;
     }
 
-    button.primary {
+    .action-btn.primary {
       background: var(--primary);
       color: #fff;
     }
@@ -156,40 +152,45 @@
 </head>
 <body>
   <div class="dialog">
-    <div class="content">
-      <div class="logo">◎</div>
+    <div class="row">
+      <div class="logo">
+        <img id="logoImg" src="./logo.png" alt="App Logo" />
+      </div>
       <div class="main">
         <p class="message" id="message">Checking for updates...</p>
-        <p class="detail" id="detail">Please wait</p>
-        <div class="progress" id="progressWrap">
+        <div class="progress">
           <div class="bar" id="bar"></div>
         </div>
-        <div class="progress-text" id="progressText"></div>
+        <div class="footer">
+          <div class="progress-text" id="progressText"></div>
+          <div class="spacer"></div>
+          <button id="secondaryBtn" class="action-btn">Cancel</button>
+          <button id="primaryBtn" class="action-btn primary" style="display:none;">Restart and Install</button>
+        </div>
       </div>
-    </div>
-    <div class="actions">
-      <button id="secondaryBtn">Cancel</button>
-      <button id="primaryBtn" class="primary" style="display:none;">Restart and Install</button>
     </div>
   </div>
   <script>
     const { ipcRenderer } = require('electron');
 
     const messageEl = document.getElementById('message');
-    const detailEl = document.getElementById('detail');
     const barEl = document.getElementById('bar');
     const progressTextEl = document.getElementById('progressText');
     const secondaryBtn = document.getElementById('secondaryBtn');
     const primaryBtn = document.getElementById('primaryBtn');
+    const logoImg = document.getElementById('logoImg');
 
     let secondaryAction = 'dismiss';
     let primaryAction = 'restart-now';
+
+    logoImg.addEventListener('error', () => {
+      logoImg.src = '../../web/public/logo.png';
+    }, { once: true });
 
     const applyState = state => {
       document.documentElement.lang = state.lang || 'en';
       document.title = state.title || 'Software Update';
       messageEl.textContent = state.message || '';
-      detailEl.textContent = state.detail || '';
       progressTextEl.textContent = state.progressText || '';
 
       if (state.progress === null) {
@@ -215,12 +216,8 @@
         primaryBtn.style.display = 'none';
       }
 
-      if (state.primaryLabel) {
-        secondaryAction = 'dismiss';
-        primaryAction = 'restart-now';
-      } else {
-        secondaryAction = state.progress === null ? 'dismiss' : 'cancel-download';
-      }
+      secondaryAction = state.secondaryAction || 'dismiss';
+      primaryAction = state.primaryAction || 'restart-now';
     };
 
     secondaryBtn.addEventListener('click', () => {
