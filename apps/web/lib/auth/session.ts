@@ -74,8 +74,8 @@ function jwtToSessionLoose(token: string) {
     const now = Math.floor(Date.now() / 1000);
     if (typeof payload.exp === 'number' && payload.exp <= now) return null;
 
-    const allowedIss = new Set(['https://demo.getdory.dev']);
-    const allowedAud = new Set(['https://demo.getdory.dev']);
+    const allowedIss = new Set(['https://app.getdory.dev']);
+    const allowedAud = new Set(['https://app.getdory.dev']);
 
     if (typeof payload.iss === 'string' && !allowedIss.has(payload.iss)) return null;
     if (typeof payload.aud === 'string' && !allowedAud.has(payload.aud)) return null;

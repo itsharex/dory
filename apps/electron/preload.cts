@@ -28,3 +28,15 @@ contextBridge.exposeInMainWorld('themeBridge', {
         return () => ipcRenderer.removeListener('theme:changed', listener);
     },
 });
+
+contextBridge.exposeInMainWorld('updateBridge', {
+    getState: () => ipcRenderer.invoke('updater:get-state') as Promise<{ readyToInstall: boolean; version: string | null }>,
+    restartAndInstall: () => ipcRenderer.invoke('updater:restart-and-install') as Promise<boolean>,
+    onStateChanged: (callback: (state: { readyToInstall: boolean; version: string | null }) => void) => {
+        const listener = (_event: unknown, state: { readyToInstall: boolean; version: string | null }) => {
+            callback(state);
+        };
+        ipcRenderer.on('updater:state', listener);
+        return () => ipcRenderer.removeListener('updater:state', listener);
+    },
+});

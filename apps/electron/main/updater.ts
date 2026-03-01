@@ -51,6 +51,11 @@ interface SetupUpdaterOptions {
     t: MainTranslator;
 }
 
+interface RendererUpdaterState {
+    readyToInstall: boolean;
+    version: string | null;
+}
+
 let availableDialog: BrowserWindow | null = null;
 let progressDialog: BrowserWindow | null = null;
 let queuedAvailableState: AvailableDialogState | null = null;
@@ -62,10 +67,12 @@ let availableVersion: string | null = null;
 let currentLocale = 'en-US';
 let debugPreviewMode = false;
 let debugProgressTimer: NodeJS.Timeout | null = null;
-let errorDialogOpen = false;
-let lastErrorSignature = '';
-let lastErrorAt = 0;
 let restartInstallInFlight = false;
+let showCheckingDialog = false;
+let rendererUpdaterState: RendererUpdaterState = {
+    readyToInstall: false,
+    version: null,
+};
 
 const updaterPreferenceStore = new Store<{
     autoDownloadInstall: boolean;
@@ -142,6 +149,13 @@ function closeProgressDialog() {
 function closeAllDialogs() {
     closeAvailableDialog();
     closeProgressDialog();
+}
+
+function updateRendererUpdaterState(state: RendererUpdaterState) {
+    rendererUpdaterState = state;
+    const mainWindow = getMainWindow();
+    if (!mainWindow || mainWindow.isDestroyed()) return;
+    mainWindow.webContents.send('updater:state', state);
 }
 
 function stopDebugProgressTimer() {
@@ -358,24 +372,18 @@ function showDownloading(locale: string, t: MainTranslator, progress: ProgressIn
     });
 }
 
-function showDownloaded(locale: string, t: MainTranslator, info: UpdateInfo) {
+function markUpdateReadyToInstall(log: LogFn, info: UpdateInfo) {
     const mainWindow = getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setProgressBar(-1);
     }
 
-    showProgressDialog({
-        lang: locale,
-        title: t('updater.title'),
-        message: t('updater.downloaded', { version: info.version }),
-        detail: t('updater.downloadWillPrompt'),
-        progress: 1,
-        progressText: t('updater.downloadComplete'),
-        secondaryLabel: t('updater.restartLater'),
-        primaryLabel: t('updater.restartInstall'),
-        secondaryAction: 'dismiss',
-        primaryAction: 'restart-now',
+    closeAllDialogs();
+    updateRendererUpdaterState({
+        readyToInstall: true,
+        version: info.version,
     });
+    log('[updater] renderer notified update ready:', info.version);
 }
 
 function showDebugDownloading(t: MainTranslator, percent: number) {
@@ -408,7 +416,7 @@ function startDebugDownloadFlow(log: LogFn, t: MainTranslator) {
             stopDebugProgressTimer();
             log('[updater] debug download completed');
             downloadInProgress = false;
-            showDownloaded(currentLocale, t, { version: '1.2026.048' } as UpdateInfo);
+            markUpdateReadyToInstall(log, { version: '1.2026.048' } as UpdateInfo);
         }
     }, 160);
 }
@@ -431,59 +439,16 @@ function showNoUpdateDialog(t: MainTranslator) {
     dialog.showMessageBox(options);
 }
 
-function showUpdateError(logError: LogFn, t: MainTranslator, error: unknown) {
+function showUpdateError(logError: LogFn, error: unknown) {
     const rawMessage = error instanceof Error ? error.message : String(error);
     const compactRaw = rawMessage.replace(/\s+/g, ' ').trim();
-    logError('[updater] update flow failed:', error);
-
-    const isGithubFeedError = /github\.com\/.*releases\.atom/i.test(rawMessage);
-    const isServerUnavailable = /\b(502|503|504)\b/.test(rawMessage);
-    const isNetworkError = /(ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EHOSTUNREACH|network)/i.test(rawMessage);
-
-    let message = t('updater.checkFailedGeneric');
-    if (isGithubFeedError && isServerUnavailable) {
-        message = t('updater.checkFailedServer');
-    } else if (isNetworkError) {
-        message = t('updater.checkFailedNetwork');
-    } else if (compactRaw.length > 0) {
-        message = compactRaw.length > 220 ? `${compactRaw.slice(0, 220)}...` : compactRaw;
-    }
-
-    const now = Date.now();
-    const signature = message.trim();
-    const dedupeWindowMs = 5000;
-    if (errorDialogOpen) {
-        logError('[updater] suppress duplicate error dialog while one is open:', signature);
-        return;
-    }
-    if (signature === lastErrorSignature && now - lastErrorAt < dedupeWindowMs) {
-        logError('[updater] suppress duplicate error dialog in cooldown window:', signature);
-        return;
-    }
-    lastErrorSignature = signature;
-    lastErrorAt = now;
+    logError('[updater] update flow failed (silent):', compactRaw || rawMessage || error);
 
     const mainWindow = getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.setProgressBar(-1);
     }
     closeAllDialogs();
-
-    const options: MessageBoxOptions = {
-        type: 'error',
-        title: t('updater.failed'),
-        message,
-        buttons: [t('updater.ok')],
-        defaultId: 0,
-    };
-
-    errorDialogOpen = true;
-    const result = mainWindow && !mainWindow.isDestroyed()
-        ? dialog.showMessageBox(mainWindow, options)
-        : dialog.showMessageBox(options);
-    result.finally(() => {
-        errorDialogOpen = false;
-    });
 }
 
 function showInstallLocationBlockedDialog(t: MainTranslator) {
@@ -519,7 +484,7 @@ function handleUpdateAction(log: LogFn, t: MainTranslator, action: UpdateAction)
             downloadInProgress = true;
             autoUpdater.downloadUpdate().catch((error: unknown) => {
                 downloadInProgress = false;
-                showUpdateError(log, t, error);
+                showUpdateError(log, error);
             });
             break;
         }
@@ -552,6 +517,10 @@ function handleUpdateAction(log: LogFn, t: MainTranslator, action: UpdateAction)
             log('[updater] quitAndInstall');
             log('[updater] restart install path:', getAppBundlePath());
             log('[updater] restart install current version:', app.getVersion());
+            updateRendererUpdaterState({
+                readyToInstall: false,
+                version: null,
+            });
             closeAllDialogs();
             setMainWindowQuitting(true);
             restartInstallInFlight = true;
@@ -651,6 +620,21 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         updaterPreferenceStore.set('autoDownloadInstall', Boolean(enabled));
     });
 
+    ipcMain.removeHandler('updater:get-state');
+    ipcMain.handle('updater:get-state', async () => rendererUpdaterState);
+
+    ipcMain.removeHandler('updater:restart-and-install');
+    ipcMain.handle('updater:restart-and-install', async () => {
+        if (!rendererUpdaterState.readyToInstall) return false;
+        if (!canInstallUpdateInCurrentLocation()) {
+            log('[updater] blocked restart install due to app location:', getAppBundlePath());
+            showInstallLocationBlockedDialog(t);
+            return false;
+        }
+        handleUpdateAction(log, t, 'restart-now');
+        return true;
+    });
+
     if (!hasUpdateConfig) {
         return {
             checkForUpdatesFromMenu: async () => {
@@ -661,6 +645,9 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
                 clearSkippedVersion();
             },
             openUpdateDialogDebug,
+            startAutoUpdateChecks: () => {
+                logWarn('[updater] auto update checks disabled: updater not configured');
+            },
         };
     }
 
@@ -673,7 +660,9 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         debugPreviewMode = false;
         log('[updater] checking-for-update');
         checkInProgress = true;
-        showCheckInProgress(locale, t);
+        if (showCheckingDialog) {
+            showCheckInProgress(locale, t);
+        }
     });
 
     autoUpdater.on('update-available', (info: UpdateInfo) => {
@@ -710,7 +699,7 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
             downloadInProgress = true;
             autoUpdater.downloadUpdate().catch((error: unknown) => {
                 downloadInProgress = false;
-                showUpdateError(logError, t, error);
+                showUpdateError(logError, error);
             });
             return;
         }
@@ -744,7 +733,7 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         isManualCheck = false;
         availableVersion = null;
         updaterPreferenceStore.set('remindLaterUntil', 0);
-        showDownloaded(locale, t, info);
+        markUpdateReadyToInstall(log, info);
     });
 
     autoUpdater.on('error', (error: Error) => {
@@ -755,7 +744,7 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         isManualCheck = false;
         availableVersion = null;
         closeAllDialogs();
-        showUpdateError(logError, t, error);
+        showUpdateError(logError, error);
     });
 
     app.on('before-quit', () => {
@@ -765,30 +754,52 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         }
     });
 
+    const runCheckForUpdates = async (manual: boolean) => {
+        if (checkInProgress || downloadInProgress) {
+            if (manual) {
+                logWarn('[updater] check ignored: update flow already in progress');
+            }
+            return;
+        }
+
+        try {
+            showCheckingDialog = manual;
+            isManualCheck = manual;
+            await autoUpdater.checkForUpdates();
+        } catch (error) {
+            stopDebugProgressTimer();
+            checkInProgress = false;
+            downloadInProgress = false;
+            isManualCheck = false;
+            availableVersion = null;
+            closeAllDialogs();
+            showUpdateError(logError, error);
+        } finally {
+            showCheckingDialog = false;
+        }
+    };
+
+    const startAutoUpdateChecks = () => {
+        const initialDelayMs = 10 * 1000;
+        const intervalMs = 6 * 60 * 60 * 1000;
+        log('[updater] schedule auto update checks, initial delay(ms):', initialDelayMs, 'interval(ms):', intervalMs);
+        setTimeout(() => {
+            void runCheckForUpdates(false);
+            setInterval(() => {
+                void runCheckForUpdates(false);
+            }, intervalMs);
+        }, initialDelayMs);
+    };
+
     return {
         checkForUpdatesFromMenu: async () => {
             debugPreviewMode = false;
-            if (checkInProgress || downloadInProgress) {
-                logWarn('[updater] check ignored: update flow already in progress');
-                return;
-            }
-
-            try {
-                isManualCheck = true;
-                await autoUpdater.checkForUpdates();
-            } catch (error) {
-                stopDebugProgressTimer();
-                checkInProgress = false;
-                downloadInProgress = false;
-                isManualCheck = false;
-                availableVersion = null;
-                closeAllDialogs();
-                showUpdateError(logError, t, error);
-            }
+            await runCheckForUpdates(true);
         },
         clearSkippedVersionFromMenu: () => {
             clearSkippedVersion();
         },
         openUpdateDialogDebug,
+        startAutoUpdateChecks,
     };
 }

@@ -15,12 +15,22 @@ type AuthBridge = {
   onCallback: (callback: (url: string) => void) => () => void;
 };
 
+type UpdateBridgeState = {
+  readyToInstall: boolean;
+  version: string | null;
+};
+
 interface Window {
   authBridge?: AuthBridge;
   themeBridge?: {
     getTheme: () => Promise<'light' | 'dark' | 'system'>;
     setTheme: (theme: 'light' | 'dark' | 'system') => Promise<'light' | 'dark' | 'system'>;
     onThemeChanged: (callback: (theme: 'light' | 'dark' | 'system') => void) => () => void;
+  };
+  updateBridge?: {
+    getState: () => Promise<UpdateBridgeState>;
+    restartAndInstall: () => Promise<boolean>;
+    onStateChanged: (callback: (state: UpdateBridgeState) => void) => () => void;
   };
   electron?: {
     platform: string;

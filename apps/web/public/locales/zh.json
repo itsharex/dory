@@ -1967,6 +1967,17 @@
         "TIMEOUT": "请求超时",
         "Unknown": "未知错误"
     },
+    "AppSidebar": {
+        "SQLConsole": "SQL 控制台",
+        "Schema": "Schema",
+        "Chatbot": "Chatbot",
+        "Monitoring": "监控",
+        "Privileges": "权限",
+        "GetHelp": "获取帮助",
+        "Update": "更新",
+        "Updating": "更新中...",
+        "UpdateVersion": "版本 {version}"
+    },
     "Routes": {
         "SQL Console": "SQL 控制台"
     }

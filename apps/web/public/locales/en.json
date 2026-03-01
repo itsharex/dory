@@ -1965,6 +1965,17 @@
         "TIMEOUT": "Request timeout",
         "Unknown": "Unknown error"
     },
+    "AppSidebar": {
+        "SQLConsole": "SQL Console",
+        "Schema": "Schema",
+        "Chatbot": "Chatbot",
+        "Monitoring": "Monitoring",
+        "Privileges": "Privileges",
+        "GetHelp": "Get Help",
+        "Update": "Update",
+        "Updating": "Updating...",
+        "UpdateVersion": "Version {version}"
+    },
     "Routes": {
         "SQL Console": "SQL Console"
     }

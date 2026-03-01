@@ -212,6 +212,7 @@ if (!gotLock) {
     }
 
     launch();
+    updater.startAutoUpdateChecks();
   });
 
   app.on('activate', () => {

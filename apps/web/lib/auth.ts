@@ -157,7 +157,7 @@ function createAuth() {
                         html: `
                             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #0f172a; padding: 24px;">
                                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-                                    <img src="https://demo.getdory.dev/logo.png" width="32" height="32" alt="${t('Auth.Emails.ResetPassword.BrandName')}" style="display: inline-block; border-radius: 6px;" />
+                                    <img src="https://app.getdory.dev/logo.png" width="32" height="32" alt="${t('Auth.Emails.ResetPassword.BrandName')}" style="display: inline-block; border-radius: 6px;" />
                                     <span style="font-size: 16px; font-weight: 600; color: #0f172a;">${t('Auth.Emails.ResetPassword.BrandName')}</span>
                                 </div>
                                 <h2 style="margin: 0 0 12px; font-size: 20px;">${t('Auth.Emails.ResetPassword.Subject')}</h2>
@@ -195,7 +195,7 @@ function createAuth() {
                         html: `
                             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #0f172a; padding: 24px;">
                                 <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
-                                    <img src="https://demo.getdory.dev/logo.png" width="32" height="32" alt="${t('Auth.Emails.VerifyEmail.BrandName')}" style="display: inline-block; border-radius: 6px;" />
+                                    <img src="https://app.getdory.dev/logo.png" width="32" height="32" alt="${t('Auth.Emails.VerifyEmail.BrandName')}" style="display: inline-block; border-radius: 6px;" />
                                     <span style="font-size: 16px; font-weight: 600; color: #0f172a;">${t('Auth.Emails.VerifyEmail.BrandName')}</span>
                                 </div>
                                 <h2 style="margin: 0 0 12px; font-size: 20px;">${t('Auth.Emails.VerifyEmail.Subject')}</h2>
