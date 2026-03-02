@@ -118,6 +118,11 @@ function getCenteredPosition(width: number, height: number) {
     };
 }
 
+function showDialogWithoutFocus(window: BrowserWindow) {
+    if (window.isVisible()) return;
+    window.showInactive();
+}
+
 function compareVersions(a: string, b: string) {
     const clean = (value: string) => value.split('-')[0];
     const pa = clean(a).split('.').map(part => Number(part));
@@ -199,12 +204,7 @@ function openAvailableDialog(title: string) {
     if (availableDialog && !availableDialog.isDestroyed()) {
         availableDialog.setTitle(title);
         availableDialog.setMovable(true);
-        const pos = getCenteredPosition(534, 180);
-        if (typeof pos.x === 'number' && typeof pos.y === 'number') {
-            availableDialog.setPosition(pos.x, pos.y);
-        }
-        availableDialog.show();
-        availableDialog.focus();
+        showDialogWithoutFocus(availableDialog);
         return;
     }
 
@@ -237,7 +237,7 @@ function openAvailableDialog(title: string) {
     availableDialog.once('ready-to-show', () => {
         if (!availableDialog || availableDialog.isDestroyed()) return;
         availableDialog.setMovable(true);
-        availableDialog.show();
+        showDialogWithoutFocus(availableDialog);
         if (isDev) {
             availableDialog.webContents.openDevTools({ mode: 'detach', activate: false });
         }
@@ -255,12 +255,7 @@ function openProgressDialog(title: string) {
     if (progressDialog && !progressDialog.isDestroyed()) {
         progressDialog.setTitle(title);
         progressDialog.setMovable(true);
-        const pos = getCenteredPosition(400, 150);
-        if (typeof pos.x === 'number' && typeof pos.y === 'number') {
-            progressDialog.setPosition(pos.x, pos.y);
-        }
-        progressDialog.show();
-        progressDialog.focus();
+        showDialogWithoutFocus(progressDialog);
         return;
     }
 
@@ -293,7 +288,7 @@ function openProgressDialog(title: string) {
     progressDialog.once('ready-to-show', () => {
         if (!progressDialog || progressDialog.isDestroyed()) return;
         progressDialog.setMovable(true);
-        progressDialog.show();
+        showDialogWithoutFocus(progressDialog);
         if (isDev) {
             progressDialog.webContents.openDevTools({ mode: 'detach', activate: false });
         }
