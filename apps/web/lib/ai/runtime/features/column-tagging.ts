@@ -4,7 +4,7 @@ import { computeSchemaHash } from '@/lib/utils/compute-schema-hash';
 import { cleanJson } from '../../core/clean-json';
 import { buildColumnTaggingPrompt, heuristicTagging, normalizeAIResult } from '../../core/column-tagging';
 import { ColumnInput, SchemaTag, SchemaTagResponse } from '@/types';
-import { getModelBundle, getProviderModel } from '@/lib/ai/model';
+import { getEffectiveModelBundle } from '@/lib/ai/model';
 import { compileSystemPrompt } from '@/lib/ai/model/compile-system';
 
 type GetColumnTagsWithCacheOptions = {
@@ -48,9 +48,10 @@ export async function getColumnTagsWithCache(options: GetColumnTagsWithCacheOpti
         };
     }
 
-    const { model: defaultModel, preset } = getModelBundle('column_tagging');
-    const providerModelName = model || preset.model;
-    const chatModel = providerModelName === preset.model ? defaultModel : getProviderModel(providerModelName);
+    const { model: chatModel, preset, modelName: providerModelName } = getEffectiveModelBundle(
+        'column_tagging',
+        model,
+    );
     const effectiveCatalog = catalog ?? 'default';
     const systemPrompt = compileSystemPrompt(preset.system) ?? 'Output JSON only (no code fences or extra text).';
 

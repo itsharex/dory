@@ -5,6 +5,7 @@ import { createMetaProvider } from './meta';
 import { createOpenAICompatibleProvider } from './openai-compatible';
 import { createOpenAIProvider } from './openai';
 import { createXaiProvider } from './xai';
+import { createCloudflareGatewayProvider } from './cloudflare';
 
 type ChatProvider = {
     chatModel: (modelName: string) => any;
@@ -19,6 +20,8 @@ const providerFactories: Record<string, () => ChatProvider> = {
     meta: () => createMetaProvider(),
     'openai-compatible': () => createOpenAICompatibleProvider(),
     compatible: () => createOpenAICompatibleProvider(),
+    cloudflare: () => createCloudflareGatewayProvider(),
+    'cloudflare-gateway': () => createCloudflareGatewayProvider(),
 };
 
 const providerCache = new Map<string, ChatProvider>();

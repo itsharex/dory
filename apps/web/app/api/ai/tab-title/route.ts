@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { generateText } from '@/lib/ai/gateway';
-import { getModelBundle, getProviderModel } from '@/lib/ai/model';
+import { getEffectiveModelBundle } from '@/lib/ai/model';
 import { compileSystemPrompt } from '@/lib/ai/model/compile-system';
 import { buildTabTitlePrompt } from '@/lib/ai/prompts';
 import { getApiLocale } from '@/app/api/utils/i18n';
@@ -14,9 +14,7 @@ export const POST = withUserAndTeamHandler(async ({ req }) => {
             database?: string | null;
             model?: string | null;
         };
-        const { model: defaultModel, preset } = getModelBundle('title');
-        const providerModelName = requestedModel || preset.model;
-        const model = providerModelName === preset.model ? defaultModel : getProviderModel(providerModelName);
+        const { model, preset, modelName: providerModelName } = getEffectiveModelBundle('title', requestedModel);
 
         if (!sql || !sql.trim()) {
             return new Response(JSON.stringify({ title: null }), {

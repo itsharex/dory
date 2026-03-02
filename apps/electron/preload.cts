@@ -1,5 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
+ipcRenderer.send('log:renderer', 'info', '[preload] loaded');
+
 contextBridge.exposeInMainWorld('electron', {
     platform: process.platform,
     isPackaged: process.env.NODE_ENV === 'production' || process.env.ELECTRON_IS_PACKAGED === 'true',
@@ -38,5 +40,11 @@ contextBridge.exposeInMainWorld('updateBridge', {
         };
         ipcRenderer.on('updater:state', listener);
         return () => ipcRenderer.removeListener('updater:state', listener);
+    },
+});
+
+contextBridge.exposeInMainWorld('logBridge', {
+    log: (level: 'info' | 'warn' | 'error', ...args: unknown[]) => {
+        ipcRenderer.send('log:renderer', level, ...args);
     },
 });

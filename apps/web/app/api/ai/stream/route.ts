@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server';
 import { createIdGenerator, stepCountIs } from 'ai';
 
 import { streamText } from '@/lib/ai/gateway';
-import { getModelBundle, getProviderModel } from '@/lib/ai/model';
+import { getEffectiveModelBundle } from '@/lib/ai/model';
 import { buildCloudToolSet } from '@/lib/ai/cloud-tools';
 import { isMissingAiEnvError } from '@/lib/ai/errors';
 import { USE_CLOUD_AI } from '@/app/config/app';
@@ -22,12 +22,7 @@ export async function POST(req: NextRequest) {
             model?: string | null;
         };
 
-        const { model: defaultModel, preset } = getModelBundle('chat');
-        const providerModelName = body.model ?? preset.model;
-        const model =
-            providerModelName === preset.model
-                ? defaultModel
-                : getProviderModel(providerModelName);
+        const { model, preset, modelName: providerModelName } = getEffectiveModelBundle('chat', body.model);
 
         const toolSet = buildCloudToolSet(
             body.tools as Record<string, any> | null,

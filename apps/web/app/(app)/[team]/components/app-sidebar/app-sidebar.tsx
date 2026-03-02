@@ -135,7 +135,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                 >
                     <DoryLogo className="h-5 w-auto group-data-[collapsible=icon]:hidden" />
                 </a>
-                {updaterState.readyToInstall || true && (
+                {updaterState.readyToInstall && (
                     <Badge
                         onClick={() => {
                             if (isRestartingUpdate) return;

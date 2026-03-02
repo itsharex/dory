@@ -26,6 +26,7 @@ export function applyTheme(theme: ThemeMode) {
 export function setStoredTheme(theme: ThemeMode) {
     themeStore.set('theme', theme);
     applyTheme(theme);
+    console.log('[electron][theme] setStoredTheme:', theme);
     for (const win of BrowserWindow.getAllWindows()) {
         win.webContents.send('theme:changed', theme);
     }

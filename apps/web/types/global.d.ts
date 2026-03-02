@@ -32,6 +32,9 @@ interface Window {
     restartAndInstall: () => Promise<boolean>;
     onStateChanged: (callback: (state: UpdateBridgeState) => void) => () => void;
   };
+  logBridge?: {
+    log: (level: 'info' | 'warn' | 'error', ...args: unknown[]) => void;
+  };
   electron?: {
     platform: string;
     isPackaged: boolean;

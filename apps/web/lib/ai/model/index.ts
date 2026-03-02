@@ -7,6 +7,12 @@ export type ModelBundle<R extends ModelRole = ModelRole> = {
     preset: (typeof MODEL_PRESETS)[R];
 };
 
+export type EffectiveModelBundle<R extends ModelRole = ModelRole> = {
+    model: ReturnType<typeof getChatModel>;
+    preset: (typeof MODEL_PRESETS)[R];
+    modelName: string;
+};
+
 /**
  * ✅ Recommended: get model + preset together
  * - App code only cares about role
@@ -59,4 +65,19 @@ export function getModelPresetOnly<R extends ModelRole>(role: R) {
  */
 export function getProviderModel(modelName: string) {
     return getChatModel(modelName);
+}
+
+/**
+ * ✅ Preferred: get model + preset with optional override modelName
+ * - Keeps the "default preset" path as the default
+ * - Only hits provider lookup when a non-default modelName is requested
+ */
+export function getEffectiveModelBundle<R extends ModelRole>(
+    role: R,
+    modelName?: string | null,
+): EffectiveModelBundle<R> {
+    const { model: defaultModel, preset } = getModelBundle(role);
+    const resolvedModelName = modelName ?? preset.model;
+    const model = resolvedModelName === preset.model ? defaultModel : getProviderModel(resolvedModelName);
+    return { model, preset, modelName: resolvedModelName };
 }

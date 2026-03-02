@@ -63,6 +63,8 @@ let queuedProgressState: ProgressDialogState | null = null;
 let isManualCheck = false;
 let checkInProgress = false;
 let downloadInProgress = false;
+let downloadCanceledByUser = false;
+let shouldAutoInstallAfterDownload = false;
 let availableVersion: string | null = null;
 let currentLocale = 'en-US';
 let debugPreviewMode = false;
@@ -476,7 +478,14 @@ function handleUpdateAction(log: LogFn, t: MainTranslator, action: UpdateAction)
             break;
         }
         case 'install-update': {
+            if (rendererUpdaterState.readyToInstall) {
+                log('[updater] install requested and update already downloaded, restarting to install');
+                handleUpdateAction(log, t, 'restart-now');
+                break;
+            }
             log('[updater] download requested by user');
+            downloadCanceledByUser = false;
+            shouldAutoInstallAfterDownload = false;
             if (debugPreviewMode) {
                 startDebugDownloadFlow(log, t);
                 break;
@@ -490,6 +499,8 @@ function handleUpdateAction(log: LogFn, t: MainTranslator, action: UpdateAction)
         }
         case 'cancel-download': {
             log('[updater] user clicked cancel download');
+            downloadCanceledByUser = true;
+            shouldAutoInstallAfterDownload = false;
             if (debugPreviewMode) {
                 stopDebugProgressTimer();
             } else {
@@ -558,7 +569,34 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
     currentLocale = locale;
     const updateConfigPath = path.join(process.resourcesPath, 'app-update.yml');
     const hasUpdateConfig = fs.existsSync(updateConfigPath);
-    if (!hasUpdateConfig) {
+    const devUpdateConfigPath = (() => {
+        if (!isDev) return null;
+        const candidates = [
+            path.resolve(process.cwd(), 'dev-app-update.yml'),
+            path.join(app.getAppPath(), 'dev-app-update.yml'),
+            path.resolve(__dirname, '..', 'dev-app-update.yml'),
+        ];
+        for (const candidate of candidates) {
+            if (fs.existsSync(candidate)) return candidate;
+        }
+        return null;
+    })();
+    const hasDevUpdateConfig = Boolean(devUpdateConfigPath);
+    if (hasDevUpdateConfig && devUpdateConfigPath) {
+        autoUpdater.forceDevUpdateConfig = true;
+        autoUpdater.updateConfigPath = devUpdateConfigPath;
+        log('[updater] dev update config enabled:', devUpdateConfigPath);
+    }
+    const devFeedUrl = isDev ? (process.env.ELECTRON_UPDATER_URL || '').trim() : '';
+    if (devFeedUrl && !hasDevUpdateConfig) {
+        try {
+            autoUpdater.setFeedURL({ provider: 'generic', url: devFeedUrl });
+            log('[updater] dev feed URL set:', devFeedUrl);
+        } catch (error) {
+            logWarn('[updater] failed to set dev feed URL:', error);
+        }
+    }
+    if (!hasUpdateConfig && !hasDevUpdateConfig && !devFeedUrl) {
         logWarn('[updater] app-update.yml not found, updater disabled:', updateConfigPath);
     }
 
@@ -626,6 +664,10 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
     ipcMain.removeHandler('updater:restart-and-install');
     ipcMain.handle('updater:restart-and-install', async () => {
         if (!rendererUpdaterState.readyToInstall) return false;
+        if (debugPreviewMode) {
+            closeAllDialogs();
+            return true;
+        }
         if (!canInstallUpdateInCurrentLocation()) {
             log('[updater] blocked restart install due to app location:', getAppBundlePath());
             showInstallLocationBlockedDialog(t);
@@ -635,7 +677,7 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         return true;
     });
 
-    if (!hasUpdateConfig) {
+    if (!hasUpdateConfig && !hasDevUpdateConfig && !devFeedUrl) {
         return {
             checkForUpdatesFromMenu: async () => {
                 debugPreviewMode = false;
@@ -669,11 +711,32 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         debugPreviewMode = false;
         log('[updater] update-available:', info.version);
         checkInProgress = false;
+        downloadCanceledByUser = false;
         availableVersion = info.version;
+
+        if (rendererUpdaterState.readyToInstall && rendererUpdaterState.version === info.version) {
+            log('[updater] update already downloaded for this version, skip available dialog:', info.version);
+            if (isManualCheck) {
+                closeAllDialogs();
+            }
+            isManualCheck = false;
+            return;
+        }
 
         if (compareVersions(info.version, app.getVersion()) <= 0) {
             logWarn('[updater] ignored non-newer version:', info.version, 'current:', app.getVersion());
+            updateRendererUpdaterState({
+                readyToInstall: false,
+                version: null,
+            });
             closeAllDialogs();
+            isManualCheck = false;
+            return;
+        }
+
+        if (isManualCheck) {
+            log('[updater] manual check found update, opening available dialog:', info.version);
+            showUpdateAvailable(locale, t, info);
             isManualCheck = false;
             return;
         }
@@ -682,7 +745,6 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         if (skippedVersion && skippedVersion === info.version) {
             log('[updater] skipped version detected, suppress prompt:', info.version);
             closeAllDialogs();
-            isManualCheck = false;
             return;
         }
 
@@ -696,21 +758,29 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         const autoDownloadInstall = updaterPreferenceStore.get('autoDownloadInstall');
         if (autoDownloadInstall) {
             log('[updater] autoDownloadInstall enabled, start download immediately');
+            shouldAutoInstallAfterDownload = true;
             downloadInProgress = true;
             autoUpdater.downloadUpdate().catch((error: unknown) => {
                 downloadInProgress = false;
+                shouldAutoInstallAfterDownload = false;
                 showUpdateError(logError, error);
             });
             return;
         }
 
-        showUpdateAvailable(locale, t, info);
+        shouldAutoInstallAfterDownload = false;
+        closeAllDialogs();
+        log('[updater] auto check found update, suppress available dialog until manual check');
     });
 
     autoUpdater.on('update-not-available', (info: UpdateInfo) => {
         debugPreviewMode = false;
         log('[updater] update-not-available:', info.version);
         checkInProgress = false;
+        updateRendererUpdaterState({
+            readyToInstall: false,
+            version: null,
+        });
         closeAllDialogs();
         if (isManualCheck) {
             showNoUpdateDialog(t);
@@ -720,6 +790,9 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
 
     autoUpdater.on('download-progress', (progress: ProgressInfo) => {
         debugPreviewMode = false;
+        if (downloadCanceledByUser) {
+            return;
+        }
         if (!downloadInProgress) {
             downloadInProgress = true;
         }
@@ -733,7 +806,14 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         isManualCheck = false;
         availableVersion = null;
         updaterPreferenceStore.set('remindLaterUntil', 0);
+        const autoInstallNow = shouldAutoInstallAfterDownload && !downloadCanceledByUser;
+        shouldAutoInstallAfterDownload = false;
+        downloadCanceledByUser = false;
         markUpdateReadyToInstall(log, info);
+        if (autoInstallNow) {
+            log('[updater] auto install enabled, restarting to install downloaded update');
+            handleUpdateAction(log, t, 'restart-now');
+        }
     });
 
     autoUpdater.on('error', (error: Error) => {
@@ -741,6 +821,8 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         stopDebugProgressTimer();
         checkInProgress = false;
         downloadInProgress = false;
+        downloadCanceledByUser = false;
+        shouldAutoInstallAfterDownload = false;
         isManualCheck = false;
         availableVersion = null;
         closeAllDialogs();
@@ -765,11 +847,16 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         try {
             showCheckingDialog = manual;
             isManualCheck = manual;
+            if (!manual) {
+                downloadCanceledByUser = false;
+            }
             await autoUpdater.checkForUpdates();
         } catch (error) {
             stopDebugProgressTimer();
             checkInProgress = false;
             downloadInProgress = false;
+            downloadCanceledByUser = false;
+            shouldAutoInstallAfterDownload = false;
             isManualCheck = false;
             availableVersion = null;
             closeAllDialogs();

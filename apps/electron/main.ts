@@ -46,6 +46,8 @@ const serverManager = createStandaloneServerManager({
 
 registerThemeIpc();
 applyTheme(getStoredTheme());
+log('[electron] userData path:', app.getPath('userData'));
+log('[electron] stored theme on boot:', getStoredTheme());
 
 function setupAppMenu(options: {
   onCheckUpdate: () => void;
@@ -238,4 +240,24 @@ ipcMain.handle('auth:openExternal', async (_event, url: string) => {
     throw new Error('Invalid URL');
   }
   await shell.openExternal(url);
+});
+
+ipcMain.on('log:renderer', (_event, level: string, ...args: unknown[]) => {
+  const safeArgs = args.map(arg => {
+    if (typeof arg === 'string') return arg;
+    try {
+      return JSON.stringify(arg);
+    } catch {
+      return String(arg);
+    }
+  });
+  if (level === 'warn') {
+    logWarn('[renderer]', ...safeArgs);
+    return;
+  }
+  if (level === 'error') {
+    logError('[renderer]', ...safeArgs);
+    return;
+  }
+  log('[renderer]', ...safeArgs);
 });

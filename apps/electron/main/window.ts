@@ -1,4 +1,5 @@
 import { BrowserWindow, screen, shell } from 'electron';
+import fs from 'node:fs';
 import Store from 'electron-store';
 import type { LogFn } from './logger.js';
 import { createSplashWindow, getSplashShownAt, getSplashWindow } from './splash.js';
@@ -37,6 +38,7 @@ interface CreateMainWindowOptions {
 
 export function createMainWindow({ preloadPath, targetUrl, log }: CreateMainWindowOptions) {
     log('[electron] createMainWindow ->', targetUrl);
+    log('[electron] preloadPath ->', preloadPath, 'exists:', fs.existsSync(preloadPath));
 
     createSplashWindow();
 
@@ -87,6 +89,17 @@ export function createMainWindow({ preloadPath, targetUrl, log }: CreateMainWind
     });
 
     mainWindow.webContents.once('did-finish-load', () => {
+        mainWindow?.webContents
+            .executeJavaScript(
+                '({ hasThemeBridge: !!window.themeBridge, hasLogBridge: !!window.logBridge, hasElectron: !!window.electron })',
+                true,
+            )
+            .then(result => {
+                log('[electron] renderer globals:', result);
+            })
+            .catch(error => {
+                log('[electron] renderer globals check failed:', error instanceof Error ? error.message : String(error));
+            });
         if (!pendingAuthCallback) return;
         mainWindow?.webContents.send('auth:callback', pendingAuthCallback);
         pendingAuthCallback = null;

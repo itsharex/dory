@@ -70,7 +70,7 @@ const MESSAGES: Record<SupportedLocale, Record<MessageKey, string>> = {
         'updater.installLocationBlocked': '无法安装更新',
         'updater.installLocationBlockedDetail': '请将应用移动到“应用程序”文件夹后再重试更新。',
         'updater.notConfigured': '更新功能未配置',
-        'updater.notConfiguredDetail': '未找到 app-update.yml，请先在构建配置中设置 publish。',
+        'updater.notConfiguredDetail': '未找到 app-update.yml 或 dev-app-update.yml，请先在构建配置中设置 publish。',
         'updater.skipCleared': '已恢复跳过版本提醒',
     },
     'en-US': {
@@ -105,7 +105,7 @@ const MESSAGES: Record<SupportedLocale, Record<MessageKey, string>> = {
         'updater.installLocationBlocked': 'Cannot Install Update',
         'updater.installLocationBlockedDetail': 'Move the app to the Applications folder, then try updating again.',
         'updater.notConfigured': 'Updater Not Configured',
-        'updater.notConfiguredDetail': 'Missing app-update.yml. Configure publish in electron-builder first.',
+        'updater.notConfiguredDetail': 'Missing app-update.yml or dev-app-update.yml. Configure publish in electron-builder first.',
         'updater.skipCleared': 'Skipped update preference has been reset.',
     },
 };

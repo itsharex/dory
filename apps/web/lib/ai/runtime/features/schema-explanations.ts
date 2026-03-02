@@ -9,7 +9,7 @@ import {
     ColumnInput,
     SchemaExplanationResponse,
 } from '../../core/schema-explanations';
-import { getModelBundle, getProviderModel } from '@/lib/ai/model';
+import { getEffectiveModelBundle } from '@/lib/ai/model';
 import { compileSystemPrompt } from '@/lib/ai/model/compile-system';
 
 type GetColumnExplanationsOptions = {
@@ -52,9 +52,10 @@ export async function getColumnExplanationsWithCache(
         return { columns: [], raw: undefined, fromCache: false };
     }
 
-    const { model: defaultModel, preset } = getModelBundle('schema_explanation');
-    const providerModelName = model || preset.model;
-    const chatModel = providerModelName === preset.model ? defaultModel : getProviderModel(providerModelName);
+    const { model: chatModel, preset, modelName: providerModelName } = getEffectiveModelBundle(
+        'schema_explanation',
+        model,
+    );
     const effectiveCatalog = catalog ?? 'default';
     const systemPrompt =
         compileSystemPrompt(preset.system) ?? 'Output JSON only (no code fences or extra text).';

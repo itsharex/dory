@@ -13,7 +13,7 @@ import {
     ColumnInput,
     TableSummaryResponse,
 } from '../../core/table-summary';
-import { getModelBundle, getProviderModel } from '@/lib/ai/model';
+import { getEffectiveModelBundle } from '@/lib/ai/model';
 import { compileSystemPrompt } from '@/lib/ai/model/compile-system';
 import { resolveModelName } from '@/lib/ai/model/presets';
 
@@ -67,11 +67,13 @@ export async function getTableSummaryWithCache(options: GetTableSummaryOptions) 
         };
     }
 
-    const { model: defaultModel, preset } = getModelBundle('table_summary');
     const providerModelName =
         model ??
         resolveModelName('table_summary', { variant: colList.length > 50 ? 'fast' : 'default' });
-    const chatModel = providerModelName === preset.model ? defaultModel : getProviderModel(providerModelName);
+    const { model: chatModel, preset, modelName: effectiveModelName } = getEffectiveModelBundle(
+        'table_summary',
+        providerModelName,
+    );
     const effectiveCatalog = catalog ?? 'default';
     const systemPrompt =
         compileSystemPrompt(preset.system) ?? 'Output JSON only (no code fences or extra text).';
