@@ -22,7 +22,22 @@ export async function POST(req: NextRequest) {
             model?: string | null;
         };
 
+        console.info('[ai/stream] request model input', {
+            requestedModel: body.model ?? null,
+            envProvider: process.env.DORY_AI_PROVIDER ?? null,
+            envModel: process.env.DORY_AI_MODEL ?? null,
+            useCloud: USE_CLOUD_AI,
+        });
+
         const { model, preset, modelName: providerModelName } = getEffectiveModelBundle('chat', body.model);
+        console.info('[ai/stream] model resolution', {
+            requestedModel: body.model ?? null,
+            providerModelName,
+            presetModel: preset.model,
+            envProvider: process.env.DORY_AI_PROVIDER ?? null,
+            envModel: process.env.DORY_AI_MODEL ?? null,
+            useCloud: USE_CLOUD_AI,
+        });
 
         const toolSet = buildCloudToolSet(
             body.tools as Record<string, any> | null,

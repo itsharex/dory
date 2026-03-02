@@ -105,6 +105,14 @@ async function handleChatRequest(req: NextRequest) {
     const preset = getModelPresetOnly('chat');
     const providerModelName = requestedModel || preset.model;
     const compiledSystem = compileSystemPrompt(preset.system);
+    console.info('[chat] model resolution', {
+        requestedModel: requestedModel ?? null,
+        presetModel: preset.model,
+        providerModelName,
+        envProvider: process.env.DORY_AI_PROVIDER ?? null,
+        envModel: process.env.DORY_AI_MODEL ?? null,
+        useCloud: USE_CLOUD_AI,
+    });
 
     const db = userId ? await getDBService() : null;
 
