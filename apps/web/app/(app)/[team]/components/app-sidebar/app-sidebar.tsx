@@ -8,7 +8,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/registr
 import { NavMain } from './nav-main';
 import { NavUser } from './nav-user';
 import { authClient } from '@/lib/auth-client';
-import { FileChartColumnIncreasing, SquareCode } from 'lucide-react';
+import { ArrowUpCircle, FileChartColumnIncreasing, SquareCode } from 'lucide-react';
 import { NavSecondary } from './nav-secondary';
 import { ConnectionSwitcher } from './connection-switcher';
 import { Separator } from '@/registry/new-york-v4/ui/separator';
@@ -136,17 +136,34 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     <DoryLogo className="h-5 w-auto group-data-[collapsible=icon]:hidden" />
                 </a>
                 {updaterState.readyToInstall && (
-                    <Badge
-                        onClick={() => {
-                            if (isRestartingUpdate) return;
-                            void handleRestartAndInstall();
-                        }}
-                        aria-disabled={isRestartingUpdate}
-                        className={isRestartingUpdate ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
-                        title={updaterState.version ? t('UpdateVersion', { version: updaterState.version }) : undefined}
-                    >
-                        {isRestartingUpdate ? t('Updating') : t('Update')}
-                    </Badge>
+                    <>
+                        <Badge
+                            onClick={() => {
+                                if (isRestartingUpdate) return;
+                                void handleRestartAndInstall();
+                            }}
+                            aria-disabled={isRestartingUpdate}
+                            className={`group-data-[collapsible=icon]:hidden ${isRestartingUpdate ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}
+                            title={updaterState.version ? t('UpdateVersion', { version: updaterState.version }) : undefined}
+                        >
+                            {isRestartingUpdate ? t('Updating') : t('Update')}
+                        </Badge>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                if (isRestartingUpdate) return;
+                                void handleRestartAndInstall();
+                            }}
+                            aria-disabled={isRestartingUpdate}
+                            aria-label={isRestartingUpdate ? t('Updating') : t('Update')}
+                            title={updaterState.version ? t('UpdateVersion', { version: updaterState.version }) : t('Update')}
+                            className={`hidden h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[collapsible=icon]:inline-flex ${
+                                isRestartingUpdate ? 'pointer-events-none opacity-60' : 'cursor-pointer hover:bg-muted/80'
+                            }`}
+                        >
+                            <ArrowUpCircle className="h-4 w-4" />
+                        </button>
+                    </>
                 )}
             </div>
 
