@@ -369,6 +369,21 @@ function showDownloading(locale: string, t: MainTranslator, progress: ProgressIn
     });
 }
 
+function showDownloadPending(locale: string, t: MainTranslator) {
+    showProgressDialog({
+        lang: locale,
+        title: t('updater.downloadingTitle'),
+        message: t('updater.downloading'),
+        detail: t('updater.downloadWillPrompt'),
+        progress: null,
+        progressText: '',
+        secondaryLabel: t('updater.cancel'),
+        primaryLabel: null,
+        secondaryAction: 'cancel-download',
+        primaryAction: null,
+    });
+}
+
 function markUpdateReadyToInstall(log: LogFn, info: UpdateInfo) {
     const mainWindow = getMainWindow();
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -480,7 +495,9 @@ function handleUpdateAction(log: LogFn, t: MainTranslator, action: UpdateAction)
             }
             log('[updater] download requested by user');
             downloadCanceledByUser = false;
-            shouldAutoInstallAfterDownload = false;
+            shouldAutoInstallAfterDownload = true;
+            showDownloadPending(currentLocale, t);
+            closeAvailableDialog();
             if (debugPreviewMode) {
                 startDebugDownloadFlow(log, t);
                 break;
@@ -710,9 +727,10 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         availableVersion = info.version;
 
         if (rendererUpdaterState.readyToInstall && rendererUpdaterState.version === info.version) {
-            log('[updater] update already downloaded for this version, skip available dialog:', info.version);
+            log('[updater] update already downloaded for this version:', info.version);
             if (isManualCheck) {
-                closeAllDialogs();
+                log('[updater] manual check found already-downloaded version, opening available dialog');
+                showUpdateAvailable(locale, t, info);
             }
             isManualCheck = false;
             return;
