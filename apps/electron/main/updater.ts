@@ -668,24 +668,12 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
             closeAllDialogs();
             return true;
         }
-        updateRendererUpdaterState({
-            readyToInstall: false,
-            version: null,
-        });
-        closeAllDialogs();
-        setMainWindowQuitting(true);
-        restartInstallInFlight = true;
-        try {
-            autoUpdater.quitAndInstall(false, true);
-            setTimeout(() => {
-                if (!restartInstallInFlight) return;
-                log('[updater] sidebar restart install fallback -> app.quit()');
-                app.quit();
-            }, 1500);
-        } catch (error) {
-            log('[updater] sidebar restart install failed, fallback to app.quit():', error);
-            app.quit();
+        if (!canInstallUpdateInCurrentLocation()) {
+            log('[updater] blocked restart install due to app location:', getAppBundlePath());
+            showInstallLocationBlockedDialog(t);
+            return false;
         }
+        handleUpdateAction(log, t, 'restart-now');
         return true;
     });
 
@@ -781,7 +769,8 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         }
 
         shouldAutoInstallAfterDownload = false;
-        showUpdateAvailable(locale, t, info);
+        closeAllDialogs();
+        log('[updater] auto check found update, suppress available dialog until manual check');
     });
 
     autoUpdater.on('update-not-available', (info: UpdateInfo) => {
