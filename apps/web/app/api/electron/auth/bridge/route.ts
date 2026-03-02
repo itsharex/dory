@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
     const ctx = await auth.$context;
     const origin = req.nextUrl.origin;
     if (!ctx.options.baseURL) {
-        const basePath = ctx.options.basePath ?? '/api/auth';
+        const basePath = '/api/auth';
         const authBaseURL = `${origin.trim()}${basePath}`;
         ctx.options.baseURL = authBaseURL;
         ctx.baseURL = authBaseURL;
