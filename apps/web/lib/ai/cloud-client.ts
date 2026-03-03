@@ -30,12 +30,14 @@ export async function fetchCloudUiMessageStream(options: {
     payload: CloudStreamRequest;
     headers?: HeadersInit;
 }): Promise<CloudStreamResponse> {
+    const headers = new Headers(options.headers);
+    if (!headers.has('content-type')) {
+        headers.set('content-type', 'application/json');
+    }
+
     const response = await fetch(options.url, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            ...(options.headers ?? {}),
-        },
+        headers,
         body: JSON.stringify(options.payload),
     });
 

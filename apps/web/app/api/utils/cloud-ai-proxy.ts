@@ -7,7 +7,27 @@ const FORWARDED_HEADERS = [
     'authorization',
     'x-connection-id',
     'accept-language',
+    'origin',
+    'referer',
+    'user-agent',
 ];
+
+function rewriteCookieHeaderForUpstream(value: string): string {
+    const parts = value
+        .split(';')
+        .map(part => part.trim())
+        .filter(Boolean);
+    const withoutSecure = parts.filter(part => !part.startsWith('__Secure-better-auth.session_token='));
+
+    return withoutSecure
+        .map(part => {
+            if (part.startsWith('better-auth.session_token=')) {
+                return part.replace('better-auth.session_token=', '__Secure-better-auth.session_token=');
+            }
+            return part;
+        })
+        .join('; ');
+}
 
 function resolveCloudBaseUrl(): string | null {
     const aiCloudUrl = process.env.DORY_AI_CLOUD_URL?.trim();
@@ -22,12 +42,36 @@ function resolveCloudBaseUrl(): string | null {
     return null;
 }
 
-function buildForwardHeaders(req: NextRequest): Headers {
+export function buildCloudForwardHeaders(req: NextRequest, baseUrl?: string): Headers {
     const headers = new Headers();
     for (const key of FORWARDED_HEADERS) {
         const value = req.headers.get(key);
         if (value) headers.set(key, value);
     }
+
+    headers.delete('host');
+    headers.delete('connection');
+
+    if (baseUrl) {
+        const upstreamOrigin = new URL(baseUrl).origin;
+        if (headers.has('origin')) headers.set('origin', upstreamOrigin);
+
+        const referer = headers.get('referer');
+        if (referer) {
+            try {
+                const u = new URL(referer);
+                headers.set('referer', upstreamOrigin + u.pathname + u.search);
+            } catch {
+                headers.delete('referer');
+            }
+        }
+    }
+
+    const cookieHeader = headers.get('cookie');
+    if (cookieHeader) {
+        headers.set('cookie', rewriteCookieHeaderForUpstream(cookieHeader));
+    }
+
     return headers;
 }
 
@@ -74,7 +118,7 @@ export async function proxyAiRouteIfNeeded(
 
     const upstream = await fetch(target.toString(), {
         method,
-        headers: buildForwardHeaders(req),
+        headers: buildCloudForwardHeaders(req, baseUrl),
         body,
     });
 

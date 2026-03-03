@@ -1,5 +1,4 @@
 import 'server-only';
-import { NextRequest } from 'next/server';
 import { createIdGenerator, stepCountIs } from 'ai';
 
 import { streamText } from '@/lib/ai/gateway';
@@ -8,10 +7,11 @@ import { buildCloudToolSet } from '@/lib/ai/cloud-tools';
 import { isMissingAiEnvError } from '@/lib/ai/errors';
 import { USE_CLOUD_AI } from '@/app/config/app';
 import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
+import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 
 export const runtime = 'nodejs';
 
-export async function POST(req: NextRequest) {
+export const POST = withUserAndTeamHandler(async ({ req }) => {
     try {
         const proxied = await proxyAiRouteIfNeeded(req, '/api/ai/stream');
         if (proxied) return proxied;
@@ -90,4 +90,4 @@ export async function POST(req: NextRequest) {
             headers: { 'Content-Type': 'text/plain; charset=utf-8' },
         });
     }
-}
+});

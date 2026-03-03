@@ -28,6 +28,7 @@ import { toPromptContext } from '@/app/(app)/[team]/[connectionId]/chatbot/copil
 import { getApiLocale } from '@/app/api/utils/i18n';
 import { withUserAndTeamHandler } from '../utils/with-team-handler';
 import { USE_CLOUD_AI } from '@/app/config/app';
+import { buildCloudForwardHeaders } from '@/app/api/utils/cloud-ai-proxy';
 
 export const runtime = 'nodejs';
 
@@ -325,6 +326,7 @@ async function handleChatRequest(req: NextRequest) {
     const useCloud = USE_CLOUD_AI;
     const cloudBaseUrl = resolveCloudBaseUrl(req);
     const cloudUrl = new URL('/api/ai/stream', cloudBaseUrl).toString();
+    const cloudHeaders = buildCloudForwardHeaders(req, cloudBaseUrl);
     const cloudTools = buildCloudToolDeclarations({
         includeSqlRunner: sqlToolEnabled,
         sqlRunnerDescription: tools.sqlRunner?.description,
@@ -360,6 +362,7 @@ async function handleChatRequest(req: NextRequest) {
                 ...baseCloudPayload,
                 messages: modelMessages,
             },
+            headers: cloudHeaders,
         });
         console.info(useCloud ? '[chat] cloud response received' : '[chat] local response received', {
             url: cloudUrl,
@@ -590,6 +593,7 @@ async function handleChatRequest(req: NextRequest) {
                             ...baseCloudPayload,
                             messages: nextMessages,
                         },
+                        headers: cloudHeaders,
                     });
                 } catch (error) {
                     console.error('[chat] cloud stream unavailable', error);
