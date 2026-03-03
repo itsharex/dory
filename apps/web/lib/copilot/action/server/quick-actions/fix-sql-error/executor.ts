@@ -30,6 +30,7 @@ export async function executeFixSqlError(ctx: ActionContext): Promise<ActionResu
             schema: FixSqlErrorOutputSchema,
             temperature: 0,
             maxRetries: 1,
+            model: ctx.model,
         });
 
         const fixedSql = out.fixedSql?.trim() || ctx.sql;

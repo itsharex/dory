@@ -7,11 +7,15 @@ import { getEffectiveModelBundle } from '@/lib/ai/model';
 import { buildCloudToolSet } from '@/lib/ai/cloud-tools';
 import { isMissingAiEnvError } from '@/lib/ai/errors';
 import { USE_CLOUD_AI } from '@/app/config/app';
+import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
     try {
+        const proxied = await proxyAiRouteIfNeeded(req, '/api/ai/stream');
+        if (proxied) return proxied;
+
         const body = (await req.json()) as {
             system: string;
             messages: unknown[];

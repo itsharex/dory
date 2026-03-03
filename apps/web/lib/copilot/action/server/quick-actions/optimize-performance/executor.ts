@@ -26,6 +26,7 @@ export async function executeOptimizePerformance(ctx: ActionContext): Promise<Ac
             schema: OptimizePerformanceOutputSchema,
             temperature: 0.1,
             maxRetries: 1,
+            model: ctx.model,
         });
 
         const fixedSql = out.fixedSql?.trim() || ctx.sql;

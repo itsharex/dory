@@ -1,20 +1,31 @@
-import { NextRequest } from 'next/server';
 import { generateText } from '@/lib/ai/gateway';
 import { getEffectiveModelBundle } from '@/lib/ai/model';
 import { compileSystemPrompt } from '@/lib/ai/model/compile-system';
 import { buildTabTitlePrompt } from '@/lib/ai/prompts';
 import { getApiLocale } from '@/app/api/utils/i18n';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
+import { USE_CLOUD_AI } from '@/app/config/app';
+import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
 
 export const POST = withUserAndTeamHandler(async ({ req }) => {
     try {
         const locale = await getApiLocale();
-        const { sql, database, model: requestedModel } = (await req.json()) as {
+        const body = (await req.json()) as {
             sql: string;
             database?: string | null;
             model?: string | null;
         };
-        const { model, preset, modelName: providerModelName } = getEffectiveModelBundle('title', requestedModel);
+        const { sql, database, model: requestedModel } = body;
+        const shouldForcePresetModel = USE_CLOUD_AI;
+
+        const proxied = await proxyAiRouteIfNeeded(req, '/api/ai/tab-title', {
+            body: USE_CLOUD_AI ? { ...body, model: null } : body,
+        });
+        if (proxied) return proxied;
+
+        const effectiveRequestedModel = shouldForcePresetModel ? null : requestedModel;
+
+        const { model, preset, modelName: providerModelName } = getEffectiveModelBundle('title', effectiveRequestedModel);
 
         if (!sql || !sql.trim()) {
             return new Response(JSON.stringify({ title: null }), {

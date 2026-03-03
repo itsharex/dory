@@ -5,6 +5,7 @@ import { heuristicTagging } from '@/lib/ai/core/column-tagging';
 import { getConnectionIdFromRequest } from '@/lib/utils/request';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
+import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
 
 export const runtime = 'nodejs'; 
 
@@ -30,6 +31,9 @@ const schemaTagRequestSchema = z.object({
 type SchemaTagRequest = z.infer<typeof schemaTagRequestSchema>;
 
 export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
+    const proxied = await proxyAiRouteIfNeeded(req, '/api/ai/schema-tags');
+    if (proxied) return proxied;
+
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
     const payload = await req.json().catch(() => null);

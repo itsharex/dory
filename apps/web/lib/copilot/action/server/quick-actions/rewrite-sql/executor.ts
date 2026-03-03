@@ -26,6 +26,7 @@ export async function executeRewriteSql(ctx: ActionContext): Promise<ActionResul
             schema: RewriteSqlOutputSchema,
             temperature: 0.15,
             maxRetries: 1,
+            model: ctx.model,
         });
 
         const fixedSql = out.fixedSql?.trim() || ctx.sql;

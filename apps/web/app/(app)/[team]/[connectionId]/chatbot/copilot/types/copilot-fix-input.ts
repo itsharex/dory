@@ -4,6 +4,7 @@ import type { CopilotEnvelopeMeta } from './copilot-envelope';
 export type CopilotFixInput = {
     surface: 'sql';
     meta?: CopilotEnvelopeMeta;
+    model?: string | null;
 
     lastExecution: {
         occurredAt?: number;

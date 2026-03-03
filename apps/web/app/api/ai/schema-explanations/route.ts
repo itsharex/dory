@@ -4,6 +4,7 @@ import provider from '@/lib/ai/provider';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { fallbackSummaries } from '@/lib/ai/core/schema-explanations';
+import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
 
 export const runtime = 'nodejs'; 
 
@@ -31,6 +32,9 @@ const schemaExplanationRequestSchema = z.object({
 type SchemaExplanationRequest = z.infer<typeof schemaExplanationRequestSchema>;
 
 export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
+    const proxied = await proxyAiRouteIfNeeded(req, '/api/ai/schema-explanations');
+    if (proxied) return proxied;
+
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
     const payload = await req.json().catch(() => null);

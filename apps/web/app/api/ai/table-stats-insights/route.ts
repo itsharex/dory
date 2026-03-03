@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import type { TableStats } from '@/types/table-info';
 import { TableIssue, analyzeTableStats } from './stats-rules';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
+import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
 
 export const runtime = 'edge';
 
@@ -40,6 +41,9 @@ async function buildSuggestion(issues: TableIssue[]): Promise<string | null> {
 }
 
 export async function POST(req: NextRequest) {
+    const proxied = await proxyAiRouteIfNeeded(req, '/api/ai/table-stats-insights');
+    if (proxied) return proxied;
+
     const locale = await getApiLocale();
     try {
         const body = (await req.json().catch(() => null)) as TableStatsInsightsRequest | null;

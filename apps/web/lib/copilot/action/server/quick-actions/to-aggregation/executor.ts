@@ -26,6 +26,7 @@ export async function executeToAggregation(ctx: ActionContext): Promise<ActionRe
             schema: ToAggregationOutputSchema,
             temperature: 0.25,
             maxRetries: 1,
+            model: ctx.model,
         });
 
         const fixedSql = out.fixedSql?.trim() || ctx.sql;

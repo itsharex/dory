@@ -2,18 +2,24 @@ import 'server-only';
 
 import { z } from 'zod';
 import { generateText } from '@/lib/ai/gateway';
-import { getModelBundle } from '@/lib/ai/model';
+import { getEffectiveModelBundle } from '@/lib/ai/model';
 import { compileSystemPrompt } from '@/lib/ai/model/compile-system';
 export { isMissingAiEnvError } from '@/lib/ai/errors';
 
-export async function runLLMJson<T extends z.ZodTypeAny>(args: { prompt: string; schema: T; temperature?: number; maxRetries?: number }) {
-    const { prompt, schema, temperature = 0, maxRetries = 1 } = args;
+export async function runLLMJson<T extends z.ZodTypeAny>(args: {
+    prompt: string;
+    schema: T;
+    temperature?: number;
+    maxRetries?: number;
+    model?: string | null;
+}) {
+    const { prompt, schema, temperature = 0, maxRetries = 1, model: requestedModel } = args;
 
     let lastErr: unknown = null;
 
     for (let i = 0; i <= maxRetries; i++) {
         try {
-            const { model, preset } = getModelBundle('action');
+            const { model, preset, modelName: providerModelName } = getEffectiveModelBundle('action', requestedModel);
             const system = compileSystemPrompt(preset.system);
             const { text } = await generateText({
                 model,
@@ -22,7 +28,7 @@ export async function runLLMJson<T extends z.ZodTypeAny>(args: { prompt: string;
                 temperature: temperature ?? preset.temperature,
                 context: {
                     feature: 'copilot_action',
-                    model: preset.model,
+                    model: providerModelName,
                 },
             });
 

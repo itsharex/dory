@@ -8,6 +8,7 @@ export type ActionContext = {
     sql: string;
     database?: string;
     locale?: Locale;
+    model?: string | null;
     error?: {
         message: string;
         code?: string | number;

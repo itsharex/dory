@@ -18,6 +18,7 @@ export function toActionContext(input: CopilotFixInput, locale?: Locale): Action
         sql: exec.sql,
         database: exec.database ?? undefined,
         locale,
+        model: input.model ?? null,
         error: exec.error
             ? {
                   message: exec.error.message,
