@@ -6206,7 +6206,7 @@ aggregate-error@^3.0.0:
     clean-stack "^2.0.0"
     indent-string "^4.0.0"
 
-ai-gateway-provider@^0.0.16:
+ai-gateway-provider@^3.1.1:
   version "3.1.1"
   resolved "https://registry.npmmirror.com/ai-gateway-provider/-/ai-gateway-provider-3.1.1.tgz#502032d2098329c65c9e8944c12dc461adff3543"
   integrity sha512-RTHkboNz9JocplBSKdDLSMEiN3OkfS1UeZqM93zuQ3BVDR5BmTisThoQR/3pkAVACIYL/8OEQ3kuSuDo820gVw==
