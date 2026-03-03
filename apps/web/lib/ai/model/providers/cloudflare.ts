@@ -1,34 +1,41 @@
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { createAiGateway } from 'ai-gateway-provider';
+import { createUnified } from 'ai-gateway-provider/providers/unified';
 
 export type CloudflareGatewayOptions = {
+    accountId?: string;
+    gateway?: string;
     apiKey?: string;
-    baseURL?: string;
-    cfAigToken?: string;
-    name?: string;
+    defaultProvider?: string;
 };
 
 export function createCloudflareGatewayProvider(options: CloudflareGatewayOptions = {}) {
-    const baseURL = options.baseURL ?? process.env.DORY_AI_URL;
-    if (!baseURL) {
-        throw new Error('DORY_AI_URL is required');
+    const accountId = options.accountId ?? process.env.DORY_AI_CLOUDFLARE_ACCOUNT_ID;
+    if (!accountId) {
+        throw new Error('DORY_AI_CLOUDFLARE_ACCOUNT_ID is required');
     }
 
-    const apiKey = options.apiKey ?? process.env.DORY_AI_API_KEY;
-    const cfAigToken = options.cfAigToken ?? process.env.DORY_AI_CF_AIG_TOKEN;
-
-    const headers: Record<string, string> = {};
-    if (cfAigToken) {
-        headers['cf-aig-authorization'] = `Bearer ${cfAigToken}`;
+    const gateway = options.gateway ?? process.env.DORY_AI_CLOUDFLARE_GATEWAY;
+    if (!gateway) {
+        throw new Error('DORY_AI_CLOUDFLARE_GATEWAY is required');
     }
 
-    const provider = createOpenAICompatible({
-        baseURL,
+    const apiKey = options.apiKey ?? process.env.DORY_AI_CF_AIG_TOKEN;
+    if (!apiKey) {
+        throw new Error('DORY_AI_CF_AIG_TOKEN is required');
+    }
+
+    const defaultProvider = options.defaultProvider ?? process.env.DORY_AI_CLOUDFLARE_DEFAULT_PROVIDER ?? 'openai';
+    const aiGateway = createAiGateway({
+        accountId,
+        gateway,
         apiKey,
-        headers: Object.keys(headers).length ? headers : undefined,
-        name: options.name ?? 'cloudflare-gateway',
     });
+    const unified = createUnified();
 
     return {
-        chatModel: (modelName: string) => provider.chatModel(modelName),
+        chatModel: (modelName: string) => {
+            const normalized = modelName.includes('/') ? modelName : `${defaultProvider}/${modelName}`;
+            return aiGateway(unified(normalized));
+        },
     };
 }

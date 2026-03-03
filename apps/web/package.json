@@ -107,6 +107,7 @@
         "ag-grid-community": "^34.1.2",
         "ag-grid-react": "^34.1.2",
         "ai": "^6.0.59",
+        "ai-gateway-provider": "^0.0.16",
         "ansi-to-react": "^6.2.6",
         "better-auth": "^1.4.18",
         "better-sqlite3": "^12.5.0",
