@@ -59,16 +59,18 @@ function rewriteCookieHeaderForUpstream(value: string): string {
         .split(';')
         .map(part => part.trim())
         .filter(Boolean);
-    const withoutSecure = parts.filter(part => !part.startsWith('__Secure-better-auth.session_token='));
+    const hasPlainSessionToken = parts.some(part => part.startsWith('better-auth.session_token='));
+    const hasSecureSessionToken = parts.some(part => part.startsWith('__Secure-better-auth.session_token='));
 
-    return withoutSecure
-        .map(part => {
-            if (part.startsWith('better-auth.session_token=')) {
-                return part.replace('better-auth.session_token=', '__Secure-better-auth.session_token=');
-            }
-            return part;
-        })
-        .join('; ');
+    const rewritten = [...parts];
+    if (hasPlainSessionToken && !hasSecureSessionToken) {
+        const plain = parts.find(part => part.startsWith('better-auth.session_token='));
+        if (plain) {
+            rewritten.push(plain.replace('better-auth.session_token=', '__Secure-better-auth.session_token='));
+        }
+    }
+
+    return rewritten.join('; ');
 }
 
 function redactHeaderValue(name: string, value: string): string {
@@ -162,7 +164,12 @@ export async function proxyAuthRequest(req: Request): Promise<Response> {
         responseHeaders.append('set-cookie', cookie);
     }
 
-    if (!isSecureRequest) {
+    const hasSessionCookieFromUpstream = setCookies.some(cookie => {
+        const firstPart = cookie.split(';')[0]?.trim() ?? '';
+        return firstPart.startsWith('better-auth.session_token=') || firstPart.startsWith('__Secure-better-auth.session_token=');
+    });
+
+    if (!isSecureRequest && hasSessionCookieFromUpstream) {
         responseHeaders.append('set-cookie', '__Secure-better-auth.session_token=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax');
     }
 
