@@ -23,13 +23,19 @@ export async function POST(req: NextRequest) {
         };
 
         const envProvider = (process.env.DORY_AI_PROVIDER ?? '').trim().toLowerCase();
+        const envBaseUrl = (process.env.DORY_AI_URL ?? '').trim().toLowerCase();
+        const isCloudflareGatewayUrl = envBaseUrl.includes('gateway.ai.cloudflare.com');
         const shouldForcePresetModel =
-            USE_CLOUD_AI || envProvider === 'cloudflare' || envProvider === 'cloudflare-gateway';
+            USE_CLOUD_AI ||
+            envProvider === 'cloudflare' ||
+            envProvider === 'cloudflare-gateway' ||
+            isCloudflareGatewayUrl;
         const requestedModel = shouldForcePresetModel ? null : body.model;
 
         console.info('[ai/stream] request model input', {
             requestedModel: body.model ?? null,
             envProvider: process.env.DORY_AI_PROVIDER ?? null,
+            envBaseUrl: process.env.DORY_AI_URL ?? null,
             envModel: process.env.DORY_AI_MODEL ?? null,
             useCloud: USE_CLOUD_AI,
             forcePresetModel: shouldForcePresetModel,
@@ -42,6 +48,7 @@ export async function POST(req: NextRequest) {
             providerModelName,
             presetModel: preset.model,
             envProvider: process.env.DORY_AI_PROVIDER ?? null,
+            envBaseUrl: process.env.DORY_AI_URL ?? null,
             envModel: process.env.DORY_AI_MODEL ?? null,
             useCloud: USE_CLOUD_AI,
             forcePresetModel: shouldForcePresetModel,
