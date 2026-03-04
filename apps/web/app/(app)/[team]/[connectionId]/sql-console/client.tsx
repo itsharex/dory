@@ -32,24 +32,54 @@ import type { SQLEditorHandle } from './components/sql-editor';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/registry/new-york-v4/ui/tabs';
 import { Separator } from '@/registry/new-york-v4/ui/separator';
 
+const INITIAL_LAYOUT = {
+    horizontal: {
+        total: 100,
+        default: [20, 80] as [number, number],
+        leftPanel: {
+            min: 15,
+            max: 40,
+        },
+        middlePanel: {
+            min: 40,
+        },
+    },
+    copilot: {
+        defaultWidth: 30,
+        minWidth: 10,
+        maxWidth: 50,
+    },
+    tabs: {
+        defaultHeaderHeight: 36,
+    },
+    editorFocusRetry: {
+        maxAttempts: 5,
+        delayMs: 50,
+    },
+} as const;
+
 function clamp(n: number, min: number, max: number) {
     return Math.max(min, Math.min(max, n));
 }
 
 function normalizeHorizontalLayout(layout: readonly number[] | undefined): [number, number] {
-    if (!Array.isArray(layout) || layout.length === 0) return [33, 67];
+    if (!Array.isArray(layout) || layout.length === 0) return INITIAL_LAYOUT.horizontal.default;
 
-    const left = layout[0] ?? 33;
-    const middle = layout[1] ?? 100 - left;
+    const left = layout[0] ?? INITIAL_LAYOUT.horizontal.default[0];
+    const middle = layout[1] ?? INITIAL_LAYOUT.horizontal.total - left;
     const total = left + middle;
 
-    if (total <= 0) return [33, 67];
+    if (total <= 0) return INITIAL_LAYOUT.horizontal.default;
 
-    const normalizedLeft = (left / total) * 100;
-    return [normalizedLeft, 100 - normalizedLeft];
+    const normalizedLeft = (left / total) * INITIAL_LAYOUT.horizontal.total;
+    return [normalizedLeft, INITIAL_LAYOUT.horizontal.total - normalizedLeft];
 }
 
-export default function SQLConsoleClient({ defaultLayout = [33, 67] }: { defaultLayout: number[] | undefined }) {
+export default function SQLConsoleClient({
+    defaultLayout = INITIAL_LAYOUT.horizontal.default,
+}: {
+    defaultLayout: number[] | undefined;
+}) {
     const {
         normalizedLayout,
         onLayout: onLayoutFromHook,
@@ -77,8 +107,11 @@ export default function SQLConsoleClient({ defaultLayout = [33, 67] }: { default
     const [showChatbot, setShowChatbot] = useAtom(copilotPanelOpenAtom);
     const [chatWidth, setChatWidth] = useAtom(copilotPanelWidthAtom);
     const selectionByTab = useAtomValue(editorSelectionByTabAtom);
-    const normalizedChatWidth = useMemo(() => clamp(chatWidth ?? 30, 10, 50), [chatWidth]);
-    const [tabHeaderHeight, setTabHeaderHeight] = useState<number>(36); // measured from SQLTabs
+    const normalizedChatWidth = useMemo(
+        () => clamp(chatWidth ?? INITIAL_LAYOUT.copilot.defaultWidth, INITIAL_LAYOUT.copilot.minWidth, INITIAL_LAYOUT.copilot.maxWidth),
+        [chatWidth],
+    );
+    const [tabHeaderHeight, setTabHeaderHeight] = useState<number>(INITIAL_LAYOUT.tabs.defaultHeaderHeight); // measured from SQLTabs
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [pendingSavedQuery, setPendingSavedQuery] = useState<SavedQueryItem | null>(null);
 
@@ -118,9 +151,9 @@ export default function SQLConsoleClient({ defaultLayout = [33, 67] }: { default
                 handle.focusAtEnd();
                 return;
             }
-            if (attempts < 5) {
+            if (attempts < INITIAL_LAYOUT.editorFocusRetry.maxAttempts) {
                 attempts += 1;
-                setTimeout(focusAtEnd, 50);
+                setTimeout(focusAtEnd, INITIAL_LAYOUT.editorFocusRetry.delayMs);
             }
         };
 
@@ -168,7 +201,7 @@ export default function SQLConsoleClient({ defaultLayout = [33, 67] }: { default
 
     const setClampedChatWidth = useCallback(
         (size: number) => {
-            setChatWidth(clamp(size, 10, 50));
+            setChatWidth(clamp(size, INITIAL_LAYOUT.copilot.minWidth, INITIAL_LAYOUT.copilot.maxWidth));
         },
         [setChatWidth],
     );
@@ -262,7 +295,11 @@ export default function SQLConsoleClient({ defaultLayout = [33, 67] }: { default
         <main className="relative h-full w-full">
             <PanelGroup direction="horizontal" autoSaveId="sql-console-horizontal" onLayout={handleLayoutChange}>
                 {/* Left */}
-                <Panel defaultSize={horizontalLayout[0]} minSize={15} maxSize={40}>
+                <Panel
+                    defaultSize={horizontalLayout[0]}
+                    minSize={INITIAL_LAYOUT.horizontal.leftPanel.min}
+                    maxSize={INITIAL_LAYOUT.horizontal.leftPanel.max}
+                >
                     <div className="flex flex-col h-full border-r min-h-0 bg-card">
                         <Tabs defaultValue="tables" className="flex-1 min-h-0">
                             <TabsList className="w-full rounded-none px-2">
@@ -287,7 +324,7 @@ export default function SQLConsoleClient({ defaultLayout = [33, 67] }: { default
                 <PanelResizeHandle className="w-1.5 bg-border data-[resize-handle-active=true]:bg-foreground/30 transition-colors" />
 
                 {/* Middle */}
-                <Panel minSize={40} defaultSize={horizontalLayout[1]}>
+                <Panel minSize={INITIAL_LAYOUT.horizontal.middlePanel.min} defaultSize={horizontalLayout[1]}>
                     <div className="flex h-full flex-col">
                         {isLoading || tabs.length === 0 ? (
                             <SQLTabEmpty addTab={addTab} />

@@ -235,7 +235,7 @@ export function SqlMode({
                             autoSaveId="sql-editor-v"
                             className="h-full min-h-0"
                         >
-                            <Panel defaultSize={55} minSize={30} className="min-h-0">
+                            <Panel defaultSize={25} minSize={15} className="min-h-0">
                                 <div className="flex flex-col h-full border-b min-h-0">
                                     <SQLEditor ref={editorRef} activeTab={activeTab} updateTab={updateTab} onRunQuery={handleRunQuery} />
                                 </div>
