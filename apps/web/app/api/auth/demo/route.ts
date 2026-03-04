@@ -1,4 +1,5 @@
 import { getAuth } from '@/lib/auth';
+import { proxyAuthRequest, shouldProxyAuthRequest } from '@/lib/auth/auth-proxy';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -11,6 +12,10 @@ const DEMO_USER = {
 };
 
 export async function POST(req: NextRequest) {
+    if (shouldProxyAuthRequest()) {
+        return proxyAuthRequest(req);
+    }
+
     const auth = await getAuth();
     const ctx = await auth.$context;
 

@@ -1,78 +1,77 @@
 import { getAuth } from '@/lib/auth';
-import { serializeSignedCookie } from 'better-call';
+import { proxyAuthRequest, shouldProxyAuthRequest } from '@/lib/auth/auth-proxy';
 import { NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function getCloudApiBaseUrl(): string | null {
-    const cloudUrl = process.env.DORY_CLOUD_API_URL ?? process.env.NEXT_PUBLIC_DORY_CLOUD_API_URL;
-    if (typeof cloudUrl !== 'string' || !cloudUrl.trim()) return null;
-    return cloudUrl.trim();
+function getSetCookies(headers: Headers): string[] {
+    const anyHeaders = headers as unknown as { getSetCookie?: () => string[] };
+    if (typeof anyHeaders.getSetCookie === 'function') {
+        return anyHeaders.getSetCookie();
+    }
+
+    const raw = headers.get('set-cookie');
+    if (!raw) return [];
+    return [raw];
+}
+
+function rewriteSetCookie(value: string, isSecureRequest: boolean): string {
+    const parts = value.split(';');
+    const [nameValue, ...attrs] = parts;
+    const normalizedAttrs = attrs.map(attr => attr.trim());
+    const isClearingCookie =
+        /=\s*$/.test(nameValue) ||
+        normalizedAttrs.some(attr => /^max-age=0$/i.test(attr)) ||
+        normalizedAttrs.some(attr => /^expires=/i.test(attr));
+
+    let rewrittenNameValue = nameValue;
+    if (!isSecureRequest && /^__Secure-/i.test(nameValue)) {
+        if (isClearingCookie) {
+            return '';
+        }
+        rewrittenNameValue = nameValue.replace(/^__Secure-/i, '');
+    }
+
+    const rewritten = normalizedAttrs
+        .filter(attr => !/^domain=/i.test(attr))
+        .map(attr => {
+            if (!isSecureRequest && /^secure$/i.test(attr)) return '';
+            if (!isSecureRequest && /^samesite=none$/i.test(attr)) return 'SameSite=Lax';
+            return attr;
+        })
+        .filter(Boolean);
+
+    return [rewrittenNameValue, ...rewritten].join('; ');
 }
 
 export async function POST(req: Request) {
-    const baseUrl = getCloudApiBaseUrl();
-    if (!baseUrl) {
-        return NextResponse.json({ error: 'cloud_api_not_configured' }, { status: 500 });
-    }
-
-    const body = await req.text();
-    const upstreamOrigin = new URL(baseUrl).origin;
-    const targetUrl = new URL('/api/auth/sign-in/email', baseUrl).toString();
-    const upstream = await fetch(targetUrl, {
-        method: 'POST',
-        headers: {
-            'Content-Type': req.headers.get('content-type') ?? 'application/json',
-            Origin: upstreamOrigin,
-            Referer: upstreamOrigin,
-        },
-        body,
-    });
-
-    const data = await upstream.json().catch(() => null);
-    if (!upstream.ok) {
-        return NextResponse.json(data ?? { error: 'sign_in_failed' }, { status: upstream.status });
+    if (shouldProxyAuthRequest()) {
+        return proxyAuthRequest(req);
     }
 
     const auth = await getAuth();
-    const ctx = await auth.$context;
-    const userData = data?.user as { email?: string | null; name?: string | null; image?: string | null; emailVerified?: boolean | null } | null;
-    const email = userData?.email ?? null;
-    if (!email) {
-        return NextResponse.json({ error: 'missing_user_email' }, { status: 500 });
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+        return NextResponse.json({ error: 'invalid_request_body' }, { status: 400 });
     }
 
-    const existing = await ctx.internalAdapter.findUserByEmail(email, { includeAccounts: false });
-    let userId = existing?.user.id;
-    if (!userId) {
-        const created = await ctx.internalAdapter.createUser({
-            email,
-            name: userData?.name ?? email,
-            image: userData?.image ?? null,
-            emailVerified: userData?.emailVerified ?? true,
+    const response = await auth.api.signInEmail({
+        headers: req.headers,
+        body: body as { email: string; password: string; callbackURL?: string },
+        asResponse: true,
+    });
+
+    const payload = await response.clone().json().catch(() => null);
+    const res = NextResponse.json(payload ?? { ok: response.ok }, { status: response.status });
+    const isSecureRequest = new URL(req.url).protocol === 'https:';
+
+    getSetCookies(response.headers)
+        .map(cookie => rewriteSetCookie(cookie, isSecureRequest))
+        .filter(Boolean)
+        .forEach(cookie => {
+            res.headers.append('set-cookie', cookie);
         });
-        userId = created.id;
-    }
-
-    const session = await ctx.internalAdapter.createSession(userId, false);
-    if (!session) {
-        return NextResponse.json({ error: 'failed_to_create_session' }, { status: 500 });
-    }
-
-    const maxAge = ctx.sessionConfig?.expiresIn;
-    const cookie = await serializeSignedCookie(
-        ctx.authCookies.sessionToken.name,
-        session.token,
-        ctx.secret,
-        {
-            ...ctx.authCookies.sessionToken.attributes,
-            ...(maxAge ? { maxAge } : {}),
-        },
-    );
-
-    const res = NextResponse.json({ ok: true, user: userData });
-    res.headers.append('set-cookie', cookie);
 
     return res;
 }
