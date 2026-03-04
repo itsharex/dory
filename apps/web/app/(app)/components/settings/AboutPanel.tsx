@@ -1,8 +1,8 @@
 import { IconBrandGithub } from '@tabler/icons-react';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/registry/new-york-v4/ui/badge';
-import Image from 'next/image';
 import { DoryLogo } from '@/components/@dory/ui/logo';
+import packageJson from '../../../../package.json';
 
 export function AboutPanel() {
     return (
@@ -15,7 +15,7 @@ export function AboutPanel() {
             <div className="mt-1 text-sm text-muted-foreground">Next-generation Data Studio</div>
             <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
                 <span>Version</span>
-                <Badge variant="secondary">0.0.1</Badge>
+                <Badge variant="secondary">{packageJson.version}</Badge>
             </div>
 
             <div className="mt-5 flex flex-wrap items-center gap-3">
