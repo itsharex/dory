@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./public/app.png" alt="Dory Logo" width="120" />
+  <img src="./public/logo.png" alt="Dory Logo" width="120" />
 </p>
 
 <h1 align="center">Dory</h1>
