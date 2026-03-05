@@ -35,7 +35,7 @@ Make sure Docker is installed, then run:
 docker run -d --name dory \
   -p 3000:3000 \
   -e TRUSTED_ORIGINS="http://localhost:3000" \
-  -e DB_TYPE=pglite
+  -e DB_TYPE=pglite \
   -e DS_SECRET_KEY="$(openssl rand -base64 32 | tr -d '\n')" \
   -e BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
   -e DORY_AI_PROVIDER=openai \
