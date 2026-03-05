@@ -15,15 +15,10 @@
     "protocols": [
         {
             "name": "Dory Protocol",
-            "schemes": [
-                "dory"
-            ]
+            "schemes": ["dory"]
         }
     ],
-    "files": [
-        "dist-electron/**/*",
-        "package.json"
-    ],
+    "files": ["dist-electron/**/*", "package.json"],
     "extraResources": [
         {
             "from": "../../release/standalone",
@@ -31,9 +26,7 @@
         }
     ],
     "asar": true,
-    "asarUnpack": [
-        "**/*.node"
-    ],
+    "asarUnpack": ["**/*.node"],
     "dmg": {
         "title": "${productName}-${version}-${arch}"
     },
@@ -45,14 +38,21 @@
         "gatekeeperAssess": false,
         "entitlements": "./scripts/entitlements.mac.plist",
         "entitlementsInherit": "./scripts/entitlements.mac.plist",
-        "target": [
-            "dmg",
-            "zip"
-        ],
-        "signIgnore": [
-            ".*\\.map$",
-            ".*\\.ttf$",
-            ".*\\.woff2?$"
-        ]
+        "target": ["dmg", "zip"],
+        "signIgnore": [".*\\.map$", ".*\\.ttf$", ".*\\.woff2?$"]
+    },
+    "win": {
+        "icon": "../../public/app.ico",
+        "target": ["nsis", "zip", "portable"]
+    },
+    "nsis": {
+        "oneClick": false,
+        "allowElevation": true,
+        "allowToChangeInstallationDirectory": true,
+        "installerIcon": "../../public/app.ico",
+        "installerHeaderIcon": "../../public/app.ico",
+        "createDesktopShortcut": true,
+        "createStartMenuShortcut": true,
+        "shortcutName": "Dory"
     }
 }

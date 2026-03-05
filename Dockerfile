@@ -43,14 +43,11 @@ RUN addgroup -S -g 1001 nodejs \
 USER nextjs
 
 COPY --from=installer /app/apps/web/package.json .
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/standalone/node_modules ./node_modules
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/standalone/apps/web/server.js ./apps/web/server.js
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/standalone/apps/web/node_modules ./apps/web/node_modules
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/standalone/apps/web/.next ./apps/web/.next
+COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=installer --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
 COPY --from=installer --chown=nextjs:nodejs /app/apps/web/dist-scripts ./dist-scripts
 COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 
 
 EXPOSE 3000
-CMD ["sh", "-lc", "node dist-scripts/bootstrap.mjs && node apps/web/server.js"]
+CMD ["sh", "-lc", "node dist-scripts/bootstrap.mjs && if [ -f apps/web/server.js ]; then node apps/web/server.js; else node server.js; fi"]

@@ -1,0 +1,128 @@
+name: windows-package
+
+on:
+  release:
+    types:
+      - published
+      - prereleased
+  workflow_run:
+    workflows:
+      - Release
+    types:
+      - completed
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag to upload assets to (e.g. v0.2.0). Leave empty to skip release upload."
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: windows-latest
+
+    env:
+      GH_TOKEN: ${{ github.token }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies (retry)
+        shell: pwsh
+        run: |
+          $maxAttempts = 3
+          $attempt = 1
+
+          while ($attempt -le $maxAttempts) {
+            Write-Host "Install attempt $attempt..."
+
+            yarn install --frozen-lockfile --non-interactive --network-concurrency 4
+
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "Dependencies installed successfully"
+              exit 0
+            }
+
+            Write-Host "Install failed. Retrying in 10 seconds..."
+            Start-Sleep -Seconds 10
+            $attempt++
+          }
+
+          Write-Error "yarn install failed after $maxAttempts attempts"
+          exit 1
+
+      - name: Prepare web env
+        shell: pwsh
+        run: |
+          @"
+          BETTER_AUTH_SECRET=${{ secrets.BETTER_AUTH_SECRET }}
+          BETTER_AUTH_URL=${{ secrets.BETTER_AUTH_URL }}
+
+          DS_SECRET_KEY=${{ secrets.DS_SECRET_KEY }}
+
+          DB_TYPE=${{ secrets.DB_TYPE }}
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+          TRUSTED_ORIGINS=${{ secrets.TRUSTED_ORIGINS }}
+
+          NEXT_PUBLIC_DORY_RUNTIME=${{ secrets.NEXT_PUBLIC_DORY_RUNTIME }}
+          NEXT_PUBLIC_DORY_CLOUD_API_URL=${{ secrets.NEXT_PUBLIC_DORY_CLOUD_API_URL }}
+          DORY_AI_CLOUD_URL=${{ secrets.DORY_AI_CLOUD_URL }}
+          "@ | Set-Content -Path apps/web/.env -NoNewline
+
+      - name: Build Electron app (Windows)
+        shell: bash
+        run: yarn electron:build:win
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-windows-dist
+          path: apps/electron/dist/*
+          if-no-files-found: error
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          TAG=""
+          if [ "${{ github.event_name }}" = "release" ]; then
+            TAG="${{ github.event.release.tag_name }}"
+          elif [ "${{ github.event_name }}" = "workflow_run" ]; then
+            git fetch --tags --force
+            TAG="$(git tag --points-at HEAD | grep '^v' | sort -V | tail -n 1)"
+          elif [ -n "${{ inputs.release_tag }}" ]; then
+            TAG="${{ inputs.release_tag }}"
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Windows assets to Release
+        if: steps.tag.outputs.tag != ''
+        shell: bash
+        run: |
+          TAG="${{ steps.tag.outputs.tag }}"
+          find apps/electron/dist -maxdepth 1 -type f \
+            \( -name "*.exe" -o -name "*.msi" -o -name "*.zip" -o -name "*.blockmap" -o -name "latest*.yml" \) \
+            -print0 | xargs -0 -I {} gh release upload "$TAG" "{}" --clobber

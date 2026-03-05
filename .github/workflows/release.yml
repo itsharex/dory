@@ -1,4 +1,4 @@
-name: Electron Release
+name: Release
 
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: electron-release-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -86,42 +86,3 @@ jobs:
             --title "v$VERSION" \
             --generate-notes \
             $PRERELEASE_FLAG
-
-      - name: Prepare Apple notarization env
-        run: |
-          cat > apps/electron/.env.apple <<EOF
-          APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}
-          APPLE_ID_PASSWORD=${{ secrets.APPLE_ID_PASSWORD }}
-          APPLE_ID=${{ secrets.APPLE_ID }}
-          EOF
-
-      - name: Prepare web env
-        run: |
-          cat > apps/web/.env <<EOF
-          BETTER_AUTH_SECRET=${{ secrets.BETTER_AUTH_SECRET }}
-          BETTER_AUTH_URL=${{ secrets.BETTER_AUTH_URL }}
-
-          DS_SECRET_KEY=${{ secrets.DS_SECRET_KEY }}
-
-          DB_TYPE=${{ secrets.DB_TYPE }}
-          DATABASE_URL=${{ secrets.DATABASE_URL }}
-          TRUSTED_ORIGINS=${{ secrets.TRUSTED_ORIGINS }}
-
-          NEXT_PUBLIC_DORY_RUNTIME=${{ secrets.NEXT_PUBLIC_DORY_RUNTIME }}
-          NEXT_PUBLIC_DORY_CLOUD_API_URL=${{ secrets.NEXT_PUBLIC_DORY_CLOUD_API_URL }}
-          DORY_AI_CLOUD_URL=${{ secrets.DORY_AI_CLOUD_URL }}
-          EOF
-
-      - name: Build Electron app (mac)
-        env:
-          CSC_LINK: ${{ secrets.APPLE_CERT_BASE64 }}
-          CSC_KEY_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
-          CSC_IDENTITY_AUTO_DISCOVERY: true
-        run: yarn electron:build:apple
-
-      - name: Upload Electron assets to Release
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          find apps/electron/dist -maxdepth 1 -type f \
-            \( -name "*.dmg" -o -name "*.zip" -o -name "*.blockmap" -o -name "latest*.yml" \) \
-            -print0 | xargs -0 -I {} gh release upload "v$VERSION" "{}" --clobber

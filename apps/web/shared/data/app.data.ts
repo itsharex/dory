@@ -11,4 +11,4 @@ export const DEFAULT_ACTIVE_TAB: SQLTab = {
     connectionId: ''
 };
 
-export const DEFAULT_PGLITE_DB_PATH = '/app/data/dory.db';
+export const DEFAULT_PGLITE_DB_PATH = '/app/data/dory';

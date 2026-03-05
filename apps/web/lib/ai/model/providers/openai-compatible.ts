@@ -27,6 +27,7 @@ export function createOpenAICompatibleProvider(options: OpenAICompatibleProvider
         apiKey,
         baseURL,
         name: options.name ?? 'openai-compatible',
+        includeUsage: true,
     });
 
     return {

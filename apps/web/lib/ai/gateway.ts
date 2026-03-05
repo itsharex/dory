@@ -110,6 +110,15 @@ type StreamTextOptions<TOOLS extends ToolSet> = Parameters<typeof sdkStreamText<
     meter?: AiMeteringOptions;
 };
 
+type UsageLike = Pick<
+    LanguageModelUsage,
+    | 'inputTokens'
+    | 'outputTokens'
+    | 'reasoningTokens'
+    | 'cachedInputTokens'
+    | 'totalTokens'
+>;
+
 const DEFAULT_PROTECTED_KEYS = [
     'password',
     'passwd',
@@ -242,6 +251,48 @@ function extractUsageFields(usage?: LanguageModelUsage) {
     };
 }
 
+function addTokenCounts(a: number | undefined, b: number | undefined): number | undefined {
+    return a == null && b == null ? undefined : (a ?? 0) + (b ?? 0);
+}
+
+function addUsage(current: UsageLike, next: UsageLike): UsageLike {
+    return {
+        inputTokens: addTokenCounts(current.inputTokens, next.inputTokens),
+        outputTokens: addTokenCounts(current.outputTokens, next.outputTokens),
+        reasoningTokens: addTokenCounts(current.reasoningTokens, next.reasoningTokens),
+        cachedInputTokens: addTokenCounts(current.cachedInputTokens, next.cachedInputTokens),
+        totalTokens: addTokenCounts(current.totalTokens, next.totalTokens),
+    };
+}
+
+function sumUsage(usages: Array<LanguageModelUsage | undefined>): LanguageModelUsage | undefined {
+    let acc: UsageLike | undefined;
+    for (const usage of usages) {
+        if (!usage) continue;
+        acc = acc ? addUsage(acc, usage) : {
+            inputTokens: usage.inputTokens,
+            outputTokens: usage.outputTokens,
+            reasoningTokens: usage.reasoningTokens,
+            cachedInputTokens: usage.cachedInputTokens,
+            totalTokens: usage.totalTokens,
+        };
+    }
+
+    if (!acc) return undefined;
+    return {
+        ...acc,
+        inputTokenDetails: {
+            noCacheTokens: undefined,
+            cacheReadTokens: acc.cachedInputTokens,
+            cacheWriteTokens: undefined,
+        },
+        outputTokenDetails: {
+            textTokens: undefined,
+            reasoningTokens: acc.reasoningTokens,
+        },
+    };
+}
+
 function inferGateway(context?: AiGatewayContext): string | null {
     if (context?.gateway) return context.gateway;
     if (typeof process === 'undefined') return null;
@@ -260,15 +311,23 @@ function inferProvider(context?: AiGatewayContext): string | null {
 
 function toUsageJson(usage?: LanguageModelUsage): Record<string, unknown> | null {
     if (!usage) return null;
-    return sanitizeForDebug(
-        usage,
-        {
-            maxStringLength: DEFAULT_MAX_STRING_LENGTH,
-            maxArrayLength: DEFAULT_MAX_ARRAY_LENGTH,
-            maxDepth: DEFAULT_MAX_DEPTH,
-            protectedKeys: DEFAULT_PROTECTED_KEYS,
+    return {
+        inputTokens: usage.inputTokens ?? null,
+        outputTokens: usage.outputTokens ?? null,
+        totalTokens: usage.totalTokens ?? null,
+        reasoningTokens: usage.reasoningTokens ?? usage.outputTokenDetails?.reasoningTokens ?? null,
+        cachedInputTokens: usage.cachedInputTokens ?? usage.inputTokenDetails?.cacheReadTokens ?? null,
+        inputTokenDetails: {
+            noCacheTokens: usage.inputTokenDetails?.noCacheTokens ?? null,
+            cacheReadTokens: usage.inputTokenDetails?.cacheReadTokens ?? null,
+            cacheWriteTokens: usage.inputTokenDetails?.cacheWriteTokens ?? null,
         },
-    ) as Record<string, unknown>;
+        outputTokenDetails: {
+            textTokens: usage.outputTokenDetails?.textTokens ?? null,
+            reasoningTokens: usage.outputTokenDetails?.reasoningTokens ?? null,
+        },
+        raw: usage.raw ?? null,
+    };
 }
 
 function toErrorParts(error: unknown): { code: string | null; message: string | null } {
@@ -581,6 +640,13 @@ export function streamText<TOOLS extends ToolSet>(
         algoVersion,
         input: debugInput,
     };
+    const gateway = inferGateway(context);
+    const provider = inferProvider(context);
+    const shouldLogCloudflareStreamUsage =
+        context?.feature === 'chat_stream' &&
+        gateway === 'cloudflare' &&
+        typeof process !== 'undefined' &&
+        process.env.AI_USAGE_LOG === '1';
 
     let finalized = false;
     const finalize = async (args: {
@@ -615,8 +681,8 @@ export function streamText<TOOLS extends ToolSet>(
                 status: args.status,
                 errorCode: err.code,
                 errorMessage: err.message,
-                gateway: inferGateway(context),
-                provider: inferProvider(context),
+                gateway,
+                provider,
                 costMicros: context?.costMicros ?? null,
                 traceId: context?.traceId ?? null,
                 spanId: context?.spanId ?? null,
@@ -638,9 +704,27 @@ export function streamText<TOOLS extends ToolSet>(
         const finishReason = (event as { finishReason?: string }).finishReason ?? null;
         const isAborted = (event as { isAborted?: boolean }).isAborted === true || finishReason === 'abort';
         const text = (event as { text?: string }).text ?? null;
+        const fallbackStepUsage = sumUsage(event.steps.map(step => step.usage));
+        const usage = event.totalUsage ?? event.usage ?? fallbackStepUsage;
+        if (shouldLogCloudflareStreamUsage) {
+            console.info('[ai][stream-usage][cloudflare][finish]', {
+                requestId,
+                feature: context?.feature ?? null,
+                provider: provider ?? null,
+                gateway,
+                finishReason,
+                isAborted,
+                hasTotalUsage: !!event.totalUsage,
+                hasUsage: !!event.usage,
+                hasFallbackStepUsage: !!fallbackStepUsage,
+                steps: event.steps.length,
+                stepsWithUsage: event.steps.filter(step => !!step.usage).length,
+                resolvedUsage: extractUsageFields(usage),
+            });
+        }
         await finalize({
             status: isAborted ? 'aborted' : 'ok',
-            usage: event.totalUsage,
+            usage,
             outputText: text,
             outputJson: {
                 finishReason,
@@ -666,10 +750,37 @@ export function streamText<TOOLS extends ToolSet>(
         }
     };
 
+    const wrappedOnAbort = async (event: Parameters<NonNullable<typeof callOptions.onAbort>>[0]) => {
+        const usage = sumUsage(event.steps.map(step => step.usage));
+        if (shouldLogCloudflareStreamUsage) {
+            console.info('[ai][stream-usage][cloudflare][abort]', {
+                requestId,
+                feature: context?.feature ?? null,
+                provider: provider ?? null,
+                gateway,
+                steps: event.steps.length,
+                stepsWithUsage: event.steps.filter(step => !!step.usage).length,
+                resolvedUsage: extractUsageFields(usage),
+            });
+        }
+        await finalize({
+            status: 'aborted',
+            usage,
+            outputJson: {
+                finishReason: 'abort',
+                steps: event.steps.length,
+            },
+        });
+        if (callOptions.onAbort) {
+            await callOptions.onAbort(event);
+        }
+    };
+
     const result = sdkStreamText({
         ...callOptions,
         onFinish: wrappedOnFinish,
         onError: wrappedOnError,
+        onAbort: wrappedOnAbort,
     });
 
     return Object.assign(result, { debug, debugReady });

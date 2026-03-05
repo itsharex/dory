@@ -20,6 +20,7 @@ export function createMetaProvider(options: MetaProviderOptions = {}) {
         apiKey,
         baseURL,
         name: 'meta',
+        includeUsage: true,
     });
 
     return {
