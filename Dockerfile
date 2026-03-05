@@ -13,7 +13,7 @@ RUN apk add --no-cache curl bash
 RUN curl -fsSL https://bun.sh/install | bash
 ENV PATH="/root/.bun/bin:${PATH}"
 
-RUN yarn install --frozen-lockfile
+RUN yarn install --frozen-lockfile --non-interactive --network-concurrency 4
 RUN yarn run build
 RUN mkdir -p apps/web/dist-scripts \
  && bun build apps/web/scripts/bootstrap.ts --target=node --format=esm --outfile=apps/web/dist-scripts/bootstrap.mjs
