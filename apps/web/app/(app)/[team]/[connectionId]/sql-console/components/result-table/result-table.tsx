@@ -26,11 +26,12 @@ import { makeSetUserPickedAtom, makeActiveSetAtom, makeAutoSetActiveSetAtom, mak
 import { useAutoJumpToLastResult } from './hooks/useAutoJumpToLastResult';
 import { SQLErrorAlert } from './components/SQLErrorAlert';
 import { VTableSearchBar } from './components/TableSearchBar';
+import { Charts } from './components/Charts';
 import { useTranslations } from 'next-intl';
-import { ToggleGroup, ToggleGroupItem } from '@/registry/new-york-v4/ui/toggle-group';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { useVTableFilters, VTableFilters } from './vtable/VTableFilters';
+import { Tabs, TabsList, TabsTrigger } from '@/registry/new-york-v4/ui/tabs';
 /* =================================== constants =================================== */
 
 const MAX_ROWS_HINT = 5_000_000; // UI hint only
@@ -685,66 +686,68 @@ export function ResultTable() {
         }
         return (
             <div className="flex h-full min-h-0 flex-col bg-card mb-2">
-                <div className="flex items-center justify-between gap-3 w-full">
-                    <VTableSearchBar
-                        query={query}
-                        className="w-96"
-                        onQueryChange={setQuery}
-                        onClearQuery={() => setQuery('')}
-                        filteredCount={stats.filteredCount}
-                        totalCount={stats.totalCount}
-                    />
-                    <div className="flex items-center gap-1.5 mr-2">
-                        <ToggleGroup
-                            type="single"
-                            variant="outline"
-                            size="sm"
-                            className="h-7"
+                <div className="border-b bg-muted/30">
+                    <div className="flex items-center justify-between gap-3 w-full px-2 py-1">
+                        <Tabs
                             value={viewMode}
                             onValueChange={value => {
                                 if (value === 'table' || value === 'charts') {
                                     setViewMode(value);
                                 }
                             }}
-                            aria-label="Result view"
                         >
-                            <ToggleGroupItem value="table" className="h-7 px-2.5 text-xs cursor-pointer">
-                                Table
-                            </ToggleGroupItem>
-                            <ToggleGroupItem value="charts" className="h-7 px-2.5 text-xs cursor-pointer">
-                                Charts
-                            </ToggleGroupItem>
-                        </ToggleGroup>
-                        {isResult && (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-7 w-7 mr-1 cursor-pointer"
-                                        title={t('Results.DownloadCsvTitle')}
-                                        aria-label={t('Results.DownloadCsvTitle')}
-                                    >
-                                        <MoreHorizontal className="h-3.5 w-3.5" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onSelect={handleDownloadCsv} disabled={rowCount <= 0} className="cursor-pointer">
-                                        <Download />
-                                        CSV
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        )}
+                            <TabsList className="h-7 p-[2px]" aria-label="Result view">
+                                <TabsTrigger value="table" className="h-6 px-3 text-xs cursor-pointer">
+                                    Table
+                                </TabsTrigger>
+                                <TabsTrigger value="charts" className="h-6 px-3 text-xs cursor-pointer">
+                                    Charts
+                                </TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                        <div className="flex min-w-0 flex-1 flex-row">
+                            <VTableSearchBar
+                                query={query}
+                                className="w-96 max-w-full"
+                                onQueryChange={setQuery}
+                                onClearQuery={() => setQuery('')}
+                                filteredCount={stats.filteredCount}
+                                totalCount={stats.totalCount}
+                            />
+                            <VTableFilters
+                                activeFilters={activeFilters}
+                                columnsRaw={sessionMetas.columns ?? []}
+                                onUpsertFilter={setColumnFilter}
+                                onRemoveFilter={removeFilter}
+                                onClearAllFilters={clearAllFilters}
+                                className="border-0 bg-transparent px-0 py-0"
+                            />
+                        </div>
+                        <div className="flex items-center gap-1.5 mr-2">
+                            {isResult && (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7 mr-1 cursor-pointer"
+                                            title={t('Results.DownloadCsvTitle')}
+                                            aria-label={t('Results.DownloadCsvTitle')}
+                                        >
+                                            <MoreHorizontal className="h-3.5 w-3.5" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onSelect={handleDownloadCsv} disabled={rowCount <= 0} className="cursor-pointer">
+                                            <Download />
+                                            CSV
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            )}
+                        </div>
                     </div>
                 </div>
-                <VTableFilters
-                    activeFilters={activeFilters}
-                    columnsRaw={sessionMetas.columns ?? []}
-                    onUpsertFilter={setColumnFilter}
-                    onRemoveFilter={removeFilter}
-                    onClearAllFilters={clearAllFilters}
-                />
                 {viewMode === 'table' ? (
                     <>
                         <div className="flex-1 min-h-0">
@@ -775,7 +778,7 @@ export function ResultTable() {
                         />
                     </>
                 ) : (
-                    <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Charts</div>
+                    <Charts rows={columnFilteredResults} columnsRaw={sessionMetas.columns} />
                 )}
             </div>
         );

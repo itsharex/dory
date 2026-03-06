@@ -1,10 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Filter, X } from 'lucide-react';
-import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { cn } from '@/lib/utils';
+import { Button } from '@/registry/new-york-v4/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/registry/new-york-v4/ui/popover';
 import { ColumnFilterPopover } from './ColumnFIlter';
 import { ColumnFilter, NumOp, StrOp } from './type';
 
@@ -20,6 +21,13 @@ type FilterDraft = {
 
 type ColumnMeta = { name: string; type?: string | null };
 type PopoverColumnMeta = { name: string; type: string };
+const MAX_VISIBLE_FILTERS = 3;
+
+function formatFilterSummary(filter: ColumnFilter, t: (key: string) => string) {
+    const value = filter.value ? ` = ${filter.value}` : '';
+    const caseSensitive = filter.kind === 'string' && filter.caseSensitive ? t('VTable.Filter.CaseSensitiveSuffix') : '';
+    return `${filter.col}${value}${caseSensitive}`;
+}
 
 function normalizeColumns(columnsRaw: ColumnMeta[]): PopoverColumnMeta[] {
     return columnsRaw.map(column => ({
@@ -239,17 +247,21 @@ export function VTableFilters({
     onUpsertFilter,
     onRemoveFilter,
     onClearAllFilters,
+    className,
 }: {
     activeFilters: ColumnFilter[];
     columnsRaw: ColumnMeta[];
     onUpsertFilter: (filter: ColumnFilter) => void;
     onRemoveFilter: (col: string) => void;
     onClearAllFilters: () => void;
+    className?: string;
 }) {
     const t = useTranslations('SqlConsole');
     const [tagFilterAnchor, setTagFilterAnchor] = useState<HTMLElement | null>(null);
     const [tagFilterCol, setTagFilterCol] = useState<string | null>(null);
     const [tagOpenSig, setTagOpenSig] = useState(0);
+    const [hiddenFiltersOpen, setHiddenFiltersOpen] = useState(false);
+    const hiddenFiltersAnchorRef = useRef<HTMLDivElement | null>(null);
     const { getColumnFilterPopoverProps, setFilterDraft } = useVTableFilterUi({
         activeFilters,
         columnsRaw,
@@ -257,58 +269,88 @@ export function VTableFilters({
         onRemoveFilter,
     });
     const tagFilterPopoverProps = tagFilterCol ? getColumnFilterPopoverProps(tagFilterCol) : null;
+    const visibleFilters = activeFilters.slice(0, MAX_VISIBLE_FILTERS);
+    const hiddenFilters = activeFilters.slice(MAX_VISIBLE_FILTERS);
+
+    const openFilterEditor = useCallback(
+        (filter: ColumnFilter, anchor: HTMLElement) => {
+            setFilterDraft({
+                col: filter.col,
+                kind: filter.kind === 'number' ? 'number' : 'string',
+                op: filter.op as StrOp | NumOp,
+                value: filter.value ?? '',
+                cs: !!filter.caseSensitive,
+            });
+            setTagFilterAnchor(anchor);
+            setTagFilterCol(filter.col);
+            setTagOpenSig(value => value + 1);
+        },
+        [setFilterDraft],
+    );
+
+    const openHiddenFilterEditor = useCallback(
+        (filter: ColumnFilter) => {
+            setHiddenFiltersOpen(false);
+            openFilterEditor(filter, hiddenFiltersAnchorRef.current ?? document.body);
+        },
+        [openFilterEditor],
+    );
 
     return (
         <>
             {activeFilters.length > 0 && (
-                <div className="flex flex-wrap gap-2 px-2 py-1 border-b bg-muted/30 justify-between items-center">
-                    <div className="flex flex-wrap gap-2">
-                        {activeFilters.map(filter => (
-                            <Badge
+                <div className={cn('flex items-center gap-2 border-b bg-muted/30 px-2 py-1', className)}>
+                    <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+                        {visibleFilters.map(filter => (
+                            <FilterPill
                                 key={filter.col}
-                                variant="secondary"
-                                className="gap-1 cursor-pointer"
-                                onClick={event => {
-                                    setFilterDraft({
-                                        col: filter.col,
-                                        kind: filter.kind === 'number' ? 'number' : 'string',
-                                        op: filter.op as StrOp | NumOp,
-                                        value: filter.value ?? '',
-                                        cs: !!filter.caseSensitive,
-                                    });
-                                    setTagFilterAnchor(event.currentTarget as HTMLElement);
-                                    setTagFilterCol(filter.col);
-                                    setTagOpenSig(value => value + 1);
-                                }}
-                                title={t('VTable.Filter.EditHint')}
-                            >
-                                <Filter className="h-3 w-3" />
-                                <span className="max-w-48 truncate">{filter.col}</span>
-                                <span className="opacity-70">
-                                    {String(filter.op)}
-                                    {filter.value ? `:${filter.value}` : ''}
-                                    {filter.kind === 'string' && filter.caseSensitive ? t('VTable.Filter.CaseSensitiveSuffix') : ''}
-                                </span>
-                                <button
-                                    className="ml-1 opacity-70 hover:opacity-100"
-                                    onClick={event => {
-                                        event.stopPropagation();
-                                        onRemoveFilter(filter.col);
-                                    }}
-                                    aria-label={t('VTable.Filter.RemoveAria')}
-                                    title={t('VTable.Filter.RemoveTitle')}
-                                >
-                                    <X className="h-3 w-3" />
-                                </button>
-                            </Badge>
+                                filter={filter}
+                                label={formatFilterSummary(filter, t)}
+                                onOpen={openFilterEditor}
+                                onRemove={onRemoveFilter}
+                                t={t}
+                            />
                         ))}
+                        {hiddenFilters.length > 0 && (
+                            <>
+                                <div ref={hiddenFiltersAnchorRef} className="h-0 w-0 shrink-0" />
+                                <Popover open={hiddenFiltersOpen} onOpenChange={setHiddenFiltersOpen}>
+                                <PopoverTrigger asChild>
+                                    <button
+                                        type="button"
+                                        className="shrink-0 rounded-md border border-border/70 bg-background px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                                    >
+                                        +{hiddenFilters.length} more
+                                    </button>
+                                </PopoverTrigger>
+                                <PopoverContent align="start" className="w-80 p-2">
+                                    <div className="space-y-1">
+                                        {hiddenFilters.map(filter => (
+                                            <FilterPill
+                                                key={filter.col}
+                                                filter={filter}
+                                                label={formatFilterSummary(filter, t)}
+                                                onOpen={filter => openHiddenFilterEditor(filter)}
+                                                onRemove={onRemoveFilter}
+                                                t={t}
+                                                className="w-full"
+                                            />
+                                        ))}
+                                    </div>
+                                </PopoverContent>
+                                </Popover>
+                            </>
+                        )}
                     </div>
-                    <button
-                        className={cn('text-xs px-2 py-1 rounded border cursor-pointer transition-colors', 'hover:bg-accent')}
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="xs"
+                        className="shrink-0"
                         onClick={onClearAllFilters}
                     >
                         {t('VTable.Filter.ClearAll')}
-                    </button>
+                    </Button>
                 </div>
             )}
 
@@ -330,5 +372,52 @@ export function VTableFilters({
                 />
             )}
         </>
+    );
+}
+
+function FilterPill({
+    filter,
+    label,
+    onOpen,
+    onRemove,
+    t,
+    className,
+}: {
+    filter: ColumnFilter;
+    label: string;
+    onOpen: (filter: ColumnFilter, anchor: HTMLElement) => void;
+    onRemove: (col: string) => void;
+    t: (key: string) => string;
+    className?: string;
+}) {
+    return (
+        <div
+            className={cn(
+                'flex min-w-0 items-center gap-1 rounded-md border border-border/70 bg-background px-2 py-1 text-xs',
+                className,
+            )}
+        >
+            <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden text-left cursor-pointer"
+                onClick={event => onOpen(filter, event.currentTarget)}
+                title={t('VTable.Filter.EditHint')}
+            >
+                <Filter className="h-3 w-3 shrink-0 text-muted-foreground" />
+                <span className="truncate">{label}</span>
+            </button>
+            <button
+                type="button"
+                className="shrink-0 opacity-70 transition-opacity hover:opacity-100 cursor-pointer"
+                onClick={event => {
+                    event.stopPropagation();
+                    onRemove(filter.col);
+                }}
+                aria-label={t('VTable.Filter.RemoveAria')}
+                title={t('VTable.Filter.RemoveTitle')}
+            >
+                <X className="h-3 w-3" />
+            </button>
+        </div>
     );
 }

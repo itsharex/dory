@@ -1053,7 +1053,7 @@
                 "CaseSensitiveSuffix": " (Aa)",
                 "RemoveAria": "Remove filter",
                 "RemoveTitle": "Remove",
-                "ClearAll": "Clear all filters",
+                "ClearAll": "Clear",
                 "Title": "Column filter",
                 "TitleWithColumn": "Column filter: {column}",
                 "Remove": "Remove",
