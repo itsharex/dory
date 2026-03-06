@@ -5,7 +5,7 @@ import { BarChart3 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/registry/new-york-v4/ui/select';
 
 export type ChartType = 'bar' | 'line';
-export type MetricKind = 'count' | 'sum';
+export type MetricKind = 'count' | 'count_true' | 'sum' | 'avg' | 'max' | 'min' | 'count_distinct';
 export type ChartRow = { rowData: Record<string, unknown> };
 
 export type MetricOption = {
@@ -23,6 +23,7 @@ export type ChartSeries = {
 export type AggregatedChartData = {
     data: Array<Record<string, number | string>>;
     series: ChartSeries[];
+    bucketHint?: string | null;
 };
 
 export type ChartState = {

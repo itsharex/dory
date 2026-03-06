@@ -47,6 +47,7 @@ export function ChartView(props: {
                 columnNames={columnNames}
                 metricOptions={metricOptions}
                 effectiveXKey={effectiveXKey}
+                bucketHint={aggregated.bucketHint}
                 onChartTypeChange={onChartTypeChange}
                 onXKeyChange={onXKeyChange}
                 onYKeyChange={onYKeyChange}

@@ -12,13 +12,14 @@ export function ChartControlBar(props: {
     columnNames: string[];
     metricOptions: MetricOption[];
     effectiveXKey: string;
+    bucketHint?: string | null;
     onChartTypeChange: (value: string) => void;
     onXKeyChange: (value: string) => void;
     onYKeyChange: (value: string) => void;
     onGroupKeyChange: (value: string) => void;
     onResetAuto: () => void;
 }) {
-    const { chartState, chartStateIsAuto, columnNames, metricOptions, effectiveXKey, onChartTypeChange, onXKeyChange, onYKeyChange, onGroupKeyChange, onResetAuto } = props;
+    const { chartState, chartStateIsAuto, columnNames, metricOptions, effectiveXKey, bucketHint, onChartTypeChange, onXKeyChange, onYKeyChange, onGroupKeyChange, onResetAuto } = props;
 
     return (
         <div className="flex items-center justify-between px-3 pb-1.5 pt-2">
@@ -57,16 +58,19 @@ export function ChartControlBar(props: {
                     disabled={columnNames.length === 0}
                 />
             </div>
-            <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                className={cn('h-7 px-2 text-[11px] font-normal text-muted-foreground hover:text-foreground', chartStateIsAuto && 'bg-background/60 text-foreground')}
-                onClick={onResetAuto}
-            >
-                <AISparkIcon className="h-3 w-3" />
-                Auto
-            </Button>
+            <div className="flex items-center gap-2">
+                {bucketHint ? <div className="text-[11px] text-muted-foreground">{bucketHint}</div> : null}
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className={cn('h-7 px-2 text-[11px] font-normal text-muted-foreground hover:text-foreground', chartStateIsAuto && 'bg-background/60 text-foreground')}
+                    onClick={onResetAuto}
+                >
+                    <AISparkIcon className="h-3 w-3" />
+                    Auto
+                </Button>
+            </div>
         </div>
     );
 }
