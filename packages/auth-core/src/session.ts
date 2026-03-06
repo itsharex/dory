@@ -58,16 +58,6 @@ export function createSessionResolver<Session>(options: CreateSessionResolverOpt
             cache: 'no-store',
           });
 
-          log.info('[auth/session] cloud session fetch result', {
-            runtime,
-            hasCloudBase: Boolean(cloudBase),
-            status: res.status,
-            ok: res.ok,
-            requestHost,
-            requestUrl,
-            cookieNames,
-          });
-
           if (res.ok) {
             const session = (await res.json()) as Session | null;
             if (session) {
@@ -77,51 +67,19 @@ export function createSessionResolver<Session>(options: CreateSessionResolverOpt
                 status: res.status,
                 requestHost,
                 requestUrl,
-                cookieNames,
               });
               return session;
             }
-
-            log.warn('[auth/session] cloud fetch ok but empty session', {
-              runtime,
-              hasCloudBase: Boolean(cloudBase),
-              status: res.status,
-              requestHost,
-              requestUrl,
-              cookieNames,
-            });
           } else {
-            log.warn('[auth/session] cloud fetch not ok', {
-              runtime,
-              hasCloudBase: Boolean(cloudBase),
-              status: res.status,
-              requestHost,
-              requestUrl,
-              cookieNames,
-            });
+            // 
           }
         } catch {
-          log.warn('[auth/session] cloud fetch threw', {
-            runtime,
-            hasCloudBase: Boolean(cloudBase),
-            requestHost,
-            requestUrl,
-            cookieNames,
-          });
         }
       }
 
       if (strictProxyOnly) {
-        log.warn('[auth/session] proxy mode enabled, skip local fallback (strict)', {
-          runtime,
-          hasCloudBase: Boolean(cloudBase),
-          requestHost,
-          requestUrl,
-          cookieNames,
-        });
         return null;
       }
-
       log.warn('[auth/session] cloud session unavailable, fallback to local auth', {
         runtime,
         hasCloudBase: Boolean(cloudBase),
@@ -138,13 +96,6 @@ export function createSessionResolver<Session>(options: CreateSessionResolverOpt
       .catch(() => null);
 
     if (session) {
-      log.info('[auth/session] resolved via local auth', {
-        runtime,
-        hasCloudBase: Boolean(cloudBase),
-        requestHost,
-        requestUrl,
-        cookieNames,
-      });
       return session;
     }
 

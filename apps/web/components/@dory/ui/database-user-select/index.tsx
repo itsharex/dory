@@ -11,9 +11,10 @@ type Props = {
     users: string[]; // 用户名列表
     onChange: (user: string) => void;
     className?: string;
+    triggerSize?: 'sm' | 'control';
 };
 
-export function DatabaseUsersSelect({ value, users, onChange, className }: Props) {
+export function DatabaseUsersSelect({ value, users, onChange, className, triggerSize = 'control' }: Props) {
     const t = useTranslations('DoryUI');
     const options: SelectOption[] = useMemo(
         () =>
@@ -37,6 +38,7 @@ export function DatabaseUsersSelect({ value, users, onChange, className }: Props
             emptyText={t('DatabaseUserSelect.Empty')}
             groupLabel={t('DatabaseUserSelect.GroupLabel')}
             className={cn(className)}
+            triggerSize={triggerSize}
         />
     );
 }

@@ -5,9 +5,9 @@ import { ChevronsUpDown, Check } from 'lucide-react';
 import { cn } from '@/registry/new-york-v4/lib/utils';
 import { useTranslations } from 'next-intl';
 
-import { Button } from '@/registry/new-york-v4/ui/button';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/registry/new-york-v4/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/registry/new-york-v4/ui/popover';
+import { selectTriggerVariants } from '@/registry/new-york-v4/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/registry/new-york-v4/ui/tooltip';
 
 export type SelectOption = {
@@ -44,6 +44,7 @@ type SearchableSelectProps = {
      */
     className?: string; // 整个按钮的 className
     popoverClassName?: string; // PopoverContent 的 className
+    triggerSize?: 'sm' | 'control';
 };
 
 export function SearchableSelect({
@@ -59,6 +60,7 @@ export function SearchableSelect({
     icon: Icon,
     className,
     popoverClassName,
+    triggerSize = 'sm',
 }: SearchableSelectProps) {
     const t = useTranslations('DoryUI');
     const resolvedPlaceholder = placeholder ?? t('Select.Placeholder');
@@ -98,20 +100,27 @@ export function SearchableSelect({
         <TooltipProvider>
             <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>
-                    <Button type="button" variant="outline" role="combobox" aria-expanded={open} className={cn('h-8 w-full justify-between px-2 text-xs', className)}>
+                    <button
+                        type="button"
+                        data-slot="select-trigger"
+                        data-size={triggerSize}
+                        role="combobox"
+                        aria-expanded={open}
+                        className={cn(selectTriggerVariants({ size: triggerSize }), 'w-full', className)}
+                    >
                         <span className="flex min-w-0 items-center gap-2">
                             {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
 
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <span className="max-w-[220px] truncate text-xs">{displayLabel}</span>
+                                    <span className="max-w-[220px] truncate">{displayLabel}</span>
                                 </TooltipTrigger>
                                 <TooltipContent side="right">{displayLabel}</TooltipContent>
                             </Tooltip>
                         </span>
 
                         <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
+                    </button>
                 </PopoverTrigger>
 
                 <PopoverContent align="start" className={cn('w-80 p-0', popoverClassName)}>

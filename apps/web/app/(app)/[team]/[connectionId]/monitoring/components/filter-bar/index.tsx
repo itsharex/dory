@@ -168,16 +168,16 @@ export function QueryInsightsFilterBar({ users = [], databases = [], onRefresh, 
 
     return (
         <Card className="border-none bg-muted/40">
-            <CardContent className="flex flex-wrap items-center gap-3 px-4 py-0">
+            <CardContent className="flex items-center gap-3 px-4 py-0">
                 
-                <DatabaseUsersSelect value={filters.user} users={resolvedUsers} onChange={v => set('user', v as any)} className="h-8 w-[140px] text-xs" />
+                <DatabaseUsersSelect value={filters.user} users={resolvedUsers} onChange={v => set('user', v as any)} className="w-[168px]" triggerSize="control" />
 
                 
-                <DatabasesSelect className="h-8 w-[140px] text-xs" value={filters.database} databases={resolvedDatabases.map(db => ({ value: db, label: db }))} onChange={v => set('database', v as any)} />
+                <DatabasesSelect className="w-[168px]" value={filters.database} databases={resolvedDatabases.map(db => ({ value: db, label: db }))} onChange={v => set('database', v as any)} triggerSize="control" />
 
                 
                 <Select value={filters.queryType} onValueChange={v => set('queryType', v as QueryType)}>
-                        <SelectTrigger size="sm" className="h-8 w-[140px] text-xs">
+                        <SelectTrigger size="control" className="w-[168px]">
                         <SelectValue placeholder={t('Filters.QueryTypePlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
@@ -194,17 +194,17 @@ export function QueryInsightsFilterBar({ users = [], databases = [], onRefresh, 
                     <div className="flex items-center gap-2">
                         <ToggleGroup
                             type="single"
-                            size="sm"
+                            size="control"
                             value={thresholdMode}
                             onValueChange={val => {
                                 if (!val) return;
                                 setThresholdMode(val as ThresholdMode);
                             }}
                         >
-                            <ToggleGroupItem value="dynamic" className="h-8 px-2 text-[11px]">
+                            <ToggleGroupItem value="dynamic">
                                 {t('Filters.DynamicThreshold')}
                             </ToggleGroupItem>
-                            <ToggleGroupItem value="fixed" className="h-8 px-2 text-[11px]">
+                            <ToggleGroupItem value="fixed">
                                 {t('Filters.FixedThreshold')}
                             </ToggleGroupItem>
                         </ToggleGroup>
@@ -221,7 +221,7 @@ export function QueryInsightsFilterBar({ users = [], databases = [], onRefresh, 
                         ) : (
                             <div className="flex items-center gap-1">
                                 <span className="text-xs text-muted-foreground">{t('Filters.DurationAtLeast')}</span>
-                                <Input type="number" min={0} value={minDurationInput} onChange={handleMinDurationChange} className="w-[80px] text-xs h-8" />
+                                <Input type="number" min={0} value={minDurationInput} onChange={handleMinDurationChange} className="h-7 w-[80px] text-[11px]" />
                                 <span className="text-xs text-muted-foreground">{t('Units.Milliseconds')}</span>
                             </div>
                         )}
@@ -229,14 +229,14 @@ export function QueryInsightsFilterBar({ users = [], databases = [], onRefresh, 
                 ) : (
                     <div className="flex items-center gap-1">
                         <span className="text-xs text-muted-foreground">{t('Filters.DurationAtLeast')}</span>
-                        <Input type="number" min={0} value={minDurationInput} onChange={handleMinDurationChange} className="w-[80px] text-xs h-8" />
+                        <Input type="number" min={0} value={minDurationInput} onChange={handleMinDurationChange} className="h-7 w-[80px] text-[11px]" />
                         <span className="text-xs text-muted-foreground">{t('Units.Milliseconds')}</span>
                     </div>
                 )}
 
                 
                 <Select value={filters.timeRange} onValueChange={v => set('timeRange', v as TimeRange)}>
-                    <SelectTrigger size="sm" className="h-8 w-[130px] text-xs">
+                    <SelectTrigger size="control" className="w-[130px]">
                         <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -249,12 +249,12 @@ export function QueryInsightsFilterBar({ users = [], databases = [], onRefresh, 
 
                 
                 <div className="ml-auto flex items-center gap-1">
-                    <Button type="button" size="sm" variant="ghost" className="h-8 px-2 text-[11px] text-muted-foreground" onClick={handleReset} disabled={isBusy}>
+                    <Button type="button" size="control" variant="ghost" className="text-muted-foreground" onClick={handleReset} disabled={isBusy}>
                         <RotateCcw className="mr-1 h-3 w-3" />
                         {t('Actions.Reset')}
                     </Button>
 
-                    <Button type="button" size="sm" variant="outline" className="h-8 relative w-[70px]" onClick={handleApply} disabled={isBusy}>
+                    <Button type="button" size="control" variant="outline" className="relative w-[70px]" onClick={handleApply} disabled={isBusy}>
                         <span className={isBusy ? 'opacity-0' : 'opacity-100'}>{t('Actions.Apply')}</span>
                         {isBusy && <RefreshCcw className="absolute left-1/2 top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 animate-spin" />}
                     </Button>

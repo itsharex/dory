@@ -3,16 +3,14 @@ import { cn } from '@/lib/utils';
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { GridCellProps, AutoSizer, MultiGrid, MultiGridProps } from 'react-virtualized';
 import { ColumnFilterPopover } from './ColumnFIlter';
-// import { VTableSearchBar } from '../components/TableSearchBar';
-import { VTableProps, ColWidths, StrOp, NumOp, CellKey, ck, parseCK, ColumnFilter } from './type';
+import { VTableProps, ColWidths, CellKey, ck, parseCK } from './type';
 import { formatTooltip, formatValue } from './utils';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from '@/registry/new-york-v4/ui/context-menu';
-import { Badge } from '@/registry/new-york-v4/ui/badge';
-import { Filter, X } from 'lucide-react';
 import { useAtomValue } from 'jotai';
 import { currentSessionMetaAtom } from '../stores/result-table.atoms';
 import { buildEqualsFilterFromCell } from './filter';
 import { useTranslations } from 'next-intl';
+import { useVTableFilterUi, useVTableFilters, VTableFilters } from './VTableFilters';
 
 const HEADER_PAD = 24; 
 
@@ -28,20 +26,17 @@ export default function VTable({
     setInspectorOpen,
     setInspectorMode,
     setInspectorPayload,
+    activeFilters: externalActiveFilters,
+    onUpsertFilter: onUpsertExternalFilter,
+    onRemoveFilter: onRemoveExternalFilter,
+    onClearAllFilters: onClearAllExternalFilters,
+    showFiltersBar = true,
 }: VTableProps) {
     if (!results || results.length === 0) return null;
     const t = useTranslations('SqlConsole');
     const metas = useAtomValue(currentSessionMetaAtom);
     const columnsRaw: any = metas?.columns;
     const columns = useMemo(() => (columnsRaw ?? []).map((c: any) => c?.name), [columnsRaw]);
-
-    
-    const filterBtnRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
-
-    
-    const [tagFilterAnchor, setTagFilterAnchor] = useState<HTMLElement | null>(null);
-    const [tagFilterCol, setTagFilterCol] = useState<string | null>(null);
-    const [tagOpenSig, setTagOpenSig] = useState(0);
 
     const [colWidths, setColWidths] = useState<ColWidths>(() => {
         if (typeof window !== 'undefined' && storageKey) {
@@ -67,86 +62,22 @@ export default function VTable({
             localStorage.setItem(`${storageKey}:colWidths`, JSON.stringify(colWidths));
         } catch {}
     }, [colWidths, storageKey]);
-
-    const [activeFilters, setActiveFilters] = useState<ColumnFilter[]>(() => {
-        if (typeof window !== 'undefined' && storageKey) {
-            try {
-                const raw = localStorage.getItem(`${storageKey}:filters`);
-                if (raw) return JSON.parse(raw) as ColumnFilter[];
-            } catch {}
-        }
-        return [];
+    const internalFilters = useVTableFilters({ results, storageKey });
+    const usesExternalFilters = !!(externalActiveFilters && onUpsertExternalFilter && onRemoveExternalFilter && onClearAllExternalFilters);
+    const activeFilters = usesExternalFilters ? externalActiveFilters : internalFilters.activeFilters;
+    const filteredResults = usesExternalFilters ? results : internalFilters.filteredResults;
+    const setColumnFilter = usesExternalFilters ? onUpsertExternalFilter : internalFilters.setColumnFilter;
+    const removeFilter = usesExternalFilters ? onRemoveExternalFilter : internalFilters.removeFilter;
+    const clearAllFilters = usesExternalFilters ? onClearAllExternalFilters : internalFilters.clearAllFilters;
+    const {
+        getColumnFilter,
+        getColumnFilterPopoverProps,
+    } = useVTableFilterUi({
+        activeFilters,
+        columnsRaw: columnsRaw ?? [],
+        onUpsertFilter: setColumnFilter,
+        onRemoveFilter: removeFilter,
     });
-    useEffect(() => {
-        if (!storageKey) return;
-        try {
-            localStorage.setItem(`${storageKey}:filters`, JSON.stringify(activeFilters));
-        } catch {}
-    }, [activeFilters, storageKey]);
-
-    const testString = (raw: any, op: StrOp, val?: string, cs?: boolean) => {
-        const s = raw == null ? '' : typeof raw === 'object' ? JSON.stringify(raw) : String(raw);
-        const t = val ?? '';
-        const a = cs ? s : s.toLowerCase();
-        const b = cs ? t : t.toLowerCase();
-        switch (op) {
-            case 'contains':
-                return a.includes(b);
-            case 'equals':
-                return a === b;
-            case 'startsWith':
-                return a.startsWith(b);
-            case 'endsWith':
-                return a.endsWith(b);
-            case 'empty':
-                return a.length === 0;
-            case 'notEmpty':
-                return a.length > 0;
-            case 'regex':
-                try {
-                    const re = new RegExp(val ?? '', cs ? '' : 'i');
-                    return re.test(s);
-                } catch {
-                    return false;
-                }
-        }
-    };
-    const testNumber = (raw: any, op: NumOp, val?: string) => {
-        const n = typeof raw === 'number' ? raw : Number(raw);
-        const m = Number(val);
-        if (Number.isNaN(n)) return false;
-        switch (op) {
-            case 'eq':
-                return n === m;
-            case 'ne':
-                return n !== m;
-            case 'gt':
-                return n > m;
-            case 'ge':
-                return n >= m;
-            case 'lt':
-                return n < m;
-            case 'le':
-                return n <= m;
-        }
-    };
-
-    const filteredResults = useMemo(() => {
-        const filters = activeFilters;
-        if (filters.length === 0) return results;
-
-        return results.filter(row => {
-            for (const f of filters) {
-                const raw = row.rowData?.[f.col];
-                if (f.kind === 'string') {
-                    if (!testString(raw, f.op as StrOp, f.value, f.caseSensitive)) return false;
-                } else {
-                    if (!testNumber(raw, f.op as NumOp, f.value)) return false;
-                }
-            }
-            return true;
-        });
-    }, [results, columns, activeFilters]);
 
     const [sortBy, setSortBy] = useState<string | null>(null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -170,11 +101,7 @@ export default function VTable({
         onStatsChange?.({
             filteredCount: sortedResults.length,
         });
-    }, [
-        onStatsChange,
-        sortedResults.length,
-        results,
-    ]);
+    }, [onStatsChange, sortedResults.length, results]);
 
     const handleSort = useCallback(
         (col: string) => {
@@ -532,37 +459,14 @@ export default function VTable({
         setInspectorPayload?.({ row: rowIndex, rowData });
         setInspectorOpen?.(true);
     };
-
-    const [filterDraft, setFilterDraft] = useState<{ col: string; kind: 'string' | 'number'; op: StrOp | NumOp; value?: string; cs: boolean }>({
-        col: '',
-        kind: 'string',
-        op: 'contains',
-        value: '',
-        cs: false,
-    });
-    const applyFilterDraft = () => {
-        const { col, kind, op, value, cs } = filterDraft;
-        if (!col) return;
-        setActiveFilters(prev => {
-            const others = prev.filter(f => f.col !== col);
-            const next: ColumnFilter = { col, kind, op, value: value ?? '', caseSensitive: cs };
-            return [...others, next];
-        });
-    };
     const applyQuickEqualsFilterForCell = useCallback(
         (rowIndex: number, colName: string) => {
             const colMeta = (columnsRaw ?? []).find((c: any) => c?.name === colName);
             const cellVal = sortedResults[rowIndex]?.rowData?.[colName];
-            const f = buildEqualsFilterFromCell({ colName, colType: colMeta?.type, raw: cellVal });
-            setActiveFilters(prev => {
-                const others = prev.filter(x => x.col !== colName);
-                return [...others, f];
-            });
+            setColumnFilter(buildEqualsFilterFromCell({ colName, colType: colMeta?.type, raw: cellVal }));
         },
-        [columnsRaw, sortedResults, setActiveFilters],
+        [columnsRaw, setColumnFilter, sortedResults],
     );
-    const removeFilter = (col: string) => setActiveFilters(prev => prev.filter(f => f.col !== col));
-    const clearAllFilters = () => setActiveFilters([]);
 
     const cellRenderer = ({ columnIndex, rowIndex, key, style }: GridCellProps) => {
         
@@ -581,7 +485,7 @@ export default function VTable({
             }
             const col = columns[columnIndex - 1];
             const isSorted = sortBy === col;
-            const existing = activeFilters.find(f => f.col === col);
+            const existing = getColumnFilter(col);
             return (
                 <div
                     key={key}
@@ -593,19 +497,7 @@ export default function VTable({
                         {isSorted && <span className="ml-1">{sortDirection === 'asc' ? '↑' : '↓'}</span>}
                     </button>
 
-                    <ColumnFilterPopover
-                        ref={el => {
-                            if (el) filterBtnRefs.current.set(col, el);
-                            else filterBtnRefs.current.delete(col);
-                        }}
-                        column={col}
-                        columns={columnsRaw}
-                        draft={filterDraft}
-                        setDraft={updater => setFilterDraft(p => ({ ...(typeof updater === 'function' ? (updater as any)(p) : updater) }))}
-                        existing={existing}
-                        onApply={applyFilterDraft}
-                        onRemove={removeFilter}
-                    />
+                    <ColumnFilterPopover {...getColumnFilterPopoverProps(col)} />
 
                     
                     <div
@@ -719,82 +611,13 @@ export default function VTable({
         <ContextMenu>
             <ContextMenuTrigger asChild>
                 <div className="w-full h-full border overflow-hidden flex flex-col">
-                    
-                    {activeFilters.length > 0 && (
-                        <div className="flex flex-wrap gap-2 px-2 py-1 border-b bg-muted/30 justify-between items-center">
-                            <div className="flex flex-wrap gap-2">
-                                {activeFilters.map(f => (
-                                    <Badge
-                                        key={f.col}
-                                        variant="secondary"
-                                        className="gap-1 cursor-pointer"
-                                        onClick={e => {
-                                            
-                                            setFilterDraft(p => ({
-                                                ...p,
-                                                col: f.col,
-                                                kind: f.kind === 'number' ? 'number' : 'string',
-                                                op: f.op as any,
-                                                value: f.value ?? '',
-                                                cs: !!f.caseSensitive,
-                                            }));
-                                            
-                                            setTagFilterAnchor(e.currentTarget as HTMLElement);
-                                            setTagFilterCol(f.col);
-                                            setTagOpenSig(s => s + 1);
-                                        }}
-                                        title={t('VTable.Filter.EditHint')}
-                                    >
-                                        <Filter className="h-3 w-3" />
-                                        <span className="max-w-48 truncate">{f.col}</span>
-                                        <span className="opacity-70">
-                                            {String(f.op)}
-                                            {f.value ? `:${f.value}` : ''}
-                                            {f.kind === 'string' && f.caseSensitive ? t('VTable.Filter.CaseSensitiveSuffix') : ''}
-                                        </span>
-                                        <button
-                                            className="ml-1 opacity-70 hover:opacity-100"
-                                            onClick={e => {
-                                                e.stopPropagation();
-                                                removeFilter(f.col);
-                                            }}
-                                            aria-label={t('VTable.Filter.RemoveAria')}
-                                            title={t('VTable.Filter.RemoveTitle')}
-                                        >
-                                            <X className="h-3 w-3" />
-                                        </button>
-                                    </Badge>
-                                ))}
-                            </div>
-                            <button
-                                className={cn('text-xs px-2 py-1 rounded border cursor-pointer transition-colors', 'hover:bg-accent')}
-                                onClick={activeFilters.length > 0 ? clearAllFilters : undefined}
-                            >
-                                {t('VTable.Filter.ClearAll')}
-                            </button>
-                        </div>
-                    )}
-
-                    
-                    {tagFilterCol && (
-                        <ColumnFilterPopover
-                            column={tagFilterCol}
-                            columns={columnsRaw}
-                            draft={filterDraft}
-                            setDraft={setFilterDraft}
-                            existing={activeFilters.find(f => f.col === tagFilterCol)}
-                            onApply={() => {
-                                applyFilterDraft();
-                                setTagFilterAnchor(null);
-                                setTagFilterCol(null);
-                            }}
-                            onRemove={col => {
-                                removeFilter(col);
-                                setTagFilterAnchor(null);
-                                setTagFilterCol(null);
-                            }}
-                            externalAnchor={tagFilterAnchor}
-                            externalOpenSignal={tagOpenSig}
+                    {showFiltersBar && (
+                        <VTableFilters
+                            activeFilters={activeFilters}
+                            columnsRaw={columnsRaw ?? []}
+                            onUpsertFilter={setColumnFilter}
+                            onRemoveFilter={removeFilter}
+                            onClearAllFilters={clearAllFilters}
                         />
                     )}
 

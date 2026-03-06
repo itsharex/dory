@@ -13,6 +13,11 @@ export interface VTableProps {
     setInspectorOpen?: (open: boolean) => void;
     setInspectorMode?: (mode: 'cell' | 'row' | null) => void;
     setInspectorPayload?: (payload: any) => void;
+    activeFilters?: ColumnFilter[];
+    onUpsertFilter?: (filter: ColumnFilter) => void;
+    onRemoveFilter?: (col: string) => void;
+    onClearAllFilters?: () => void;
+    showFiltersBar?: boolean;
 }
 
 export type ColWidths = Record<string, number>;
@@ -27,8 +32,11 @@ export type StrOp = 'contains' | 'equals' | 'startsWith' | 'endsWith' | 'empty' 
 export type NumOp = 'eq' | 'ne' | 'gt' | 'ge' | 'lt' | 'le';
 export interface ColumnFilter {
     col: string;
-    kind: 'string' | 'number';
-    op: StrOp | NumOp;
+    kind: 'string' | 'number' | 'range';
+    op: StrOp | NumOp | 'range';
     value?: string; 
+    valueTo?: string;
+    rangeValueType?: 'number' | 'date';
+    label?: string;
     caseSensitive?: boolean;
 }

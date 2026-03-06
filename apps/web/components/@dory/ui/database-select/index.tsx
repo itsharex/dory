@@ -12,9 +12,10 @@ type Props = {
     databases: Array<{ value: string; label: string }>;
     onChange: (id: string) => void;
     className?: string;
+    triggerSize?: 'sm' | 'control';
 };
 
-export function DatabasesSelect({ value, databases, onChange, className }: Props) {
+export function DatabasesSelect({ value, databases, onChange, className, triggerSize = 'control' }: Props) {
     const t = useTranslations('DoryUI');
     const options: SelectOption[] = useMemo(
         () =>
@@ -38,6 +39,7 @@ export function DatabasesSelect({ value, databases, onChange, className }: Props
             emptyText={t('DatabaseSelect.Empty')}
             groupLabel={t('DatabaseSelect.GroupLabel')}
             className={cn(className)}
+            triggerSize={triggerSize}
         />
     );
 }

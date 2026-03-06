@@ -1055,7 +1055,7 @@
                 "CaseSensitiveSuffix": "（区分大小写）",
                 "RemoveAria": "移除筛选",
                 "RemoveTitle": "移除",
-                "ClearAll": "清除全部筛选",
+                "ClearAll": "清除",
                 "Title": "列筛选",
                 "TitleWithColumn": "列筛选：{column}",
                 "Remove": "移除",
