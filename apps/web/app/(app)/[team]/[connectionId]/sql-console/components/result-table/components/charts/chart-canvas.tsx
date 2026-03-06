@@ -3,6 +3,7 @@
 import React from 'react';
 import { Bar, BarChart, Brush, CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
 
+import { Button } from '@/registry/new-york-v4/ui/button';
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from '@/registry/new-york-v4/ui/chart';
 
 import { AggregatedChartData, ChartEmptyState, ChartType, NONE_VALUE } from './chart-shared';
@@ -19,82 +20,35 @@ export function ChartCanvas(props: {
     ) => void;
 }) {
     const { chartType, chartConfig, aggregated, effectiveGroupKey, emptyMessage, onApplyChartFilter } = props;
-    const [shiftPressed, setShiftPressed] = React.useState(false);
-    const pendingBrushSelectionRef = React.useRef<{ startIndex?: number; endIndex?: number } | null>(null);
+    const clickFilterEnabled = chartType !== 'line';
+    const [brushSelection, setBrushSelection] = React.useState<{ startIndex: number; endIndex: number } | null>(null);
+    const lastBrushIndex = Math.max(aggregated.data.length - 1, 0);
+    const controlledBrushSelection = brushSelection ?? { startIndex: 0, endIndex: lastBrushIndex };
+    const isZoomed = brushSelection != null;
 
     React.useEffect(() => {
-        const onKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Shift') {
-                setShiftPressed(true);
-            }
-        };
-        const onKeyUp = (event: KeyboardEvent) => {
-            if (event.key === 'Shift') {
-                setShiftPressed(false);
-            }
-        };
-        window.addEventListener('keydown', onKeyDown);
-        window.addEventListener('keyup', onKeyUp);
-        return () => {
-            window.removeEventListener('keydown', onKeyDown);
-            window.removeEventListener('keyup', onKeyUp);
-        };
-    }, []);
-
-    React.useEffect(() => {
-        const commitBrushSelection = () => {
-            const selection = pendingBrushSelectionRef.current;
-            if (!selection) {
-                return;
-            }
-
-            pendingBrushSelectionRef.current = null;
-            const startIndex = selection.startIndex;
-            const endIndex = selection.endIndex;
-
-            if (startIndex == null || endIndex == null || endIndex <= startIndex) {
-                return;
-            }
-
-            const startDatum = aggregated.data[startIndex] as Record<string, unknown> | undefined;
-            const endDatum = aggregated.data[endIndex] as Record<string, unknown> | undefined;
-            const startFilter = startDatum?.__xBrushFilter as
-                | { col: string; kind: 'range'; from: string; to: string; valueType: 'number' | 'date'; label: string }
-                | undefined;
-            const endFilter = endDatum?.__xBrushFilter as
-                | { col: string; kind: 'range'; from: string; to: string; valueType: 'number' | 'date'; label: string }
-                | undefined;
-
-            if (!startFilter || !endFilter || startFilter.col !== endFilter.col || startFilter.valueType !== endFilter.valueType) {
-                return;
-            }
-
-            onApplyChartFilter(
-                [
-                    {
-                        col: startFilter.col,
-                        kind: 'range',
-                        from: startFilter.from,
-                        to: endFilter.to,
-                        valueType: startFilter.valueType,
-                        label: `${startFilter.label} -> ${endFilter.label}`,
-                    },
-                ],
-                { append: shiftPressed },
-            );
-        };
-
-        window.addEventListener('mouseup', commitBrushSelection);
-        window.addEventListener('touchend', commitBrushSelection);
-
-        return () => {
-            window.removeEventListener('mouseup', commitBrushSelection);
-            window.removeEventListener('touchend', commitBrushSelection);
-        };
-    }, [aggregated.data, onApplyChartFilter, shiftPressed]);
+        if (!brushSelection) {
+            return;
+        }
+        const lastIndex = aggregated.data.length - 1;
+        if (lastIndex <= 0) {
+            setBrushSelection(null);
+            return;
+        }
+        if (brushSelection.startIndex > lastIndex || brushSelection.endIndex > lastIndex) {
+            setBrushSelection({
+                startIndex: Math.min(brushSelection.startIndex, lastIndex),
+                endIndex: Math.min(brushSelection.endIndex, lastIndex),
+            });
+        }
+    }, [aggregated.data.length, brushSelection]);
 
     const handleDatumClick = React.useCallback(
         (datum: Record<string, unknown> | undefined, seriesKey: string, seriesLabel: string, append = false) => {
+            if (!clickFilterEnabled) {
+                return;
+            }
+
             if (!datum) {
                 return;
             }
@@ -121,19 +75,77 @@ export function ChartCanvas(props: {
                 onApplyChartFilter(filters, { append });
             }
         },
-        [effectiveGroupKey, onApplyChartFilter],
+        [clickFilterEnabled, effectiveGroupKey, onApplyChartFilter],
     );
 
     const handleBrushChange = React.useCallback((selection: { startIndex?: number; endIndex?: number } | undefined) => {
-        pendingBrushSelectionRef.current = selection ?? null;
-    }, []);
+        const startIndex = selection?.startIndex;
+        const endIndex = selection?.endIndex;
+        if (startIndex == null || endIndex == null || endIndex <= startIndex) {
+            setBrushSelection(null);
+            return;
+        }
+        if (startIndex <= 0 && endIndex >= lastBrushIndex) {
+            setBrushSelection(null);
+            return;
+        }
+        setBrushSelection({ startIndex, endIndex });
+    }, [lastBrushIndex]);
+
+    const brushFilter = React.useMemo(() => {
+        if (!brushSelection) {
+            return null;
+        }
+
+        const startDatum = aggregated.data[brushSelection.startIndex] as Record<string, unknown> | undefined;
+        const endDatum = aggregated.data[brushSelection.endIndex] as Record<string, unknown> | undefined;
+        const startFilter = startDatum?.__xBrushFilter as
+            | { col: string; kind: 'range'; from: string; to: string; valueType: 'number' | 'date'; label: string }
+            | undefined;
+        const endFilter = endDatum?.__xBrushFilter as
+            | { col: string; kind: 'range'; from: string; to: string; valueType: 'number' | 'date'; label: string }
+            | undefined;
+
+        if (!startFilter || !endFilter || startFilter.col !== endFilter.col || startFilter.valueType !== endFilter.valueType) {
+            return null;
+        }
+
+        return {
+            col: startFilter.col,
+            kind: 'range' as const,
+            from: startFilter.from,
+            to: endFilter.to,
+            valueType: startFilter.valueType,
+            label: `${startFilter.label} -> ${endFilter.label}`,
+        };
+    }, [aggregated.data, brushSelection]);
 
     return (
         <div className="flex min-h-0 flex-1 items-center justify-center p-4">
             {emptyMessage ? (
                 <ChartEmptyState message={emptyMessage} />
             ) : (
-                <div className="h-full min-h-[220px] w-full">
+                <div className="flex h-full min-h-[220px] w-full flex-col">
+                    <div className="flex justify-end gap-2 pb-1">
+                        <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setBrushSelection(null)} disabled={!isZoomed}>
+                            Reset Zoom
+                        </Button>
+                        <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-[11px]"
+                            onClick={() => {
+                                if (!brushFilter) {
+                                    return;
+                                }
+                                onApplyChartFilter([brushFilter]);
+                            }}
+                            disabled={!brushFilter}
+                        >
+                            Apply Brush Filter
+                        </Button>
+                    </div>
                     <ChartContainer config={chartConfig} className="aspect-auto h-full w-full overflow-hidden">
                         {chartType === 'line' ? (
                             <LineChart accessibilityLayer data={aggregated.data} margin={{ left: 8, right: 8, top: 8 }}>
@@ -147,7 +159,7 @@ export function ChartCanvas(props: {
                                     tickFormatter={value => String(value).slice(0, 18)}
                                 />
                                 <YAxis tickLine={false} axisLine={false} width={56} />
-                                <ChartTooltip content={<ChartFilterTooltipContent />} />
+                                <ChartTooltip content={<ChartFilterTooltipContent filterEnabled={clickFilterEnabled} />} />
                                 {aggregated.series.map(series => (
                                     <Line
                                         key={series.key}
@@ -162,13 +174,30 @@ export function ChartCanvas(props: {
                                                 r={3}
                                                 fill={`var(--color-${series.key})`}
                                                 stroke="transparent"
-                                                className="cursor-pointer"
-                                                onClick={event => handleDatumClick(dotProps.payload as Record<string, unknown>, series.key, series.label, event.shiftKey)}
+                                                className={clickFilterEnabled ? 'cursor-pointer' : undefined}
+                                                onClick={
+                                                    clickFilterEnabled
+                                                        ? event =>
+                                                              handleDatumClick(
+                                                                  dotProps.payload as Record<string, unknown>,
+                                                                  series.key,
+                                                                  series.label,
+                                                                  event.shiftKey,
+                                                              )
+                                                        : undefined
+                                                }
                                             />
                                         )}
                                     />
                                 ))}
-                                <Brush dataKey="xLabel" height={18} travellerWidth={8} onChange={handleBrushChange} />
+                                <Brush
+                                    dataKey="xLabel"
+                                    height={18}
+                                    travellerWidth={8}
+                                    onChange={handleBrushChange}
+                                    startIndex={controlledBrushSelection.startIndex}
+                                    endIndex={controlledBrushSelection.endIndex}
+                                />
                             </LineChart>
                         ) : (
                             <BarChart accessibilityLayer data={aggregated.data} margin={{ left: 8, right: 8, top: 8 }}>
@@ -182,7 +211,7 @@ export function ChartCanvas(props: {
                                     tickFormatter={value => String(value).slice(0, 18)}
                                 />
                                 <YAxis tickLine={false} axisLine={false} width={56} />
-                                <ChartTooltip cursor={false} content={<ChartFilterTooltipContent />} />
+                                <ChartTooltip cursor={false} content={<ChartFilterTooltipContent filterEnabled={clickFilterEnabled} />} />
                                 {aggregated.series.map(series => (
                                     <Bar
                                         key={series.key}
@@ -201,7 +230,14 @@ export function ChartCanvas(props: {
                                         }
                                     />
                                 ))}
-                                <Brush dataKey="xLabel" height={18} travellerWidth={8} onChange={handleBrushChange} />
+                                <Brush
+                                    dataKey="xLabel"
+                                    height={18}
+                                    travellerWidth={8}
+                                    onChange={handleBrushChange}
+                                    startIndex={controlledBrushSelection.startIndex}
+                                    endIndex={controlledBrushSelection.endIndex}
+                                />
                             </BarChart>
                         )}
                     </ChartContainer>
@@ -211,7 +247,8 @@ export function ChartCanvas(props: {
     );
 }
 
-function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartTooltipContent>) {
+function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartTooltipContent> & { filterEnabled?: boolean }) {
+    const { filterEnabled } = props;
     if (!props.active || !props.payload?.length) {
         return null;
     }
@@ -237,7 +274,7 @@ function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartToolt
                 );
 
                 const isLast = index === (props.payload?.length ?? 1) - 1;
-                if (!isLast) {
+                if (!isLast || !filterEnabled) {
                     return defaultRow;
                 }
 
