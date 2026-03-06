@@ -147,6 +147,14 @@ Native ClickHouse user and role management UI.
 
 ---
 
+## 🗺️ Roadmap
+
+See the latest roadmap here:
+
+<a href="https://github.com/dorylab/dory/discussions/35" target="_blank" rel="noopener noreferrer">Dory Roadmap</a>
+
+---
+
 ## ⚙️ Tech Stack
 
 - Next.js + React + Tailwind
