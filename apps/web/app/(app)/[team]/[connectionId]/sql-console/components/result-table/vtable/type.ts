@@ -13,6 +13,11 @@ export interface VTableProps {
     setInspectorOpen?: (open: boolean) => void;
     setInspectorMode?: (mode: 'cell' | 'row' | null) => void;
     setInspectorPayload?: (payload: any) => void;
+    activeFilters?: ColumnFilter[];
+    onUpsertFilter?: (filter: ColumnFilter) => void;
+    onRemoveFilter?: (col: string) => void;
+    onClearAllFilters?: () => void;
+    showFiltersBar?: boolean;
 }
 
 export type ColWidths = Record<string, number>;

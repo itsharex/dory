@@ -30,6 +30,7 @@ import { useTranslations } from 'next-intl';
 import { ToggleGroup, ToggleGroupItem } from '@/registry/new-york-v4/ui/toggle-group';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
 import { Button } from '@/registry/new-york-v4/ui/button';
+import { useVTableFilters, VTableFilters } from './vtable/VTableFilters';
 /* =================================== constants =================================== */
 
 const MAX_ROWS_HINT = 5_000_000; // UI hint only
@@ -212,6 +213,16 @@ export function ResultTable() {
             return true;
         });
     }, [results, sessionMetas, query]);
+    const {
+        activeFilters,
+        filteredResults: columnFilteredResults,
+        setColumnFilter,
+        removeFilter,
+        clearAllFilters,
+    } = useVTableFilters({
+        results: filteredResults,
+        storageKey,
+    });
 
     const onStatsChange = useCallback(
         (s: { filteredCount: number }) => {
@@ -718,7 +729,7 @@ export function ResultTable() {
                                     </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onSelect={handleDownloadCsv} disabled={rowCount <= 0} className='cursor-pointer'>
+                                    <DropdownMenuItem onSelect={handleDownloadCsv} disabled={rowCount <= 0} className="cursor-pointer">
                                         <Download />
                                         CSV
                                     </DropdownMenuItem>
@@ -727,16 +738,28 @@ export function ResultTable() {
                         )}
                     </div>
                 </div>
+                <VTableFilters
+                    activeFilters={activeFilters}
+                    columnsRaw={sessionMetas.columns ?? []}
+                    onUpsertFilter={setColumnFilter}
+                    onRemoveFilter={removeFilter}
+                    onClearAllFilters={clearAllFilters}
+                />
                 {viewMode === 'table' ? (
                     <>
                         <div className="flex-1 min-h-0">
                             <VTable
-                                results={filteredResults}
+                                results={columnFilteredResults}
                                 storageKey={storageKey}
                                 onStatsChange={onStatsChange}
                                 setInspectorOpen={setInspectorOpen}
                                 setInspectorMode={setInspectorMode}
                                 setInspectorPayload={setInspectorPayload}
+                                activeFilters={activeFilters}
+                                onUpsertFilter={setColumnFilter}
+                                onRemoveFilter={removeFilter}
+                                onClearAllFilters={clearAllFilters}
+                                showFiltersBar={false}
                             />
                         </div>
                         <InspectorPanel
