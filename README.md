@@ -87,9 +87,10 @@ AI that understands your database — not just text completion.
 
 ### ✍️ Intelligent SQL Editor
 
-- Multi-tab SQL editing and execution  
-- Saved frequently used queries  
-- Deep integration with SQL Copilot  
+- Multi-tab SQL workspace with support for multiple result sets
+- Save and organize frequently used queries
+- AI-powered SQL Copilot for writing, explaining, and optimizing queries
+- Instant query visualization with built-in charts
 
 ---
 
