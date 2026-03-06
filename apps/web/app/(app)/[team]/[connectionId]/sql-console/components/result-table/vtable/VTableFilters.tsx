@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Filter, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -118,6 +118,8 @@ export function useVTableFilters({
     results: ResultRow[];
     storageKey?: string;
 }) {
+    const hydratedStorageKeyRef = useRef<string | undefined>(undefined);
+
     const readStoredFilters = useCallback((key?: string) => {
         if (typeof window !== 'undefined' && key) {
             try {
@@ -139,12 +141,14 @@ export function useVTableFilters({
         cs: false,
     });
 
-    useEffect(() => {
+    useLayoutEffect(() => {
+        hydratedStorageKeyRef.current = storageKey;
         setActiveFilters(readStoredFilters(storageKey));
     }, [readStoredFilters, storageKey]);
 
     useEffect(() => {
         if (!storageKey) return;
+        if (hydratedStorageKeyRef.current !== storageKey) return;
         try {
             localStorage.setItem(`${storageKey}:filters`, JSON.stringify(activeFilters));
         } catch {}
