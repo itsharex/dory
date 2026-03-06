@@ -26,7 +26,7 @@ import { makeSetUserPickedAtom, makeActiveSetAtom, makeAutoSetActiveSetAtom, mak
 import { useAutoJumpToLastResult } from './hooks/useAutoJumpToLastResult';
 import { SQLErrorAlert } from './components/SQLErrorAlert';
 import { VTableSearchBar } from './components/TableSearchBar';
-import { Charts } from './components/Charts';
+import { Charts } from './components/charts';
 import { useTranslations } from 'next-intl';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
 import { Button } from '@/registry/new-york-v4/ui/button';
