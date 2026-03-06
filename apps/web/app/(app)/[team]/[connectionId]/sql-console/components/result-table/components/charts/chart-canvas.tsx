@@ -217,9 +217,37 @@ function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartToolt
     }
 
     return (
-        <div className="space-y-1">
-            <ChartTooltipContent {...props} />
-            <div className="px-2 text-[11px] text-muted-foreground">Click to filter</div>
-        </div>
+        <ChartTooltipContent
+            {...props}
+            className="min-w-[9rem]"
+            formatter={(value, name, item, index, payload) => {
+                const defaultRow = (
+                    <>
+                        <div className="flex items-center gap-2">
+                            <div
+                                className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                                style={{
+                                    backgroundColor: item.color ?? item.payload?.fill ?? 'currentColor',
+                                }}
+                            />
+                            <span className="text-muted-foreground">{name}</span>
+                        </div>
+                        <span className="text-foreground font-mono font-medium tabular-nums">{typeof value === 'number' ? value.toLocaleString() : String(value)}</span>
+                    </>
+                );
+
+                const isLast = index === (props.payload?.length ?? 1) - 1;
+                if (!isLast) {
+                    return defaultRow;
+                }
+
+                return (
+                    <>
+                        {defaultRow}
+                        <div className="col-span-2 border-t border-border/50 pt-1 text-[11px] text-muted-foreground">Click to filter</div>
+                    </>
+                );
+            }}
+        />
     );
 }
