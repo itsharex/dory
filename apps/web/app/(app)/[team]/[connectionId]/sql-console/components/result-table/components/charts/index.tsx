@@ -15,6 +15,7 @@ type ChartsProps = {
     columnsRaw?: unknown;
     className?: string;
     onApplyFilters?: (filters: ColumnFilter[], options?: { append?: boolean }) => void;
+    onResetState?: () => void;
     stateKey?: string;
     initialState?: Partial<ChartState>;
     onStateChange?: (state: ChartState) => void;
@@ -861,7 +862,7 @@ function isMetricKeyCompatibleWithColumns(metricKey: string, columnNames: string
     return column ? columnNames.includes(column) : true;
 }
 
-export function Charts({ rows, columnsRaw, className, onApplyFilters, stateKey, initialState, onStateChange, stateSyncEnabled = true }: ChartsProps) {
+export function Charts({ rows, columnsRaw, className, onApplyFilters, onResetState, stateKey, initialState, onStateChange, stateSyncEnabled = true }: ChartsProps) {
     const { resolvedTheme } = useTheme();
     const columnNames = useMemo(() => getColumnNames(columnsRaw, rows), [columnsRaw, rows]);
     const columnProfiles = useMemo(() => analyzeColumns(columnNames, rows), [columnNames, rows]);
@@ -1107,6 +1108,10 @@ export function Charts({ rows, columnsRaw, className, onApplyFilters, stateKey, 
                     }}
                     onTimelineSliderEnabledChange={setTimelineSliderEnabled}
                     onResetAuto={() => {
+                        if (onResetState) {
+                            onResetState();
+                            return;
+                        }
                         setChartType(suggestedState.chartType);
                         setXKey(suggestedState.xKey);
                         setYKey(suggestedState.yKey);

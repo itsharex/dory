@@ -31,12 +31,13 @@ export function ChartCanvas(props: {
     yAxisLabel: string;
     emptyMessage: string | null;
     timelineSliderEnabled: boolean;
+    chartRootRef?: React.RefObject<HTMLDivElement | null>;
     onApplyChartFilter: (
         filters: Array<{ col: string; kind: 'exact'; raw: unknown } | { col: string; kind: 'range'; from: string; to: string; valueType: 'number' | 'date'; label: string }>,
         mode?: { append?: boolean },
     ) => void;
 }) {
-    const { chartType, chartConfig, aggregated, effectiveGroupKey, chartColors, xAxisLabel, yAxisLabel, emptyMessage, timelineSliderEnabled, onApplyChartFilter } = props;
+    const { chartType, chartConfig, aggregated, effectiveGroupKey, chartColors, xAxisLabel, yAxisLabel, emptyMessage, timelineSliderEnabled, chartRootRef, onApplyChartFilter } = props;
     const primaryChartColor = chartColors[0] ?? 'var(--primary)';
     const clickFilterEnabled = chartType !== 'line';
     const supportsTimeline = chartType === 'line' || chartType === 'bar' || chartType === 'histogram';
@@ -216,7 +217,7 @@ export function ChartCanvas(props: {
             {emptyMessage ? (
                 <ChartEmptyState message={emptyMessage} />
             ) : (
-                <div className="flex h-full min-h-[220px] w-full flex-col">
+                <div ref={chartRootRef} className="flex h-full min-h-[220px] w-full flex-col">
                     {timelineSliderEnabled && supportsTimeline ? (
                         <div className="flex items-center justify-between gap-2 pb-1">
                             <span className="text-[11px] text-muted-foreground">DataZoom timeline</span>
@@ -529,7 +530,12 @@ function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartToolt
             className="min-w-[9rem]"
             formatter={(value, name, item, index) => {
                 const dataKey = String((item as { dataKey?: string | number } | undefined)?.dataKey ?? name);
-                const seriesLabel = dataKey === 'xValue' ? xAxisLabel : dataKey === 'yValue' ? yAxisLabel : (chartConfig[dataKey]?.label ?? name);
+                const seriesLabel =
+                    dataKey === 'xValue'
+                        ? xAxisLabel
+                        : dataKey === 'yValue' || dataKey === '__histValue' || dataKey === '__pieValue'
+                          ? yAxisLabel
+                          : (chartConfig[dataKey]?.label ?? name);
                 const defaultRow = (
                     <>
                         <div className="flex items-center gap-2">

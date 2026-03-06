@@ -5,7 +5,9 @@ import { Button } from '@/registry/new-york-v4/ui/button';
 import { cn } from '@/registry/new-york-v4/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/registry/new-york-v4/ui/popover';
 import { Switch } from '@/registry/new-york-v4/ui/switch';
-import { ChevronRight, ChevronsUpDown, Settings2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/registry/new-york-v4/ui/tooltip';
+import { ChevronRight, ChevronsUpDown, Download, RotateCcw, Settings2 } from 'lucide-react';
 
 import { ChartCombobox, ChartSelect, type ChartState, type MetricOption, NONE_VALUE } from './chart-shared';
 
@@ -26,9 +28,13 @@ export function ChartControlBar(props: {
     onChartColorPresetChange: (value: string) => void;
     onTimelineSliderEnabledChange: (value: boolean) => void;
     onResetAuto: () => void;
+    canExportChart: boolean;
+    onExportPng: () => void;
+    onExportSvg: () => void;
 }) {
     const {
         chartState,
+        chartStateIsAuto,
         columnNames,
         metricOptions,
         effectiveXKey,
@@ -42,6 +48,10 @@ export function ChartControlBar(props: {
         onGroupKeyChange,
         onChartColorPresetChange,
         onTimelineSliderEnabledChange,
+        onResetAuto,
+        canExportChart,
+        onExportPng,
+        onExportSvg,
     } = props;
 
     const supportsTimelineSlider = chartState.chartType === 'line' || chartState.chartType === 'bar' || chartState.chartType === 'histogram';
@@ -99,18 +109,67 @@ export function ChartControlBar(props: {
             </div>
             <div className="flex items-center gap-2">
                 {bucketHint ? <div className="text-[11px] text-muted-foreground">{bucketHint}</div> : null}
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            aria-label="Chart settings"
-                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                        >
-                            <Settings2 className="h-3.5 w-3.5" />
-                        </Button>
-                    </PopoverTrigger>
+                <TooltipProvider delayDuration={150}>
+                    <DropdownMenu>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        aria-label="Download chart"
+                                        className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground"
+                                        disabled={!canExportChart}
+                                    >
+                                        <Download className="h-3.5 w-3.5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">Download</TooltipContent>
+                        </Tooltip>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onSelect={onExportPng} disabled={!canExportChart}>
+                                PNG
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onSelect={onExportSvg} disabled={!canExportChart}>
+                                SVG
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                aria-label="Reset chart"
+                                className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground"
+                                onClick={onResetAuto}
+                                disabled={chartStateIsAuto}
+                            >
+                                <RotateCcw className="h-3.5 w-3.5" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">Reset</TooltipContent>
+                    </Tooltip>
+                    <Popover>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        aria-label="Chart settings"
+                                        className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground"
+                                    >
+                                        <Settings2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                </PopoverTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">Settings</TooltipContent>
+                        </Tooltip>
                     <PopoverContent align="end" className="w-[300px]">
                         {supportsTimelineSlider ? (
                             <div className="flex items-start justify-between gap-3">
@@ -152,7 +211,8 @@ export function ChartControlBar(props: {
                             </div>
                         </div>
                     </PopoverContent>
-                </Popover>
+                    </Popover>
+                </TooltipProvider>
             </div>
         </div>
     );

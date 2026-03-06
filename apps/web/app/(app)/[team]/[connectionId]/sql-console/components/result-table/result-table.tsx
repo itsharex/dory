@@ -112,7 +112,6 @@ export function ResultTable() {
 
     const storageKey = useMemo(() => (tabId && sessionId ? `${tabId}:${sessionId}#${activeSet}` : 'unknown'), [tabId, sessionId, activeSet]);
     const viewModeKey = useMemo(() => (tabId && activeSet >= 0 ? `tab:${tabId}:set:${activeSet}` : 'unknown'), [activeSet, tabId]);
-    const chartStateKey = useMemo(() => (tabId && activeSet >= 0 ? `tab:${tabId}:set:${activeSet}` : 'unknown'), [activeSet, tabId]);
 
     const showEmpty = !localDataLoading[tabId] && results.length === 0;
     const noSessionId = !sessionId;
@@ -747,31 +746,6 @@ export function ResultTable() {
                                         Charts
                                     </TabsTrigger>
                                 </TabsList>
-                                {currentViewMode === 'charts' ? (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-7 px-2 text-xs"
-                                        onClick={() => {
-                                            setChartStatesByKey(prev => {
-                                                if (!prev[chartStateKey]) {
-                                                    return prev;
-                                                }
-
-                                                const next = { ...prev };
-                                                delete next[chartStateKey];
-                                                return next;
-                                            });
-                                            setChartStateVersionByTab(prev => ({
-                                                ...prev,
-                                                [chartStateKey]: (prev[chartStateKey] ?? 0) + 1,
-                                            }));
-                                        }}
-                                    >
-                                        Reset Chart State
-                                    </Button>
-                                ) : null}
                             </div>
                         </Tabs>
                         <div className="flex min-w-0 flex-1 flex-row">
@@ -869,6 +843,21 @@ export function ResultTable() {
                                             stateKey={setChartStateKey}
                                             initialState={setInitialState}
                                             stateSyncEnabled={visible ? !localDataLoading[tabId] : false}
+                                            onResetState={() => {
+                                                setChartStatesByKey(prev => {
+                                                    if (!prev[setChartStateKey]) {
+                                                        return prev;
+                                                    }
+
+                                                    const next = { ...prev };
+                                                    delete next[setChartStateKey];
+                                                    return next;
+                                                });
+                                                setChartStateVersionByTab(prev => ({
+                                                    ...prev,
+                                                    [setChartStateKey]: (prev[setChartStateKey] ?? 0) + 1,
+                                                }));
+                                            }}
                                             onStateChange={nextState => {
                                                 setChartStatesByKey(prev => {
                                                     const current = prev[setChartStateKey];
