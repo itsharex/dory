@@ -19,11 +19,11 @@ function toFsPath(v: string) {
 
 async function bootstrapPglite() {
   const defaultFile = DEFAULT_PGLITE_DB_PATH;
-  const raw = process.env.DATABASE_URL ?? defaultFile;
+  const raw = process.env.PGLITE_DB_PATH ?? defaultFile;
 
   const dbFilePath = toFsPath(raw);
 
-  process.env.DATABASE_URL = dbFilePath;
+  process.env.PGLITE_DB_PATH = dbFilePath;
 
   await ensureDirForFile(dbFilePath);
 

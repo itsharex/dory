@@ -19,8 +19,8 @@ const globalForPglite = globalThis as typeof globalThis & {
 
 async function resolvePgliteDataDir(): Promise<string> {
     // 1) Explicitly set (local dev / CI / multi-instance)
-    if (process.env.DATABASE_URL) {
-        const pathFromUrl = extractFilePath(process.env.DATABASE_URL);
+    if (process.env.PGLITE_DB_PATH) {
+        const pathFromUrl = extractFilePath(process.env.PGLITE_DB_PATH);
         return pathFromUrl;
     }
 

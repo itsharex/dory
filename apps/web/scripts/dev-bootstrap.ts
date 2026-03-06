@@ -15,16 +15,16 @@ async function ensureDirForFile(filePath: string) {
 async function bootstrapPglite() {
     /**
      * Your env should include at least:
-     * - DATABASE_URL=file:/abs/path/db
+     * - PGLITE_DB_PATH=file:/abs/path/db
      */
-    const dbUrl = process.env.DATABASE_URL;
+    const dbUrl = process.env.PGLITE_DB_PATH;
 
     if (!dbUrl) {
-        throw new Error('[dev-bootstrap] DB_TYPE=pglite but DATABASE_URL is missing');
+        throw new Error('[dev-bootstrap] DB_TYPE=pglite but PGLITE_DB_PATH is missing');
     }
 
     const dbFilePath = extractFilePath(dbUrl);
-    process.env.DATABASE_URL = ensureFileUrl(dbFilePath);
+    process.env.PGLITE_DB_PATH = ensureFileUrl(dbFilePath);
 
     // 🔴 Key point: only create the parent directory
     await ensureDirForFile(dbFilePath);
