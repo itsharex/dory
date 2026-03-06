@@ -14,17 +14,24 @@ export function ChartCanvas(props: {
     aggregated: AggregatedChartData;
     effectiveGroupKey: string;
     emptyMessage: string | null;
+    timelineSliderEnabled: boolean;
     onApplyChartFilter: (
         filters: Array<{ col: string; kind: 'exact'; raw: unknown } | { col: string; kind: 'range'; from: string; to: string; valueType: 'number' | 'date'; label: string }>,
         mode?: { append?: boolean },
     ) => void;
 }) {
-    const { chartType, chartConfig, aggregated, effectiveGroupKey, emptyMessage, onApplyChartFilter } = props;
+    const { chartType, chartConfig, aggregated, effectiveGroupKey, emptyMessage, timelineSliderEnabled, onApplyChartFilter } = props;
     const clickFilterEnabled = chartType !== 'line';
     const [brushSelection, setBrushSelection] = React.useState<{ startIndex: number; endIndex: number } | null>(null);
     const lastBrushIndex = Math.max(aggregated.data.length - 1, 0);
     const controlledBrushSelection = brushSelection ?? { startIndex: 0, endIndex: lastBrushIndex };
     const isZoomed = brushSelection != null;
+
+    React.useEffect(() => {
+        if (!timelineSliderEnabled) {
+            setBrushSelection(null);
+        }
+    }, [timelineSliderEnabled]);
 
     React.useEffect(() => {
         if (!brushSelection) {
@@ -126,26 +133,32 @@ export function ChartCanvas(props: {
                 <ChartEmptyState message={emptyMessage} />
             ) : (
                 <div className="flex h-full min-h-[220px] w-full flex-col">
-                    <div className="flex justify-end gap-2 pb-1">
-                        <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setBrushSelection(null)} disabled={!isZoomed}>
-                            Reset Zoom
-                        </Button>
-                        <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-7 px-2 text-[11px]"
-                            onClick={() => {
-                                if (!brushFilter) {
-                                    return;
-                                }
-                                onApplyChartFilter([brushFilter]);
-                            }}
-                            disabled={!brushFilter}
-                        >
-                            Apply Brush Filter
-                        </Button>
-                    </div>
+                    {timelineSliderEnabled ? (
+                        <div className="flex items-center justify-between gap-2 pb-1">
+                            <span className="text-[11px] text-muted-foreground">DataZoom timeline</span>
+                            <div className="flex gap-2">
+                                <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-[11px]" onClick={() => setBrushSelection(null)} disabled={!isZoomed}>
+                                    Reset Zoom
+                                </Button>
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-[11px]"
+                                    onClick={() => {
+                                        if (!brushFilter) {
+                                            return;
+                                        }
+                                        onApplyChartFilter([brushFilter]);
+                                    }}
+                                    disabled={!brushFilter}
+                                >
+                                    Apply Brush Filter
+                                </Button>
+                            </div>
+                        </div>
+                    ) : null}
+                    {clickFilterEnabled ? <div className="pb-1 text-right text-[11px] text-muted-foreground">Click bar to filter</div> : null}
                     <ChartContainer config={chartConfig} className="aspect-auto h-full w-full overflow-hidden">
                         {chartType === 'line' ? (
                             <LineChart accessibilityLayer data={aggregated.data} margin={{ left: 8, right: 8, top: 8 }}>
@@ -159,7 +172,7 @@ export function ChartCanvas(props: {
                                     tickFormatter={value => String(value).slice(0, 18)}
                                 />
                                 <YAxis tickLine={false} axisLine={false} width={56} />
-                                <ChartTooltip content={<ChartFilterTooltipContent filterEnabled={clickFilterEnabled} />} />
+                                <ChartTooltip content={<ChartFilterTooltipContent filterEnabled={clickFilterEnabled} chartConfig={chartConfig} />} />
                                 {aggregated.series.map(series => (
                                     <Line
                                         key={series.key}
@@ -190,14 +203,16 @@ export function ChartCanvas(props: {
                                         )}
                                     />
                                 ))}
-                                <Brush
-                                    dataKey="xLabel"
-                                    height={18}
-                                    travellerWidth={8}
-                                    onChange={handleBrushChange}
-                                    startIndex={controlledBrushSelection.startIndex}
-                                    endIndex={controlledBrushSelection.endIndex}
-                                />
+                                {timelineSliderEnabled ? (
+                                    <Brush
+                                        dataKey="xLabel"
+                                        height={18}
+                                        travellerWidth={8}
+                                        onChange={handleBrushChange}
+                                        startIndex={controlledBrushSelection.startIndex}
+                                        endIndex={controlledBrushSelection.endIndex}
+                                    />
+                                ) : null}
                             </LineChart>
                         ) : (
                             <BarChart accessibilityLayer data={aggregated.data} margin={{ left: 8, right: 8, top: 8 }}>
@@ -211,7 +226,7 @@ export function ChartCanvas(props: {
                                     tickFormatter={value => String(value).slice(0, 18)}
                                 />
                                 <YAxis tickLine={false} axisLine={false} width={56} />
-                                <ChartTooltip cursor={false} content={<ChartFilterTooltipContent filterEnabled={clickFilterEnabled} />} />
+                                <ChartTooltip cursor={false} content={<ChartFilterTooltipContent filterEnabled={clickFilterEnabled} chartConfig={chartConfig} />} />
                                 {aggregated.series.map(series => (
                                     <Bar
                                         key={series.key}
@@ -230,14 +245,16 @@ export function ChartCanvas(props: {
                                         }
                                     />
                                 ))}
-                                <Brush
-                                    dataKey="xLabel"
-                                    height={18}
-                                    travellerWidth={8}
-                                    onChange={handleBrushChange}
-                                    startIndex={controlledBrushSelection.startIndex}
-                                    endIndex={controlledBrushSelection.endIndex}
-                                />
+                                {timelineSliderEnabled ? (
+                                    <Brush
+                                        dataKey="xLabel"
+                                        height={18}
+                                        travellerWidth={8}
+                                        onChange={handleBrushChange}
+                                        startIndex={controlledBrushSelection.startIndex}
+                                        endIndex={controlledBrushSelection.endIndex}
+                                    />
+                                ) : null}
                             </BarChart>
                         )}
                     </ChartContainer>
@@ -247,8 +264,8 @@ export function ChartCanvas(props: {
     );
 }
 
-function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartTooltipContent> & { filterEnabled?: boolean }) {
-    const { filterEnabled } = props;
+function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartTooltipContent> & { filterEnabled?: boolean; chartConfig: ChartConfig }) {
+    const { filterEnabled, chartConfig } = props;
     if (!props.active || !props.payload?.length) {
         return null;
     }
@@ -258,6 +275,8 @@ function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartToolt
             {...props}
             className="min-w-[9rem]"
             formatter={(value, name, item, index, payload) => {
+                const dataKey = String((item as { dataKey?: string | number } | undefined)?.dataKey ?? name);
+                const seriesLabel = chartConfig[dataKey]?.label ?? name;
                 const defaultRow = (
                     <>
                         <div className="flex items-center gap-2">
@@ -267,7 +286,7 @@ function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartToolt
                                     backgroundColor: item.color ?? item.payload?.fill ?? 'currentColor',
                                 }}
                             />
-                            <span className="text-muted-foreground">{name}</span>
+                            <span className="text-muted-foreground">{seriesLabel}</span>
                         </div>
                         <span className="text-foreground font-mono font-medium tabular-nums">{typeof value === 'number' ? value.toLocaleString() : String(value)}</span>
                     </>
@@ -278,12 +297,7 @@ function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartToolt
                     return defaultRow;
                 }
 
-                return (
-                    <>
-                        {defaultRow}
-                        <div className="col-span-2 border-t border-border/50 pt-1 text-[11px] text-muted-foreground">Click to filter</div>
-                    </>
-                );
+                return defaultRow;
             }}
         />
     );

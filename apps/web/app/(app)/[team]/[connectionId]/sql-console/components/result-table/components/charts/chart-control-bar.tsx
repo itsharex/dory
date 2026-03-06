@@ -4,8 +4,8 @@ import React from 'react';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { cn } from '@/registry/new-york-v4/lib/utils';
 import { Popover, PopoverContent, PopoverTrigger } from '@/registry/new-york-v4/ui/popover';
-import { ChevronRight, ChevronsUpDown } from 'lucide-react';
-import { AISparkIcon } from '@/components/@dory/ui/ai-spark-icon';
+import { Switch } from '@/registry/new-york-v4/ui/switch';
+import { ChevronRight, ChevronsUpDown, Settings2 } from 'lucide-react';
 
 import { ChartCombobox, ChartSelect, type ChartState, type MetricOption, NONE_VALUE } from './chart-shared';
 
@@ -16,13 +16,27 @@ export function ChartControlBar(props: {
     metricOptions: MetricOption[];
     effectiveXKey: string;
     bucketHint?: string | null;
+    timelineSliderEnabled: boolean;
     onChartTypeChange: (value: string) => void;
     onXKeyChange: (value: string) => void;
     onYKeyChange: (value: string) => void;
     onGroupKeyChange: (value: string) => void;
+    onTimelineSliderEnabledChange: (value: boolean) => void;
     onResetAuto: () => void;
 }) {
-    const { chartState, chartStateIsAuto, columnNames, metricOptions, effectiveXKey, bucketHint, onChartTypeChange, onXKeyChange, onYKeyChange, onGroupKeyChange, onResetAuto } = props;
+    const {
+        chartState,
+        columnNames,
+        metricOptions,
+        effectiveXKey,
+        bucketHint,
+        timelineSliderEnabled,
+        onChartTypeChange,
+        onXKeyChange,
+        onYKeyChange,
+        onGroupKeyChange,
+        onTimelineSliderEnabledChange,
+    } = props;
 
     return (
         <div className="flex items-center justify-between px-3 pb-1.5 pt-2">
@@ -59,16 +73,28 @@ export function ChartControlBar(props: {
             </div>
             <div className="flex items-center gap-2">
                 {bucketHint ? <div className="text-[11px] text-muted-foreground">{bucketHint}</div> : null}
-                <Button
-                    type="button"
-                    size="control"
-                    variant="ghost"
-                    className={cn('text-muted-foreground hover:text-foreground', chartStateIsAuto && 'bg-background/60 text-foreground')}
-                    onClick={onResetAuto}
-                >
-                    <AISparkIcon className="h-3 w-3" />
-                    Auto
-                </Button>
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            aria-label="Chart settings"
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                        >
+                            <Settings2 className="h-3.5 w-3.5" />
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent align="end" className="w-[260px]">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-0.5">
+                                <p className="text-xs font-medium">Enable timeline slider</p>
+                                <p className="text-[11px] text-muted-foreground">Show DataZoom timeline, Reset Zoom, and Apply Brush Filter.</p>
+                            </div>
+                            <Switch checked={timelineSliderEnabled} onCheckedChange={onTimelineSliderEnabledChange} />
+                        </div>
+                    </PopoverContent>
+                </Popover>
             </div>
         </div>
     );

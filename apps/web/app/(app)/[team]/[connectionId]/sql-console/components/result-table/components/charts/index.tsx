@@ -856,6 +856,7 @@ export function Charts({ rows, columnsRaw, className, onApplyFilters, stateKey, 
     const [xKey, setXKey] = useState(() => mergedInitialState.xKey);
     const [yKey, setYKey] = useState(() => mergedInitialState.yKey);
     const [groupKey, setGroupKey] = useState(() => mergedInitialState.groupKey);
+    const [timelineSliderEnabled, setTimelineSliderEnabled] = useState(false);
 
     const metricOptions = useMemo<MetricOption[]>(() => buildMetricOptions(columnProfiles), [columnProfiles]);
 
@@ -874,6 +875,7 @@ export function Charts({ rows, columnsRaw, className, onApplyFilters, stateKey, 
         setXKey(mergedInitialState.xKey);
         setYKey(mergedInitialState.yKey);
         setGroupKey(mergedInitialState.groupKey);
+        setTimelineSliderEnabled(false);
     }, [mergedInitialState.chartType, mergedInitialState.groupKey, mergedInitialState.xKey, mergedInitialState.yKey, stateKey]);
 
     useEffect(() => {
@@ -988,6 +990,7 @@ export function Charts({ rows, columnsRaw, className, onApplyFilters, stateKey, 
                     aggregated={aggregated}
                     chartConfig={chartConfig}
                     emptyMessage={emptyMessage}
+                    timelineSliderEnabled={timelineSliderEnabled}
                     onApplyChartFilter={handleChartFilter}
                     onChartTypeChange={value => {
                         if (value === 'bar' || value === 'line') {
@@ -997,6 +1000,7 @@ export function Charts({ rows, columnsRaw, className, onApplyFilters, stateKey, 
                     onXKeyChange={setXKey}
                     onYKeyChange={setYKey}
                     onGroupKeyChange={setGroupKey}
+                    onTimelineSliderEnabledChange={setTimelineSliderEnabled}
                     onResetAuto={() => {
                         setChartType(suggestedState.chartType);
                         setXKey(suggestedState.xKey);

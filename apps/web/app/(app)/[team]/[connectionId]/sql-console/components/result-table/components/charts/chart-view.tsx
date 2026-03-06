@@ -16,6 +16,7 @@ export function ChartView(props: {
     aggregated: AggregatedChartData;
     chartConfig: ChartConfig;
     emptyMessage: string | null;
+    timelineSliderEnabled: boolean;
     onApplyChartFilter: (
         filters: Array<{ col: string; kind: 'exact'; raw: unknown } | { col: string; kind: 'range'; from: string; to: string; valueType: 'number' | 'date'; label: string }>,
         mode?: { append?: boolean },
@@ -24,6 +25,7 @@ export function ChartView(props: {
     onXKeyChange: (value: string) => void;
     onYKeyChange: (value: string) => void;
     onGroupKeyChange: (value: string) => void;
+    onTimelineSliderEnabledChange: (value: boolean) => void;
     onResetAuto: () => void;
 }) {
     const {
@@ -36,11 +38,13 @@ export function ChartView(props: {
         aggregated,
         chartConfig,
         emptyMessage,
+        timelineSliderEnabled,
         onApplyChartFilter,
         onChartTypeChange,
         onXKeyChange,
         onYKeyChange,
         onGroupKeyChange,
+        onTimelineSliderEnabledChange,
         onResetAuto,
     } = props;
 
@@ -53,10 +57,12 @@ export function ChartView(props: {
                 metricOptions={metricOptions}
                 effectiveXKey={effectiveXKey}
                 bucketHint={aggregated.bucketHint}
+                timelineSliderEnabled={timelineSliderEnabled}
                 onChartTypeChange={onChartTypeChange}
                 onXKeyChange={onXKeyChange}
                 onYKeyChange={onYKeyChange}
                 onGroupKeyChange={onGroupKeyChange}
+                onTimelineSliderEnabledChange={onTimelineSliderEnabledChange}
                 onResetAuto={onResetAuto}
             />
             <ChartCanvas
@@ -65,6 +71,7 @@ export function ChartView(props: {
                 aggregated={aggregated}
                 effectiveGroupKey={effectiveGroupKey}
                 emptyMessage={emptyMessage}
+                timelineSliderEnabled={timelineSliderEnabled}
                 onApplyChartFilter={onApplyChartFilter}
             />
         </div>
