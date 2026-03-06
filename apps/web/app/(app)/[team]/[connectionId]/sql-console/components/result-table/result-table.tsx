@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { Download, MoreHorizontal, RefreshCw } from 'lucide-react';
 
 import VTable from './vtable';
 import { InspectorPanel } from './vtable/InspectorPanel';
@@ -22,26 +22,24 @@ import { OverviewTable } from './OverviewTable';
 import { currentSessionMetaAtom } from './stores/result-table.atoms';
 import { ResultStatusBar } from './ResultStatusBar';
 import { DebugPanel, DebugPayload } from './components/DebugPanel';
-import {
-    makeSetUserPickedAtom,
-    makeActiveSetAtom,
-    makeAutoSetActiveSetAtom,
-    makeSetActiveSetAtom,
-    makeUserPickedAtom,
-} from './stores/active-set.atoms';
+import { makeSetUserPickedAtom, makeActiveSetAtom, makeAutoSetActiveSetAtom, makeSetActiveSetAtom, makeUserPickedAtom } from './stores/active-set.atoms';
 import { useAutoJumpToLastResult } from './hooks/useAutoJumpToLastResult';
 import { SQLErrorAlert } from './components/SQLErrorAlert';
 import { VTableSearchBar } from './components/TableSearchBar';
 import { useTranslations } from 'next-intl';
+import { ToggleGroup, ToggleGroupItem } from '@/registry/new-york-v4/ui/toggle-group';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
+import { Button } from '@/registry/new-york-v4/ui/button';
 /* =================================== constants =================================== */
 
 const MAX_ROWS_HINT = 5_000_000; // UI hint only
-const OVERVIEW_SET = -1; 
+const OVERVIEW_SET = -1;
 
 /* =================================== component =================================== */
 
 export function ResultTable() {
     const t = useTranslations('SqlConsole');
+    const [viewMode, setViewMode] = useState<'table' | 'charts'>('table');
     const [inspectorOpen, setInspectorOpen] = useState(false);
     const [inspectorMode, setInspectorMode] = useState<'cell' | 'row' | null>(null);
     const [inspectorPayload, setInspectorPayload] = useState<any>(null);
@@ -50,8 +48,6 @@ export function ResultTable() {
     const [meta, setMeta] = useState<MetaState>({});
     const [sessionMetas, setSessionMetas] = useAtom(currentSessionMetaAtom);
 
-    
-    const [settingsOpen, setSettingsOpen] = useState(false);
     const [debugMode, setDebugMode] = useAtom(debugModeAtom);
     const [uiRowBudget, setUiRowBudget] = useAtom(uiRowBudgetAtom);
     const runningTabs = useAtomValue(runningTabsAtom);
@@ -61,14 +57,12 @@ export function ResultTable() {
     const sessionIdFromAtom = useAtomValue(activeSessionIdAtom);
     const sessionId = sessionIdFromAtom ?? (typeof window !== 'undefined' ? (localStorage.getItem(`sqlconsole:sessionId:${tabId}`) ?? undefined) : undefined);
 
-    
     const { dbReady, listResultSetIndices, listResultSetsMeta, getResultRows, clearResults, dataVersion, getSession } = useDB();
 
     // Session status
     const [sessionStatus, setSessionStatus] = useState<'running' | 'success' | 'error' | 'canceled' | null>(null);
     const lastSessionRef = useRef<string | null>(null);
 
-    
     const [indices, setIndices] = useState<number[]>([]);
     const prevStatusRef = useRef<'running' | 'success' | 'error' | 'canceled' | null | undefined>(null);
 
@@ -77,22 +71,18 @@ export function ResultTable() {
     const autoSetAtom = useMemo(() => makeAutoSetActiveSetAtom(tabId, sessionId), [tabId, sessionId]);
 
     const activeSet = useAtomValue(readActiveSetAtom);
-    const setActiveSet = useSetAtom(manualSetAtom); 
-    const autoSetActiveSet = useSetAtom(autoSetAtom); 
+    const setActiveSet = useSetAtom(manualSetAtom);
+    const autoSetActiveSet = useSetAtom(autoSetAtom);
 
-    
     const userPickedAtom = useMemo(() => makeUserPickedAtom(tabId, sessionId), [tabId, sessionId]);
     const userPicked = useAtomValue(userPickedAtom);
-
-    
-    
 
     useAutoJumpToLastResult({
         tabId,
         sessionId,
-        indices, 
+        indices,
         sessionStatus, // 'running' | 'success' | 'error' | 'canceled' | null
-        
+
         userPicked,
         autoSetActiveSet: v => autoSetActiveSet(v),
         getCurrentActiveSet: () => (typeof activeSet === 'number' ? activeSet : undefined),
@@ -114,7 +104,6 @@ export function ResultTable() {
     // Accumulator + one-frame flush
     const resultsRef = useRef<ResultRow[]>([]);
 
-    
     useSessionMeta({ dbReady, tabId, sessionId, activeSet, dataVersion, getSession, setMeta, sessionStatus });
 
     const storageKey = useMemo(() => (tabId && sessionId ? `${tabId}:${sessionId}#${activeSet}` : 'unknown'), [tabId, sessionId, activeSet]);
@@ -156,7 +145,6 @@ export function ResultTable() {
         },
     };
 
-    
     const [setsMeta, setSetsMeta] = useState<
         Array<{
             sessionId: string;
@@ -178,7 +166,6 @@ export function ResultTable() {
         const prev = prevStatusRef.current;
         const now = sessionStatus;
         if (prev !== 'running' && now === 'running') {
-            
             setUserPickedFalse(false);
         }
         prevStatusRef.current = now;
@@ -245,7 +232,6 @@ export function ResultTable() {
         if (lastTabIdRef.current !== tabId) {
             lastTabIdRef.current = tabId;
 
-            
             resultsRef.current = [];
             setResults([]);
             setIndices([]);
@@ -263,15 +249,15 @@ export function ResultTable() {
         (async () => {
             if (!dbReady || !sessionId) return;
             try {
-                const arr = await listResultSetIndices(sessionId); 
+                const arr = await listResultSetIndices(sessionId);
                 if (canceled) return;
                 const next = Array.isArray(arr) ? Array.from(new Set(arr.filter(n => Number.isFinite(n) && n >= 0))).sort((a, b) => a - b) : [];
                 setIndices(next);
-                
+
                 if (activeSet >= 0 && !next.includes(activeSet)) {
                     setActiveSet(OVERVIEW_SET);
                 }
-            } catch { }
+            } catch {}
         })();
         return () => {
             canceled = true;
@@ -313,7 +299,7 @@ export function ResultTable() {
     /* ---------- Enforce budget immediately when lowered ---------- */
     useEffect(() => {
         if (!tabId || !sessionId) return;
-        if (activeSet < 0) return; 
+        if (activeSet < 0) return;
         const key = makeCacheKey(tabId, sessionId, activeSet);
         if (resultsRef.current.length > uiRowBudget) {
             resultsRef.current = resultsRef.current.slice(0, uiRowBudget);
@@ -339,7 +325,6 @@ export function ResultTable() {
             return;
         }
 
-        
         if (activeSet < 0) {
             fetchControllerRef.current?.abort?.();
             resultsRef.current = [];
@@ -400,14 +385,13 @@ export function ResultTable() {
                                 });
                             }
                             setLocalDataLoading(prev => ({ ...prev, [tabId]: false }));
-                            ac.abort(); 
+                            ac.abort();
                             return;
                         }
 
                         const slice = chunk.length > remaining ? (chunk.slice(0, remaining) as ResultRow[]) : (chunk as ResultRow[]);
                         resultsRef.current.push(...slice);
 
-                        
                         if (rafRef.current == null) {
                             rafRef.current = requestAnimationFrame(() => {
                                 rafRef.current = null;
@@ -425,7 +409,6 @@ export function ResultTable() {
                             });
                         }
 
-                        
                         if (slice.length < chunk.length) {
                             setMeta(prev => ({ ...prev, truncated: true }));
                             if (key) {
@@ -507,7 +490,7 @@ export function ResultTable() {
                     }
                     return next;
                 });
-            } catch { }
+            } catch {}
         })();
         return () => {
             canceled = true;
@@ -523,7 +506,6 @@ export function ResultTable() {
         [],
     );
 
-    
     useEffect(() => {
         let canceled = false;
         (async () => {
@@ -549,26 +531,22 @@ export function ResultTable() {
                     })),
                 );
 
-                
                 const next = metas.map(m => m.setIndex).sort((a, b) => a - b);
                 setIndices(next);
-                
+
                 if (activeSet >= 0 && !next.includes(activeSet)) {
                     setActiveSet(OVERVIEW_SET);
                 }
-            } catch { }
+            } catch {}
         })();
         return () => {
             canceled = true;
         };
-    }, [dbReady, sessionId, dataVersion, listResultSetsMeta]); 
+    }, [dbReady, sessionId, dataVersion, listResultSetsMeta]);
 
-    
     const overviewItems: OverviewItem[] = useMemo(() => {
-        
         if (!sessionId) return [];
 
-        
         const scopedMeta = (setsMeta ?? []).filter(m => m.sessionId === sessionId);
 
         const items: OverviewItem[] = scopedMeta.map(m => {
@@ -588,7 +566,6 @@ export function ResultTable() {
 
         const known = new Set(items.map(i => i.setIndex));
 
-        
         const safeIndices = sessionId ? (indices ?? []) : [];
 
         const extras: OverviewItem[] = safeIndices
@@ -597,38 +574,28 @@ export function ResultTable() {
                 id: `${sessionId}:${i}`,
                 setIndex: i,
                 sql: `/* Result ${i + 1} */`,
-                status:
-                    sessionStatus === 'running'
-                        ? 'running'
-                        : sessionStatus === 'error'
-                            ? 'error'
-                            : sessionStatus === 'canceled'
-                                ? 'canceled'
-                                : 'success',
+                status: sessionStatus === 'running' ? 'running' : sessionStatus === 'error' ? 'error' : sessionStatus === 'canceled' ? 'canceled' : 'success',
             }));
 
         return [...items, ...extras].sort((a, b) => a.setIndex - b.setIndex);
     }, [sessionId, setsMeta, indices, sessionStatus]);
 
-    
     const execMetaBySet: Record<number, ExecMeta> = useMemo(() => {
         const map: Record<number, ExecMeta> = {};
         for (const i of indices) {
             const isActive = i === activeSet;
             const m = setsMeta.find(x => x.setIndex === i);
 
-            
             const runningRemote = (m?.status as any) === 'running' || runningTabs[tabId] === 'running';
             const runningLocal = !!localDataLoading[tabId];
 
-            
             const shownRows = isActive
                 ? results.length
                 : (() => {
-                    const key = makeCacheKey(tabId, sessionId!, i);
-                    const cached = key ? RESULTS_CACHE.get(key) : undefined;
-                    return cached?.results?.length ?? 0;
-                })();
+                      const key = makeCacheKey(tabId, sessionId!, i);
+                      const cached = key ? RESULTS_CACHE.get(key) : undefined;
+                      return cached?.results?.length ?? 0;
+                  })();
 
             map[i] = {
                 runningRemote,
@@ -655,7 +622,7 @@ export function ResultTable() {
         results,
         tabId,
         queryId: sessionId,
-        setIndex: activeSet, 
+        setIndex: activeSet,
     });
 
     /* ---------- render ---------- */
@@ -688,7 +655,7 @@ export function ResultTable() {
         //         </div>
         //     );
         // }
-        
+
         if (activeSet === OVERVIEW_SET) {
             return (
                 <OverviewTable
@@ -706,8 +673,8 @@ export function ResultTable() {
             return <SQLErrorAlert message={execMetaBySet?.[activeSet]?.errorMessage} sql={execMetaBySet?.[activeSet]?.sqlText} />;
         }
         return (
-            <div className="flex h-full min-h-0 flex-col bg-card">
-                <div className="flex justify-between items-end w-full">
+            <div className="flex h-full min-h-0 flex-col bg-card mb-2">
+                <div className="flex items-center justify-between gap-3 w-full">
                     <VTableSearchBar
                         query={query}
                         className="w-96"
@@ -716,28 +683,77 @@ export function ResultTable() {
                         filteredCount={stats.filteredCount}
                         totalCount={stats.totalCount}
                     />
+                    <div className="flex items-center gap-1.5 mr-2">
+                        <ToggleGroup
+                            type="single"
+                            variant="outline"
+                            size="sm"
+                            className="h-7"
+                            value={viewMode}
+                            onValueChange={value => {
+                                if (value === 'table' || value === 'charts') {
+                                    setViewMode(value);
+                                }
+                            }}
+                            aria-label="Result view"
+                        >
+                            <ToggleGroupItem value="table" className="h-7 px-2.5 text-xs cursor-pointer">
+                                Table
+                            </ToggleGroupItem>
+                            <ToggleGroupItem value="charts" className="h-7 px-2.5 text-xs cursor-pointer">
+                                Charts
+                            </ToggleGroupItem>
+                        </ToggleGroup>
+                        {isResult && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7 mr-1 cursor-pointer"
+                                        title={t('Results.DownloadCsvTitle')}
+                                        aria-label={t('Results.DownloadCsvTitle')}
+                                    >
+                                        <MoreHorizontal className="h-3.5 w-3.5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuItem onSelect={handleDownloadCsv} disabled={rowCount <= 0} className='cursor-pointer'>
+                                        <Download />
+                                        CSV
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
+                    </div>
                 </div>
-                <div className="flex-1 min-h-0">
-                    <VTable
-                        results={filteredResults}
-                        storageKey={storageKey}
-                        onStatsChange={onStatsChange}
-                        setInspectorOpen={setInspectorOpen}
-                        setInspectorMode={setInspectorMode}
-                        setInspectorPayload={setInspectorPayload}
-                    />
-                </div>
-                <InspectorPanel
-                    open={inspectorOpen}
-                    setOpen={setInspectorOpen}
-                    mode={inspectorMode}
-                    payload={inspectorPayload}
-                    rowViewMode={rowViewMode}
-                    setRowViewMode={setRowViewMode}
-                    inspectorWidth={inspectorWidth}
-                    setInspectorWidth={setInspectorWidth}
-                    inspectorTopOffset={44}
-                />
+                {viewMode === 'table' ? (
+                    <>
+                        <div className="flex-1 min-h-0">
+                            <VTable
+                                results={filteredResults}
+                                storageKey={storageKey}
+                                onStatsChange={onStatsChange}
+                                setInspectorOpen={setInspectorOpen}
+                                setInspectorMode={setInspectorMode}
+                                setInspectorPayload={setInspectorPayload}
+                            />
+                        </div>
+                        <InspectorPanel
+                            open={inspectorOpen}
+                            setOpen={setInspectorOpen}
+                            mode={inspectorMode}
+                            payload={inspectorPayload}
+                            rowViewMode={rowViewMode}
+                            setRowViewMode={setRowViewMode}
+                            inspectorWidth={inspectorWidth}
+                            setInspectorWidth={setInspectorWidth}
+                            inspectorTopOffset={44}
+                        />
+                    </>
+                ) : (
+                    <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Charts</div>
+                )}
             </div>
         );
     }
@@ -747,33 +763,18 @@ export function ResultTable() {
             {/* Top toolbar */}
             {runningTabs[tabId] !== 'running' && (
                 <Toolbar
-                    indices={indices} 
+                    indices={indices}
                     activeSet={activeSet} // -1 = Overview，>=0 = Result i
                     onSetActiveSet={n => {
                         setActiveSet(n);
                     }}
-                    rowCount={rowCount}
-                    execMetaBySet={execMetaBySet}
-                    onDownloadCsv={handleDownloadCsv}
-                    onOpenSettings={() => setSettingsOpen(true)}
                 />
             )}
 
             {/* Table area */}
             <div className="flex-1 min-h-0">{renderResult()}</div>
 
-            
             {isResult && <ResultStatusBar meta={execMetaBySet?.[activeSet]} shouldShowLimitNotice={shouldShowLimitNotice} />}
-
-            
-            {/* <SettingsDialog
-                open={settingsOpen}
-                setOpen={setSettingsOpen}
-                debugMode={debugMode}
-                setDebugMode={setDebugMode}
-                uiRowBudget={uiRowBudget}
-                setUiRowBudget={setUiRowBudget}
-            /> */}
         </div>
     );
 }
