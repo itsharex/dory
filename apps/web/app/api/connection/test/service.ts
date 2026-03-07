@@ -42,10 +42,6 @@ type SSHConfigWithSecrets = NonNullable<TestConnectionPayload['ssh']> & {
 
 type DBServiceInstance = Awaited<ReturnType<typeof getDBService>>;
 
-type TestConnectMessages = {
-    missingIdentityPassword: string;
-};
-
 function hasSshSecret(ssh?: SSHConfigWithSecrets | null): boolean {
     if (!ssh) return false;
     const { password, privateKey, passphrase } = ssh;
@@ -126,7 +122,7 @@ function buildConnectionConfig(payload: TestConnectionPayload & { ssh?: SSHConfi
 }
 
 
-export async function testConnectService(payload: TestConnectionPayload, messages?: TestConnectMessages): Promise<HealthInfo> {
+export async function testConnectService(payload: TestConnectionPayload): Promise<HealthInfo> {
     const db = await getDBService();
     const connectionId = payload.connection?.id;
     const startedAt = Date.now();
@@ -147,10 +143,6 @@ export async function testConnectService(payload: TestConnectionPayload, message
     };
 
     const testPassword = payload?.identity?.password ?? plainPassword;
-    if (!payload?.identity?.password && !plainPassword) {
-        await recordLastCheck('ok', messages?.missingIdentityPassword ?? 'Missing identity password');
-        throw createConnectionError(CONNECTION_ERROR_CODES.missingPassword);
-    }
     const resolvedSsh = await resolveSshSecrets(payload, db);
     const config = buildConnectionConfig({ ...payload, identity: { ...payload.identity, password: testPassword }, ssh: resolvedSsh });
     const provider = await createProvider(config);

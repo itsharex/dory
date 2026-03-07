@@ -12,9 +12,7 @@ export const POST = withUserAndTeamHandler(async ({ req }) => {
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
 
     try {
-        const result = await testConnectService(payload, {
-            missingIdentityPassword: t('Api.Connection.Errors.MissingPassword'),
-        });
+        const result = await testConnectService(payload);
         return NextResponse.json(ResponseUtil.success(result));
     } catch (error: unknown) {
         console.error('[connection] test connection failed', error);
