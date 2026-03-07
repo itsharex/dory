@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server';
 import { USE_CLOUD_AI } from '@/app/config/app';
+import { getCloudApiBaseUrl } from '@/lib/cloud/url';
 
 const FORWARDED_HEADERS = [
     'content-type',
@@ -29,19 +30,6 @@ function rewriteCookieHeaderForUpstream(value: string): string {
     }
 
     return rewritten.join('; ');
-}
-
-function resolveCloudBaseUrl(): string | null {
-    const aiCloudUrl = process.env.DORY_AI_CLOUD_URL?.trim();
-    if (aiCloudUrl) return aiCloudUrl;
-
-    const cloudUrl = process.env.DORY_CLOUD_API_URL?.trim();
-    if (cloudUrl) return cloudUrl;
-
-    const publicCloudUrl = process.env.NEXT_PUBLIC_DORY_CLOUD_API_URL?.trim();
-    if (publicCloudUrl) return publicCloudUrl;
-
-    return null;
 }
 
 export function buildCloudForwardHeaders(req: NextRequest, baseUrl?: string): Headers {
@@ -86,7 +74,7 @@ export async function proxyAiRouteIfNeeded(
 ): Promise<Response | null> {
     if (!USE_CLOUD_AI) return null;
 
-    const baseUrl = resolveCloudBaseUrl();
+    const baseUrl = getCloudApiBaseUrl();
     if (!baseUrl) {
         return new Response('CLOUD_API_NOT_CONFIGURED', {
             status: 500,

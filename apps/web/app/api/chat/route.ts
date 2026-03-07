@@ -29,6 +29,7 @@ import { getApiLocale } from '@/app/api/utils/i18n';
 import { withUserAndTeamHandler } from '../utils/with-team-handler';
 import { USE_CLOUD_AI } from '@/app/config/app';
 import { buildCloudForwardHeaders } from '@/app/api/utils/cloud-ai-proxy';
+import { getCloudApiBaseUrl } from '@/lib/cloud/url';
 
 export const runtime = 'nodejs';
 
@@ -703,10 +704,8 @@ function resolveCloudBaseUrl(req: NextRequest): string {
             return 'http://localhost:3000';
         }
     }
-    const envUrl = process.env.DORY_AI_CLOUD_URL;
-    if (envUrl && envUrl.trim()) return envUrl.trim();
-    const publicEnvUrl = process.env.NEXT_PUBLIC_DORY_CLOUD_API_URL;
-    if (publicEnvUrl && publicEnvUrl.trim()) return publicEnvUrl.trim();
+    const cloudUrl = getCloudApiBaseUrl();
+    if (cloudUrl) return cloudUrl;
     try {
         return new URL(req.url).origin;
     } catch {
