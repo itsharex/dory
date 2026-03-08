@@ -8,6 +8,7 @@ import * as connectionsSchema from './connections';
 import * as aiSchemaCache from './ai-schema-cache';
 import * as savedQueriesSchema from './saved-queries';
 import * as aiUsageSchema from './ai-usage';
+import * as syncOperationsSchema from './sync-operations';
 
 
 export * from './tabs';
@@ -20,6 +21,7 @@ export * from './connections';
 export * from './ai-schema-cache';
 export * from './saved-queries';
 export * from './ai-usage';
+export * from './sync-operations';
 
 export const schema = {
     ...tabsSchema,
@@ -32,6 +34,7 @@ export const schema = {
     ...aiSchemaCache,
     ...savedQueriesSchema,
     ...aiUsageSchema,
+    ...syncOperationsSchema,
 };
 
 export type DBSchema = typeof schema;

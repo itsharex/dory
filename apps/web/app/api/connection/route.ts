@@ -39,6 +39,13 @@ export const POST = withUserAndTeamHandler(async ({ req, db, userId, teamId }) =
     try {
         const payload = await req.json();
         const created = await db.connections.create(userId!, teamId, payload);
+        await db.syncOperations.enqueue({
+            teamId,
+            entityType: 'connection',
+            entityId: created.connection.id,
+            operation: 'create',
+            payload,
+        });
         return NextResponse.json(ResponseUtil.success(created), { status: 201 });
     } catch (err: any) {
         return handleApiError(err);
@@ -68,6 +75,13 @@ export const PATCH = withUserAndTeamHandler(async ({ req, db, teamId }) => {
         }
 
         const updated = await db.connections.update(teamId, connectionId, payload);
+        await db.syncOperations.enqueue({
+            teamId,
+            entityType: 'connection',
+            entityId: connectionId,
+            operation: 'update',
+            payload,
+        });
         return NextResponse.json(ResponseUtil.success());
     } catch (err: any) {
         return handleApiError(err);
@@ -92,6 +106,13 @@ export const DELETE = withUserAndTeamHandler(async ({ req, db, teamId }) => {
         }
 
         await db.connections.delete(teamId, id);
+        await db.syncOperations.enqueue({
+            teamId,
+            entityType: 'connection',
+            entityId: id,
+            operation: 'delete',
+            payload: { id },
+        });
         return NextResponse.json(ResponseUtil.success({ deleted: [id] }));
     } catch (err: any) {
         return handleApiError(err);
