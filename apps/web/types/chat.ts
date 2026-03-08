@@ -180,18 +180,18 @@ export interface ChatRepository {
 
     listSessions(params: { teamId: string; userId: string; includeArchived?: boolean; type?: ChatSessionType }): Promise<ChatSessionRecord[]>;
 
-    readSession(params: { teamId: string; sessionId: string; actorUserId: string }): Promise<ChatSessionRecord | null>;
+    readSession(params: { teamId: string; sessionId: string; userId: string }): Promise<ChatSessionRecord | null>;
 
-    updateSession(params: { teamId: string; sessionId: string; actorUserId: string; patch: ChatSessionUpdate }): Promise<ChatSessionRecord>;
+    updateSession(params: { teamId: string; sessionId: string; userId: string; patch: ChatSessionUpdate }): Promise<ChatSessionRecord>;
 
-    archiveSession(params: { teamId: string; sessionId: string; actorUserId: string }): Promise<void>;
+    archiveSession(params: { teamId: string; sessionId: string; userId: string }): Promise<void>;
 
     appendMessage(params: {
         teamId: string;
         sessionId: string;
-        actorUserId: string;
+        userId: string;
         message: ChatMessageInsert;
     }): Promise<ChatMessageRecord>;
 
-    listMessages(params: { teamId: string; sessionId: string; actorUserId: string; limit?: number }): Promise<ChatMessageRecord[]>;
+    listMessages(params: { teamId: string; sessionId: string; userId: string; limit?: number }): Promise<ChatMessageRecord[]>;
 }

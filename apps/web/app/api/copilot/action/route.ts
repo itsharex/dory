@@ -10,6 +10,7 @@ import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 import { isMissingAiEnvError } from '@/lib/ai/errors';
 import { USE_CLOUD_AI } from '@/app/config/app';
 import { buildCloudForwardHeaders } from '@/app/api/utils/cloud-ai-proxy';
+import { getCloudApiBaseUrl } from '@/lib/cloud/url';
 
 export const POST = withUserAndTeamHandler(async ({ req, teamId, userId }) => {
     const locale = await getServerLocale();
@@ -17,7 +18,7 @@ export const POST = withUserAndTeamHandler(async ({ req, teamId, userId }) => {
         const body = (await req.json()) as { intent?: ActionIntent; input?: CopilotFixInput; model?: string | null };
 
         if (USE_CLOUD_AI) {
-            const cloudBaseUrl = resolveCloudBaseUrl();
+            const cloudBaseUrl = getCloudApiBaseUrl();
             if (!cloudBaseUrl) {
                 return NextResponse.json(
                     {
@@ -75,16 +76,3 @@ export const POST = withUserAndTeamHandler(async ({ req, teamId, userId }) => {
         return new NextResponse(message, { status: 500 });
     }
 });
-
-function resolveCloudBaseUrl(): string | null {
-    const envUrl = process.env.DORY_AI_CLOUD_URL?.trim();
-    if (envUrl) return envUrl;
-
-    const cloudUrl = process.env.DORY_CLOUD_API_URL?.trim();
-    if (cloudUrl) return cloudUrl;
-
-    const publicEnvUrl = process.env.NEXT_PUBLIC_DORY_CLOUD_API_URL?.trim();
-    if (publicEnvUrl) return publicEnvUrl;
-
-    return null;
-}

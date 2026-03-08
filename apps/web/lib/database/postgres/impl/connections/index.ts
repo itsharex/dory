@@ -22,7 +22,6 @@ import type {
     ConnectionIdentityUpdateInput,
 } from '@/types/connections';
 import { DbExecutor } from '@/lib/database/types';
-import { teamMembers } from '../../schemas';
 import { getClient } from '../../client';
 
 export class ConnectionDuplicateNameError extends Error {
@@ -262,19 +261,7 @@ export class PostgresConnectionsRepository {
         }
     }
 
-    async update(userId: string, teamId: string, connectionId: string, payload: ConnectionPayload): Promise<any> {
-        console.log('Updating connection with payload:', payload);
-        const [member] = await this.db
-            .select()
-            .from(teamMembers)
-            .where(and(eq(teamMembers.userId, userId), eq(teamMembers.teamId, teamId)))
-            .limit(1);
-        if (!member) {
-            throw new DatabaseError(translateDatabase('Database.Errors.NotTeamMember'), 401);
-        }
-        if (member.role !== 'admin' && member.role !== 'owner') {
-            throw new DatabaseError(translateDatabase('Database.Errors.NotAdmin'), 401);
-        }
+    async update(teamId: string, connectionId: string, payload: ConnectionPayload): Promise<any> {
         const connectionPayload = { ...payload.connection } as any;
         // Avoid writing id back
         if ('id' in connectionPayload) {
@@ -284,14 +271,16 @@ export class PostgresConnectionsRepository {
         const [updatedConnection] = await this.db
             .update(connections)
             .set(connectionPayload)
-            .where(eq(connections.id, connectionId))
+            .where(and(eq(connections.id, connectionId), eq(connections.teamId, teamId), isNull(connections.deletedAt)))
             .returning();
+
+        if (!updatedConnection) {
+            throw new ConnectionNotFoundError();
+        }
 
         const sshPayload = payload.ssh;
         if (sshPayload) {
-            // Prefer client-provided connectionId; fallback to param
-            const sshConnectionId = (sshPayload as any)?.connectionId ?? connectionId;
-            await this.saveSshConfig(this.db, sshConnectionId, sshPayload);
+            await this.saveSshConfig(this.db, connectionId, sshPayload);
         }
 
         if (payload.identities && payload.identities.length > 0) {
@@ -317,20 +306,17 @@ export class PostgresConnectionsRepository {
     }
 
 
-    async delete(userId: string, teamId: string, connectionId: string): Promise<any> {
-        const [member] = await this.db
-            .select()
-            .from(teamMembers)
-            .where(and(eq(teamMembers.userId, userId), eq(teamMembers.teamId, teamId)))
-            .limit(1);
-        if (!member) {
-            throw new DatabaseError(translateDatabase('Database.Errors.NotTeamMember'), 401);
+    async delete(teamId: string, connectionId: string): Promise<any> {
+        const deleted = await this.db
+            .delete(connections)
+            .where(and(eq(connections.id, connectionId), eq(connections.teamId, teamId), isNull(connections.deletedAt)))
+            .returning({ id: connections.id });
+
+        if (!deleted[0]) {
+            throw new ConnectionNotFoundError();
         }
-        if (member.role !== 'admin' && member.role !== 'owner') {
-            throw new DatabaseError(translateDatabase('Database.Errors.NotAdmin'), 401);
-        }
-        const result = await this.db.delete(connections).where(eq(connections.id, connectionId));
-        return result;
+
+        return deleted[0];
     }
 
     /**
@@ -642,8 +628,24 @@ export class PostgresConnectionsRepository {
     /**
      * Decrypt plaintext password by identityId (for testConnection)
      */
-    async getIdentityPlainPassword(identityId: string): Promise<string | null> {
-        const [secret] = await this.db.select().from(connectionIdentitySecrets).where(eq(connectionIdentitySecrets.identityId, identityId)).limit(1);
+    async getIdentityPlainPassword(teamId: string, identityId: string): Promise<string | null> {
+        const [secret] = await this.db
+            .select({
+                passwordEncrypted: connectionIdentitySecrets.passwordEncrypted,
+            })
+            .from(connectionIdentitySecrets)
+            .innerJoin(connectionIdentities, eq(connectionIdentitySecrets.identityId, connectionIdentities.id))
+            .innerJoin(connections, eq(connectionIdentities.connectionId, connections.id))
+            .where(
+                and(
+                    eq(connectionIdentitySecrets.identityId, identityId),
+                    eq(connectionIdentities.teamId, teamId),
+                    eq(connections.teamId, teamId),
+                    isNull(connectionIdentities.deletedAt),
+                    isNull(connections.deletedAt),
+                ),
+            )
+            .limit(1);
 
         if (!secret || !secret.passwordEncrypted) return null;
 
@@ -658,8 +660,17 @@ export class PostgresConnectionsRepository {
     /**
      * Decrypt SSH credentials by connectionId (for testConnection)
      */
-    async getSshPlainSecrets(connectionId: string): Promise<{ password: string | null; privateKey: string | null; passphrase: string | null } | null> {
-        const [sshRow] = await this.db.select().from(connectionSsh).where(eq(connectionSsh.connectionId, connectionId)).limit(1);
+    async getSshPlainSecrets(teamId: string, connectionId: string): Promise<{ password: string | null; privateKey: string | null; passphrase: string | null } | null> {
+        const [sshRow] = await this.db
+            .select({
+                passwordEncrypted: connectionSsh.passwordEncrypted,
+                privateKeyEncrypted: connectionSsh.privateKeyEncrypted,
+                passphraseEncrypted: connectionSsh.passphraseEncrypted,
+            })
+            .from(connectionSsh)
+            .innerJoin(connections, eq(connectionSsh.connectionId, connections.id))
+            .where(and(eq(connectionSsh.connectionId, connectionId), eq(connections.teamId, teamId), isNull(connections.deletedAt)))
+            .limit(1);
         if (!sshRow) return null;
 
         const safeDecrypt = async (cipher?: string | null) => {

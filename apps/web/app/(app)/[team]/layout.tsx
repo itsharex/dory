@@ -6,7 +6,6 @@ import { AppContentShell } from './components/app-sidebar/app-content-shell';
 import { AppSidebar } from './components/app-sidebar/app-sidebar';
 import { getSessionFromRequest } from '@/lib/auth/session';
 import { getTeamBySlugOrId } from '@/lib/server/team';
-import { shouldProxyAuthRequest } from '@/lib/auth/auth-proxy';
 
 
 export default async function TeamLayout({ children, params }: { children: React.ReactNode; params: Promise<{ team: string } > }) {
@@ -25,12 +24,9 @@ export default async function TeamLayout({ children, params }: { children: React
     }
 
     const teamParam = (await params)?.team;
-    const isDesktopProxy = shouldProxyAuthRequest();
-    const team = teamParam && !(isDesktopProxy && teamParam === defaultTeamId)
-        ? await getTeamBySlugOrId(teamParam, session.user.id)
-        : null;
+    const team = teamParam ? await getTeamBySlugOrId(teamParam, session.user.id) : null;
 
-    if (!team && !(isDesktopProxy && teamParam === defaultTeamId)) {
+    if (!team) {
         redirect(`/${defaultTeamId}/connections`);
     }
 

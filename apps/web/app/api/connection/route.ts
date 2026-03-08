@@ -46,7 +46,7 @@ export const POST = withUserAndTeamHandler(async ({ req, db, userId, teamId }) =
 });
 
 // PATCH /api/connections?id=xxx
-export const PATCH = withUserAndTeamHandler(async ({ req, db, userId, teamId }) => {
+export const PATCH = withUserAndTeamHandler(async ({ req, db, teamId }) => {
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
 
@@ -67,7 +67,7 @@ export const PATCH = withUserAndTeamHandler(async ({ req, db, userId, teamId }) 
             );
         }
 
-        const updated = await db.connections.update(userId as string, teamId, connectionId, payload);
+        const updated = await db.connections.update(teamId, connectionId, payload);
         return NextResponse.json(ResponseUtil.success());
     } catch (err: any) {
         return handleApiError(err);
@@ -75,9 +75,7 @@ export const PATCH = withUserAndTeamHandler(async ({ req, db, userId, teamId }) 
 });
 
 // DELETE /api/connections?id=xxx
-export const DELETE = withUserAndTeamHandler(async ({ req, db, userId, teamId }) => {
-    console.log('userId', userId);
-    console.log('teamId', teamId);
+export const DELETE = withUserAndTeamHandler(async ({ req, db, teamId }) => {
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
 
@@ -93,7 +91,7 @@ export const DELETE = withUserAndTeamHandler(async ({ req, db, userId, teamId })
             );
         }
 
-        await db.connections.delete(userId!, teamId, id);
+        await db.connections.delete(teamId, id);
         return NextResponse.json(ResponseUtil.success({ deleted: [id] }));
     } catch (err: any) {
         return handleApiError(err);

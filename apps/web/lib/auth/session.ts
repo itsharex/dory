@@ -5,13 +5,8 @@ import type { NextRequest } from 'next/server';
 import { createSessionResolver } from '@dory/auth-core';
 import { getAuth } from '../auth';
 import { createAuthProxyHeaders, shouldProxyAuthRequest } from './auth-proxy';
+import { getCloudApiBaseUrl } from '@/lib/cloud/url';
 import { getRuntimeForServer } from '@/lib/runtime/runtime';
-
-function getCloudApiBaseUrl(): string | null {
-    const cloudUrl = process.env.DORY_CLOUD_API_URL ?? process.env.NEXT_PUBLIC_DORY_CLOUD_API_URL;
-    if (typeof cloudUrl !== 'string' || !cloudUrl.trim()) return null;
-    return cloudUrl.trim();
-}
 
 const resolveSession = createSessionResolver({
     getAuth,

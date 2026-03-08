@@ -41,6 +41,7 @@ export type AuditSearchResponse = {
 };
 
 export type OverviewFilters = {
+    teamId: string;
     from: string; // ISO
     to: string; // ISO
     sources?: QuerySource[];
@@ -102,7 +103,7 @@ export type AuditSearchParams = {
     sources?: QuerySource[];
     statuses?: QueryStatus[];
 
-    teamId?: string;
+    teamId: string;
     tabId?: string;
     userId?: string;
 
@@ -123,5 +124,5 @@ export interface IAuditService {
     search(params: AuditSearchParams): Promise<AuditSearchResult>;
     overview(filters: OverviewFilters): Promise<OverviewResponse>;
 
-    readById(id: string): Promise<AuditItem | null>;
+    readById(teamId: string, id: string): Promise<AuditItem | null>;
 }

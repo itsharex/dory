@@ -172,12 +172,12 @@ export async function ensureConnectionPoolForUser(userId: string, teamId: string
         throw createConnectionError(CONNECTION_ERROR_CODES.missingIdentity);
     }
 
-    const plainPassword = identity.id ? await db.connections.getIdentityPlainPassword(identity.id) : null;
+    const plainPassword = identity.id ? await db.connections.getIdentityPlainPassword(teamId, identity.id) : null;
     if (!plainPassword) {
         throw createConnectionError(CONNECTION_ERROR_CODES.missingPassword);
     }
 
-    const sshSecrets = await db.connections.getSshPlainSecrets(record.connection.id);
+    const sshSecrets = await db.connections.getSshPlainSecrets(teamId, record.connection.id);
     const sshConfig: SshWithSecrets | null = record.ssh
         ? { ...record.ssh, ...(sshSecrets ?? {}) }
         : sshSecrets

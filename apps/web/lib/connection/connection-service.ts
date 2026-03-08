@@ -101,10 +101,10 @@ export async function getOrCreateConnectionPool(
     const identity = pickIdentity(record.identities, null);
     if (!identity) return undefined;
 
-    const plainPassword = identity.id ? await db.connections.getIdentityPlainPassword(identity.id) : null;
+    const plainPassword = identity.id ? await db.connections.getIdentityPlainPassword(teamId, identity.id) : null;
     if (!plainPassword) return;
 
-    const sshSecrets = await db.connections.getSshPlainSecrets(record.connection.id);
+    const sshSecrets = await db.connections.getSshPlainSecrets(teamId, record.connection.id);
     const sshConfig: SshWithSecrets | null = record.ssh
         ? { ...record.ssh, ...(sshSecrets ?? {}) }
         : sshSecrets

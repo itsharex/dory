@@ -38,6 +38,10 @@ function createAuth() {
          * - Used for both email signup and social login
          */
         async function ensureDefaultTeamForUser(userId: string, email: string | null | undefined) {
+            if (isDesktop) {
+                return;
+            }
+
             const locale = await getServerLocale();
             const t = (key: string, values?: Record<string, unknown>) => translate(locale, key, values);
 

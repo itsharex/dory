@@ -6,13 +6,13 @@ import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { CONNECTION_ERROR_CODES, getConnectionErrorCode } from '@/app/api/connection/utils';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 export const runtime = 'nodejs';
-export const POST = withUserAndTeamHandler(async ({ req }) => {
+export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
     const payload = await req.json();
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
 
     try {
-        const result = await testConnectService(payload);
+        const result = await testConnectService(teamId, payload);
         return NextResponse.json(ResponseUtil.success(result));
     } catch (error: unknown) {
         console.error('[connection] test connection failed', error);

@@ -47,22 +47,15 @@ export class PostgresChatRepository implements ChatRepository {
         if (!this.db) throw new DatabaseError(translateDatabase('Database.Errors.NotInitialized'), 500);
     }
 
-    /**
-     * ✅ Unified session permission + state checks
-     * - owner check
-     * - strict team match
-     * - archived is write-prohibited by default
-     */
-    private async assertSessionAccessOn(
+    private async getScopedSessionOn(
         db: DBLike,
         params: {
             teamId: string;
             sessionId: string;
-            actorUserId: string;
+            userId: string;
             allowArchived?: boolean;
         },
     ) {
-        console.log('Asserting session access with params:', params);
         const [session] = await db
             .select({
                 id: chatSessions.id,
@@ -73,28 +66,20 @@ export class PostgresChatRepository implements ChatRepository {
                 title: chatSessions.title,
             })
             .from(chatSessions)
-            .where(and(eq(chatSessions.id, params.sessionId), eq(chatSessions.teamId, params.teamId)));
+            .where(
+                and(
+                    eq(chatSessions.id, params.sessionId),
+                    eq(chatSessions.teamId, params.teamId),
+                    eq(chatSessions.userId, params.userId),
+                ),
+            );
 
         if (!session) throw new DatabaseError(translateDatabase('Database.Errors.ChatSessionNotFound'), 404);
-        if (session.userId !== params.actorUserId) {
-            throw new DatabaseError(translateDatabase('Database.Errors.ChatSessionForbidden'), 403);
-        }
-
         if (!params.allowArchived && session.archivedAt) {
             throw new DatabaseError(translateDatabase('Database.Errors.ChatSessionArchived'), 409);
         }
 
         return session;
-    }
-
-    private async assertSessionAccess(params: {
-        teamId: string;
-        sessionId: string;
-        actorUserId: string;
-        allowArchived?: boolean;
-    }) {
-        this.assertInited();
-        return this.assertSessionAccessOn(this.db, params);
     }
 
     /**
@@ -215,15 +200,19 @@ export class PostgresChatRepository implements ChatRepository {
     async readSession(params: {
         teamId: string;
         sessionId: string;
-        actorUserId: string;
+        userId: string;
     }) {
         this.assertInited();
-        await this.assertSessionAccess(params);
-
         const [record] = await this.db
             .select()
             .from(chatSessions)
-            .where(and(eq(chatSessions.id, params.sessionId), eq(chatSessions.teamId, params.teamId)));
+            .where(
+                and(
+                    eq(chatSessions.id, params.sessionId),
+                    eq(chatSessions.teamId, params.teamId),
+                    eq(chatSessions.userId, params.userId),
+                ),
+            );
 
         return (record as ChatSessionRecord | undefined) ?? null;
     }
@@ -231,11 +220,11 @@ export class PostgresChatRepository implements ChatRepository {
     async updateSession(params: {
         teamId: string;
         sessionId: string;
-        actorUserId: string;
+        userId: string;
         patch: ChatSessionUpdate;
     }) {
         this.assertInited();
-        await this.assertSessionAccess(params);
+        await this.getScopedSessionOn(this.db, params);
 
         const data = params.patch;
         const updatePayload: Record<string, any> = {};
@@ -258,13 +247,25 @@ export class PostgresChatRepository implements ChatRepository {
             await this.db
                 .update(chatSessions)
                 .set({ ...updatePayload, updatedAt: new Date() } as any)
-                .where(and(eq(chatSessions.id, params.sessionId), eq(chatSessions.teamId, params.teamId)));
+                .where(
+                    and(
+                        eq(chatSessions.id, params.sessionId),
+                        eq(chatSessions.teamId, params.teamId),
+                        eq(chatSessions.userId, params.userId),
+                    ),
+                );
         }
 
         const [updated] = await this.db
             .select()
             .from(chatSessions)
-            .where(and(eq(chatSessions.id, params.sessionId), eq(chatSessions.teamId, params.teamId)));
+            .where(
+                and(
+                    eq(chatSessions.id, params.sessionId),
+                    eq(chatSessions.teamId, params.teamId),
+                    eq(chatSessions.userId, params.userId),
+                ),
+            );
 
         if (!updated) throw new DatabaseError(translateDatabase('Database.Errors.ChatUpdateSessionNotFound'), 404);
         return updated as ChatSessionRecord;
@@ -273,15 +274,21 @@ export class PostgresChatRepository implements ChatRepository {
     async archiveSession(params: {
         teamId: string;
         sessionId: string;
-        actorUserId: string;
+        userId: string;
     }) {
         this.assertInited();
-        await this.assertSessionAccess(params);
+        await this.getScopedSessionOn(this.db, { ...params, allowArchived: true });
 
         await this.db
             .update(chatSessions)
             .set({ archivedAt: new Date(), updatedAt: new Date() } as any)
-            .where(and(eq(chatSessions.id, params.sessionId), eq(chatSessions.teamId, params.teamId)));
+            .where(
+                and(
+                    eq(chatSessions.id, params.sessionId),
+                    eq(chatSessions.teamId, params.teamId),
+                    eq(chatSessions.userId, params.userId),
+                ),
+            );
     }
 
     /**
@@ -293,7 +300,7 @@ export class PostgresChatRepository implements ChatRepository {
     async appendMessage(params: {
         teamId: string;
         sessionId: string;
-        actorUserId: string;
+        userId: string;
         message: ChatMessageInsert;
     }): Promise<ChatMessageRecord> {
         this.assertInited();
@@ -302,16 +309,16 @@ export class PostgresChatRepository implements ChatRepository {
         const messageId = params.message.id ?? newEntityId();
 
         return await this.db.transaction(async tx => {
-            const session = await this.assertSessionAccessOn(tx as any, {
+            const session = await this.getScopedSessionOn(tx as any, {
                 teamId: params.teamId,
                 sessionId: params.sessionId,
-                actorUserId: params.actorUserId,
+                userId: params.userId,
                 allowArchived: false,
             });
 
             const normalizedUserId =
                 params.message.role === 'user'
-                    ? params.actorUserId
+                    ? params.userId
                     : params.message.userId ?? null;
 
             const shouldAutoTitle =
@@ -342,7 +349,13 @@ export class PostgresChatRepository implements ChatRepository {
                     updatedAt: now,
                     ...(autoTitle ? { title: autoTitle } : {}),
                 } as any)
-                .where(and(eq(chatSessions.id, params.sessionId), eq(chatSessions.teamId, params.teamId)));
+                .where(
+                    and(
+                        eq(chatSessions.id, params.sessionId),
+                        eq(chatSessions.teamId, params.teamId),
+                        eq(chatSessions.userId, params.userId),
+                    ),
+                );
 
             if (!inserted) throw new DatabaseError(translateDatabase('Database.Errors.ChatInsertMessageFailed'), 500);
             return inserted as ChatMessageRecord;
@@ -352,11 +365,11 @@ export class PostgresChatRepository implements ChatRepository {
     async listMessages(params: {
         teamId: string;
         sessionId: string;
-        actorUserId: string;
+        userId: string;
         limit?: number;
     }) {
         this.assertInited();
-        await this.assertSessionAccess(params);
+        await this.getScopedSessionOn(this.db, { ...params, allowArchived: true });
 
         let q = this.db
             .select()

@@ -27,7 +27,7 @@ export class PgAuditQueryRepository {
         const db = (await getClient()) as PostgresDBClient;
         const limit = Math.min(Math.max(Number(params.limit ?? 50), 1), 200);
 
-        const where: SQLWrapper[] = [];
+        const where: SQLWrapper[] = [eq(queryAudit.teamId, params.teamId)];
 
         // Time range (createdAt: timestamp -> Date)
         if (params.from) {
@@ -120,7 +120,7 @@ export class PgAuditQueryRepository {
             ? sql<string>`to_char(${queryAudit.createdAt}, 'YYYY-MM-DD HH24:00:00')`
             : sql<string>`to_char(${queryAudit.createdAt}, 'YYYY-MM-DD 00:00:00')`;
 
-        const whereClauses: SQLWrapper[] = [];
+        const whereClauses: SQLWrapper[] = [eq(queryAudit.teamId, filters.teamId)];
         const fromDate = msToDate(fromMs);
         const toDate = msToDate(toMs);
         if (fromDate) whereClauses.push(gte(queryAudit.createdAt, fromDate));
@@ -253,9 +253,13 @@ export class PgAuditQueryRepository {
         };
     }
 
-    async readById(id: string): Promise<AuditItem | null> {
+    async readById(teamId: string, id: string): Promise<AuditItem | null> {
         const db = (await getClient()) as PostgresDBClient;
-        const [r] = await db.select().from(queryAudit).where(eq(queryAudit.id, id)).limit(1);
+        const [r] = await db
+            .select()
+            .from(queryAudit)
+            .where(and(eq(queryAudit.id, id), eq(queryAudit.teamId, teamId)))
+            .limit(1);
         if (!r) return null;
 
         return {

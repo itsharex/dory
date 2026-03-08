@@ -71,7 +71,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sess
             const sessionRecord = await db.chat.readSession({
                 teamId,
                 sessionId,
-                actorUserId: userId,
+                userId,
             });
 
             if (!sessionRecord) {
@@ -87,7 +87,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sess
             const messages = await db.chat.listMessages({
                 teamId,
                 sessionId,
-                actorUserId: userId,
+                userId,
                 
             });
 
@@ -191,7 +191,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ se
             const updated = await db.chat.updateSession({
                 teamId,
                 sessionId,
-                actorUserId: userId,
+                userId,
                 patch,
             });
 
@@ -239,10 +239,10 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
 
             
             if (typeof (db.chat as any).archiveSession === 'function') {
-                await (db.chat as any).archiveSession({ teamId, sessionId, actorUserId: userId });
+                await (db.chat as any).archiveSession({ teamId, sessionId, userId });
             } else {
                 
-                await (db.chat as any).deleteSession({ teamId, sessionId, actorUserId: userId });
+                await (db.chat as any).deleteSession({ teamId, sessionId, userId });
             }
 
             return NextResponse.json(ResponseUtil.success(), { status: 200 });

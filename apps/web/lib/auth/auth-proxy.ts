@@ -1,13 +1,6 @@
 import 'server-only';
 import { isDesktopRuntime } from '@/lib/runtime/runtime';
-
-function getCloudApiBaseUrl(): string | null {
-    const cloudUrl = process.env.DORY_CLOUD_API_URL ?? process.env.NEXT_PUBLIC_DORY_CLOUD_API_URL;
-    if (typeof cloudUrl === 'string' && cloudUrl.trim()) {
-        return cloudUrl.trim();
-    }
-    return null;
-}
+import { getCloudApiBaseUrl } from '@/lib/cloud/url';
 
 export function shouldProxyAuthRequest(): boolean {
     return isDesktopRuntime() && Boolean(getCloudApiBaseUrl());
