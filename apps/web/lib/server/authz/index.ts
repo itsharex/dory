@@ -6,7 +6,17 @@ import type { TeamAccess, TeamAccessRole } from './types';
 export type { TeamAccess, TeamAccessRole } from './types';
 
 export async function resolveTeamAccess(teamId: string, userId: string): Promise<TeamAccess | null> {
-    if (shouldProxyAuthRequest()) {
+    const proxy = shouldProxyAuthRequest();
+    console.log('[authz] resolveTeamAccess', {
+        teamId,
+        userId,
+        proxy,
+        runtime: process.env.DORY_RUNTIME ?? null,
+        publicRuntime: process.env.NEXT_PUBLIC_DORY_RUNTIME ?? null,
+        cloudApiUrl: process.env.DORY_CLOUD_API_URL ?? process.env.NEXT_PUBLIC_DORY_CLOUD_API_URL ?? null,
+    });
+
+    if (proxy) {
         return resolveDesktopTeamAccess(teamId, userId);
     }
 

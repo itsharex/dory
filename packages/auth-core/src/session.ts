@@ -61,13 +61,6 @@ export function createSessionResolver<Session>(options: CreateSessionResolverOpt
           if (res.ok) {
             const session = (await res.json()) as Session | null;
             if (session) {
-              log.info('[auth/session] resolved via cloud proxy', {
-                runtime,
-                hasCloudBase: Boolean(cloudBase),
-                status: res.status,
-                requestHost,
-                requestUrl,
-              });
               return session;
             }
           } else {

@@ -5,6 +5,7 @@ import { handleApiError } from '../utils/handle-error';
 import { parseJsonBody } from '../utils/parse-json';
 import { withTeamHandler, withUserAndTeamHandler } from '../utils/with-team-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
+import { canManageTeam, resolveTeamAccess } from '@/lib/server/authz';
 
 // GET /api/connections?id=xxx
 export const GET = withTeamHandler(async ({ req, db, teamId }) => {
@@ -36,6 +37,17 @@ export const GET = withTeamHandler(async ({ req, db, teamId }) => {
 
 // POST /api/connections
 export const POST = withUserAndTeamHandler(async ({ req, db, userId, teamId }) => {
+    const access = await resolveTeamAccess(teamId, userId);
+    if (!canManageTeam(access)) {
+        return NextResponse.json(
+            ResponseUtil.error({
+                code: ErrorCodes.FORBIDDEN,
+                message: 'Forbidden',
+            }),
+            { status: 403 },
+        );
+    }
+
     try {
         const payload = await req.json();
         const created = await db.connections.create(userId!, teamId, payload);
@@ -46,9 +58,20 @@ export const POST = withUserAndTeamHandler(async ({ req, db, userId, teamId }) =
 });
 
 // PATCH /api/connections?id=xxx
-export const PATCH = withUserAndTeamHandler(async ({ req, db, teamId }) => {
+export const PATCH = withUserAndTeamHandler(async ({ req, db, userId, teamId }) => {
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
+    const access = await resolveTeamAccess(teamId, userId);
+
+    if (!canManageTeam(access)) {
+        return NextResponse.json(
+            ResponseUtil.error({
+                code: ErrorCodes.FORBIDDEN,
+                message: 'Forbidden',
+            }),
+            { status: 403 },
+        );
+    }
 
     try {
         // const payload = await parseJsonBody(req, UpdateConnectionSchema);
@@ -75,9 +98,20 @@ export const PATCH = withUserAndTeamHandler(async ({ req, db, teamId }) => {
 });
 
 // DELETE /api/connections?id=xxx
-export const DELETE = withUserAndTeamHandler(async ({ req, db, teamId }) => {
+export const DELETE = withUserAndTeamHandler(async ({ req, db, userId, teamId }) => {
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
+    const access = await resolveTeamAccess(teamId, userId);
+
+    if (!canManageTeam(access)) {
+        return NextResponse.json(
+            ResponseUtil.error({
+                code: ErrorCodes.FORBIDDEN,
+                message: 'Forbidden',
+            }),
+            { status: 403 },
+        );
+    }
 
     try {
         const id = req.nextUrl.searchParams.get('id');
