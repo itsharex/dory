@@ -5,6 +5,7 @@ import { getDBService } from '@/lib/database';
 import { ErrorCodes } from '@/lib/errors';
 import { ResponseUtil } from '@/lib/result';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
+import { canManageTeam, resolveTeamAccess } from '@/lib/server/authz';
 
 type TeamHandlerContext = {
     req: NextRequest;
@@ -21,10 +22,14 @@ type UserHandlerContext = Omit<TeamHandlerContext, 'teamId'> & {
 type UserTeamHandlerContext = Omit<TeamHandlerContext, 'userId'> & {
     userId: string;
 };
+type ManagedTeamHandlerContext = UserTeamHandlerContext & {
+    access: Awaited<ReturnType<typeof resolveTeamAccess>>;
+};
 
 type TeamHandlerFn = (ctx: TeamHandlerContext) => Promise<Response>;
 type UserHandlerFn = (ctx: UserHandlerContext) => Promise<Response>;
 type UserTeamHandlerFn = (ctx: UserTeamHandlerContext) => Promise<Response>;
+type ManagedTeamHandlerFn = (ctx: ManagedTeamHandlerContext) => Promise<Response>;
 type PlatformAdminHandlerFn = (ctx: UserHandlerContext) => Promise<Response>;
 
 function parseCsvEnv(name: string): string[] {
@@ -204,4 +209,26 @@ export function withPlatformAdminHandler(handler: PlatformAdminHandlerFn) {
             });
         });
     };
+}
+
+export function withManagedTeamHandler(handler: ManagedTeamHandlerFn) {
+    return withUserAndTeamHandler(async ctx => {
+        const locale = await getApiLocale();
+        const access = await resolveTeamAccess(ctx.teamId, ctx.userId);
+
+        if (!canManageTeam(access)) {
+            return NextResponse.json(
+                ResponseUtil.error({
+                    code: ErrorCodes.FORBIDDEN,
+                    message: translateApi('ErrorCodes.FORBIDDEN', undefined, locale),
+                }),
+                { status: 403 },
+            );
+        }
+
+        return handler({
+            ...ctx,
+            access,
+        });
+    });
 }
