@@ -81,6 +81,7 @@ export interface ConnectionIdentitySecret {
     identityId: string;
     passwordEncrypted: string | null;
     vaultRef: string | null;
+    secretRef: string | null;
 
     createdAt: Date;
     updatedAt: Date;
@@ -178,6 +179,7 @@ export interface ConnectionIdentitySecretUpsertInput {
     identityId: string;
     passwordEncrypted?: string | null;
     vaultRef?: string | null;
+    secretRef?: string | null;
 }
 
 export interface ConnectionSshUpsertInput {

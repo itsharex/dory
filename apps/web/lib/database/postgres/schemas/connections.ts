@@ -4,6 +4,18 @@ import { newEntityId } from '@/lib/id';
 
 export type ConnectionType = 'clickhouse' | 'doris' | 'mysql' | 'postgres';
 export type ConnectionStatus = 'draft' | 'ready' | 'error' | 'disabled';
+export type SyncSource = 'local' | 'cloud';
+export type SyncStatus =
+    | 'local_only'
+    | 'queued_create'
+    | 'queued_update'
+    | 'queued_delete'
+    | 'syncing_create'
+    | 'syncing_update'
+    | 'syncing_delete'
+    | 'synced'
+    | 'failed'
+    | 'conflict';
 
 export const connections = pgTable(
     'connections',
@@ -17,6 +29,13 @@ export const connections = pgTable(
 
         // Team-scoped resource
         teamId: text('team_id').notNull(),
+
+        source: text('source').notNull().default('local'),
+        cloudId: text('cloud_id'),
+        syncStatus: text('sync_status').notNull().default('local_only'),
+        lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+        remoteUpdatedAt: timestamp('remote_updated_at', { withTimezone: true }),
+        syncError: text('sync_error'),
 
         type: text('type').notNull(),
 
@@ -69,10 +88,14 @@ export const connections = pgTable(
         uniqueIndex('uniq_connections_team_name')
             .on(t.teamId, t.name)
             .where(sql`${t.deletedAt} IS NULL`),
+        uniqueIndex('uniq_connections_cloud_id')
+            .on(t.cloudId)
+            .where(sql`${t.cloudId} IS NOT NULL`),
 
         index('idx_connections_team_id_status').on(t.teamId, t.status),
         index('idx_connections_created_by_user_id').on(t.createdByUserId),
-
+        index('idx_connections_sync_status').on(t.syncStatus),
+        index('idx_connections_team_cloud_id').on(t.teamId, t.cloudId),
         index('idx_connections_team_env').on(t.teamId, t.environment),
 
         check('chk_connections_port', sql`${t.port} IS NULL OR (${t.port} BETWEEN 1 AND 65535)`),
@@ -89,10 +112,19 @@ export const connectionIdentities = pgTable(
             .primaryKey()
             .$defaultFn(() => newEntityId()),
 
+        createdByUserId: text('created_by_user_id'),
+
         connectionId: text('connection_id').notNull(),
 
         // Redundant teamId for permission checks/queries
         teamId: text('team_id').notNull(),
+
+        source: text('source').notNull().default('local'),
+        cloudId: text('cloud_id'),
+        syncStatus: text('sync_status').notNull().default('local_only'),
+        lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
+        remoteUpdatedAt: timestamp('remote_updated_at', { withTimezone: true }),
+        syncError: text('sync_error'),
 
         // Display name for users, e.g. "Admin", "Read-only analyst"
         name: text('name').notNull(),
@@ -127,17 +159,23 @@ export const connectionIdentities = pgTable(
         uniqueIndex('uniq_conn_identity_connection_name')
             .on(t.connectionId, t.name)
             .where(sql`${t.deletedAt} IS NULL`),
+        uniqueIndex('uniq_conn_identity_cloud_id')
+            .on(t.cloudId)
+            .where(sql`${t.cloudId} IS NOT NULL`),
 
         // Only one default identity per connection
         uniqueIndex('uniq_conn_identity_default_per_connection')
             .on(t.connectionId)
-            .where(sql`${t.isDefault} = true`),
+            .where(sql`${t.isDefault} = true AND ${t.deletedAt} IS NULL`),
 
         // Environment-level filter index
 
         index('idx_conn_identity_connection_id').on(t.connectionId),
+        index('idx_conn_identity_created_by_user_id').on(t.createdByUserId),
         index('idx_conn_identity_team_id').on(t.teamId),
         index('idx_conn_identity_enabled').on(t.enabled),
+        index('idx_conn_identity_sync_status').on(t.syncStatus),
+        index('idx_conn_identity_team_cloud_id').on(t.teamId, t.cloudId),
     ],
 );
 
@@ -151,6 +189,7 @@ export const connectionIdentitySecrets = pgTable(
 
         // For future KMS/Vault integration, store reference here
         vaultRef: text('vault_ref'),
+        secretRef: text('secret_ref'),
 
         createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
         updatedAt: timestamp('updated_at', { withTimezone: true })

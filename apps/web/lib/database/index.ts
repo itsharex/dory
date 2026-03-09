@@ -7,6 +7,7 @@ import { PostgresConnectionsRepository } from './postgres/impl/connections';
 import { PostgresAiSchemaCacheRepository } from './postgres/impl/ai-schema-cache';
 import { PostgresSavedQueriesRepository } from './postgres/impl/sql-console/save-queries';
 import { PostgresAiUsageRepository } from './postgres/impl/ai-usage';
+import { PostgresSyncOperationsRepository } from './postgres/impl/sync-operations';
 import { translateDatabase } from './i18n';
 import type { AiUsageRepository } from '@/types';
 
@@ -23,6 +24,7 @@ export type PostgresDBService = {
     aiSchemaCache: PostgresAiSchemaCacheRepository;
     savedQueries: PostgresSavedQueriesRepository;
     aiUsage: AiUsageRepository;
+    syncOperations: PostgresSyncOperationsRepository;
 };
 
 /**
@@ -65,6 +67,9 @@ export async function getDBService(): Promise<DBService> {
             const aiUsageRepo = new PostgresAiUsageRepository();
             await aiUsageRepo.init();
 
+            const syncOperationsRepo = new PostgresSyncOperationsRepository();
+            await syncOperationsRepo.init();
+
             instance = {
                 tabState: tabStateRepo,
                 chat: chatRepo,
@@ -74,6 +79,7 @@ export async function getDBService(): Promise<DBService> {
                 aiSchemaCache: aiSchemaCacheRepo,
                 savedQueries: savedQueriesRepo,
                 aiUsage: aiUsageRepo,
+                syncOperations: syncOperationsRepo,
             };
             break;
         }

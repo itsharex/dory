@@ -246,7 +246,7 @@ export class PostgresConnectionsRepository {
                                 passwordEncrypted,
                             },
                         }
-                        await this.createIdentityWithSecret(tx, created.teamId, created.id, savedIdentityWithSecret as any);
+                        await this.createIdentityWithSecret(tx, userId, created.teamId, created.id, savedIdentityWithSecret as any);
                     }
                 }
 
@@ -486,6 +486,7 @@ export class PostgresConnectionsRepository {
      */
     private async createIdentityWithSecret(
         db: DbExecutor,
+        userId: string | null,
         teamId: string,
         connectionId: string,
         payload: ConnectionIdentityCreateInput & {
@@ -500,6 +501,7 @@ export class PostgresConnectionsRepository {
         const [identity] = await db
             .insert(connectionIdentities)
             .values({
+                createdByUserId: userId,
                 teamId,
                 connectionId,
                 name: payload.name,
@@ -522,6 +524,7 @@ export class PostgresConnectionsRepository {
                 identityId: identity.id,
                 passwordEncrypted: payload.secret.passwordEncrypted ?? null,
                 vaultRef: payload.secret.vaultRef ?? null,
+                secretRef: payload.secret.secretRef ?? null,
             } as any;
 
             await db.insert(connectionIdentitySecrets).values(secret);
@@ -615,6 +618,7 @@ export class PostgresConnectionsRepository {
             identityId: identity.id,
             passwordEncrypted: payload?.secret.passwordEncrypted ?? null,
             vaultRef: payload.secret.vaultRef ?? null,
+            secretRef: payload.secret.secretRef ?? null,
         } as any;
 
         return await db

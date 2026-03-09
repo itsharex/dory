@@ -15,6 +15,13 @@
       "when": 1772614617846,
       "tag": "0001_black_darkhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773060051273,
+      "tag": "0002_remarkable_adam_warlock",
+      "breakpoints": true
     }
   ]
 }
