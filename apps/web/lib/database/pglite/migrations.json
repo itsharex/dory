@@ -75,5 +75,39 @@
     "bps": true,
     "folderMillis": 1772614617846,
     "hash": "64e895b86dcce556ba88cbfcf8866f33a6905f3a71cb6de7f694f7984a97978b"
+  },
+  {
+    "sql": [
+      "CREATE TABLE \"sync_operations\" (\n\t\"id\" text PRIMARY KEY NOT NULL,\n\t\"team_id\" text NOT NULL,\n\t\"entity_type\" text DEFAULT 'connection' NOT NULL,\n\t\"entity_id\" text NOT NULL,\n\t\"operation\" text NOT NULL,\n\t\"payload\" text DEFAULT '{}' NOT NULL,\n\t\"status\" text DEFAULT 'pending' NOT NULL,\n\t\"retry_count\" integer DEFAULT 0 NOT NULL,\n\t\"last_attempt_at\" timestamp with time zone,\n\t\"synced_at\" timestamp with time zone,\n\t\"error_message\" text,\n\t\"created_at\" timestamp with time zone DEFAULT now() NOT NULL,\n\t\"updated_at\" timestamp with time zone NOT NULL\n);\n",
+      "\nDROP INDEX \"uniq_conn_identity_default_per_connection\";",
+      "\nALTER TABLE \"connection_identities\" ADD COLUMN \"created_by_user_id\" text;",
+      "\nALTER TABLE \"connection_identities\" ADD COLUMN \"source\" text DEFAULT 'local' NOT NULL;",
+      "\nALTER TABLE \"connection_identities\" ADD COLUMN \"cloud_id\" text;",
+      "\nALTER TABLE \"connection_identities\" ADD COLUMN \"sync_status\" text DEFAULT 'local_only' NOT NULL;",
+      "\nALTER TABLE \"connection_identities\" ADD COLUMN \"last_synced_at\" timestamp with time zone;",
+      "\nALTER TABLE \"connection_identities\" ADD COLUMN \"remote_updated_at\" timestamp with time zone;",
+      "\nALTER TABLE \"connection_identities\" ADD COLUMN \"sync_error\" text;",
+      "\nALTER TABLE \"connection_identity_secrets\" ADD COLUMN \"secret_ref\" text;",
+      "\nALTER TABLE \"connections\" ADD COLUMN \"source\" text DEFAULT 'local' NOT NULL;",
+      "\nALTER TABLE \"connections\" ADD COLUMN \"cloud_id\" text;",
+      "\nALTER TABLE \"connections\" ADD COLUMN \"sync_status\" text DEFAULT 'local_only' NOT NULL;",
+      "\nALTER TABLE \"connections\" ADD COLUMN \"last_synced_at\" timestamp with time zone;",
+      "\nALTER TABLE \"connections\" ADD COLUMN \"remote_updated_at\" timestamp with time zone;",
+      "\nALTER TABLE \"connections\" ADD COLUMN \"sync_error\" text;",
+      "\nCREATE INDEX \"idx_sync_operations_team_status\" ON \"sync_operations\" USING btree (\"team_id\",\"status\");",
+      "\nCREATE INDEX \"idx_sync_operations_entity\" ON \"sync_operations\" USING btree (\"entity_type\",\"entity_id\");",
+      "\nCREATE INDEX \"idx_sync_operations_created_at\" ON \"sync_operations\" USING btree (\"created_at\");",
+      "\nCREATE UNIQUE INDEX \"uniq_conn_identity_cloud_id\" ON \"connection_identities\" USING btree (\"cloud_id\") WHERE \"connection_identities\".\"cloud_id\" IS NOT NULL;",
+      "\nCREATE INDEX \"idx_conn_identity_created_by_user_id\" ON \"connection_identities\" USING btree (\"created_by_user_id\");",
+      "\nCREATE INDEX \"idx_conn_identity_sync_status\" ON \"connection_identities\" USING btree (\"sync_status\");",
+      "\nCREATE INDEX \"idx_conn_identity_team_cloud_id\" ON \"connection_identities\" USING btree (\"team_id\",\"cloud_id\");",
+      "\nCREATE UNIQUE INDEX \"uniq_connections_cloud_id\" ON \"connections\" USING btree (\"cloud_id\") WHERE \"connections\".\"cloud_id\" IS NOT NULL;",
+      "\nCREATE INDEX \"idx_connections_sync_status\" ON \"connections\" USING btree (\"sync_status\");",
+      "\nCREATE INDEX \"idx_connections_team_cloud_id\" ON \"connections\" USING btree (\"team_id\",\"cloud_id\");",
+      "\nCREATE UNIQUE INDEX \"uniq_conn_identity_default_per_connection\" ON \"connection_identities\" USING btree (\"connection_id\") WHERE \"connection_identities\".\"is_default\" = true AND \"connection_identities\".\"deleted_at\" IS NULL;"
+    ],
+    "bps": true,
+    "folderMillis": 1773060051273,
+    "hash": "e5bf63a7f0c6462842b90b1007bf8ae2b3530b86780c0ee759d305f36d955f13"
   }
 ]
