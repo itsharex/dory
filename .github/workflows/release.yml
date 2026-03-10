@@ -19,6 +19,7 @@ on:
         type: boolean
 
 permissions:
+  actions: write
   contents: write
 
 concurrency:
@@ -86,3 +87,20 @@ jobs:
             --title "v$VERSION" \
             --generate-notes \
             $PRERELEASE_FLAG
+
+      - name: Dispatch packaging workflows
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="v$VERSION"
+
+          gh workflow run ".github/workflows/macos-package.yml" \
+            --ref "${{ github.ref_name }}" \
+            -f release_tag="$TAG"
+
+          gh workflow run ".github/workflows/windows-package.yml" \
+            --ref "${{ github.ref_name }}" \
+            -f release_tag="$TAG"
+
+          gh workflow run ".github/workflows/docker-release.yml" \
+            --ref "${{ github.ref_name }}" \
+            -f release_tag="$TAG"
