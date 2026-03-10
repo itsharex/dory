@@ -182,9 +182,6 @@ async function resolveSshSecrets(teamId: string, payload: TestConnectionPayload,
         }
     }
 
-    if (resolved.authMethod === 'password' && !resolved.password) {
-        throw createConnectionError(CONNECTION_ERROR_CODES.missingSshPassword);
-    }
     if (resolved.authMethod === 'private_key' && !resolved.privateKey) {
         throw createConnectionError(CONNECTION_ERROR_CODES.missingSshPrivateKey);
     }

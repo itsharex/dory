@@ -173,9 +173,6 @@ export async function ensureConnectionPoolForUser(userId: string, teamId: string
     }
 
     const plainPassword = identity.id ? await db.connections.getIdentityPlainPassword(teamId, identity.id) : null;
-    if (!plainPassword) {
-        throw createConnectionError(CONNECTION_ERROR_CODES.missingPassword);
-    }
 
     const sshSecrets = await db.connections.getSshPlainSecrets(teamId, record.connection.id);
     const sshConfig: SshWithSecrets | null = record.ssh
