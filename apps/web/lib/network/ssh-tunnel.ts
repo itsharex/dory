@@ -126,8 +126,7 @@ export async function createSshTunnel(
 
     const method = ssh.authMethod ?? 'password';
     if (method === 'password') {
-        if (!ssh.password) throw new Error(options?.messages?.missingPassword ?? translate(locale, 'Utils.SshTunnel.MissingPassword'));
-        connectionOptions.password = ssh.password;
+        connectionOptions.password = ssh.password ?? '';
     } else if (method === 'private_key') {
         if (!ssh.privateKey) throw new Error(options?.messages?.missingPrivateKey ?? translate(locale, 'Utils.SshTunnel.MissingPrivateKey'));
         connectionOptions.privateKey = ssh.privateKey;

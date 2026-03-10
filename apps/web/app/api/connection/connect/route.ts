@@ -152,13 +152,6 @@ export const POST = withUserAndTeamHandler(async ({ req, db, teamId }) => {
         const plainPassword =
             passwordFromPayload ?? (identity.id ? await db.connections.getIdentityPlainPassword(teamId, identity.id) : null);
 
-        if (!plainPassword) {
-            return NextResponse.json(
-                ResponseUtil.error({ code: ErrorCodes.INVALID_PARAMS, message: t('Api.Connection.Errors.MissingPassword') }),
-                { status: 400 },
-            );
-        }
-
         const sshSecrets = await db.connections.getSshPlainSecrets(teamId, record.connection.id);
         const sshConfig: SshWithSecrets | null = record.ssh
             ? { ...record.ssh, ...(sshSecrets ?? {}) }

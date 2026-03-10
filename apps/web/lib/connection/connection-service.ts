@@ -102,7 +102,6 @@ export async function getOrCreateConnectionPool(
     if (!identity) return undefined;
 
     const plainPassword = identity.id ? await db.connections.getIdentityPlainPassword(teamId, identity.id) : null;
-    if (!plainPassword) return;
 
     const sshSecrets = await db.connections.getSshPlainSecrets(teamId, record.connection.id);
     const sshConfig: SshWithSecrets | null = record.ssh
