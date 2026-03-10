@@ -1,11 +1,13 @@
 // scripts/bootstrap.ts
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { migratePgliteDB } from '../lib/database/pglite/migrate-pglite';
 import { getDatabaseProvider } from '../lib/database/provider';
-import { DEFAULT_PGLITE_DB_PATH } from '@/shared/data/app.data';
-import { fileURLToPath } from 'node:url';
+import { DEFAULT_PGLITE_DB_PATH, DESKTOP_PGLITE_DB_PATH } from '@/shared/data/app.data';
+import { ensureFileUrl } from '@/lib/database/pglite/url';
+import { isDesktopRuntime } from '@/lib/runtime/runtime';
 
 
 async function ensureDirForFile(filePath: string) {
@@ -18,12 +20,14 @@ function toFsPath(v: string) {
 }
 
 async function bootstrapPglite() {
-  const defaultFile = DEFAULT_PGLITE_DB_PATH;
+  const defaultFile = isDesktopRuntime() ? DESKTOP_PGLITE_DB_PATH : DEFAULT_PGLITE_DB_PATH;
   const raw = process.env.PGLITE_DB_PATH ?? defaultFile;
+  console.log("[bootstrap] raw PGLITE_DB_PATH =", raw);
 
   const dbFilePath = toFsPath(raw);
 
-  process.env.PGLITE_DB_PATH = dbFilePath;
+  // Keep a canonical file:// URL in env so downstream code resolves paths consistently.
+  process.env.PGLITE_DB_PATH = ensureFileUrl(dbFilePath);
 
   await ensureDirForFile(dbFilePath);
 

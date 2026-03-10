@@ -16,7 +16,7 @@
         "pglite:studio": "drizzle-kit studio --config ./drizzle.pglite.config.ts",
         "drizzle:push": "drizzle-kit push",
         "postgres:migrate:generate": "drizzle-kit generate",
-        "migrate:generate": "drizzle-kit generate && yarn run pglite:migrate:compile && yarn run client:migrate:compile",
+        "migrate:generate": "drizzle-kit generate && yarn run pglite:migrate:compile && yarn run client:migrate:compile && yarn run build:bootstrap",
         "pglite:migrate:generate": "drizzle-kit generate --config ./drizzle.pglite.config.ts",
         "pglite:migrate:compile": "yarn run pglite:migrate:generate && tsx ./scripts/compile-pglite-migrations.ts",
         "pglite:seed:queries": "tsx ./lib/database/pglite/seeds/seed-saved-queries.ts",

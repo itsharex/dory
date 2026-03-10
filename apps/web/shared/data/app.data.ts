@@ -12,3 +12,4 @@ export const DEFAULT_ACTIVE_TAB: SQLTab = {
 };
 
 export const DEFAULT_PGLITE_DB_PATH = '/app/data/dory';
+export const DESKTOP_PGLITE_DB_PATH = './data/dory';
