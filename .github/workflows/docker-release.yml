@@ -8,9 +8,17 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag to publish (e.g. v0.2.0)."
+        description: "Optional version tag to publish (e.g. v0.2.0 or v0.2.0-rc.1)."
         required: false
         type: string
+      release_channel:
+        description: "Image channel to publish."
+        required: false
+        default: test
+        type: choice
+        options:
+          - test
+          - stable
 
 env:
   IMAGE_NAME: dorylab/dory
@@ -29,7 +37,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || github.ref }}
+          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag || github.ref }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -43,28 +51,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Resolve release tag
-        id: release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          TAG=""
-          if [ "${{ github.event_name }}" = "release" ]; then
-            TAG="${{ github.event.release.tag_name }}"
-          elif [ -n "${{ inputs.release_tag }}" ]; then
-            TAG="${{ inputs.release_tag }}"
-          fi
-          if [ -z "$TAG" ]; then
-            echo "Failed to resolve release tag. Provide a v* tag (for workflow_dispatch, pass release_tag)." >&2
-            exit 1
-          fi
-          if ! echo "$TAG" | grep -Eq '^v[0-9]'; then
-            echo "Invalid release tag: $TAG. Only version tags like v0.2.4 are allowed." >&2
-            exit 1
-          fi
-          echo "Resolved release tag: ${TAG:-<empty>}"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
       - name: Resolve image sha tag
         id: git
         run: |
@@ -73,19 +59,95 @@ jobs:
           echo "full_sha=$FULL_SHA" >> "$GITHUB_OUTPUT"
           echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
 
+      - name: Resolve release tag
+        id: release
+        run: |
+          CHANNEL=""
+          INPUT_CHANNEL="${{ inputs.release_channel }}"
+          TAG=""
+
+          if [ "${{ github.event_name }}" = "release" ]; then
+            if [ "${{ github.event.release.prerelease }}" = "true" ]; then
+              CHANNEL="test"
+            else
+              CHANNEL="stable"
+            fi
+            TAG="${{ github.event.release.tag_name }}"
+          else
+            CHANNEL="${INPUT_CHANNEL:-test}"
+            TAG="${{ inputs.release_tag }}"
+          fi
+
+          if [ "$CHANNEL" = "stable" ]; then
+            if [ -z "$TAG" ]; then
+              echo "Stable releases require release_tag (for workflow_dispatch) or a GitHub release tag." >&2
+              exit 1
+            fi
+            if ! echo "$TAG" | grep -Eq '^v[0-9]'; then
+              echo "Invalid stable release tag: $TAG. Expected v-prefixed semver." >&2
+              exit 1
+            fi
+            PRIMARY_TAG="$TAG"
+            FLOATING_TAG="latest"
+          else
+            if [ -n "$TAG" ] && ! echo "$TAG" | grep -Eq '^v[0-9]'; then
+              echo "Invalid test release tag: $TAG. Expected v-prefixed semver when provided." >&2
+              exit 1
+            fi
+            PRIMARY_TAG="${TAG:-test-${{ steps.git.outputs.short_sha }}}"
+            FLOATING_TAG="test"
+          fi
+
+          {
+            echo "tags<<EOF"
+            echo "${{ env.IMAGE_NAME }}:${PRIMARY_TAG}"
+            echo "${{ env.IMAGE_NAME }}:${FLOATING_TAG}"
+            echo "${{ env.IMAGE_NAME }}:sha-${{ steps.git.outputs.short_sha }}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Resolved channel: $CHANNEL"
+          echo "Resolved release tag: ${TAG:-<empty>}"
+          echo "Primary image tag: $PRIMARY_TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
+          echo "primary_tag=$PRIMARY_TAG" >> "$GITHUB_OUTPUT"
+          echo "floating_tag=$FLOATING_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Generate Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ steps.release.outputs.primary_tag }}
+            type=raw,value=${{ steps.release.outputs.floating_tag }}
+            type=raw,value=sha-${{ steps.git.outputs.short_sha }}
+          labels: |
+            org.opencontainers.image.title=dory
+            org.opencontainers.image.description=Self-hosted data workspace for SQL, notebooks, and local-first workflows.
+            org.opencontainers.image.url=https://github.com/dorylab/dory
+            org.opencontainers.image.source=https://github.com/dorylab/dory
+            org.opencontainers.image.version=${{ steps.release.outputs.tag || steps.release.outputs.primary_tag }}
+            org.opencontainers.image.created=${{ github.event.release.published_at || github.event.head_commit.timestamp || github.run_id }}
+            org.opencontainers.image.revision=${{ steps.git.outputs.full_sha }}
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ steps.release.outputs.tag }}
-            ${{ env.IMAGE_NAME }}:sha-${{ steps.git.outputs.short_sha }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE_NAME }}:buildcache,mode=max
           build-args: |
             VERSION=${{ steps.git.outputs.full_sha }}
             BUILD_DATE=${{ github.event.release.published_at || github.event.head_commit.timestamp || github.run_id }}
             GIT_COMMIT=${{ steps.git.outputs.full_sha }}
             GIT_BRANCH=${{ github.ref_name }}
             GIT_TAG=${{ steps.release.outputs.tag }}
+            RELEASE_CHANNEL=${{ steps.release.outputs.channel }}

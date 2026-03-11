@@ -40,14 +40,39 @@ async function resolvePgliteDataDir(): Promise<string> {
 
 async function initPglite(): Promise<PostgresDBClient> {
     const dataDir = await resolvePgliteDataDir();
+    console.log('[pglite] init start', {
+        cwd: process.cwd(),
+        envPath: process.env.PGLITE_DB_PATH ?? null,
+        resolvedDataDir: dataDir,
+    });
 
-    const client = globalForPglite.__pgliteClient ?? new PGlite({ dataDir });
+    try {
+        const client = globalForPglite.__pgliteClient ?? new PGlite({ dataDir });
+        globalForPglite.__pgliteClient = client;
 
-    globalForPglite.__pgliteClient = client;
+        const db = drizzle({ client, schema: schemas }) as unknown as PostgresDBClient;
+        (db as any).$client = client;
 
-    const db = drizzle({ client, schema: schemas }) as unknown as PostgresDBClient;
-    (db as any).$client = client;
-    return db;
+        console.log('[pglite] init success', {
+            resolvedDataDir: dataDir,
+        });
+
+        return db;
+    } catch (error) {
+        console.error('[pglite] init failed', {
+            cwd: process.cwd(),
+            envPath: process.env.PGLITE_DB_PATH ?? null,
+            resolvedDataDir: dataDir,
+            error,
+            message: error instanceof Error ? error.message : String(error),
+            stack: error instanceof Error ? error.stack : undefined,
+            cause:
+                error instanceof Error && 'cause' in error
+                    ? (error as Error & { cause?: unknown }).cause
+                    : undefined,
+        });
+        throw error;
+    }
 }
 
 export function getPgliteClient(): Promise<PostgresDBClient> {

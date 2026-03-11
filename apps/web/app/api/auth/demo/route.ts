@@ -11,6 +11,50 @@ const DEMO_USER = {
     name: 'Demo User',
 };
 
+function getSetCookies(headers: Headers): string[] {
+    const anyHeaders = headers as unknown as { getSetCookie?: () => string[] };
+    if (typeof anyHeaders.getSetCookie === 'function') {
+        return anyHeaders.getSetCookie();
+    }
+
+    const raw = headers.get('set-cookie');
+    if (!raw) return [];
+    return [raw];
+}
+
+function rewriteSetCookie(value: string, isSecureRequest: boolean): string {
+    const parts = value.split(';');
+    const [nameValue, ...attrs] = parts;
+    const normalizedAttrs = attrs.map(attr => attr.trim());
+    const isClearingCookie =
+        /=\s*$/.test(nameValue) ||
+        normalizedAttrs.some(attr => /^max-age=0$/i.test(attr)) ||
+        normalizedAttrs.some(attr => /^expires=/i.test(attr));
+
+    let rewrittenNameValue = nameValue;
+    if (!isSecureRequest && /^__Secure-/i.test(nameValue)) {
+        if (isClearingCookie) {
+            return '';
+        }
+        rewrittenNameValue = nameValue.replace(/^__Secure-/i, '');
+    }
+
+    const rewritten = normalizedAttrs
+        .filter(attr => !/^domain=/i.test(attr))
+        .map(attr => {
+            if (!isSecureRequest && /^secure$/i.test(attr)) {
+                return '';
+            }
+            if (!isSecureRequest && /^samesite=none$/i.test(attr)) {
+                return 'SameSite=Lax';
+            }
+            return attr;
+        })
+        .filter(Boolean);
+
+    return [rewrittenNameValue, ...rewritten].join('; ');
+}
+
 export async function POST(req: NextRequest) {
     if (shouldProxyAuthRequest()) {
         return proxyAuthRequest(req);
@@ -67,37 +111,13 @@ export async function POST(req: NextRequest) {
 
     const res = NextResponse.json({ ok: true });
     const isSecureRequest = new URL(req.url).protocol === 'https:';
-    if (isSecureRequest) {
-        response.headers?.forEach((value, key) => {
-            if (key.toLowerCase() === 'set-cookie') {
-                res.headers.append('set-cookie', value);
-            }
-        });
-        return res;
+    const setCookies = getSetCookies(response.headers)
+        .map(cookie => rewriteSetCookie(cookie, isSecureRequest))
+        .filter(Boolean);
+
+    for (const cookie of setCookies) {
+        res.headers.append('set-cookie', cookie);
     }
 
-    response.headers?.forEach((value, key) => {
-        if (key.toLowerCase() !== 'set-cookie') return;
-        const parts = value.split(';');
-        const [nameValue, ...attrs] = parts;
-        let rewrittenNameValue = nameValue;
-        if (!isSecureRequest && /^__Secure-/i.test(nameValue)) {
-            rewrittenNameValue = nameValue.replace(/^__Secure-/i, '');
-        }
-        const rewritten = attrs
-            .map(attr => attr.trim())
-            .filter(attr => !/^domain=/i.test(attr))
-            .map(attr => {
-                if (!isSecureRequest && /^secure$/i.test(attr)) {
-                    return '';
-                }
-                if (!isSecureRequest && /^samesite=none$/i.test(attr)) {
-                    return 'SameSite=Lax';
-                }
-                return attr;
-            })
-            .filter(Boolean);
-        res.headers.append('set-cookie', [rewrittenNameValue, ...rewritten].join('; '));
-    });
     return res;
 }

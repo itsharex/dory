@@ -28,6 +28,8 @@ async function bootstrapPglite() {
 
   // Keep a canonical file:// URL in env so downstream code resolves paths consistently.
   process.env.PGLITE_DB_PATH = ensureFileUrl(dbFilePath);
+  console.log("[bootstrap] normalized PGLITE_DB_PATH =", process.env.PGLITE_DB_PATH);
+  console.log("[bootstrap] resolved pglite fs path =", dbFilePath);
 
   await ensureDirForFile(dbFilePath);
 

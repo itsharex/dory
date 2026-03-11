@@ -1,32 +1,36 @@
-FROM node:22-alpine AS installer
+# syntax=docker/dockerfile:1.7
+
+FROM oven/bun:1.2.22-alpine AS bun
+
+FROM node:22-alpine AS base
 WORKDIR /app
 
 RUN corepack enable \
  && corepack prepare yarn@1.22.22 --activate
-COPY . .
 
-ARG VERSION
-ENV VERSION="${VERSION}"
 ENV CI=true
 
-RUN apk add --no-cache curl bash
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
+FROM base AS deps
+COPY package.json yarn.lock .npmrc ./
+COPY apps/admin/package.json ./apps/admin/package.json
+COPY apps/electron/package.json ./apps/electron/package.json
+COPY apps/web/package.json ./apps/web/package.json
+COPY packages/auth-core/package.json ./packages/auth-core/package.json
 
-RUN yarn install --frozen-lockfile --non-interactive --network-concurrency 4
+RUN --mount=type=cache,target=/root/.cache/yarn \
+    yarn install --frozen-lockfile --non-interactive --network-concurrency 4
+
+FROM base AS builder
+ARG VERSION
+ENV VERSION="${VERSION}"
+
+RUN apk add --no-cache bash
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=deps /app /app
+COPY . .
+
 RUN yarn run build
-RUN mkdir -p apps/web/dist-scripts \
- && bun build apps/web/scripts/bootstrap.ts --target=node --format=esm --outfile=apps/web/dist-scripts/bootstrap.mjs
-
-# copy pglite runtime assets next to bootstrap.mjs
-RUN DIST="$(find apps/web -path '*/@electric-sql/pglite*/dist' -type d -print -quit)" \
- && [ -n "$DIST" ] \
- && cp -a "$DIST"/postgres.* apps/web/dist-scripts/ \
- && cp -a "$DIST"/*.wasm apps/web/dist-scripts/ \
- && ls -lah apps/web/dist-scripts | sed -n '1,120p'
- 
 RUN rm -f apps/web/.next/standalone/.env apps/web/.next/standalone/.env.local
-RUN yarn install --production --frozen-lockfile
 
 FROM node:22-alpine AS runner
 WORKDIR /app
@@ -42,11 +46,11 @@ RUN addgroup -S -g 1001 nodejs \
 
 USER nextjs
 
-COPY --from=installer /app/apps/web/package.json .
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/dist-scripts ./dist-scripts
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
+COPY --from=builder /app/apps/web/package.json .
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/dist-scripts ./dist-scripts
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 
 
 EXPOSE 3000

@@ -23,6 +23,14 @@ export async function migratePgliteDB() {
         await runDrizzleMigrate(db);
         return;
     } catch (err) {
-        console.warn(translateDatabase('Database.Errors.PgliteMigrationFailed'), err);
+        console.warn(translateDatabase('Database.Errors.PgliteMigrationFailed'), {
+            error: err,
+            message: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+            cause:
+                err instanceof Error && 'cause' in err
+                    ? (err as Error & { cause?: unknown }).cause
+                    : undefined,
+        });
     }
 }

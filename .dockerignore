@@ -6,6 +6,8 @@ dist
 .cache
 .turbo
 coverage
+dist-scripts
+*.tsbuildinfo
 
 # package managers
 .pnpm-store
@@ -22,6 +24,7 @@ yarn-error.log*
 # runtime data
 data
 logs
+localdata
 
 # misc
 .DS_Store
