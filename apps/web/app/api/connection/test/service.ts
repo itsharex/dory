@@ -1,5 +1,6 @@
 import { UnsupportedTypeError } from '@/lib/connection/base/errors';
 import { BaseConfig, HealthInfo } from '@/lib/connection/base/types';
+import { applyConnectionRequestTimeout } from '@/lib/connection/defaults';
 import { createProvider } from '@/lib/connection/factory';
 import { getDBService } from '@/lib/database';
 import { TestConnectionPayload } from '@/types/connections';
@@ -74,10 +75,7 @@ function buildConnectionConfig(payload: TestConnectionPayload & { ssh?: SSHConfi
     }
 
     
-    if (timeout && Number.isFinite(timeout)) {
-        (options as any).request_timeout = timeout;
-        (options as any).connectTimeout = timeout;
-    }
+    applyConnectionRequestTimeout(options, timeout);
 
     
     if (sshConfig?.enabled) {

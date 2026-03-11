@@ -274,12 +274,14 @@ export class ClickhouseDatasource extends BaseConnection {
         const httpPort = this.resolveHttpPort();
         const useTls = this.isTlsEnabled();
         const url = buildUrl(this.config.host, httpPort, useTls);
+        const requestTimeout = this.resolveRequestTimeout();
 
         const base: ClickHouseClientConfigOptions = {
             url,
             username: this.config.username || 'default',
             password: this.config.password || '',
             database: databaseOverride || this.config.database || 'default',
+            request_timeout: requestTimeout,
         };
 
         if (this.sshAgent) {
@@ -326,6 +328,25 @@ export class ClickhouseDatasource extends BaseConnection {
         } catch {
             return false;
         }
+    }
+
+    private resolveRequestTimeout(): number | undefined {
+        const raw = this.config.options as Record<string, unknown> | undefined;
+        if (!raw || !('request_timeout' in raw)) {
+            return undefined;
+        }
+
+        const value = raw.request_timeout;
+        if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+            return Math.max(1000, Math.trunc(value));
+        }
+        if (typeof value === 'string' && value.trim() !== '') {
+            const parsed = Number(value);
+            if (Number.isFinite(parsed) && parsed > 0) {
+                return Math.max(1000, Math.trunc(parsed));
+            }
+        }
+        return undefined;
     }
 
     private extractSettings(): ClickHouseSettings | undefined {

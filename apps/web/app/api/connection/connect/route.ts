@@ -7,6 +7,7 @@ import { BaseConfig } from '@/lib/connection/base/types';
 import { getDatasourcePool, destroyDatasourcePool, ensureDatasourcePool } from '@/lib/connection/pool-store';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
+import { applyConnectionRequestTimeout } from '@/lib/connection/defaults';
 import { CONNECTION_ERROR_CODES, createConnectionError, getConnectionErrorCode } from '@/app/api/connection/utils';
 export const runtime = 'nodejs';
 type IdentityWithPassword = ConnectionListIdentity & { password?: string | null };
@@ -54,6 +55,8 @@ function buildDatasourceConfig(
     if (typeof connection.httpPort === 'number') {
         (options as any).httpPort = connection.httpPort;
     }
+
+    applyConnectionRequestTimeout(options);
 
     if (ssh?.enabled) {
         (options as any).ssh = {
