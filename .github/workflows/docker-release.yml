@@ -37,7 +37,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'release' && github.event.release.tag_name || inputs.release_tag || github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -51,18 +52,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Resolve image sha tag
-        id: git
-        run: |
-          FULL_SHA="$(git rev-parse HEAD)"
-          SHORT_SHA="$(git rev-parse --short=12 HEAD)"
-          echo "full_sha=$FULL_SHA" >> "$GITHUB_OUTPUT"
-          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
-
       - name: Resolve release tag
         id: release
         run: |
           CHANNEL=""
+          DEFAULT_SHORT_SHA="$(git rev-parse --short=12 HEAD)"
           INPUT_CHANNEL="${{ inputs.release_channel }}"
           TAG=""
 
@@ -94,17 +88,9 @@ jobs:
               echo "Invalid test release tag: $TAG. Expected v-prefixed semver when provided." >&2
               exit 1
             fi
-            PRIMARY_TAG="${TAG:-test-${{ steps.git.outputs.short_sha }}}"
+            PRIMARY_TAG="${TAG:-test-${DEFAULT_SHORT_SHA}}"
             FLOATING_TAG="test"
           fi
-
-          {
-            echo "tags<<EOF"
-            echo "${{ env.IMAGE_NAME }}:${PRIMARY_TAG}"
-            echo "${{ env.IMAGE_NAME }}:${FLOATING_TAG}"
-            echo "${{ env.IMAGE_NAME }}:sha-${{ steps.git.outputs.short_sha }}"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
 
           echo "Resolved channel: $CHANNEL"
           echo "Resolved release tag: ${TAG:-<empty>}"
@@ -113,6 +99,20 @@ jobs:
           echo "channel=$CHANNEL" >> "$GITHUB_OUTPUT"
           echo "primary_tag=$PRIMARY_TAG" >> "$GITHUB_OUTPUT"
           echo "floating_tag=$FLOATING_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout requested tag
+        if: ${{ github.event_name == 'workflow_dispatch' && steps.release.outputs.tag != '' }}
+        run: |
+          git rev-parse --verify "refs/tags/${{ steps.release.outputs.tag }}" >/dev/null 2>&1
+          git checkout --detach "refs/tags/${{ steps.release.outputs.tag }}"
+
+      - name: Resolve image sha tag
+        id: git
+        run: |
+          FULL_SHA="$(git rev-parse HEAD)"
+          SHORT_SHA="$(git rev-parse --short=12 HEAD)"
+          echo "full_sha=$FULL_SHA" >> "$GITHUB_OUTPUT"
+          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Generate Docker metadata
         id: meta
