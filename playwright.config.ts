@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000';
+const defaultPort = '3100';
+const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${defaultPort}`;
 
 export default defineConfig({
     testDir: './tests/e2e',
@@ -35,7 +36,7 @@ export default defineConfig({
         ? undefined
         : {
               command:
-                  "cd apps/web && NEXT_PUBLIC_DORY_CLOUD_API_URL='' BETTER_AUTH_URL='http://127.0.0.1:3000' yarn next dev --turbopack --hostname 127.0.0.1 --port 3000",
+                  `cd apps/web && NEXT_PUBLIC_DORY_CLOUD_API_URL='' BETTER_AUTH_URL='${baseURL}' yarn next dev --turbopack --hostname 127.0.0.1 --port ${defaultPort}`,
               url: baseURL,
               reuseExistingServer: !process.env.CI,
               timeout: 180_000,
