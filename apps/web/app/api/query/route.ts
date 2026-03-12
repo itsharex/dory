@@ -11,6 +11,7 @@ import { getOrCreateConnectionPool } from '@/lib/connection/connection-service';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { getPostHogClient } from '@/lib/posthog-server';
+import { getPostHogServerProperties } from '@/lib/posthog-config';
 
 
 const MAX_STATEMENTS = 100; 
@@ -296,6 +297,7 @@ export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
             distinctId,
             event: 'sql_query_executed',
             properties: {
+                ...getPostHogServerProperties(),
                 status,
                 duration_ms: overallDuration,
                 result_set_count: queryResultSets.length,
