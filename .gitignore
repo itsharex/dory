@@ -52,3 +52,4 @@ localdata
 scan-symbol.cjs
 
 apps/admin/.next/
+.env.local

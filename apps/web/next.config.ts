@@ -33,7 +33,10 @@ const nextConfig: NextConfig = {
         { source: '/api/healthz', destination: '/api/health' },
         { source: '/health', destination: '/api/health' },
         { source: '/ping', destination: '/api/health' },
+        { source: '/ingest/static/:path*', destination: 'https://us-assets.i.posthog.com/static/:path*' },
+        { source: '/ingest/:path*', destination: 'https://us.i.posthog.com/:path*' },
     ],
+    skipTrailingSlashRedirect: true,
     webpack(config, options) {
         config.resolve.alias['jotai'] = path.resolve(__dirname, 'node_modules/jotai');
         if (options.isServer) {

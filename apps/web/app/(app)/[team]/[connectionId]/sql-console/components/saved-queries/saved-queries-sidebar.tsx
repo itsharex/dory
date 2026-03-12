@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils';
 import { useAtomValue } from 'jotai';
 import { useLocale, useTranslations } from 'next-intl';
 import { currentConnectionAtom } from '@/shared/stores/app.store';
+import posthog from 'posthog-js';
 
 export type SavedQueryItem = {
     id: string;
@@ -240,6 +241,7 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
                 throw new Error(data?.message ?? t('SavedQueries.LoadFailed'));
             }
             setItems(prev => prev.filter(entry => entry.id !== item.id));
+            posthog.capture('saved_query_deleted', { query_id: item.id, connection_id: connectionId });
             notifySavedQueriesUpdated();
         } catch (err) {
             const message = err instanceof Error ? err.message : t('SavedQueries.LoadFailed');
@@ -335,7 +337,10 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
                                                 <button
                                                     type="button"
                                                     className="flex-1 min-w-0 text-left"
-                                                    onClick={() => onSelect?.(item)}
+                                                    onClick={() => {
+                                                        posthog.capture('saved_query_opened', { query_id: item.id, connection_id: connectionId });
+                                                        onSelect?.(item);
+                                                    }}
                                                 >
                                                     <div className="text-sm font-medium truncate max-w-full">{item.title}</div>
                                                     <div className="text-[11px] text-muted-foreground truncate max-w-full">

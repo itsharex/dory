@@ -10,6 +10,7 @@ import { BaseConnection } from '@/lib/connection/base/base-connection';
 import { getOrCreateConnectionPool } from '@/lib/connection/connection-service';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
+import { getPostHogClient } from '@/lib/posthog-server';
 
 
 const MAX_STATEMENTS = 100; 
@@ -290,11 +291,26 @@ export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
             source: source ?? null,
         };
 
+        const distinctId = userId ?? sessionId;
+        getPostHogClient()?.capture({
+            distinctId,
+            event: 'sql_query_executed',
+            properties: {
+                status,
+                duration_ms: overallDuration,
+                result_set_count: queryResultSets.length,
+                connection_id: connectionId,
+                source: source ?? null,
+                sql_op: queryResultSets[0]?.sqlOp ?? null,
+                error_message: hitError ? firstErrorMsg : null,
+            },
+        });
+
         return NextResponse.json(
             ResponseUtil.success({
-                session, 
-                queryResultSets, 
-                results, 
+                session,
+                queryResultSets,
+                results,
                 meta: {
                     refId: data.refId || randomUUID(),
                     durationMs: overallDuration,

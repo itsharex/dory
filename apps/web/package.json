@@ -152,6 +152,8 @@
         "pino": "^9.9.5",
         "pino-pretty": "^13.1.1",
         "postcss": "^8.5.1",
+        "posthog-js": "^1.360.1",
+        "posthog-node": "4",
         "prism-react-renderer": "^2.4.1",
         "qwen-ai-provider": "^0.1.1",
         "radix-ui": "^1.4.2",
