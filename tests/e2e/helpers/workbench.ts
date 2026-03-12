@@ -311,7 +311,7 @@ export async function createConnectionAndOpenConsole(page: Page) {
     await expect(connectionCardName).toBeVisible();
 
     await connectionCardName.click();
-    await page.waitForURL(/\/sql-console$/);
+    await expect(page).toHaveURL(/\/sql-console$/);
 }
 
 export async function setSqlEditorValue(page: Page, sql: string) {
