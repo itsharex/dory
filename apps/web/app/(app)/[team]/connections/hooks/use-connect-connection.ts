@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useSetAtom } from 'jotai';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
+import posthog from 'posthog-js';
 
 import { connectConnection } from '../api';
 import { connectionLoadingAtom } from '../states';
@@ -55,11 +56,18 @@ export function useConnectConnection() {
             if (setCurrentImmediately === false) {
                 setCurrentConnection(payload);
             }
+            posthog.capture('connection_opened', {
+                connection_type: payload.connection.type,
+                connection_id: payload.connection.id,
+            });
             if (navigateToConsole && teamId) {
                 router.push(`/${teamId}/${payload.connection.id}/sql-console`);
             }
         },
         onError: error => {
+            posthog.capture('connection_open_failed', {
+                error: (error as Error)?.message,
+            });
             toast.error((error as Error)?.message || t('Connection failed'));
         },
         onSettled: (_res, _error, { payload, identityId }) => {

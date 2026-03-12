@@ -1,5 +1,6 @@
 'use client';
 import { GalleryVerticalEnd, Loader2 } from 'lucide-react';
+import posthog from 'posthog-js';
 import { cn } from '@/lib/utils';
 import { Label } from '@/registry/new-york-v4/ui/label';
 import { Input } from '@/registry/new-york-v4/ui/input';
@@ -47,14 +48,20 @@ export function SignUpForm({ className, ...props }: React.ComponentProps<'div'>)
 
             // Only switch to verify panel after server confirms sign-up success.
             if (!error) {
+                posthog.identify(email, { email, name });
+                posthog.capture('user_signed_up', { method: 'email' });
                 setEmailForVerify(email);
                 setStage('verify');
             } else {
                 // Keep user on the form for regular errors (e.g. email already exists).
                 // Only switch for "unverified account" type errors.
                 if (verifyMatchRegex.test(error.message ?? '')) {
+                    posthog.identify(email, { email, name });
+                    posthog.capture('user_signed_up', { method: 'email' });
                     setEmailForVerify(email);
                     setStage('verify');
+                } else {
+                    posthog.capture('user_sign_up_failed', { method: 'email', error: error.message });
                 }
             }
         } finally {

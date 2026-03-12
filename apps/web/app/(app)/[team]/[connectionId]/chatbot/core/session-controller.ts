@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { UIMessage } from 'ai';
 import { useTranslations } from 'next-intl';
+import posthog from 'posthog-js';
 
 import type { ChatSessionItem, ChatMode } from './types';
 import { normalizeSessionsForDisplay } from './utils';
@@ -178,6 +179,9 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
         setCreatingSession(true);
         try {
             const created = await apiCreateSession({ mode: 'global', errorMessage: t('Errors.CreateSession') });
+            if (created?.id) {
+                posthog.capture('chat_session_created', { session_id: created.id });
+            }
             await fetchSessions(created?.id ?? null);
         } catch (e: any) {
             console.error('[chat] create session failed', e);
@@ -280,6 +284,7 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
 
         try {
             await apiDeleteSession(sessionId, { errorMessage: t('Errors.DeleteSession') });
+            posthog.capture('chat_session_deleted', { session_id: sessionId });
             setSessions(prev => prev.filter(item => item.id !== sessionId));
 
             if (selectedSessionId === sessionId) {

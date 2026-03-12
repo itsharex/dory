@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import posthog from 'posthog-js';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/registry/new-york-v4/ui/button';
@@ -129,7 +130,10 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
                 if (!res.ok) {
                     const message = typeof data?.error === 'string' ? data.error : t('SignIn.LoginFailedRetry');
                     setErr(message);
+                    posthog.capture('user_sign_in_failed', { method: 'email', error: message });
                 } else {
+                    posthog.identify(email, { email });
+                    posthog.capture('user_signed_in', { method: 'email' });
                     router.refresh();
                     router.push(`/`);
                 }
@@ -143,13 +147,18 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
                 });
                 if (error) {
                     setErr(error.message ?? t('SignIn.LoginFailedRetry'));
+                    posthog.capture('user_sign_in_failed', { method: 'email', error: error.message });
                 } else {
                     //Success: Better Auth will handle the callback; for SSR/CSR consistency, it will also perform a local jump.
+                    posthog.identify(email, { email });
+                    posthog.capture('user_signed_in', { method: 'email' });
                     router.push(`/`);
                 }
             }
         } catch (e: any) {
             setErr(e?.message ?? t('SignIn.NetworkErrorRetry'));
+            posthog.capture('user_sign_in_failed', { method: 'email', error: e?.message });
+            posthog.captureException(e);
         } finally {
             setLoading(false);
         }
@@ -213,10 +222,12 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
                 const data = await res.json().catch(() => null);
                 throw new Error(data?.message ?? t('SignIn.LoginFailedRetry'));
             }
+            posthog.capture('user_signed_in', { method: 'demo' });
             router.refresh();
             router.push(`/`);
         } catch (e: any) {
             setErr(e?.message ?? t('SignIn.NetworkErrorRetry'));
+            posthog.capture('user_sign_in_failed', { method: 'demo', error: e?.message });
         } finally {
             setDemoLoading(false);
         }

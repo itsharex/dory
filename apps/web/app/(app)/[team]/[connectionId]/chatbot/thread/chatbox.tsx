@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useChat } from '@ai-sdk/react';
+import posthog from 'posthog-js';
 import type { UIMessage } from 'ai';
 import { useAtom, useAtomValue } from 'jotai';
 import type { StickToBottomContext } from 'use-stick-to-bottom';
@@ -265,6 +266,13 @@ const ChatBotComp = ({
                 return;
             }
         }
+
+        posthog.capture('chat_message_sent', {
+            mode,
+            has_attachments: Boolean(message.files?.length),
+            has_table_context: Boolean(tableForContext),
+            connection_id: connectionId,
+        });
 
         sendMessage(
             { text: message.text || t('Input.SentWithAttachments'), files: message.files },

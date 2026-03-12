@@ -3,6 +3,7 @@
 
 import { useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
+import posthog from 'posthog-js';
 import { useSetAtom } from 'jotai';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
@@ -117,8 +118,13 @@ export function useCreateConnection(callback?: MutationCallbacks<ConnectionRespo
                     const snapshot = getSnapshot();
                     const next = [created, ...snapshot.filter(item => item.connection.id !== created.connection.id)];
                     setAll(next);
+                    posthog.capture('connection_created', {
+                        connection_type: created.connection.type,
+                        connection_id: created.connection.id,
+                    });
                 } else {
                     invalidate();
+                    posthog.capture('connection_created', {});
                 }
 
                 callback?.onSuccess?.(res);
@@ -152,8 +158,13 @@ export function useUpdateConnection(callback?: MutationCallbacks<ConnectionRespo
                         item.connection.id === updated.connection.id ? { ...item, ...updated } : item,
                     );
                     setAll(next);
+                    posthog.capture('connection_updated', {
+                        connection_type: updated.connection.type,
+                        connection_id: updated.connection.id,
+                    });
                 } else {
                     invalidate();
+                    posthog.capture('connection_updated', {});
                 }
 
                 callback?.onSuccess?.(res);
@@ -186,6 +197,7 @@ export function useDeleteConnection(callback?: MutationCallbacks<ResponseObject<
                     setAll(next);
                 }
 
+                posthog.capture('connection_deleted', { connection_id: connectionId });
                 callback?.onSuccess?.(res);
             } else {
                 toast.error(res?.message ?? t('Delete connection failed'));
