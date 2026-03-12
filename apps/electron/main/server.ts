@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import net, { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { fork, type ChildProcess } from 'node:child_process';
+import { parse as parseDotEnv } from 'dotenv';
 import type { LogFn } from './logger.js';
 
 interface CreateStandaloneServerManagerOptions {
@@ -37,6 +38,10 @@ export function createStandaloneServerManager({ isDev, databasePath, log, logWar
         const standaloneDir = getStandaloneDir();
         const serverPath = path.join(standaloneDir, 'apps/web/server.js');
         const bootstrapPath = path.join(standaloneDir, 'apps/web/dist-scripts/bootstrap.mjs');
+        const childEnv = {
+            ...loadStandaloneEnv(standaloneDir),
+            ...process.env,
+        };
 
         log('[electron] standaloneDir:', standaloneDir);
         log('[electron] bootstrapPath:', bootstrapPath);
@@ -64,7 +69,7 @@ export function createStandaloneServerManager({ isDev, databasePath, log, logWar
             const bootstrapProc = fork(bootstrapPath, [], {
                 cwd: standaloneDir,
                 env: {
-                    ...process.env,
+                    ...childEnv,
                     DORY_RUNTIME: 'desktop',
                     DB_TYPE: 'pglite',
                     NEXT_PUBLIC_DORY_RUNTIME: 'desktop',
@@ -79,7 +84,7 @@ export function createStandaloneServerManager({ isDev, databasePath, log, logWar
 
             console.log('[electron] bootstrapProc PID:', bootstrapProc.pid);
             console.log('[electron] bootstrapProc env:', {
-                ...process.env,
+                ...childEnv,
                 DORY_RUNTIME: 'desktop',
                 DB_TYPE: 'pglite',
                 NEXT_PUBLIC_DORY_RUNTIME: 'desktop',
@@ -110,7 +115,7 @@ export function createStandaloneServerManager({ isDev, databasePath, log, logWar
         nextProc = fork(serverPath, [], {
             cwd: standaloneDir,
             env: {
-                ...process.env,
+                ...childEnv,
                 DORY_RUNTIME: 'desktop',
                 DB_TYPE: 'pglite',
                 NEXT_PUBLIC_DORY_RUNTIME: 'desktop',
@@ -156,6 +161,21 @@ export function createStandaloneServerManager({ isDev, databasePath, log, logWar
         getAppUrl,
         stopStandaloneServer,
     };
+}
+
+function loadStandaloneEnv(standaloneDir: string): NodeJS.ProcessEnv {
+    const envFiles = [path.join(standaloneDir, 'apps/web/.env'), path.join(standaloneDir, 'apps/web/.env.local')];
+    const loaded: NodeJS.ProcessEnv = {};
+
+    for (const filePath of envFiles) {
+        if (!fs.existsSync(filePath)) {
+            continue;
+        }
+
+        Object.assign(loaded, parseDotEnv(fs.readFileSync(filePath, 'utf8')));
+    }
+
+    return loaded;
 }
 
 function findAvailablePort(): Promise<number> {
