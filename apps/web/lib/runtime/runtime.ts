@@ -1,9 +1,12 @@
-export type DoryRuntime = 'desktop' | 'web';
+export type DoryRuntime = 'desktop' | 'web' | 'docker';
 
-function normalizeRuntime(value: string | null | undefined): DoryRuntime | null {
+export function normalizeRuntime(value: string | null | undefined): DoryRuntime | null {
     const runtime = value?.trim().toLowerCase();
     if (!runtime) return null;
-    return runtime === 'desktop' ? 'desktop' : 'web';
+    if (runtime === 'desktop') return 'desktop';
+    if (runtime === 'docker') return 'docker';
+    if (runtime === 'web') return 'web';
+    return null;
 }
 
 function readRawRuntime(): string {
@@ -20,7 +23,7 @@ export function isDesktopRuntime(): boolean {
     return runtime === 'desktop';
 }
 
-export function getRuntimeForServer(): string | null {
+export function getRuntimeForServer(): DoryRuntime | null {
     const raw = process.env.DORY_RUNTIME?.trim() || process.env.NEXT_PUBLIC_DORY_RUNTIME?.trim() || '';
-    return raw || null;
+    return normalizeRuntime(raw);
 }

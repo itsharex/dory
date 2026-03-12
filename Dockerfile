@@ -31,6 +31,8 @@ RUN yarn install --production --frozen-lockfile
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV DORY_RUNTIME=docker
+ENV NEXT_PUBLIC_DORY_RUNTIME=docker
 
 # tzdata
 RUN apk add --no-cache tzdata ca-certificates
