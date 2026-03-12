@@ -37,21 +37,10 @@ export function createStandaloneServerManager({ isDev, databasePath, log, logWar
         const standaloneDir = getStandaloneDir();
         const serverPath = path.join(standaloneDir, 'apps/web/server.js');
         const bootstrapPath = path.join(standaloneDir, 'apps/web/dist-scripts/bootstrap.mjs');
-        const posthogEnv = {
-            NEXT_PUBLIC_POSTHOG_KEY: process.env.NEXT_PUBLIC_POSTHOG_KEY,
-            NEXT_PUBLIC_POSTHOG_HOST: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-        };
 
         log('[electron] standaloneDir:', standaloneDir);
         log('[electron] bootstrapPath:', bootstrapPath);
         log('[electron] serverPath:', serverPath);
-
-        if (!posthogEnv.NEXT_PUBLIC_POSTHOG_KEY || !posthogEnv.NEXT_PUBLIC_POSTHOG_HOST) {
-            logWarn('[electron] PostHog env missing for standalone server', {
-                hasKey: Boolean(posthogEnv.NEXT_PUBLIC_POSTHOG_KEY),
-                hasHost: Boolean(posthogEnv.NEXT_PUBLIC_POSTHOG_HOST),
-            });
-        }
 
         if (!fs.existsSync(bootstrapPath)) {
             throw new Error(`Bootstrap script not found: ${bootstrapPath}\n` + 'Please confirm apps/web/dist-scripts/bootstrap.mjs is included in release/standalone.');
@@ -76,7 +65,6 @@ export function createStandaloneServerManager({ isDev, databasePath, log, logWar
                 cwd: standaloneDir,
                 env: {
                     ...process.env,
-                    ...posthogEnv,
                     DORY_RUNTIME: 'desktop',
                     DB_TYPE: 'pglite',
                     NEXT_PUBLIC_DORY_RUNTIME: 'desktop',
@@ -92,7 +80,6 @@ export function createStandaloneServerManager({ isDev, databasePath, log, logWar
             console.log('[electron] bootstrapProc PID:', bootstrapProc.pid);
             console.log('[electron] bootstrapProc env:', {
                 ...process.env,
-                ...posthogEnv,
                 DORY_RUNTIME: 'desktop',
                 DB_TYPE: 'pglite',
                 NEXT_PUBLIC_DORY_RUNTIME: 'desktop',
@@ -124,7 +111,6 @@ export function createStandaloneServerManager({ isDev, databasePath, log, logWar
             cwd: standaloneDir,
             env: {
                 ...process.env,
-                ...posthogEnv,
                 DORY_RUNTIME: 'desktop',
                 DB_TYPE: 'pglite',
                 NEXT_PUBLIC_DORY_RUNTIME: 'desktop',
