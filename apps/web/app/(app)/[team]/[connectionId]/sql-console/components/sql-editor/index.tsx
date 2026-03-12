@@ -15,6 +15,15 @@ import { SqlEditorContextMenu } from './sql-editor-context-menu';
 import { useSqlEditorActions } from './use-sql-editor-actions';
 import { useTranslations } from 'next-intl';
 
+declare global {
+    interface Window {
+        __DORY_E2E_MONACO__?: {
+            getValue: () => string;
+            setValue: (value: string) => void;
+        };
+    }
+}
+
 interface SQLEditorProps {
     activeTab: UITabPayload | undefined;
     updateTab: (tabId: string, patch: Partial<UITabPayload>) => void;
@@ -115,6 +124,32 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(({ activeTab, upda
     );
 
     useEffect(() => {
+        if (typeof window === 'undefined') return;
+
+        window.__DORY_E2E_MONACO__ = {
+            getValue: () =>
+                editorRef.current?.getValue() ?? (activeTab?.tabType === 'sql' ? activeTab?.content ?? '' : ''),
+            setValue: (next: string) => {
+                const editor = editorRef.current;
+                const model = editor?.getModel();
+                if (!editor || !model) return;
+
+                const fullRange = model.getFullModelRange();
+                editor.pushUndoStop();
+                editor.executeEdits('dory.e2e', [{ range: fullRange, text: next }]);
+                editor.pushUndoStop();
+                editor.focus();
+            },
+        };
+
+        return () => {
+            if (window.__DORY_E2E_MONACO__) {
+                delete window.__DORY_E2E_MONACO__;
+            }
+        };
+    }, [activeTab?.content, activeTab?.tabType, editorRef]);
+
+    useEffect(() => {
         if (!activeTab || activeTab.tabType !== 'sql') return;
 
         let cancelled = false;
@@ -171,7 +206,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(({ activeTab, upda
             onExecuteSelection={handleExecuteSelection}
             onExecuteSql={handleExecuteSql}
         >
-            <div className="flex-1 min-h-0 sql-editor-container">
+            <div className="flex-1 min-h-0 sql-editor-container" data-testid="sql-editor">
                 <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
             </div>
         </SqlEditorContextMenu>

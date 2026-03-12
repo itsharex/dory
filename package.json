@@ -43,10 +43,16 @@
     "admin:build": "yarn workspace admin run build",
     "admin:start": "yarn workspace admin run start",
     "admin:lint": "yarn workspace admin run lint",
-    "admin:typecheck": "yarn workspace admin run typecheck"
+    "admin:typecheck": "yarn workspace admin run typecheck",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:docker": "PLAYWRIGHT_INCLUDE_DOCKER=1 playwright test --grep @docker"
   },
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "devDependencies": {
+    "@playwright/test": "^1.54.2"
+  }
 }

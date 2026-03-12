@@ -1,0 +1,25 @@
+{
+  "cookies": [
+    {
+      "name": "active_theme",
+      "value": "default",
+      "domain": "127.0.0.1",
+      "path": "/",
+      "expires": 1804846304.328198,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "better-auth.session_token",
+      "value": "ZzYXBlZkTLxV0r0YxwhP15rmH47xifQb.MLGpSOIKXPrNt8QoYCDzPzzeqIduUORT99ZdhNf4J5E%3D",
+      "domain": "127.0.0.1",
+      "path": "/",
+      "expires": 1773915104.671435,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": []
+}

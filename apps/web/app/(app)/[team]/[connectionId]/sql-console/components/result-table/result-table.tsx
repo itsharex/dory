@@ -719,7 +719,7 @@ export function ResultTable() {
             return <SQLErrorAlert message={execMetaBySet?.[activeSet]?.errorMessage} sql={execMetaBySet?.[activeSet]?.sqlText} />;
         }
         return (
-            <div className="flex h-full min-h-0 flex-col bg-card mb-2">
+            <div className="flex h-full min-h-0 flex-col bg-card mb-2" data-testid="result-table-content">
                 <div className="border-b bg-muted/30">
                     <div className="flex items-center justify-between gap-3 w-full px-2 py-1">
                         <Tabs
@@ -901,7 +901,7 @@ export function ResultTable() {
     }
 
     return (
-        <div className="flex h-full flex-col">
+        <div className="flex h-full flex-col" data-testid="result-table">
             {/* Top toolbar */}
             {runningTabs[tabId] !== 'running' && (
                 <Toolbar

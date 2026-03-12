@@ -279,7 +279,7 @@ export function ConnectionDialog({
 
     return (
         <Dialog open={open} onOpenChange={handleOpenChange}>
-            <DialogContent className="sm:max-w-2xl max-h-[95vh] flex flex-col">
+            <DialogContent className="sm:max-w-2xl max-h-[95vh] flex flex-col" data-testid="connection-dialog">
                 <DialogHeader className="shrink-0">
                     <DialogTitle>{isEditMode ? tc('Edit.title') : tc('Create.title')}</DialogTitle>
                 </DialogHeader>
@@ -360,7 +360,7 @@ export function ConnectionDialog({
                         
                         <DialogFooter className="shrink-0 pt-4 mt-2 bg-background flex lg:justify-between">
                             <div>
-                                <Button type="button" onClick={handleTestConnection} disabled={submitting || testing}>
+                                <Button type="button" onClick={handleTestConnection} disabled={submitting || testing} data-testid="test-connection">
                                     {testing ? t('Testing Connection') : tc('TestConnection')}
                                 </Button>
                             </div>
@@ -368,7 +368,7 @@ export function ConnectionDialog({
                                 <Button type="button" variant="outline" onClick={handleClose} disabled={submitting}>
                                     {t('Cancel')}
                                 </Button>
-                                <Button type="submit" disabled={submitting}>
+                                <Button type="submit" disabled={submitting} data-testid="save-connection">
                                     {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     {submitting ? (isEditMode ? t('Saving') : t('Creating')) : isEditMode ? t('Save Changes') : t('Create Connection')}
                                 </Button>

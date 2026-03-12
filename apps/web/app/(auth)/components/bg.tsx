@@ -17,6 +17,17 @@ const Dithering = dynamic(
 let observer: IntersectionObserver;
 const observerTargets = new WeakMap<Element, (entry: IntersectionObserverEntry) => void>();
 
+function supportsWebGL() {
+    if (typeof window === 'undefined') return false;
+
+    try {
+        const canvas = document.createElement('canvas');
+        return Boolean(canvas.getContext('webgl') || canvas.getContext('experimental-webgl'));
+    } catch {
+        return false;
+    }
+}
+
 function useIsVisible(ref: RefObject<HTMLElement | null>) {
     const [visible, setVisible] = useState(false);
 
@@ -55,6 +66,7 @@ export function HeroBackground({
     const [showShaders, setShowShaders] = useState(false);
 
     useEffect(() => {
+        if (!supportsWebGL()) return;
         const t = setTimeout(() => setShowShaders(true), 200);
         return () => clearTimeout(t);
     }, []);

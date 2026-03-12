@@ -237,15 +237,15 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
         <div className={cn('flex flex-col gap-6', className)} {...props}>
             <Card className="overflow-hidden p-0">
                 <CardContent className="grid p-0 md:grid-cols-1">
-                    <form className="p-6 md:p-8" onSubmit={onSubmit}>
+                    <form className="p-6 md:p-8" onSubmit={onSubmit} data-testid="sign-in-form">
                         <div className="flex flex-col gap-6">
                             <div className="flex flex-col items-center text-center">
                                 <h1 className="text-2xl font-bold">{t('SignIn.Title')}</h1>
                                 <p className="text-muted-foreground text-balance">{t('SignIn.Description')}</p>
                             </div>
 
-                            {err ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{err}</div> : null}
-                            {msg ? <div className="rounded-md border border-emerald-300/40 bg-emerald-50 p-3 text-sm text-emerald-700">{msg}</div> : null}
+                            {err ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive" data-testid="auth-error">{err}</div> : null}
+                            {msg ? <div className="rounded-md border border-emerald-300/40 bg-emerald-50 p-3 text-sm text-emerald-700" data-testid="auth-message">{msg}</div> : null}
 
                             <div className="grid gap-3">
                                 <Label htmlFor="email">{t('SignIn.Email')}</Label>
@@ -275,7 +275,7 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
                             </Button>
 
                             {!isDesktop ? (
-                                <Button type="button" className="w-full" variant="secondary" disabled={loading || demoLoading} onClick={onDemoSignIn}>
+                                <Button type="button" className="w-full" variant="secondary" disabled={loading || demoLoading} onClick={onDemoSignIn} data-testid="demo-sign-in">
                                     {demoLoading ? t('SignIn.Submitting') : t('SignIn.DemoEnter')}
                                 </Button>
                             ) : null}

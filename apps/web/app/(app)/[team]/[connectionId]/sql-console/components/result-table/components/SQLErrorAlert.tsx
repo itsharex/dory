@@ -31,6 +31,7 @@ export function SQLErrorAlert({
         <Alert
             variant="destructive"
             className="border-none bg-transparent flex flex-col max-h-full"
+            data-testid="sql-error-alert"
         >
             <div className="flex items-center gap-2">
                 <AlertCircle className="h-4 w-4 shrink-0" />

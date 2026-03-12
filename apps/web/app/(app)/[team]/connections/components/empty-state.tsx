@@ -55,7 +55,7 @@ export function ConnectionsEmptyState({
 
         <EmptyContent className="gap-3">
           <div className="mx-auto flex w-full max-w-sm flex-col gap-2 sm:flex-row sm:justify-center">
-            <Button className="w-full sm:w-auto" onClick={onAddConnection}>
+            <Button className="w-full sm:w-auto" onClick={onAddConnection} data-testid="add-connection">
               {t('Add Connection')}
             </Button>
 
