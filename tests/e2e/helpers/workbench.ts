@@ -59,7 +59,16 @@ export async function mockWorkbenchApis(page: Page) {
     });
 
     await page.route('**/api/connection/connect', async route => {
-        await json(route, { code: 0, message: 'success', data: null });
+        const payload = route.request().postDataJSON() as { connection?: { id?: string }; identityId?: string | null };
+        await json(route, {
+            code: 0,
+            message: 'success',
+            data: {
+                connectionId: payload.connection?.id ?? 'conn-1',
+                identityId: payload.identityId ?? null,
+                status: 'Connected',
+            },
+        });
     });
 
     await page.route('**/api/connection', async route => {
@@ -307,10 +316,14 @@ export async function createConnectionAndOpenConsole(page: Page) {
     await page.getByRole('button', { name: /create connection/i }).click();
     await expect(dialog).toBeHidden();
 
-    const connectionCardName = page.getByRole('main').getByText('E2E ClickHouse');
-    await expect(connectionCardName).toBeVisible();
+    const connectionCard = page.getByTestId('connection-card').filter({ hasText: 'E2E ClickHouse' }).first();
+    await expect(connectionCard).toBeVisible();
 
-    await connectionCardName.click();
+    const connectResponse = page.waitForResponse(
+        response => response.url().includes('/api/connection/connect') && response.request().method() === 'POST' && response.ok(),
+    );
+    await connectionCard.click();
+    await connectResponse;
     await expect(page).toHaveURL(/\/sql-console$/);
 }
 
