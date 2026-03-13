@@ -1,32 +1,32 @@
 {
   "cookies": [
     {
-      "name": "ph_phc_o3VMn0VNqYPzgCWe46va7Vj3PDJVmxEajxKoBICgxJw_posthog",
-      "value": "%7B%22%24device_id%22%3A%22019ce50c-25b7-767c-b189-89fdef2a4161%22%2C%22distinct_id%22%3A%22019ce50c-25b7-767c-b189-89fdef2a4161%22%2C%22%24epp%22%3Atrue%2C%22%24user_state%22%3A%22anonymous%22%7D",
-      "domain": "127.0.0.1",
-      "path": "/",
-      "expires": 1804905307,
-      "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
-    },
-    {
       "name": "active_theme",
       "value": "default",
       "domain": "127.0.0.1",
       "path": "/",
-      "expires": 1804905304.504774,
+      "expires": 1804906890.644359,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "better-auth.session_token",
-      "value": "A6rkPogI30hq9gXMJlPgwf5KAKMjQz2n.nWpjl7sorq8k056OXbjKDZ2J8Ng77J%2FBqCWvtU8N1ho%3D",
+      "value": "xFnnbltYtf76FNvMvjV0bMJFQwPqpAwv.ty7YojFTQgMQguYDNknWjsv%2Be%2BqAVBfyvXqFO%2Fijs%2Bc%3D",
       "domain": "127.0.0.1",
       "path": "/",
-      "expires": 1773974106.622398,
+      "expires": 1773975692.843253,
       "httpOnly": true,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "ph_phc_o3VMn0VNqYPzgCWe46va7Vj3PDJVmxEajxKoBICgxJw_posthog",
+      "value": "%7B%22%24device_id%22%3A%22019ce524-5992-7130-b8fe-e82ad9c1800c%22%2C%22distinct_id%22%3A%22019ce524-5992-7130-b8fe-e82ad9c1800c%22%2C%22%24sesid%22%3A%5B1773370894808%2C%22019ce524-66bc-701c-9572-8ad893b15437%22%2C1773370894012%5D%2C%22%24epp%22%3Atrue%2C%22%24user_state%22%3A%22anonymous%22%7D",
+      "domain": "127.0.0.1",
+      "path": "/",
+      "expires": 1804906894,
+      "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     }
@@ -37,7 +37,7 @@
       "localStorage": [
         {
           "name": "ph_phc_o3VMn0VNqYPzgCWe46va7Vj3PDJVmxEajxKoBICgxJw_posthog",
-          "value": "{\"$initialization_time\":\"2026-03-13T02:35:04.499Z\",\"$configured_session_timeout_ms\":1800000,\"distinct_id\":\"019ce50c-25b7-767c-b189-89fdef2a4161\",\"$device_id\":\"019ce50c-25b7-767c-b189-89fdef2a4161\",\"$user_state\":\"anonymous\",\"$epp\":true,\"$stored_person_properties\":{\"$internal_or_test_user\":true},\"environment\":\"development\",\"runtime\":\"web\",\"$feature_flag_errors\":[\"timeout\"]}"
+          "value": "{\"$initialization_time\":\"2026-03-13T03:01:30.639Z\",\"$configured_session_timeout_ms\":1800000,\"distinct_id\":\"019ce524-5992-7130-b8fe-e82ad9c1800c\",\"$device_id\":\"019ce524-5992-7130-b8fe-e82ad9c1800c\",\"$user_state\":\"anonymous\",\"$epp\":true,\"$stored_person_properties\":{\"$internal_or_test_user\":true},\"environment\":\"development\",\"runtime\":\"web\",\"$error_tracking_suppression_rules\":[],\"$session_recording_remote_config\":{\"cache_timestamp\":1773370894013,\"enabled\":true,\"consoleLogRecordingEnabled\":true,\"endpoint\":\"/s/\",\"eventTriggers\":[],\"linkedFlag\":null,\"masking\":null,\"minimumDurationMilliseconds\":null,\"networkPayloadCapture\":{\"capturePerformance\":{\"network_timing\":true,\"web_vitals\":true,\"web_vitals_allowed_metrics\":null}},\"recorderVersion\":\"v2\",\"sampleRate\":null,\"scriptConfig\":{\"script\":\"posthog-recorder\"},\"triggerMatchType\":null,\"urlBlocklist\":[],\"urlTriggers\":[],\"canvasRecording\":{}},\"$autocapture_disabled_server_side\":false,\"$product_tours_enabled_server_side\":false,\"$heatmaps_enabled_server_side\":true,\"$web_vitals_enabled_server_side\":true,\"$web_vitals_allowed_metrics\":null,\"$exception_capture_enabled_server_side\":false,\"$dead_clicks_enabled_server_side\":false,\"$feature_flag_errors\":[],\"$active_feature_flags\":[],\"$enabled_feature_flags\":{},\"$feature_flag_payloads\":{},\"$feature_flag_details\":{},\"$feature_flag_request_id\":\"2267b84a-c87d-4494-9ee7-8dfdb1f180d3\",\"$feature_flag_evaluated_at\":1773370893274,\"$sesid\":[1773370894808,\"019ce524-66bc-701c-9572-8ad893b15437\",1773370894012],\"$client_session_props\":{\"sessionId\":\"019ce524-66bc-701c-9572-8ad893b15437\",\"props\":{\"r\":\"$direct\",\"u\":\"http://127.0.0.1:3100/\"}},\"$debug_first_full_snapshot_timestamp\":1773370894211}"
         },
         {
           "name": "ph_debug",

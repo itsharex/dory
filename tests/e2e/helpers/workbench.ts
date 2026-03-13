@@ -318,8 +318,55 @@ export async function createConnectionAndOpenConsole(page: Page) {
 
     const connectionCard = page.getByTestId('connection-card').filter({ hasText: 'E2E ClickHouse' }).first();
     await expect(connectionCard).toBeVisible();
-    await connectionCard.click();
-    await expect(page).toHaveURL(/\/sql-console$/);
+    let connectRequestSeen = false;
+    let connectResponseStatus: number | null = null;
+
+    try {
+        await Promise.all([
+            page.waitForResponse(response => {
+                const isConnectRequest =
+                    response.url().includes('/api/connection/connect') &&
+                    response.request().method() === 'POST';
+
+                if (isConnectRequest) {
+                    connectRequestSeen = true;
+                    connectResponseStatus = response.status();
+                }
+
+                return isConnectRequest;
+            }),
+            page.waitForURL(/\/sql-console$/, { timeout: 15000 }),
+            connectionCard.click(),
+        ]);
+    } catch (error) {
+        const diagnostics = await page.evaluate(() => {
+            const cards = Array.from(document.querySelectorAll('[data-testid="connection-card"]')).map(card => ({
+                text: card.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                connectionId: card.getAttribute('data-connection-id'),
+            }));
+
+            return {
+                href: window.location.href,
+                title: document.title,
+                currentConnectionLocalStorage: window.localStorage.getItem('currentConnection'),
+                cards,
+            };
+        });
+
+        const cardText = await connectionCard.textContent().catch(() => null);
+        const cardConnectionId = await connectionCard.getAttribute('data-connection-id').catch(() => null);
+
+        console.error('[workbench helper] failed to open SQL console', {
+            currentUrl: page.url(),
+            connectRequestSeen,
+            connectResponseStatus,
+            cardConnectionId,
+            cardText: cardText?.replace(/\s+/g, ' ').trim() ?? null,
+            diagnostics,
+        });
+
+        throw error;
+    }
 }
 
 export async function setSqlEditorValue(page: Page, sql: string) {
