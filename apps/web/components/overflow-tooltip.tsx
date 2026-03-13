@@ -11,7 +11,7 @@ type OverflowTooltipProps = {
     text?: string | null;
     className?: string;
     children?: React.ReactNode;
-    disableTooltip?: boolean; // 🔹 新增：禁用内部 tooltip（允许外部 tooltip 包裹）
+    disableTooltip?: boolean;
 };
 
 /**
@@ -54,17 +54,14 @@ export const OverflowTooltip = React.forwardRef<HTMLSpanElement, OverflowTooltip
             </span>
         );
 
-        // ① 完全禁用 tooltip → 只做 ellipsis，不显示内部 tooltip
         if (disableTooltip) return baseSpan;
 
-        // ② 不溢出，不显示 tooltip
         if (!text || !overflowing) return baseSpan;
 
-        // ③ 默认行为：显示溢出 tooltip
         return (
             <Tooltip>
                 <TooltipTrigger asChild>{baseSpan}</TooltipTrigger>
-                <TooltipContent className="max-w-[360px] break-words text-xs">{text}</TooltipContent>
+                <TooltipContent className="max-w-90 wrap-break-word text-xs">{text}</TooltipContent>
             </Tooltip>
         );
     }

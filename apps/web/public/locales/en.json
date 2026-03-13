@@ -1831,8 +1831,12 @@
                 "More": "More actions"
             },
             "Status": {
-                "Success": "Succeeded",
-                "Failed": "Failed"
+                "Success": "Done",
+                "Failed": "Failed",
+                "Blocked": "Blocked"
+            },
+            "Notice": {
+                "ReadOnlyRestriction": "This connection only allows read-only queries. CREATE / INSERT / UPDATE / DELETE statements need to be run manually in the SQL editor."
             },
             "FollowUp": {
                 "Button": "Follow up on this result",

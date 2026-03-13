@@ -20,6 +20,7 @@ export function toActionContext(
     return {
         teamId: identity?.teamId,
         userId: identity?.userId,
+        connectionId: input.meta?.connectionId,
         dialect: exec.dialect ?? 'unknown',
         sql: exec.sql,
         database: exec.database ?? undefined,

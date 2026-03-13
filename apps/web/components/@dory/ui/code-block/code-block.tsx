@@ -25,6 +25,7 @@ interface SmartCodeBlockProps {
     maxHeightClassName?: string;
     theme?: SyntaxHighlighterProps['style'];
     className?: string;
+    variant?: 'default' | 'soft';
     forceThemeMode?: 'light' | 'dark';
     onCopy?: () => void;
 }
@@ -37,6 +38,7 @@ export function SmartCodeBlock({
     showLineNumbers = false,
     maxHeightClassName = 'max-h-80',
     theme,
+    variant = 'default',
     forceThemeMode,
     onCopy,
 }: SmartCodeBlockProps) {
@@ -143,13 +145,22 @@ export function SmartCodeBlock({
         <div className={cn('flex flex-col gap-2', className)}>
             {label && <span className="text-xs font-medium text-muted-foreground">{label}</span>}
 
-            <div className={cn('relative group rounded-lg border bg-muted/40', maxHeightClassName, 'overflow-hidden')}>
+            <div
+                className={cn(
+                    'relative group overflow-hidden',
+                    variant === 'soft'
+                        ? 'rounded-xl bg-muted/50'
+                        : 'rounded-lg border bg-muted/40',
+                    maxHeightClassName,
+                )}
+            >
                 <Button
                     type="button"
                     size="icon"
-                    variant="outline"
+                    variant={variant === 'soft' ? 'ghost' : 'outline'}
                     className={cn(
-                        'absolute right-2 top-1 z-10 h-7 w-7 rounded-full border bg-background/80 shadow-sm',
+                        'absolute right-2 top-2 z-10 h-7 w-7 rounded-full bg-background/80 shadow-sm',
+                        variant === 'soft' ? 'border-0' : 'border',
                         'opacity-0 transition-opacity group-hover:opacity-100',
                         copied && 'opacity-100',
                     )}
@@ -158,7 +169,13 @@ export function SmartCodeBlock({
                     {copied ? <Check className="h-2 w-2 text-xs" /> : <Copy className="h-2 w-2 text-xs" />}
                 </Button>
 
-                <div className={cn('relative overflow-auto bg-card rounded-lg p-3', maxHeightClassName)}>
+                <div
+                    className={cn(
+                        'relative overflow-auto',
+                        variant === 'soft' ? 'rounded-xl bg-transparent p-4' : 'rounded-lg bg-card p-3',
+                        maxHeightClassName,
+                    )}
+                >
                     {contentNode}
                 </div>
             </div>

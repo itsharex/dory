@@ -6,9 +6,11 @@ export type ActionIntent = 'fix-sql-error' | 'optimize-performance' | 'rewrite-s
 export type ActionContext = {
     teamId?: string;
     userId?: string;
+    connectionId?: string;
     dialect: ConnectionDialect;
     sql: string;
     database?: string;
+    schemaContext?: string;
     locale?: Locale;
     model?: string | null;
     error?: {

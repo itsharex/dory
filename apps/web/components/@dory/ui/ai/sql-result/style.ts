@@ -9,16 +9,16 @@ type SqlResultActionStyles = {
 };
 
 const GLOBAL_STYLES: SqlResultActionStyles = {
-    iconBtn: 'h-7 w-7 p-0 min-w-0 text-muted-foreground hover:text-foreground cursor-pointer',
+    iconBtn: 'h-8 w-8 rounded-full p-0 min-w-0 text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer',
     icon: 'h-3.5 w-3.5',
     srOnly: 'sr-only',
-    textBtn: 'h-7 px-2 text-xs text-muted-foreground hover:text-foreground',
+    textBtn: 'h-8 rounded-full px-3 text-xs text-muted-foreground hover:bg-accent hover:text-foreground',
     menu: 'w-44',
 };
 
 const COPILOT_STYLES: SqlResultActionStyles = {
-    iconBtn: 'h-6 w-6 p-1 min-w-0 text-muted-foreground hover:text-foreground cursor-pointer',
-    icon: 'h-[12px] w-[12px]',
+    iconBtn: 'h-8 w-8 rounded-full p-0 min-w-0 text-muted-foreground hover:bg-accent hover:text-foreground cursor-pointer',
+    icon: 'h-3.5 w-3.5',
     srOnly: GLOBAL_STYLES.srOnly,
     textBtn: GLOBAL_STYLES.textBtn,
     menu: GLOBAL_STYLES.menu,

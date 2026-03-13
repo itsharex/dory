@@ -9,7 +9,6 @@ type CatalogDatabasePageProps = {
 };
 
 export default async function CatalogTablePage({ params }: { params: Promise<CatalogDatabasePageProps> }) {
-    console.log('CatalogTablePage render', { params });
     const { catalog, database } = await params;
 
     return (

@@ -20,6 +20,11 @@ type SchemaContextOptions = {
     columnSampleLimit?: number;
 };
 
+type SchemaTableRef = {
+    database?: string | null;
+    name: string;
+};
+
 export const SCHEMA_PROMPT = `
 --- Database Context ---
 {schema}
@@ -123,6 +128,69 @@ export async function buildSchemaContext(options: SchemaContextOptions): Promise
     }
 }
 
+export async function buildSchemaContextForTables(options: {
+    userId: string;
+    teamId: string;
+    datasourceId: string;
+    database?: string | null;
+    tables: SchemaTableRef[];
+    columnSampleLimit?: number;
+}): Promise<string | null> {
+    const { userId, teamId, datasourceId, database, tables, columnSampleLimit = DEFAULT_COLUMN_SAMPLE_LIMIT } = options;
+
+    if (!tables.length) {
+        return null;
+    }
+
+    try {
+        const { entry, config } = await ensureConnectionPoolForUser(userId, teamId, datasourceId, null);
+        const instance = entry.instance;
+        const effectiveColumnLimit = sanitizeLimit(columnSampleLimit, DEFAULT_COLUMN_SAMPLE_LIMIT);
+
+        const dedupedTables = dedupeSchemaTables(tables);
+        const lines: string[] = [];
+
+        lines.push('Below are the real columns for the tables referenced by the current SQL.');
+        lines.push('Use only these columns unless the schema is clearly incomplete.');
+        lines.push('');
+
+        for (const table of dedupedTables) {
+            const resolvedDatabase =
+                table.database?.trim() ||
+                (await resolveDatabaseName(instance, config.database, database, table.name));
+
+            lines.push(
+                `Table: ${resolvedDatabase ? `${resolvedDatabase}.` : ''}${table.name}`,
+            );
+
+            if (!resolvedDatabase) {
+                lines.push('- <database could not be resolved>');
+                lines.push('');
+                continue;
+            }
+
+            const columns = await fetchColumns(instance, resolvedDatabase, table.name, effectiveColumnLimit);
+            if (columns.length > 0) {
+                lines.push(`Column examples (up to ${Math.min(effectiveColumnLimit, columns.length)}):`);
+                for (const column of columns) {
+                    lines.push(`- ${formatColumnLine(column)}`);
+                }
+            } else {
+                lines.push('- <no column info found>');
+            }
+
+            lines.push('');
+        }
+
+        lines.push('If a referenced field is not listed here, do not invent it.');
+
+        return lines.join('\n');
+    } catch (error) {
+        console.error('[copilot-action] failed to build schema context for tables', error);
+        return null;
+    }
+}
+
 /* =======================
  * Utility function
  * ======================= */
@@ -140,6 +208,24 @@ function sanitizeLimit(value: number | undefined | null, fallback: number) {
         return Math.floor(value);
     }
     return fallback;
+}
+
+function dedupeSchemaTables(tables: SchemaTableRef[]): SchemaTableRef[] {
+    const seen = new Set<string>();
+    const deduped: SchemaTableRef[] = [];
+
+    for (const table of tables) {
+        const name = table.name?.trim();
+        if (!name) continue;
+
+        const database = table.database?.trim() || null;
+        const key = `${database ?? ''}:${name}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push({ database, name });
+    }
+
+    return deduped;
 }
 
 async function resolveDatabaseName(instance: BaseConnection, configuredDatabase?: string, providedDatabase?: string | null, table?: string | null): Promise<string | undefined> {

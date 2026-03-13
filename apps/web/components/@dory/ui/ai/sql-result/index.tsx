@@ -13,6 +13,7 @@ import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/registry/new-york-v4/ui/dropdown-menu';
 
@@ -111,10 +112,13 @@ export const SqlResultCard = React.memo(function SqlResultCard({
     onCopy,
     onManualExecute,
     onFollowUp,
+    footerActions,
+    manualPrimaryAction,
+    manualMenuActions,
     mode = 'global',
 }: SqlResultCardProps) {
     const t = useTranslations('DoryUI');
-    const { sql, database, ok, previewRows = [], columns, rowCount, truncated, durationMs, error, timestamp } = result;
+    const { sql, database, ok, manualExecution, previewRows = [], columns, rowCount, truncated, durationMs, error, timestamp } = result;
 
     const [chartResult, setChartResult] = useState<ChartResultPart | null>(null);
     const [chartError, setChartError] = useState<string | null>(null);
@@ -128,8 +132,13 @@ export const SqlResultCard = React.memo(function SqlResultCard({
     const csvPreview = useMemo(() => buildCsvFromPreview(displayColumns, previewRows), [displayColumns, previewRows]);
     const canExportCsv = Boolean(csvPreview);
     const runLabel = t('SqlResult.Actions.Run');
-    const statusText = ok ? t('SqlResult.Status.Success') : t('SqlResult.Status.Failed');
-    const statusDotClass = ok ? 'text-emerald-500' : 'text-destructive';
+    const requiresManualExecution = manualExecution?.required === true;
+    const statusText = ok
+        ? t('SqlResult.Status.Success')
+        : requiresManualExecution
+            ? t('SqlResult.Status.Blocked')
+            : t('SqlResult.Status.Failed');
+    const statusDotClass = ok ? 'text-muted-foreground' : 'text-destructive/70';
 
     const canVisualize = ok && previewRows.length > 0;
     const formattedTimestamp = useMemo(() => formatTimestamp(timestamp), [timestamp]);
@@ -149,15 +158,6 @@ export const SqlResultCard = React.memo(function SqlResultCard({
         }
         return items;
     }, [database, durationMs, formattedTimestamp, rowCount, t]);
-    const statusDisplay = (
-        <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-            <span className={statusDotClass} aria-hidden>
-                ●
-            </span>
-            <span>{statusText}</span>
-        </span>
-    );
-
     const handleDownloadCsv = useCallback(() => {
         if (!csvPreview) return;
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -231,19 +231,23 @@ export const SqlResultCard = React.memo(function SqlResultCard({
     return (
         <>
             <Collapsible open={open} onOpenChange={setOpen} className="mt-3">
-                <Card className="border border-border/60 bg-background shadow-sm py-0 pb-3 gap-1">
-                    <CardHeader className="space-y-3 py-3 px-3">
-                        <div className="flex items-start justify-between gap-2 mb-0">
-                            <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-semibold">
-                                {/* <TableIcon className="h-4 w-4 text-muted-foreground" /> */}
-                                <Badge variant="outline" className="text-[11px] font-semibold uppercase text-muted-foreground">
+                <Card className="gap-0 rounded-2xl border border-border/70 bg-card py-0 shadow-sm">
+                    <CardHeader className="space-y-3 px-5 py-4">
+                        <div className="flex items-center justify-between gap-3">
+                            <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
+                                <Badge variant="secondary" className="rounded-full border-0 bg-muted px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
                                     {t('SqlResult.Title')}
                                 </Badge>
                                 {metaInfoItems.length > 0 ? (
                                     <TooltipProvider>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                {statusDisplay}
+                                                <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                                    <span className={statusDotClass} aria-hidden>
+                                                        ●
+                                                    </span>
+                                                    <span>{statusText}</span>
+                                                </span>
                                             </TooltipTrigger>
                                             <TooltipContent side="bottom" className="max-w-xs">
                                                 <div className="flex flex-col gap-1">
@@ -257,45 +261,15 @@ export const SqlResultCard = React.memo(function SqlResultCard({
                                         </Tooltip>
                                     </TooltipProvider>
                                 ) : (
-                                    statusDisplay
+                                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                        <span className={statusDotClass} aria-hidden>
+                                            ●
+                                        </span>
+                                        <span>{statusText}</span>
+                                    </span>
                                 )}
                             </CardTitle>
                             <div className="flex items-center">
-                                {onFollowUp && (
-                                    <TooltipProvider>
-                                        <Tooltip>
-                                            <TooltipTrigger asChild>
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className={actionStyles.textBtn}
-                                                    type="button"
-                                                    onClick={handleFollowUpClick}
-                                                >
-                                                    {t('SqlResult.FollowUp.Button')}
-                                                </Button>
-                                            </TooltipTrigger>
-                                            <TooltipContent side="bottom">{t('SqlResult.FollowUp.Tooltip')}</TooltipContent>
-                                        </Tooltip>
-                                    </TooltipProvider>
-                                )}
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                variant="ghost"
-                                                className={actionStyles.iconBtn}
-                                                onClick={handleGenerateChart}
-                                                disabled={!canVisualize}
-                                            >
-                                                <BarChart3 className={actionStyles.icon} strokeWidth={2} />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent side="bottom">{t('SqlResult.ChartTooltip')}</TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button variant="ghost" size="sm" className={actionStyles.iconBtn} type="button">
@@ -307,6 +281,22 @@ export const SqlResultCard = React.memo(function SqlResultCard({
                                         <DropdownMenuItem onClick={() => onManualExecute({ sql, database, mode: 'editor' })}>
                                             {t('SqlResult.Actions.OpenInEditor')}
                                         </DropdownMenuItem>
+                                        {manualMenuActions}
+                                        {requiresManualExecution ? (
+                                            <DropdownMenuItem onClick={() => onManualExecute({ sql, database, mode: 'run' })}>
+                                                {runLabel}
+                                            </DropdownMenuItem>
+                                        ) : null}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem onClick={handleGenerateChart} disabled={!canVisualize}>
+                                            {t('SqlResult.ChartTooltip')}
+                                        </DropdownMenuItem>
+                                        {onFollowUp ? (
+                                            <DropdownMenuItem onClick={handleFollowUpClick}>
+                                                {t('SqlResult.FollowUp.Button')}
+                                            </DropdownMenuItem>
+                                        ) : null}
+                                        <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={handleDownloadCsv} disabled={!canExportCsv}>
                                             {t('SqlResult.Actions.DownloadCsv')}
                                         </DropdownMenuItem>
@@ -338,29 +328,30 @@ export const SqlResultCard = React.memo(function SqlResultCard({
                         </div>
 
 
-                        <CollapsibleContent className="space-y-3">
+                        <CollapsibleContent className="space-y-2">
                             <SmartCodeBlock
                                 value={sql}
-                                maxHeightClassName="max-h-32"
+                                maxHeightClassName="max-h-36"
+                                variant="soft"
                                 onCopy={() => onCopy(sql)}
                             />
                         </CollapsibleContent>
                     </CardHeader>
 
                     <CollapsibleContent>
-                        <CardContent className="space-y-3 px-3">
+                        <CardContent className="space-y-3 px-5 pb-4">
                             {ok ? (
                                 previewRows.length > 0 ? (
-                                    <div className="overflow-hidden rounded-md border border-border/60">
+                                    <div className="overflow-hidden rounded-xl bg-muted/40">
                                         <ScrollArea className="h-56 w-full">
                                             <div className="w-full overflow-x-auto">
                                                 <table className="w-full min-w-max text-sm">
-                                                    <thead className="sticky top-0 z-10 bg-muted/50 backdrop-blur">
+                                                    <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur">
                                                         <tr>
                                                             {displayColumns.map(col => (
                                                                 <th
                                                                     key={col}
-                                                                    className="border-b px-3 py-2 text-left text-xs font-medium text-muted-foreground"
+                                                                    className="border-b border-border/70 px-4 py-3 text-left text-xs font-medium text-muted-foreground"
                                                                 >
                                                                     {col}
                                                                 </th>
@@ -372,11 +363,11 @@ export const SqlResultCard = React.memo(function SqlResultCard({
                                                         {previewRows.map((row, rowIndex) => (
                                                             <tr key={rowIndex} className="even:bg-muted/20">
                                                                 {displayColumns.map(col => (
-                                                                    <td
-                                                                        key={col}
-                                                                        className="border-b px-3 py-2 align-top"
-                                                                    >
-                                                                        <span className="text-[11px] font-mono text-foreground/80">
+                                                                <td
+                                                                    key={col}
+                                                                    className="border-b border-border/60 px-4 py-3 align-top"
+                                                                >
+                                                                        <span className="text-[12px] font-mono leading-6 text-foreground/80">
                                                                             {formatCellValue((row as any)[col])}
                                                                         </span>
                                                                     </td>
@@ -389,7 +380,7 @@ export const SqlResultCard = React.memo(function SqlResultCard({
                                         </ScrollArea>
 
                                         {truncated && (
-                                            <div className="border-t border-border/60 bg-muted/10 px-3 py-2 text-[11px] text-muted-foreground">
+                                            <div className="border-t border-border/60 px-4 py-3 text-[11px] text-muted-foreground">
                                                 {t('SqlResult.Truncated', { count: previewRows.length })}
                                             </div>
                                         )}
@@ -398,15 +389,67 @@ export const SqlResultCard = React.memo(function SqlResultCard({
                                     <div className="text-sm text-muted-foreground">{t('SqlResult.NoRows')}</div>
                                 )
                             ) : (
-                                <div className="flex items-start gap-2 text-sm text-destructive">
-                                    <AlertCircle className="mt-[2px] h-4 w-4" />
-                                    <span>{t('SqlResult.ExecutionFailed', { error: error?.message ?? t('SqlResult.UnknownError') })}</span>
+                                <div className="space-y-3">
+                                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive/70" />
+                                        <span>
+                                            {requiresManualExecution
+                                                ? t('SqlResult.Notice.ReadOnlyRestriction')
+                                                : t('SqlResult.ExecutionFailed', { error: error?.message ?? t('SqlResult.UnknownError') })}
+                                        </span>
+                                    </div>
                                 </div>
                             )}
 
+                            {(requiresManualExecution || (!requiresManualExecution && footerActions)) ? (
+                                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                                    {requiresManualExecution ? (
+                                        manualPrimaryAction ?? (
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                className="h-9 rounded-full px-4 text-sm font-medium"
+                                                onClick={() => onManualExecute({ sql, database, mode: 'editor' })}
+                                            >
+                                                {t('SqlResult.Actions.OpenInEditor')}
+                                            </Button>
+                                        )
+                                    ) : null}
+                                    {!requiresManualExecution ? footerActions : null}
+                                </div>
+                            ) : null}
+
+                            {!requiresManualExecution && !footerActions && onFollowUp ? (
+                                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="secondary"
+                                        className="h-9 rounded-full px-4 text-sm font-medium"
+                                        onClick={handleFollowUpClick}
+                                    >
+                                        {t('SqlResult.FollowUp.Button')}
+                                    </Button>
+                                </div>
+                            ) : null}
+
+                            {!requiresManualExecution && footerActions && onFollowUp ? (
+                                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="secondary"
+                                        className="h-9 rounded-full px-4 text-sm font-medium"
+                                        onClick={handleFollowUpClick}
+                                    >
+                                        {t('SqlResult.FollowUp.Button')}
+                                    </Button>
+                                </div>
+                            ) : null}
+
                             {chartError && (
                                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <AlertCircle className="h-3.5 w-3.5" />
+                                    <AlertCircle className="h-3.5 w-3.5 text-muted-foreground/70" />
                                     {chartError}
                                 </div>
                             )}

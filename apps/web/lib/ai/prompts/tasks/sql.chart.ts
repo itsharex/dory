@@ -24,6 +24,7 @@ Constraints (must follow):
 
 Engine/Dialect: ${dialect}
 Database: ${db}
+${ctx.schemaContext ? `\nReal schema context:\n${ctx.schemaContext}\n` : ''}
 
 Original SQL:
 \`\`\`sql

@@ -13,6 +13,7 @@ import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/regi
 import type { ResponseObject } from '@/types';
 import { authFetch } from '@/lib/client/auth-fetch';
 import { isSuccess } from '@/lib/result';
+import { OverflowTooltip } from '@/components/overflow-tooltip';
 import { currentConnectionAtom } from '@/shared/stores/app.store';
 import { cn } from '@/lib/utils';
 import { formatBytes, formatNumber } from '@/app/(app)/[team]/components/table-browser/components/stats/components/formatters';
@@ -91,6 +92,11 @@ function renderNullableText(value: string | null | undefined, tooltip: string, c
     return <span className={className}>{value}</span>;
 }
 
+function renderNullableOverflowText(value: string | null | undefined, tooltip: string, className?: string) {
+    if (!value || !value.trim()) return <NullValue className={className} tooltip={tooltip} />;
+    return <OverflowTooltip text={value} className={cn('block max-w-full truncate', className)} />;
+}
+
 function renderNullableNumber(
     value: number | null | undefined,
     formatter: (value: number) => string,
@@ -103,9 +109,9 @@ function renderNullableNumber(
 
 function SummaryField({ label, value }: { label: string; value: ReactNode }) {
     return (
-        <div className="space-y-1">
+        <div className="min-w-0 space-y-1">
             <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="text-sm font-medium leading-tight">{value}</div>
+            <div className="min-w-0 text-sm font-medium leading-tight">{value}</div>
         </div>
     );
 }
@@ -114,6 +120,7 @@ export default function DatabaseSummary({ catalog, database, schema }: DatabaseS
     const params = useParams<{ team?: string | string[]; connectionId?: string | string[]; catalog?: string | string[]; database?: string | string[] }>();
     const currentConnection = useAtomValue(currentConnectionAtom);
     const t = useTranslations('CatalogSummary');
+    const tCommon = useTranslations();
     const locale = useLocale();
     const [summary, setSummary] = useState<DatabaseSummary | null>(null);
     const [loading, setLoading] = useState(true);
@@ -150,21 +157,42 @@ export default function DatabaseSummary({ catalog, database, schema }: DatabaseS
             if (isRecent) {
                 const recentItem = item as DatabaseSummary['recentTables'][number];
                 return (
-                    <div key={recentItem.name} className="flex items-start justify-between gap-3">
-                        <div className="space-y-1">
-                            <div className="text-sm font-medium text-foreground">{recentItem.name}</div>
-                            <div className="text-xs text-muted-foreground">
+                    <div
+                        key={recentItem.name}
+                        className="group -mx-3 flex items-start justify-between gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-muted/50"
+                    >
+                        <div className="min-w-0 flex-1 space-y-1">
+                            {href ? (
+                                <div className="max-w-full">
+                                    <Link href={href} className="inline-block max-w-full align-top">
+                                        <OverflowTooltip
+                                            text={recentItem.name}
+                                            className="block max-w-full truncate text-sm font-medium text-foreground underline-offset-4 hover:underline"
+                                        />
+                                    </Link>
+                                </div>
+                            ) : (
+                                <OverflowTooltip
+                                    text={recentItem.name}
+                                    className="block max-w-full truncate text-sm font-medium text-foreground"
+                                />
+                            )}
+                            <div className="min-w-0 text-xs text-muted-foreground">
                                 {t('Updated')}{' '}
-                                {renderNullableText(formatTimestamp(recentItem.lastUpdatedAt ?? null, locale), nullTooltip)}
+                                {renderNullableText(
+                                    formatTimestamp(recentItem.lastUpdatedAt ?? null, locale),
+                                    nullTooltip,
+                                    'block truncate'
+                                )}
                             </div>
                         </div>
                         {href ? (
-                            <Button size="sm" variant="outline" asChild>
-                                <Link href={href}>{t('Open table')}</Link>
+                            <Button size="sm" variant="outline" asChild className="shrink-0">
+                                <Link href={href}>{tCommon('Open')}</Link>
                             </Button>
                         ) : (
-                            <Button size="sm" variant="outline" disabled>
-                                {t('Open table')}
+                            <Button size="sm" variant="outline" disabled className="shrink-0">
+                                {tCommon('Open')}
                             </Button>
                         )}
                     </div>
@@ -173,10 +201,27 @@ export default function DatabaseSummary({ catalog, database, schema }: DatabaseS
 
             const tableItem = item as DatabaseSummary['topTablesByBytes'][number];
             return (
-                <div key={tableItem.name} className="flex items-start justify-between gap-3">
-                    <div className="space-y-1">
-                        <div className="text-sm font-medium text-foreground">{tableItem.name}</div>
-                        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <div
+                    key={tableItem.name}
+                    className="group -mx-3 flex items-start justify-between gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-muted/50"
+                >
+                    <div className="min-w-0 flex-1 space-y-1">
+                        {href ? (
+                            <div className="max-w-full">
+                                <Link href={href} className="inline-block max-w-full align-top">
+                                    <OverflowTooltip
+                                        text={tableItem.name}
+                                        className="block max-w-full truncate text-sm font-medium text-foreground underline-offset-4 hover:underline"
+                                    />
+                                </Link>
+                            </div>
+                        ) : (
+                            <OverflowTooltip
+                                text={tableItem.name}
+                                className="block max-w-full truncate text-sm font-medium text-foreground"
+                            />
+                        )}
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                             <span>
                                 {t('Size')}{' '}
                                 {renderNullableNumber(tableItem.bytes ?? null, formatBytes, nullTooltip)}
@@ -185,16 +230,21 @@ export default function DatabaseSummary({ catalog, database, schema }: DatabaseS
                                 {t('Rows')}{' '}
                                 {renderNullableNumber(tableItem.rowsEstimate ?? null, formatNumber, nullTooltip)}
                             </span>
-                            {tableItem.comment ? <span className="text-muted-foreground">{tableItem.comment}</span> : null}
                         </div>
+                        {tableItem.comment ? (
+                            <OverflowTooltip
+                                text={tableItem.comment}
+                                className="block max-w-full truncate text-xs text-muted-foreground"
+                            />
+                        ) : null}
                     </div>
                     {href ? (
-                        <Button size="sm" variant="outline" asChild>
-                            <Link href={href}>{t('Open table')}</Link>
+                        <Button size="sm" variant="outline" asChild className="shrink-0">
+                            <Link href={href}>{tCommon('Open')}</Link>
                         </Button>
                     ) : (
-                        <Button size="sm" variant="outline" disabled>
-                            {t('Open table')}
+                        <Button size="sm" variant="outline" disabled className="shrink-0">
+                            {tCommon('Open')}
                         </Button>
                     )}
                 </div>
@@ -314,11 +364,26 @@ export default function DatabaseSummary({ catalog, database, schema }: DatabaseS
                                 <div className="space-y-3">
                                     <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{t('Identity')}</div>
                                     <div className="grid gap-3 sm:grid-cols-2">
-                                        <SummaryField label={t('Database')} value={renderNullableText(summary?.databaseName ?? '', nullTooltip)} />
-                                        <SummaryField label={t('Catalog')} value={renderNullableText(summary?.catalogName ?? null, nullTooltip)} />
-                                        <SummaryField label={t('Schema')} value={renderNullableText(summary?.schemaName ?? null, nullTooltip)} />
-                                        <SummaryField label={t('Engine')} value={renderNullableText(summary ? engineLabels[summary.engine] : null, nullTooltip)} />
-                                        <SummaryField label={t('Cluster / Endpoint')} value={renderNullableText(summary?.cluster ?? null, nullTooltip)} />
+                                        <SummaryField
+                                            label={t('Database')}
+                                            value={renderNullableOverflowText(summary?.databaseName ?? '', nullTooltip)}
+                                        />
+                                        <SummaryField
+                                            label={t('Catalog')}
+                                            value={renderNullableOverflowText(summary?.catalogName ?? null, nullTooltip)}
+                                        />
+                                        <SummaryField
+                                            label={t('Schema')}
+                                            value={renderNullableOverflowText(summary?.schemaName ?? null, nullTooltip)}
+                                        />
+                                        <SummaryField
+                                            label={t('Engine')}
+                                            value={renderNullableOverflowText(summary ? engineLabels[summary.engine] : null, nullTooltip)}
+                                        />
+                                        <SummaryField
+                                            label={t('Cluster / Endpoint')}
+                                            value={renderNullableOverflowText(summary?.cluster ?? null, nullTooltip)}
+                                        />
                                     </div>
                                 </div>
                                 <div className="space-y-3">
@@ -337,11 +402,11 @@ export default function DatabaseSummary({ catalog, database, schema }: DatabaseS
                                         />
                                         <SummaryField
                                             label={t('Last Updated')}
-                                            value={renderNullableText(formatTimestamp(summary?.lastUpdatedAt ?? null, locale), nullTooltip)}
+                                            value={renderNullableOverflowText(formatTimestamp(summary?.lastUpdatedAt ?? null, locale), nullTooltip)}
                                         />
                                         <SummaryField
                                             label={t('Last Queried')}
-                                            value={renderNullableText(formatTimestamp(summary?.lastQueriedAt ?? null, locale), nullTooltip)}
+                                            value={renderNullableOverflowText(formatTimestamp(summary?.lastQueriedAt ?? null, locale), nullTooltip)}
                                         />
                                     </div>
                                 </div>

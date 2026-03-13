@@ -1833,8 +1833,12 @@
                 "More": "更多操作"
             },
             "Status": {
-                "Success": "执行成功",
-                "Failed": "执行失败"
+                "Success": "已完成",
+                "Failed": "失败",
+                "Blocked": "已拦截"
+            },
+            "Notice": {
+                "ReadOnlyRestriction": "当前连接仅允许只读查询。CREATE / INSERT / UPDATE / DELETE 等语句需要手动到 SQL 编辑器中执行。"
             },
             "FollowUp": {
                 "Button": "继续追问此结果",

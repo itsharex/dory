@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { toActionContext } from './to-action-context';
+import { hydrateActionContext } from './hydrate-action-context';
 import { ActionContext, ActionIntent, ActionResult } from '../types';
 import type { CopilotFixInput } from '@/app/(app)/[team]/[connectionId]/chatbot/copilot/types/copilot-fix-input';
 import { fixSqlError } from './quick-actions/fix-sql-error';
@@ -41,10 +42,11 @@ export async function runQuickActionServer(
         throw new Error(translate(locale, 'SqlConsole.Copilot.Errors.UnknownAction', { intent }));
     }
 
-    const ctx = toActionContext(input, locale, {
+    const baseCtx = toActionContext(input, locale, {
         teamId: options?.teamId,
         userId: options?.userId,
     });
+    const ctx = await hydrateActionContext(baseCtx);
 
     if (action.requiresError && !ctx.error?.message) {
         throw new Error(translate(locale, 'SqlConsole.Copilot.Errors.RequiresError'));

@@ -49,7 +49,16 @@ export function createSqlRunnerTool({
 
             
             if (!/^(select|show|describe|desc|explain)\b/i.test(trimmed)) {
-                return buildErrorResult(trimmed, requestedDatabase, t('Api.Chat.SqlRunner.ReadOnlyOnly'));
+                return buildErrorResult(
+                    trimmed,
+                    requestedDatabase,
+                    t('Api.Chat.SqlRunner.ReadOnlyOnly'),
+                    undefined,
+                    {
+                        required: true,
+                        reason: 'non-readonly-query',
+                    },
+                );
             }
 
             const baseAudit = {
@@ -171,6 +180,10 @@ export type SqlResultOk = SqlResultBase & {
 
 export type SqlResultError = SqlResultBase & {
     ok: false;
+    manualExecution?: {
+        required: boolean;
+        reason: 'non-readonly-query';
+    };
     error: {
         message: string;
         code?: number | null;
@@ -180,12 +193,19 @@ export type SqlResultError = SqlResultBase & {
 
 export type SqlResult = SqlResultOk | SqlResultError;
 
-function buildErrorResult(sql: string, database: string | null, message: string, code?: number | null): SqlResultError {
+function buildErrorResult(
+    sql: string,
+    database: string | null,
+    message: string,
+    code?: number | null,
+    manualExecution?: SqlResultError['manualExecution'],
+): SqlResultError {
     return {
         type: 'sql-result',
         sql,
         database,
         ok: false,
+        manualExecution,
         error: {
             message,
             code,
@@ -193,6 +213,13 @@ function buildErrorResult(sql: string, database: string | null, message: string,
         },
         timestamp: new Date().toISOString(),
     };
+}
+
+export function isManualExecutionRequiredSqlResult(value: unknown): value is SqlResultError {
+    if (!value || typeof value !== 'object') return false;
+    if ((value as SqlResultError).type !== 'sql-result') return false;
+    if ((value as SqlResultError).ok !== false) return false;
+    return (value as SqlResultError).manualExecution?.required === true;
 }
 
 function parsePositiveInt(rawValue: string | undefined, fallback: number): number {
