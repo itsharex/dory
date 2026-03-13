@@ -13,6 +13,7 @@ About the sqlRunner tool
      - If hasMore=true, note that only a sample is shown and conclusions are based on the sample.
 
 - If sqlRunner returns ok=false:
+  - If the error says the SQL is not read-only, do not retry with sqlRunner. Tell the user the SQL must be executed manually in the SQL editor or console.
   - Read error.message and error.code to determine syntax issues, missing tables/columns, or other errors.
   - Try to fix the SQL using the error hints and retry up to 2 times.
   - If it still fails, be honest about the cause and suggest next steps (e.g., check table names, column names, time ranges).

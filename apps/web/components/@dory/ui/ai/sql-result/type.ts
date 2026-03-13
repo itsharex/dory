@@ -3,6 +3,10 @@ export type SqlResultPart = {
     ok: boolean;
     sql: string;
     database: string | null;
+    manualExecution?: {
+        required: boolean;
+        reason: 'non-readonly-query';
+    };
     previewRows?: Array<Record<string, unknown>>;
     columns?: Array<{ name: string; type: string | null }>;
     rowCount?: number;

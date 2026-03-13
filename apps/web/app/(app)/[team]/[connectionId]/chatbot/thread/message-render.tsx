@@ -54,6 +54,13 @@ export function getSqlResultFromPart(part: any, fallbackMessage?: string): SqlRe
         ok: Boolean(candidate.ok),
         sql: String(candidate.sql ?? ''),
         database: candidate.database ?? null,
+        manualExecution:
+            candidate.ok === false && candidate.manualExecution?.required
+                ? {
+                    required: true,
+                    reason: 'non-readonly-query' as const,
+                }
+                : undefined,
         previewRows: Array.isArray(candidate.previewRows) ? candidate.previewRows : [],
         columns: Array.isArray(candidate.columns)
             ? candidate.columns.map((col: any) => ({

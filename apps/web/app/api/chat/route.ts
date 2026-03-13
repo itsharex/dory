@@ -18,7 +18,7 @@ import { getDBService } from '@/lib/database';
 import { buildSchemaContext, getDefaultSchemaSampleLimits } from '@/lib/ai/prompts';
 import { fetchCloudUiMessageStream, type CloudStreamRequest } from '@/lib/ai/cloud-client';
 import { buildCloudToolDeclarations } from '@/lib/ai/cloud-tools';
-import { createSqlRunnerTool } from './sql-runner';
+import { createSqlRunnerTool, isManualExecutionRequiredSqlResult } from './sql-runner';
 import { createChartBuilderTool } from './chart-builder';
 import { MAX_HISTORY_MESSAGES, SYSTEM_PROMPT } from '@/lib/ai/prompts';
 import { normalizeMessage } from './utils';
@@ -459,6 +459,7 @@ async function handleChatRequest(req: NextRequest) {
                 }
 
                 const toolResultMessages: ModelMessage[] = [];
+                let shouldStopAfterToolResults = false;
 
                 for (const toolCall of toolCalls) {
                     if (executedToolCallIds.has(toolCall.toolCallId)) {
@@ -537,6 +538,9 @@ async function handleChatRequest(req: NextRequest) {
                         toolResultMessages.push(
                             buildToolResultModelMessage(toolCall, toolOutput),
                         );
+                        if (isManualExecutionRequiredSqlResult(toolOutput)) {
+                            shouldStopAfterToolResults = true;
+                        }
                     }
 
                     if (db && userId && teamId && chatId) {
@@ -568,8 +572,8 @@ async function handleChatRequest(req: NextRequest) {
                                             type: 'tool_result',
                                             callId: toolCall.toolCallId,
                                             ok,
-                                            result: ok ? toolOutput : undefined,
-                                            error: ok ? undefined : toolErrorText ?? 'Tool error',
+                                            result: toolErrorText === null ? toolOutput : undefined,
+                                            error: toolErrorText ?? undefined,
                                         },
                                     ] as any,
                                     metadata: null,
@@ -586,6 +590,10 @@ async function handleChatRequest(req: NextRequest) {
 
                 nextMessages = [...nextMessages, ...toolResultMessages];
                 step += 1;
+
+                if (shouldStopAfterToolResults) {
+                    return;
+                }
 
                 try {
                     nextResponse = await fetchCloudUiMessageStream({

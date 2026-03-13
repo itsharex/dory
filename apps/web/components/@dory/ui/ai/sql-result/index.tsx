@@ -114,7 +114,7 @@ export const SqlResultCard = React.memo(function SqlResultCard({
     mode = 'global',
 }: SqlResultCardProps) {
     const t = useTranslations('DoryUI');
-    const { sql, database, ok, previewRows = [], columns, rowCount, truncated, durationMs, error, timestamp } = result;
+    const { sql, database, ok, manualExecution, previewRows = [], columns, rowCount, truncated, durationMs, error, timestamp } = result;
 
     const [chartResult, setChartResult] = useState<ChartResultPart | null>(null);
     const [chartError, setChartError] = useState<string | null>(null);
@@ -130,6 +130,7 @@ export const SqlResultCard = React.memo(function SqlResultCard({
     const runLabel = t('SqlResult.Actions.Run');
     const statusText = ok ? t('SqlResult.Status.Success') : t('SqlResult.Status.Failed');
     const statusDotClass = ok ? 'text-emerald-500' : 'text-destructive';
+    const requiresManualExecution = manualExecution?.required === true;
 
     const canVisualize = ok && previewRows.length > 0;
     const formattedTimestamp = useMemo(() => formatTimestamp(timestamp), [timestamp]);
@@ -398,9 +399,31 @@ export const SqlResultCard = React.memo(function SqlResultCard({
                                     <div className="text-sm text-muted-foreground">{t('SqlResult.NoRows')}</div>
                                 )
                             ) : (
-                                <div className="flex items-start gap-2 text-sm text-destructive">
-                                    <AlertCircle className="mt-[2px] h-4 w-4" />
-                                    <span>{t('SqlResult.ExecutionFailed', { error: error?.message ?? t('SqlResult.UnknownError') })}</span>
+                                <div className="space-y-3 text-sm text-destructive">
+                                    <div className="flex items-start gap-2">
+                                        <AlertCircle className="mt-[2px] h-4 w-4 shrink-0" />
+                                        <span>{t('SqlResult.ExecutionFailed', { error: error?.message ?? t('SqlResult.UnknownError') })}</span>
+                                    </div>
+                                    {requiresManualExecution ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="secondary"
+                                                onClick={() => onManualExecute({ sql, database, mode: 'run' })}
+                                            >
+                                                {runLabel}
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => onManualExecute({ sql, database, mode: 'editor' })}
+                                            >
+                                                {t('SqlResult.Actions.OpenInEditor')}
+                                            </Button>
+                                        </div>
+                                    ) : null}
                                 </div>
                             )}
 
