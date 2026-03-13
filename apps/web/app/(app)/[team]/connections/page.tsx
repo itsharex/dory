@@ -86,7 +86,7 @@ export default function ConnectionsPage() {
                         <ConnectionSearch />
                     </div>
                     {!showEmptyState && (
-                        <Button className="cursor-pointer" disabled={isLoading} onClick={handleNewConnection}>
+                        <Button className="cursor-pointer" disabled={isLoading} onClick={handleNewConnection} data-testid="add-connection">
                             {t('Add Connection')}
                         </Button>
                     )}

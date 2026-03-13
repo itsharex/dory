@@ -53,3 +53,8 @@ scan-symbol.cjs
 
 apps/admin/.next/
 .env.local
+
+playwright-report
+test-results
+.tmp/
+apps/web/.tmp/

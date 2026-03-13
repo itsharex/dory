@@ -75,6 +75,8 @@ export default function ConnectionCard({ connectionItem, id, connectLoading, err
             key={id}
         >
             <div
+                data-testid="connection-card"
+                data-connection-id={id}
                 className="flex cursor-pointer flex-col rounded-xl border p-4"
                 onClick={() => {
                     if (!connectLoading) {

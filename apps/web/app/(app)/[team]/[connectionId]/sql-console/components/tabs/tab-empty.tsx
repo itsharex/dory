@@ -1,9 +1,9 @@
 import { Button } from "@/registry/new-york-v4/ui/button";
-import { Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-export default function SQLTabEmpty(props: { addTab: () => void }) {
-    const { addTab } = props;
+export default function SQLTabEmpty(props: { addTab: () => void; disabled?: boolean }) {
+    const { addTab, disabled = false } = props;
     const t = useTranslations('SqlConsole');
     return (
         <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
@@ -17,7 +17,7 @@ export default function SQLTabEmpty(props: { addTab: () => void }) {
                 <div>{t('Empty.ShortcutToggleCopilot')}</div>
                 <div>{t('Empty.ShortcutFormat')}</div>
             </div>
-            <Button onClick={addTab}>
+            <Button onClick={addTab} disabled={disabled}>
                 <Plus className="mr-2 h-4 w-4" />
                 {t('Empty.NewConsole')}
             </Button>

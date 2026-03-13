@@ -162,6 +162,7 @@ export function SqlMode({
                                     size="sm"
                                     className="gap-2 rounded-r-none cursor-pointer"
                                     onClick={handleRunQuery}
+                                    data-testid="run-query"
                                 >
                                     {isRunning ? (
                                         <Loader2 className="h-4 w-4 animate-spin" />

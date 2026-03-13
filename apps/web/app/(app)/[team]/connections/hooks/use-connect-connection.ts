@@ -1,7 +1,7 @@
 'use client';
 
 import { useMutation } from '@tanstack/react-query';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, usePathname, useRouter } from 'next/navigation';
 import { useSetAtom } from 'jotai';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
@@ -24,12 +24,24 @@ function makeLoadingKey(connectionId: string, identityId?: string | null) {
     return identityId ? `${connectionId}:${identityId}` : connectionId;
 }
 
+function resolveTeamId(paramsTeam: unknown, pathname: string | null): string | null {
+    const paramValue = Array.isArray(paramsTeam) ? paramsTeam[0] : paramsTeam;
+    if (typeof paramValue === 'string' && paramValue.length > 0) {
+        return paramValue;
+    }
+
+    if (!pathname) return null;
+
+    const segments = pathname.split('/').filter(Boolean);
+    return segments[0] ?? null;
+}
+
 export function useConnectConnection() {
     const router = useRouter();
+    const pathname = usePathname();
     const params = useParams();
     const t = useTranslations('Connections');
-    const teamIdParam = params?.team;
-    const teamId = Array.isArray(teamIdParam) ? teamIdParam[0] : teamIdParam;
+    const teamId = resolveTeamId(params?.team, pathname);
 
     const setConnectLoadings = useSetAtom(connectionLoadingAtom);
     const setCurrentConnection = useSetAtom(currentConnectionAtom);

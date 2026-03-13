@@ -327,7 +327,7 @@ export default function SQLConsoleClient({
                 <Panel minSize={INITIAL_LAYOUT.horizontal.middlePanel.min} defaultSize={horizontalLayout[1]}>
                     <div className="flex h-full flex-col">
                         {isLoading || tabs.length === 0 ? (
-                            <SQLTabEmpty addTab={addTab} />
+                            <SQLTabEmpty addTab={addTab} disabled={isLoading} />
                         ) : (
                             <>
                                 <SQLTabs
