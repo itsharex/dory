@@ -380,19 +380,23 @@ export async function createConnectionAndOpenConsole(page: Page) {
         await page.goto(targetPath, { waitUntil: 'commit' });
         await expect(page).toHaveURL(new RegExp(`/${teamId}/${connectionId}/sql-console$`));
     } catch (error) {
-        const diagnostics = await page.evaluate(() => {
-            const cards = Array.from(document.querySelectorAll('[data-testid="connection-card"]')).map(card => ({
-                text: card.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-                connectionId: card.getAttribute('data-connection-id'),
-            }));
+        const diagnostics = await page
+            .evaluate(() => {
+                const cards = Array.from(document.querySelectorAll('[data-testid="connection-card"]')).map(card => ({
+                    text: card.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                    connectionId: card.getAttribute('data-connection-id'),
+                }));
 
-            return {
-                href: window.location.href,
-                title: document.title,
-                currentConnectionLocalStorage: window.localStorage.getItem('currentConnection'),
-                cards,
-            };
-        });
+                return {
+                    href: window.location.href,
+                    title: document.title,
+                    currentConnectionLocalStorage: window.localStorage.getItem('currentConnection'),
+                    cards,
+                };
+            })
+            .catch(e => ({
+                evaluationError: e instanceof Error ? e.message : String(e),
+            }));
 
         const cardText = await connectionCard.textContent().catch(() => null);
         const cardConnectionId = await connectionCard.getAttribute('data-connection-id').catch(() => null);
