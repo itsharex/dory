@@ -425,6 +425,7 @@ export async function openMockConnectionConsole(page: Page, connection: Connecti
     try {
         await page.goto(targetPath, { waitUntil: 'commit' });
         await expect(page).toHaveURL(new RegExp(`/${teamId}/${connection.connection.id}/sql-console$`));
+        await expect(page.getByRole('button', { name: /New Console/i })).toBeEnabled();
     } catch (error) {
         const diagnostics = await collectOpenConsoleDiagnostics(page);
 

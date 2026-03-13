@@ -31,8 +31,9 @@ test('can open SQL editor and run a query', async ({ page, appErrors }) => {
     await mockWorkbenchApis(page, { initialConnections: [seededConnection] });
     await openMockConnectionConsole(page, seededConnection);
 
-    await expect(page.getByText(/New Console|New Query/i)).toBeVisible();
-    await page.getByRole('button', { name: /New Console/i }).click();
+    const newConsoleButton = page.getByRole('button', { name: /New Console/i });
+    await expect(newConsoleButton).toBeEnabled();
+    await newConsoleButton.click();
     await expect(page.locator('.sql-editor-container')).toBeVisible();
 
     await setSqlEditorValue(page, 'SELECT 1 AS value');
@@ -49,7 +50,9 @@ test('shows a readable SQL error without crashing the page', async ({ page, appE
     await mockWorkbenchApis(page, { initialConnections: [seededConnection] });
     await openMockConnectionConsole(page, seededConnection);
 
-    await page.getByRole('button', { name: /New Console/i }).click();
+    const newConsoleButton = page.getByRole('button', { name: /New Console/i });
+    await expect(newConsoleButton).toBeEnabled();
+    await newConsoleButton.click();
     await expect(page.locator('.sql-editor-container')).toBeVisible();
 
     await setSqlEditorValue(page, 'SELECT FROM missing_table');
