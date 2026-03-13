@@ -38,6 +38,66 @@ type ConnectionRecord = {
     ssh: null;
 };
 
+type MockWorkbenchOptions = {
+    initialConnections?: ConnectionRecord[];
+};
+
+const createWorkbenchConnection = ({
+    id = 'conn-1',
+    name = 'E2E ClickHouse',
+    host = 'localhost',
+    port = 8123,
+    username = 'default',
+}: {
+    id?: string;
+    name?: string;
+    host?: string;
+    port?: number;
+    username?: string;
+} = {}): ConnectionRecord => {
+    const now = new Date().toISOString();
+
+    return {
+        connection: {
+            id,
+            type: 'clickhouse',
+            engine: 'clickhouse',
+            name,
+            description: null,
+            host,
+            port: 9000,
+            httpPort: port,
+            database: null,
+            options: '{"ssl":false,"useSSL":false,"protocol":"http","httpPort":8123}',
+            status: 'Connected',
+            configVersion: 1,
+            createdAt: now,
+            updatedAt: now,
+            deletedAt: null,
+            lastUsedAt: null,
+            lastCheckStatus: 'ok',
+            lastCheckAt: now,
+            lastCheckLatencyMs: 12,
+            lastCheckError: null,
+            environment: 'local',
+            tags: '',
+        },
+        identities: [
+            {
+                id: 'identity-1',
+                name: username,
+                username,
+                role: null,
+                isDefault: true,
+                database: null,
+                enabled: true,
+                status: 'active',
+            },
+        ],
+        ssh: null,
+    };
+};
+
 const json = async (route: Route, body: unknown, status = 200) => {
     await route.fulfill({
         status,
@@ -46,8 +106,28 @@ const json = async (route: Route, body: unknown, status = 200) => {
     });
 };
 
-export async function mockWorkbenchApis(page: Page) {
-    const connections: ConnectionRecord[] = [];
+async function collectOpenConsoleDiagnostics(page: Page) {
+    return page
+        .evaluate(() => {
+            const cards = Array.from(document.querySelectorAll('[data-testid="connection-card"]')).map(card => ({
+                text: card.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+                connectionId: card.getAttribute('data-connection-id'),
+            }));
+
+            return {
+                href: window.location.href,
+                title: document.title,
+                currentConnectionLocalStorage: window.localStorage.getItem('currentConnection'),
+                cards,
+            };
+        })
+        .catch(e => ({
+            evaluationError: e instanceof Error ? e.message : String(e),
+        }));
+}
+
+export async function mockWorkbenchApis(page: Page, options: MockWorkbenchOptions = {}) {
+    const connections: ConnectionRecord[] = [...(options.initialConnections ?? [])];
     const tabs = new Map<string, any>();
 
     await page.route('**/api/connection/test', async route => {
@@ -297,6 +377,8 @@ export async function mockWorkbenchApis(page: Page) {
 }
 
 export async function createConnectionAndOpenConsole(page: Page) {
+    const connection = createWorkbenchConnection();
+
     await page.goto('/');
     await page.waitForURL(/\/[^/]+\/connections$/);
 
@@ -316,9 +398,14 @@ export async function createConnectionAndOpenConsole(page: Page) {
     await page.getByRole('button', { name: /create connection/i }).click();
     await expect(dialog).toBeHidden();
 
-    const connectionCard = page.getByTestId('connection-card').filter({ hasText: 'E2E ClickHouse' }).first();
+    const connectionCard = page.getByTestId('connection-card').filter({ hasText: connection.connection.name }).first();
     await expect(connectionCard).toBeVisible();
-    const connectionId = (await connectionCard.getAttribute('data-connection-id')) ?? 'conn-1';
+}
+
+export async function openMockConnectionConsole(page: Page, connection: ConnectionRecord = createWorkbenchConnection()) {
+    await page.goto('/');
+    await page.waitForURL(/\/[^/]+\/connections$/);
+
     const match = page.url().match(/\/([^/]+)\/connections$/);
     const teamId = match?.[1];
 
@@ -327,85 +414,25 @@ export async function createConnectionAndOpenConsole(page: Page) {
     }
 
     await page.evaluate(
-        ({ id }) => {
-            window.localStorage.setItem(
-                'currentConnection',
-                JSON.stringify({
-                    connection: {
-                        id,
-                        type: 'clickhouse',
-                        engine: 'clickhouse',
-                        name: 'E2E ClickHouse',
-                        description: null,
-                        host: 'localhost',
-                        port: 9000,
-                        httpPort: 8123,
-                        database: null,
-                        options: '{"ssl":false,"useSSL":false,"protocol":"http","httpPort":8123}',
-                        status: 'Connected',
-                        configVersion: 1,
-                        createdAt: new Date().toISOString(),
-                        updatedAt: new Date().toISOString(),
-                        deletedAt: null,
-                        lastUsedAt: null,
-                        lastCheckStatus: 'ok',
-                        lastCheckAt: new Date().toISOString(),
-                        lastCheckLatencyMs: 12,
-                        lastCheckError: null,
-                        environment: 'local',
-                        tags: '',
-                    },
-                    identities: [
-                        {
-                            id: 'identity-1',
-                            name: 'default',
-                            username: 'default',
-                            role: null,
-                            isDefault: true,
-                            database: null,
-                            enabled: true,
-                            status: 'active',
-                        },
-                    ],
-                    ssh: null,
-                }),
-            );
+        value => {
+            window.localStorage.setItem('currentConnection', JSON.stringify(value));
         },
-        { id: connectionId },
+        connection,
     );
 
-    const targetPath = `/${teamId}/${connectionId}/sql-console`;
+    const targetPath = `/${teamId}/${connection.connection.id}/sql-console`;
 
     try {
         await page.goto(targetPath, { waitUntil: 'commit' });
-        await expect(page).toHaveURL(new RegExp(`/${teamId}/${connectionId}/sql-console$`));
+        await expect(page).toHaveURL(new RegExp(`/${teamId}/${connection.connection.id}/sql-console$`));
     } catch (error) {
-        const diagnostics = await page
-            .evaluate(() => {
-                const cards = Array.from(document.querySelectorAll('[data-testid="connection-card"]')).map(card => ({
-                    text: card.textContent?.replace(/\s+/g, ' ').trim() ?? '',
-                    connectionId: card.getAttribute('data-connection-id'),
-                }));
-
-                return {
-                    href: window.location.href,
-                    title: document.title,
-                    currentConnectionLocalStorage: window.localStorage.getItem('currentConnection'),
-                    cards,
-                };
-            })
-            .catch(e => ({
-                evaluationError: e instanceof Error ? e.message : String(e),
-            }));
-
-        const cardText = await connectionCard.textContent().catch(() => null);
-        const cardConnectionId = await connectionCard.getAttribute('data-connection-id').catch(() => null);
+        const diagnostics = await collectOpenConsoleDiagnostics(page);
 
         console.error('[workbench helper] failed to open SQL console', {
             currentUrl: page.url(),
             targetPath,
-            cardConnectionId,
-            cardText: cardText?.replace(/\s+/g, ' ').trim() ?? null,
+            connectionId: connection.connection.id,
+            connectionName: connection.connection.name,
             diagnostics,
         });
 
@@ -421,3 +448,5 @@ export async function setSqlEditorValue(page: Page, sql: string) {
     await page.keyboard.press(selectAllShortcut);
     await page.keyboard.type(sql);
 }
+
+export { createWorkbenchConnection };

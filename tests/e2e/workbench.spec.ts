@@ -1,13 +1,13 @@
 import { expect } from '@playwright/test';
 
 import { expectAppHealthy, test } from './fixtures';
-import { createConnectionAndOpenConsole, mockWorkbenchApis, setSqlEditorValue } from './helpers/workbench';
+import { createWorkbenchConnection, mockWorkbenchApis, openMockConnectionConsole, setSqlEditorValue } from './helpers/workbench';
 
-test.beforeEach(async ({ page }) => {
-    await mockWorkbenchApis(page);
-});
+const seededConnection = createWorkbenchConnection();
 
 test('can create a connection from the connections page', async ({ page, appErrors }) => {
+    await mockWorkbenchApis(page);
+
     await page.goto('/');
     await page.waitForURL(/\/[^/]+\/connections$/);
 
@@ -28,7 +28,8 @@ test('can create a connection from the connections page', async ({ page, appErro
 });
 
 test('can open SQL editor and run a query', async ({ page, appErrors }) => {
-    await createConnectionAndOpenConsole(page);
+    await mockWorkbenchApis(page, { initialConnections: [seededConnection] });
+    await openMockConnectionConsole(page, seededConnection);
 
     await expect(page.getByText(/New Console|New Query/i)).toBeVisible();
     await page.getByRole('button', { name: /New Console/i }).click();
@@ -45,7 +46,8 @@ test('can open SQL editor and run a query', async ({ page, appErrors }) => {
 });
 
 test('shows a readable SQL error without crashing the page', async ({ page, appErrors }) => {
-    await createConnectionAndOpenConsole(page);
+    await mockWorkbenchApis(page, { initialConnections: [seededConnection] });
+    await openMockConnectionConsole(page, seededConnection);
 
     await page.getByRole('button', { name: /New Console/i }).click();
     await expect(page.locator('.sql-editor-container')).toBeVisible();
