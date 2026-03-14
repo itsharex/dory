@@ -117,15 +117,6 @@ export async function handlePrivilegesError(
                 { status: 404 },
             );
         }
-        if (error.message === 'NOT_CLICKHOUSE_DATASOURCE') {
-            return NextResponse.json(
-                ResponseUtil.error({
-                    code: ErrorCodes.BAD_REQUEST,
-                    message: translateApi(ERROR_MESSAGE_KEYS.notClickhouse, undefined, locale),
-                }),
-                { status: 400 },
-            );
-        }
     }
 
     console.error('[privileges] unexpected error', error);

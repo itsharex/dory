@@ -1,4 +1,4 @@
-import { getClickhousePrivilegesImpl, type ClickhousePrivilegesImpl } from '../impl/privilegesImpl';
+import { getClickhousePrivilegesImpl, type ClickhousePrivilegesImpl } from './privileges-impl';
 import type { ClickhouseDatasource } from '../ClickhouseDatasource';
 
 export { type ClickhousePrivilegesImpl };
