@@ -1,13 +1,17 @@
 import http from 'node:http';
-import { QueryInsightsFilters, QueryInsightsRow, QueryInsightsSummary, QueryTimelinePoint } from '@/types/monitoring';
 import { NotInitializedError } from './errors';
-import { BaseConfig, DatabaseMeta, GetTableInfoAPI, HealthInfo, QueryInsightsAPI, QueryResult, SQLParams, TableMeta } from './types';
+import type { DatasourceDialect } from '../registry/types';
+import { BaseConfig, ConnectionCapabilities, HealthInfo, QueryContext, QueryResult } from './types';
+import type { SQLParams } from './params/types';
 import { translate } from '@/lib/i18n/i18n';
 import { routing } from '@/lib/i18n/routing';
-import { SshTunnel, createSshTunnel, type SshOptions } from '@/lib/network/ssh-tunnel';
+import { SshTunnel, createSshTunnel, type SshOptions } from '../ssh/ssh-tunnel';
 
 export abstract class BaseConnection {
     protected _initialized = false;
+    abstract readonly dialect: DatasourceDialect;
+    readonly capabilities: ConnectionCapabilities = {};
+
     constructor(public readonly config: BaseConfig) {}
 
     private sshTunnel: SshTunnel | null = null;
@@ -28,29 +32,23 @@ export abstract class BaseConnection {
     abstract ping(): Promise<HealthInfo>;
 
     /** Execute query (query/DDL/transaction behavior depends on driver) */
-    abstract query<Row = any>(sql: string, params?: SQLParams): Promise<QueryResult<Row>>;
+    abstract query<Row = any>(sql: string, params?: SQLParams, context?: QueryContext): Promise<QueryResult<Row>>;
 
     /**
      * Query with context; defaults to plain query.
      * Subclasses can override to support database/schema selection.
      */
-    async queryWithContext<Row = any>(sql: string, context?: { database?: string; params?: SQLParams; queryId?: string }): Promise<QueryResult<Row>> {
-        return this.query<Row>(sql, context?.params);
+    async queryWithContext<Row = any>(sql: string, context?: QueryContext & { params?: SQLParams }): Promise<QueryResult<Row>> {
+        return this.query<Row>(sql, context?.params, context);
     }
 
-    async cancelQuery(_queryId: string, _context?: { database?: string }): Promise<void> {
+    async command(sql: string, params?: SQLParams, context?: QueryContext): Promise<void> {
+        await this.query(sql, params, context);
+    }
+
+    async cancelQuery(_queryId: string, _context?: QueryContext): Promise<void> {
         throw new Error(translate(routing.defaultLocale, 'Utils.Connection.CancelUnsupported'));
     }
-
-    /** List databases */
-    abstract getDatabases(): Promise<DatabaseMeta[]>;
-
-    /** List tables (optional database) */
-    abstract getTables(database?: string): Promise<TableMeta[]>;
-
-    abstract queryInsights: QueryInsightsAPI;
-
-    abstract getTableInfo: GetTableInfoAPI;
 
     protected assertReady() {
         if (!this._initialized) throw new NotInitializedError();

@@ -1,6 +1,6 @@
-import { GetTableInfoAPI } from '@/lib/connection/base/types';
+import { type GetTableInfoAPI } from '@/lib/connection/base/types';
 import { TableMutationInfo, TablePartitionStat, TablePropertiesRow, TableStats } from '@/types/table-info';
-import { ClickhouseDatasource } from '../ClickhouseDatasource';
+import type { ClickhouseDatasource } from '../ClickhouseDatasource';
 
 type SizeRow = {
     rowCount?: number;
@@ -27,12 +27,7 @@ type MutationRow = {
     command?: string;
     partsToDo?: number;
     partsDone?: number;
-    isDone?: number;
     createTime?: string;
-};
-
-type TTLRow = {
-    ttlExpression?: string | null;
 };
 
 const toNumberOrNull = (value: unknown): number | null => {
@@ -46,7 +41,7 @@ const toStringOrNull = (value: unknown): string | null => {
     return str.length ? str : null;
 };
 
-export async function getTableProperties(datasource: ClickhouseDatasource, database: string, table: string): Promise<TablePropertiesRow | null> {
+async function getTableProperties(datasource: ClickhouseDatasource, database: string, table: string): Promise<TablePropertiesRow | null> {
     const tablePropsQuery = `
         SELECT
             engine,
@@ -62,33 +57,23 @@ export async function getTableProperties(datasource: ClickhouseDatasource, datab
         LIMIT 1;
     `;
 
-    try {
-        const result = await datasource.query<TablePropertiesRow>(tablePropsQuery, { db: database, tbl: table });
-        const rows = Array.isArray(result.rows) ? (result.rows as TablePropertiesRow[]) : [];
-        return rows[0] ?? null;
-    } catch (error) {
-        console.error('Error fetching table properties:', error);
-        throw error;
-    }
+    const result = await datasource.query<TablePropertiesRow>(tablePropsQuery, { db: database, tbl: table });
+    const rows = Array.isArray(result.rows) ? (result.rows as TablePropertiesRow[]) : [];
+    return rows[0] ?? null;
 }
 
-export async function getTableDDL(datasource: ClickhouseDatasource, database: string, table: string): Promise<string | null> {
+async function getTableDDL(datasource: ClickhouseDatasource, database: string, table: string): Promise<string | null> {
     const ddlQuery = 'SHOW CREATE TABLE {db:Identifier}.{tbl:Identifier}';
+    const result = await datasource.queryWithContext<{ statement?: string }>(ddlQuery, {
+        database,
+        params: { db: database, tbl: table },
+    });
 
-    try {
-        const result = await datasource.queryWithContext<{ statement?: string }>(ddlQuery, {
-            database,
-            params: { db: database, tbl: table },
-        });
-        const ddl = Array.isArray(result.rows) && typeof result.rows[0]?.statement === 'string' ? result.rows[0].statement : null;
-        return ddl ?? null;
-    } catch (error) {
-        console.error('Error fetching table DDL:', error);
-        throw error;
-    }
+    const ddl = Array.isArray(result.rows) && typeof result.rows[0]?.statement === 'string' ? result.rows[0].statement : null;
+    return ddl ?? null;
 }
 
-export async function getTableStats(datasource: ClickhouseDatasource, database: string, table: string): Promise<TableStats> {
+async function getTableStats(datasource: ClickhouseDatasource, database: string, table: string): Promise<TableStats> {
     const params = { db: database, tbl: table };
 
     const sizeQuery = `
@@ -143,29 +128,12 @@ export async function getTableStats(datasource: ClickhouseDatasource, database: 
         LIMIT 20
     `;
 
-    // const ttlQuery = `
-    //     SELECT
-    //         ttl_expression AS ttlExpression
-    //     FROM system.tables
-    //     WHERE database = {db:String}
-    //     AND name = {tbl:String}
-    //     LIMIT 1
-    // `;
-
     const [sizeRes, partitionsRes, partsAggRes, mutationsRes] = await Promise.all([
         datasource.query<SizeRow>(sizeQuery, params),
         datasource.query<PartitionRow>(partitionsQuery, params),
         datasource.query<PartAggRow>(partsAggQuery, params),
         datasource.query<MutationRow>(mutationsQuery, params),
     ]);
-
-    // let ttlExpression: string | null = null;
-    // try {
-    //     const ttlRes = await datasource.query<TTLRow>(ttlQuery, params);
-    //     ttlExpression = toStringOrNull(ttlRes.rows?.[0]?.ttlExpression);
-    // } catch (error) {
-    //     console.warn('Failed to fetch TTL expression for table', database, table, error);
-    // }
 
     const sizeRow = (sizeRes.rows?.[0] as SizeRow | undefined) ?? {};
     const partsRow = (partsAggRes.rows?.[0] as PartAggRow | undefined) ?? {};
@@ -206,11 +174,10 @@ export async function getTableStats(datasource: ClickhouseDatasource, database: 
         avgPartSize: toNumberOrNull(partsRow.avgPartSize),
         maxPartSize: toNumberOrNull(partsRow.maxPartSize),
         activeMutations,
-        // ttlExpression,
     };
 }
 
-export function getTableInfoImpl(datasource: ClickhouseDatasource): GetTableInfoAPI {
+export function createClickhouseTableInfoCapability(datasource: ClickhouseDatasource): GetTableInfoAPI {
     return {
         properties: (database: string, table: string) => getTableProperties(datasource, database, table),
         ddl: (database: string, table: string) => getTableDDL(datasource, database, table),

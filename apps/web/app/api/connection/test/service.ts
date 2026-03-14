@@ -1,39 +1,10 @@
-import { UnsupportedTypeError } from '@/lib/connection/base/errors';
-import { BaseConfig, HealthInfo } from '@/lib/connection/base/types';
-import { applyQueryRequestTimeout, withConnectionTimeout } from '@/lib/connection/defaults';
+import { HealthInfo } from '@/lib/connection/base/types';
+import { withConnectionTimeout } from '@/lib/connection/defaults';
 import { createProvider } from '@/lib/connection/factory';
 import { getDBService } from '@/lib/database';
 import { TestConnectionPayload } from '@/types/connections';
-import { CONNECTION_ERROR_CODES, createConnectionError } from '@/app/api/connection/utils';
-
-
-function parseOptions(raw?: unknown): Record<string, unknown> | undefined {
-    if (!raw) return undefined;
-
-    if (typeof raw === 'object' && !Array.isArray(raw)) {
-        return raw as Record<string, unknown>;
-    }
-
-    if (typeof raw === 'string') {
-        try {
-            const parsed = JSON.parse(raw);
-            if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-                return parsed as Record<string, unknown>;
-            }
-        } catch {
-            // ignore
-        }
-    }
-
-    return undefined;
-}
-
-
-type IdentityInput = TestConnectionPayload['identity'] extends (infer T)[] ? T : never;
-type IdentityWithFlags = IdentityInput & {
-    markedForDeletion?: boolean;
-    database?: string | null;
-};
+import { CONNECTION_ERROR_CODES, type ConnectionErrorCode, createConnectionError } from '@/app/api/connection/utils';
+import { buildTestConnectionConfig } from '@/lib/connection/config-builder';
 
 type SSHConfigWithSecrets = NonNullable<TestConnectionPayload['ssh']> & {
     password?: string | null;
@@ -48,73 +19,6 @@ function hasSshSecret(ssh?: SSHConfigWithSecrets | null): boolean {
     const { password, privateKey, passphrase } = ssh;
     const values = [password, privateKey, passphrase].filter(val => typeof val === 'string' && val.trim() !== '');
     return values.length > 0;
-}
-
-
-function buildConnectionConfig(payload: TestConnectionPayload & { ssh?: SSHConfigWithSecrets | null }): BaseConfig {
-    const { connection, ssh, identity } = payload;
-    const sshConfig = ssh as SSHConfigWithSecrets | null;
-
-    if (!connection?.host) {
-        throw createConnectionError(CONNECTION_ERROR_CODES.missingHost);
-    }
-
-    if (!identity) {
-        throw createConnectionError(CONNECTION_ERROR_CODES.missingIdentityInfo);
-    }
-    if (!identity.username) {
-        throw createConnectionError(CONNECTION_ERROR_CODES.missingUsername);
-    }
-
-    
-    const options = parseOptions(connection.options) ?? {};
-
-    
-    if (typeof connection.httpPort === 'number') {
-        (options as any).httpPort = connection.httpPort;
-    }
-
-    applyQueryRequestTimeout(options);
-
-    if (sshConfig?.enabled) {
-        (options as any).ssh = {
-            enabled: true,
-            host: sshConfig.host,
-            port: sshConfig.port,
-            username: sshConfig.username,
-            authMethod: sshConfig.authMethod,
-            password: sshConfig.password ?? undefined,
-            privateKey: sshConfig.privateKey ?? undefined,
-            passphrase: sshConfig.passphrase ?? undefined,
-        };
-    }
-
-    
-    const rawType = connection.engine ?? connection.type ?? 'clickhouse';
-    const type = typeof rawType === 'string' ? (rawType.toLowerCase() as BaseConfig['type']) : 'clickhouse';
-
-    if (type !== 'clickhouse') {
-        throw new UnsupportedTypeError(String(rawType));
-    }
-
-    const identityDb = identity.database;
-    const database = identityDb ?? undefined;
-
-    const id = connection.name ? `test-${connection.name}` : `test-${connection.host}`;
-
-    const config: BaseConfig = {
-        id,
-        type,
-        host: connection.host,
-        port: connection.port,
-        username: identity.username,
-        
-        password: identity.password ?? undefined,
-        database,
-        options: Object.keys(options).length ? options : undefined,
-    };
-
-    return config;
 }
 
 
@@ -140,7 +44,10 @@ export async function testConnectService(teamId: string, payload: TestConnection
 
     const testPassword = payload?.identity?.password ?? plainPassword;
     const resolvedSsh = await resolveSshSecrets(teamId, payload, db);
-    const config = buildConnectionConfig({ ...payload, identity: { ...payload.identity, password: testPassword }, ssh: resolvedSsh });
+    const config = buildTestConnectionConfig(
+        { ...payload, identity: { ...payload.identity, password: testPassword }, ssh: resolvedSsh },
+        code => createConnectionError(code as ConnectionErrorCode),
+    );
     let provider = null as Awaited<ReturnType<typeof createProvider>> | null;
 
     try {

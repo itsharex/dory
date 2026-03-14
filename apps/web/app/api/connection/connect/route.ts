@@ -1,99 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
-import type { ConnectionListIdentity, ConnectionListItem, ConnectionSsh } from '@/types/connections';
+import type { ConnectionSsh } from '@/types/connections';
 import { UnsupportedTypeError } from '@/lib/connection/base/errors';
 import { BaseConfig } from '@/lib/connection/base/types';
-import { applyQueryRequestTimeout, CONNECTION_REQUEST_TIMEOUT_MS, withConnectionTimeout } from '@/lib/connection/defaults';
+import { CONNECTION_REQUEST_TIMEOUT_MS, withConnectionTimeout } from '@/lib/connection/defaults';
 import { getDatasourcePool, destroyDatasourcePool, ensureDatasourcePool } from '@/lib/connection/pool-store';
+import { buildStoredConnectionConfig, pickConnectionIdentity } from '@/lib/connection/config-builder';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
-import { CONNECTION_ERROR_CODES, createConnectionError, getConnectionErrorCode } from '@/app/api/connection/utils';
+import { CONNECTION_ERROR_CODES, type ConnectionErrorCode, createConnectionError, getConnectionErrorCode } from '@/app/api/connection/utils';
 export const runtime = 'nodejs';
-type IdentityWithPassword = ConnectionListIdentity & { password?: string | null };
 type SshWithSecrets = ConnectionSsh & { password?: string | null; privateKey?: string | null; passphrase?: string | null };
-
-function parseOptions(raw: unknown): Record<string, unknown> | undefined {
-    if (!raw) return undefined;
-    if (typeof raw === 'object' && !Array.isArray(raw)) return raw as Record<string, unknown>;
-    if (typeof raw === 'string') {
-        try {
-            const parsed = JSON.parse(raw);
-            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
-        } catch {
-            return undefined;
-        }
-    }
-    return undefined;
-}
-
-function pickIdentity(list: ConnectionListIdentity[], targetId?: string | null): ConnectionListIdentity | null {
-    if (!Array.isArray(list) || list.length === 0) return null;
-    if (targetId) {
-        const matched = list.find(item => item.id === targetId);
-        if (matched) return matched;
-    }
-    const defaultOne = list.find(item => item.isDefault);
-    if (defaultOne) return defaultOne;
-    return list[0] ?? null;
-}
-
-function buildDatasourceConfig(
-    connection: ConnectionListItem['connection'],
-    identity: IdentityWithPassword,
-    ssh?: SshWithSecrets | null,
-): BaseConfig {
-    if (!connection?.host) {
-        throw createConnectionError(CONNECTION_ERROR_CODES.missingHost);
-    }
-    if (!identity?.username) {
-        throw createConnectionError(CONNECTION_ERROR_CODES.missingUsername);
-    }
-
-    const options = parseOptions(connection.options) ?? {};
-
-    if (typeof connection.httpPort === 'number') {
-        (options as any).httpPort = connection.httpPort;
-    }
-
-    applyQueryRequestTimeout(options);
-
-    if (ssh?.enabled) {
-        (options as any).ssh = {
-            enabled: true,
-            host: ssh.host ?? undefined,
-            port: ssh.port ?? undefined,
-            username: ssh.username ?? undefined,
-            authMethod: ssh.authMethod ?? undefined,
-            password: ssh.password ?? undefined,
-            privateKey: ssh.privateKey ?? undefined,
-            passphrase: ssh.passphrase ?? undefined,
-        };
-    }
-
-    const rawType = connection.engine ?? connection.type ?? 'clickhouse';
-    const type = (typeof rawType === 'string' ? rawType.toLowerCase() : rawType) as BaseConfig['type'];
-    if (type !== 'clickhouse') {
-        throw new UnsupportedTypeError(String(rawType));
-    }
-
-    const database = identity.database ?? (connection as any).database ?? undefined;
-    const port = typeof connection.httpPort === 'number' ? connection.httpPort : connection.port;
-    const updatedAt = connection.updatedAt instanceof Date ? connection.updatedAt.getTime() : connection.updatedAt;
-
-    return {
-        id: connection.id,
-        type,
-        host: connection.host,
-        port: port ?? undefined,
-        username: identity.username,
-        password: identity.password ?? undefined,
-        database: database ?? undefined,
-        options: Object.keys(options).length ? options : undefined,
-        configVersion: connection.configVersion ?? undefined,
-        updatedAt: updatedAt ?? undefined,
-    };
-}
 
 async function ensurePoolWithLatest(config: BaseConfig) {
     const existing = await getDatasourcePool(config.id);
@@ -143,7 +61,7 @@ export const POST = withUserAndTeamHandler(async ({ req, db, teamId }) => {
             );
         }
 
-        const identity = pickIdentity(record.identities, identityId);
+        const identity = pickConnectionIdentity(record.identities, identityId);
         if (!identity) {
             return NextResponse.json(
                 ResponseUtil.error({ code: ErrorCodes.INVALID_PARAMS, message: t('Api.Connection.Errors.MissingIdentity') }),
@@ -162,7 +80,12 @@ export const POST = withUserAndTeamHandler(async ({ req, db, teamId }) => {
               ? ({ enabled: true, ...sshSecrets } as SshWithSecrets)
               : null;
 
-        const config = buildDatasourceConfig(record.connection, { ...identity, password: plainPassword }, sshConfig);
+        const config = buildStoredConnectionConfig(
+            record.connection,
+            { ...identity, password: plainPassword },
+            sshConfig,
+            code => createConnectionError(code as ConnectionErrorCode),
+        );
 
         const { health } = await withConnectionTimeout(
             (async () => {

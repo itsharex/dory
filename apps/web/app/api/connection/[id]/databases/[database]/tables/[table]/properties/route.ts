@@ -65,7 +65,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
         try {
             const { entry } = await ensureConnectionPoolForUser(userId, teamId, datasourceId, null);
-            const props = await entry.instance.getTableInfo.properties(database, table);
+            const tableInfo = entry.instance.capabilities.tableInfo;
+            if (!tableInfo) {
+                throw new Error(errorMessages.fallback);
+            }
+            const props = await tableInfo.properties(database, table);
             return NextResponse.json(ResponseUtil.success<TablePropertiesRow | null>(props));
         } catch (error) {
             console.log('Error in GET table properties route:', error);

@@ -64,7 +64,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
         try {
             const { entry } = await ensureConnectionPoolForUser(userId, teamId, datasourceId, null);
-            const ddl = await entry.instance.getTableInfo.ddl(database, table);
+            const tableInfo = entry.instance.capabilities.tableInfo;
+            if (!tableInfo) {
+                throw new Error(errorMessages.fallback);
+            }
+            const ddl = await tableInfo.ddl(database, table);
             return NextResponse.json(ResponseUtil.success<string | null>(ddl));
         } catch (error) {
             console.log('Error in GET table DDL route:', error);

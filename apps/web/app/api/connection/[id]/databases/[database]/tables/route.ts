@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
 import { ensureConnectionPoolForUser, mapConnectionErrorToResponse } from '@/app/api/connection/utils';
-import { ClickhouseDatasource } from '@/lib/connection/drivers/clickhouse/ClickhouseDatasource';
+import type { ClickhouseMetadataAPI } from '@/lib/connection/drivers/clickhouse/capabilities/metadata';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 
@@ -45,8 +45,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ databas
 
         try {
             const { entry } = await ensureConnectionPoolForUser(userId, teamId, datasourceId, null);
-            const instance = entry.instance as ClickhouseDatasource;
-            const tables = await instance.getTablesOnly(database);
+            const metadata = entry.instance.capabilities.metadata as ClickhouseMetadataAPI | undefined;
+            if (!metadata) {
+                throw new Error(errorMessages.fallback);
+            }
+            const tables = await metadata.getTablesOnly(database);
 
             return NextResponse.json(ResponseUtil.success(tables));
         } catch (error) {

@@ -28,8 +28,11 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ id: st
 
         try {
             const { entry } = await ensureConnectionPoolForUser(userId, teamId, datasourceId, null);
-
-            const databases = await entry.instance.getDatabases();
+            const metadata = entry.instance.capabilities.metadata;
+            if (!metadata) {
+                throw new Error(t('Api.Connection.Databases.Errors.ListFailed'));
+            }
+            const databases = await metadata.getDatabases();
             const payload = databases;
             return NextResponse.json(ResponseUtil.success(payload));
         } catch (error) {

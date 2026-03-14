@@ -21,3 +21,13 @@ export class NotInitializedError extends DatasourceError {
         this.name = 'NotInitializedError';
     }
 }
+
+export class UnsupportedCapabilityError extends DatasourceError {
+    constructor(
+        public readonly capability: string,
+        public readonly type?: string,
+    ) {
+        super(type ? `Datasource type "${type}" does not support capability "${capability}"` : `Unsupported capability: ${capability}`);
+        this.name = 'UnsupportedCapabilityError';
+    }
+}

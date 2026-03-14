@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ResponseUtil } from '@/lib/result';
 import { resolveCatalogContext } from '../../_utils';
-import { ClickhouseDatasource } from '@/lib/connection/drivers/clickhouse/ClickhouseDatasource';
+import type { ClickhouseMetadataAPI } from '@/lib/connection/drivers/clickhouse/capabilities/metadata';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 
 export async function GET(req: NextRequest, context: { params: Promise<{ database: string }> }) {
@@ -12,8 +12,8 @@ export async function GET(req: NextRequest, context: { params: Promise<{ databas
         if (resolved.response) return resolved.response;
 
         const { entry, database } = resolved.resolved!;
-        const instance = entry.instance as ClickhouseDatasource;
-        const views = await instance.getViews(database);
+        const metadata = entry.instance.capabilities.metadata as ClickhouseMetadataAPI | undefined;
+        const views = metadata ? await metadata.getViews(database) : [];
 
         return NextResponse.json(ResponseUtil.success(views));
     })(req);

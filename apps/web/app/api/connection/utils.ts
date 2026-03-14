@@ -3,13 +3,11 @@ import { getDBService } from '@/lib/database';
 
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
-import type { ConnectionListIdentity, ConnectionListItem, ConnectionSsh } from '@/types/connections';
-import { UnsupportedTypeError } from '@/lib/connection/base/errors';
+import type { ConnectionSsh } from '@/types/connections';
 import { BaseConfig } from '@/lib/connection/base/types';
-import { applyQueryRequestTimeout } from '@/lib/connection/defaults';
 import { getDatasourcePool, destroyDatasourcePool, ensureDatasourcePool } from '@/lib/connection/pool-store';
+import { buildStoredConnectionConfig, pickConnectionIdentity } from '@/lib/connection/config-builder';
 
-type IdentityWithPassword = ConnectionListIdentity & { password?: string | null };
 type SshWithSecrets = ConnectionSsh & { password?: string | null; privateKey?: string | null; passphrase?: string | null };
 
 export const CONNECTION_ERROR_CODES = {
@@ -70,84 +68,6 @@ export function normalizeOptions(raw: unknown): string | Record<string, unknown>
     return null;
 }
 
-function parseOptions(raw: unknown): Record<string, unknown> | undefined {
-    if (!raw) return undefined;
-    if (typeof raw === 'object' && !Array.isArray(raw)) return raw as Record<string, unknown>;
-    if (typeof raw === 'string') {
-        try {
-            const parsed = JSON.parse(raw);
-            return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : undefined;
-        } catch {
-            return undefined;
-        }
-    }
-    return undefined;
-}
-
-function pickIdentity(list: ConnectionListIdentity[], targetId?: string | null): ConnectionListIdentity | null {
-    if (!Array.isArray(list) || list.length === 0) return null;
-    if (targetId) {
-        const matched = list.find(item => item.id === targetId);
-        if (matched) return matched;
-    }
-    const defaultOne = list.find(item => item.isDefault);
-    if (defaultOne) return defaultOne;
-    return list[0] ?? null;
-}
-
-function buildConnectionConfig(connection: ConnectionListItem['connection'], identity: IdentityWithPassword, ssh?: SshWithSecrets | null): BaseConfig {
-    if (!connection?.host) {
-        throw createConnectionError(CONNECTION_ERROR_CODES.missingHost);
-    }
-    if (!identity?.username) {
-        throw createConnectionError(CONNECTION_ERROR_CODES.missingUsername);
-    }
-
-    const options = parseOptions(connection.options) ?? {};
-
-    if (typeof connection.httpPort === 'number') {
-        (options as any).httpPort = connection.httpPort;
-    }
-
-    applyQueryRequestTimeout(options);
-
-    if (ssh?.enabled) {
-        (options as any).ssh = {
-            enabled: true,
-            host: ssh.host ?? undefined,
-            port: ssh.port ?? undefined,
-            username: ssh.username ?? undefined,
-            authMethod: ssh.authMethod ?? undefined,
-            password: ssh.password ?? undefined,
-            privateKey: ssh.privateKey ?? undefined,
-            passphrase: ssh.passphrase ?? undefined,
-        };
-    }
-
-    const rawType = connection.engine ?? connection.type ?? 'clickhouse';
-    const type = (typeof rawType === 'string' ? rawType.toLowerCase() : rawType) as BaseConfig['type'];
-    if (type !== 'clickhouse') {
-        throw new UnsupportedTypeError(String(rawType));
-    }
-
-    const database = identity.database ?? (connection as any).database ?? undefined;
-    const port = typeof connection.httpPort === 'number' ? connection.httpPort : connection.port;
-    const updatedAt = connection.updatedAt instanceof Date ? connection.updatedAt.getTime() : connection.updatedAt;
-
-    return {
-        id: connection.id,
-        type,
-        host: connection.host,
-        port: port ?? undefined,
-        username: identity.username,
-        password: identity.password ?? undefined,
-        database: database ?? undefined,
-        options: Object.keys(options).length ? options : undefined,
-        configVersion: connection.configVersion ?? undefined,
-        updatedAt: updatedAt ?? undefined,
-    };
-}
-
 async function ensurePoolWithLatest(config: BaseConfig) {
     const existing = await getDatasourcePool(config.id);
     const needRefresh =
@@ -170,7 +90,7 @@ export async function ensureConnectionPoolForUser(userId: string, teamId: string
         throw createConnectionError(CONNECTION_ERROR_CODES.notFound);
     }
 
-    const identity = pickIdentity(record.identities, identityId ?? null);
+    const identity = pickConnectionIdentity(record.identities, identityId ?? null);
     if (!identity) {
         throw createConnectionError(CONNECTION_ERROR_CODES.missingIdentity);
     }
@@ -184,7 +104,12 @@ export async function ensureConnectionPoolForUser(userId: string, teamId: string
           ? ({ enabled: true, ...sshSecrets } as SshWithSecrets)
           : null;
 
-    const config = buildConnectionConfig(record.connection, { ...identity, password: plainPassword }, sshConfig);
+    const config = buildStoredConnectionConfig(
+        record.connection,
+        { ...identity, password: plainPassword },
+        sshConfig,
+        code => createConnectionError(code as ConnectionErrorCode),
+    );
     const entry = await ensurePoolWithLatest(config);
 
     return { entry, config, identity };
