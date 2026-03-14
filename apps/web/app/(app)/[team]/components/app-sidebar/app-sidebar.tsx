@@ -185,7 +185,7 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
                     </>
                 )}
             </div>
-            {updaterState.readyToInstall && (
+            {updaterState.readyToInstall || true && (
                 <SidebarGroup className="hidden pt-0 group-data-[collapsible=icon]:block">
                     <SidebarGroupContent>
                         <SidebarMenu>
