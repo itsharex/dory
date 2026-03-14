@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
-import { resolveClickhouseDatasource, handlePrivilegesError } from '../_utils';
+import { resolvePrivilegesConnection, handlePrivilegesError } from '../_utils';
 import type { CreateRolePayload } from '@/types/privileges';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 
 export const GET = withUserAndTeamHandler(async ({ req, teamId }) => {
     const locale = await getApiLocale();
-    const resolved = await resolveClickhouseDatasource(req, { teamId });
+    const resolved = await resolvePrivilegesConnection(req, { teamId });
     if (resolved.response) return resolved.response;
     try {
-        const roles = await resolved.resolved!.instance.privileges.listClickHouseRoles();
+        const roles = await resolved.resolved!.privileges.listClickHouseRoles();
         return NextResponse.json(ResponseUtil.success(roles));
     } catch (error) {
         return handlePrivilegesError(error, translateApi('Api.Privileges.Roles.ListFailed', undefined, locale));
@@ -20,7 +20,7 @@ export const GET = withUserAndTeamHandler(async ({ req, teamId }) => {
 
 export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
     const locale = await getApiLocale();
-    const resolved = await resolveClickhouseDatasource(req, { teamId });
+    const resolved = await resolvePrivilegesConnection(req, { teamId });
     if (resolved.response) return resolved.response;
 
     let payload: CreateRolePayload;
@@ -47,7 +47,7 @@ export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
     }
 
     try {
-        await resolved.resolved!.instance.privileges.createClickHouseRole(payload);
+        await resolved.resolved!.privileges.createClickHouseRole(payload);
         return NextResponse.json(ResponseUtil.success());
     } catch (error) {
         return handlePrivilegesError(error, translateApi('Api.Privileges.Roles.CreateFailed', undefined, locale));

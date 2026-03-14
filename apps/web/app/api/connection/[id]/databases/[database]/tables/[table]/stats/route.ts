@@ -65,7 +65,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
 
         try {
             const { entry } = await ensureConnectionPoolForUser(userId, teamId, datasourceId, null);
-            const stats = await entry.instance.getTableInfo.stats(database, table);
+            const tableInfo = entry.instance.capabilities.tableInfo;
+            if (!tableInfo) {
+                throw new Error(errorMessages.fallback);
+            }
+            const stats = await tableInfo.stats(database, table);
             return NextResponse.json(ResponseUtil.success<TableStats | null>(stats ?? null));
         } catch (error) {
             console.log('Error in GET table stats route:', error);

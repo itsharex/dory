@@ -1,4 +1,5 @@
-import { ClickhouseDatasource } from '../ClickhouseDatasource';
+import type { ConnectionMetadataAPI } from '@/lib/connection/base/types';
+import type { ClickhouseDatasource } from '../ClickhouseDatasource';
 
 type DatabaseTableRow = {
     name: string;
@@ -40,16 +41,27 @@ export type DatabaseSummary = {
     oneLineSummary: string | null;
 };
 
-type CatalogItem = {
-    label: string;
-    value: string;
+export type ClickhouseMetadataAPI = ConnectionMetadataAPI & {
+    getTablesOnly: (database: string) => Promise<DatabaseTableRow[]>;
+    getViews: (database: string) => Promise<DatabaseTableRow[]>;
+    getMaterializedViews: (database: string) => Promise<DatabaseTableRow[]>;
+    getFunctions: (database?: string) => Promise<Array<{ label: string; value: string }>>;
+    getDatabaseSummary: (options: {
+        database: string;
+        catalogName?: string | null;
+        schemaName?: string | null;
+        engine?: DatabaseSummary['engine'];
+        cluster?: string | null;
+        timeoutMs?: number;
+    }) => Promise<DatabaseSummary>;
+    getDatabaseTablesDetail: (database: string) => Promise<DatabaseTableRow[]>;
 };
 
 const VIEW_ENGINES = new Set(['VIEW', 'LIVEVIEW', 'LAZYVIEW', 'WINDOWVIEW']);
 const MATERIALIZED_VIEW_ENGINES = new Set(['MATERIALIZEDVIEW']);
+const DEFAULT_SUMMARY_TIMEOUT_MS = 8000;
 
 const normalizeEngine = (value?: string | null) => (value ?? '').toString().toUpperCase();
-const DEFAULT_SUMMARY_TIMEOUT_MS = 8000;
 
 function toNumberOrNull(value: unknown): number | null {
     if (value === null || value === undefined) return null;
@@ -77,7 +89,27 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: str
     }
 }
 
-export async function getDatabaseSummary(
+async function getDatabases(datasource: ClickhouseDatasource) {
+    const result = await datasource.query<{ name: string }>('SELECT name FROM system.databases ORDER BY name');
+    return result.rows.map(row => ({ value: row.name, label: row.name }));
+}
+
+async function getTables(datasource: ClickhouseDatasource, database?: string) {
+    if (database) {
+        const rows = await datasource.query<{ table: string; db: string }>(
+            'SELECT name AS table, database AS db FROM system.tables WHERE database = {db:String} ORDER BY name',
+            { db: database },
+        );
+        return rows.rows.map(row => ({ value: row.table, label: row.table, database: row.db }));
+    }
+
+    const rows = await datasource.query<{ table: string; db: string }>(
+        'SELECT name AS table, database AS db FROM system.tables ORDER BY database, name',
+    );
+    return rows.rows.map(row => ({ value: row.table, label: `${row.db}.${row.table}`, database: row.db }));
+}
+
+async function getDatabaseSummary(
     datasource: ClickhouseDatasource,
     options: {
         database: string;
@@ -229,44 +261,7 @@ export async function getDatabaseSummary(
     };
 }
 
-function toCatalogItems(names: string[]): CatalogItem[] {
-    return names.map(name => ({ label: name, value: name }));
-}
-
-export async function getTablesOnly(datasource: ClickhouseDatasource, database: string): Promise<DatabaseTableRow[]> {
-    const rows = await getDatabaseTablesDetail(datasource, database);
-    return rows.filter(row => {
-        const engine = normalizeEngine(row.engine);
-        return !VIEW_ENGINES.has(engine) && !MATERIALIZED_VIEW_ENGINES.has(engine);
-    });
-}
-
-export async function getViews(datasource: ClickhouseDatasource, database: string): Promise<DatabaseTableRow[]> {
-    const rows = await getDatabaseTablesDetail(datasource, database);
-    return rows.filter(row => VIEW_ENGINES.has(normalizeEngine(row.engine)));
-}
-
-export async function getMaterializedViews(datasource: ClickhouseDatasource, database: string): Promise<DatabaseTableRow[]> {
-    const rows = await getDatabaseTablesDetail(datasource, database);
-    return rows.filter(row => MATERIALIZED_VIEW_ENGINES.has(normalizeEngine(row.engine)));
-}
-
-export async function getFunctions(datasource: ClickhouseDatasource, database?: string): Promise<CatalogItem[]> {
-    const sql = database
-        ? 'SELECT name FROM system.user_defined_functions WHERE database = {db:String} ORDER BY name'
-        : 'SELECT name FROM system.functions ORDER BY name';
-    const result = await datasource.query<{ name?: string }>(sql, database ? { db: database } : undefined);
-    const names = (Array.isArray(result.rows) ? result.rows : [])
-        .map(row => row?.name)
-        .filter((name): name is string => typeof name === 'string' && name.trim().length > 0);
-
-    return toCatalogItems(names);
-}
-
-export async function getDatabaseTablesDetail(
-    datasource: ClickhouseDatasource,
-    database: string,
-): Promise<DatabaseTableRow[]> {
+async function getDatabaseTablesDetail(datasource: ClickhouseDatasource, database: string): Promise<DatabaseTableRow[]> {
     const sql = `
         SELECT
             name,
@@ -282,4 +277,46 @@ export async function getDatabaseTablesDetail(
 
     const result = await datasource.query<DatabaseTableRow>(sql, { db: database });
     return Array.isArray(result.rows) ? result.rows : [];
+}
+
+async function getTablesOnly(datasource: ClickhouseDatasource, database: string): Promise<DatabaseTableRow[]> {
+    const rows = await getDatabaseTablesDetail(datasource, database);
+    return rows.filter(row => {
+        const engine = normalizeEngine(row.engine);
+        return !VIEW_ENGINES.has(engine) && !MATERIALIZED_VIEW_ENGINES.has(engine);
+    });
+}
+
+async function getViews(datasource: ClickhouseDatasource, database: string): Promise<DatabaseTableRow[]> {
+    const rows = await getDatabaseTablesDetail(datasource, database);
+    return rows.filter(row => VIEW_ENGINES.has(normalizeEngine(row.engine)));
+}
+
+async function getMaterializedViews(datasource: ClickhouseDatasource, database: string): Promise<DatabaseTableRow[]> {
+    const rows = await getDatabaseTablesDetail(datasource, database);
+    return rows.filter(row => MATERIALIZED_VIEW_ENGINES.has(normalizeEngine(row.engine)));
+}
+
+async function getFunctions(datasource: ClickhouseDatasource, database?: string) {
+    const sql = database
+        ? 'SELECT name FROM system.user_defined_functions WHERE database = {db:String} ORDER BY name'
+        : 'SELECT name FROM system.functions ORDER BY name';
+    const result = await datasource.query<{ name?: string }>(sql, database ? { db: database } : undefined);
+    return (Array.isArray(result.rows) ? result.rows : [])
+        .map(row => row?.name)
+        .filter((name): name is string => typeof name === 'string' && name.trim().length > 0)
+        .map(name => ({ label: name, value: name }));
+}
+
+export function createClickhouseMetadataCapability(datasource: ClickhouseDatasource): ClickhouseMetadataAPI {
+    return {
+        getDatabases: () => getDatabases(datasource),
+        getTables: database => getTables(datasource, database),
+        getTablesOnly: database => getTablesOnly(datasource, database),
+        getViews: database => getViews(datasource, database),
+        getMaterializedViews: database => getMaterializedViews(datasource, database),
+        getFunctions: database => getFunctions(datasource, database),
+        getDatabaseSummary: options => getDatabaseSummary(datasource, options),
+        getDatabaseTablesDetail: database => getDatabaseTablesDetail(datasource, database),
+    };
 }

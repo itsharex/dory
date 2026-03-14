@@ -26,6 +26,7 @@ type PoolStore = Map<string, DatasourcePoolEntry>;
 const GLOBAL_STORE_KEY = '__datasource_pool_store__';
 const internalStore: PoolStore = new Map();
 const reconnecting = new Map<string, Promise<DatasourcePoolEntry>>();
+const creating = new Map<string, Promise<DatasourcePoolEntry>>();
 
 function getStore(): PoolStore {
     if (process.env.NODE_ENV === 'development') {
@@ -97,6 +98,24 @@ async function createEntry(config: BaseConfig): Promise<DatasourcePoolEntry> {
     return entry;
 }
 
+async function createEntryOnce(config: BaseConfig): Promise<DatasourcePoolEntry> {
+    const existing = creating.get(config.id);
+    if (existing) {
+        return existing;
+    }
+
+    const promise = (async () => {
+        const entry = await createEntry(config);
+        getStore().set(config.id, entry);
+        return entry;
+    })().finally(() => {
+        creating.delete(config.id);
+    });
+
+    creating.set(config.id, promise);
+    return promise;
+}
+
 export async function ensureDatasourcePool(config: BaseConfig): Promise<DatasourcePoolEntry> {
     const store = getStore();
     const existing = store.get(config.id);
@@ -107,9 +126,7 @@ export async function ensureDatasourcePool(config: BaseConfig): Promise<Datasour
         return await ensureHealthyEntry(existing);
     }
 
-    const entry = await createEntry(config);
-    store.set(config.id, entry);
-    return entry;
+    return await createEntryOnce(config);
 }
 
 export async function getDatasourcePool(id: string): Promise<DatasourcePoolEntry | undefined> {

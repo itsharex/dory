@@ -1,4 +1,3 @@
-// src/lib/network/ssh-tunnel.ts
 import http from 'node:http';
 import { translate } from '@/lib/i18n/i18n';
 import { Locale, routing } from '@/lib/i18n/routing';
@@ -41,26 +40,22 @@ class SshHttpAgent extends http.Agent {
                     return;
                 }
 
-                // ssh2 Channel isn't a net.Socket; add methods expected by http client
                 const socket: any = stream;
 
                 if (typeof socket.setTimeout !== 'function') {
                     socket.setTimeout = (_msecs: number, _cb?: () => void) => {
-                        // no-op
                         return socket;
                     };
                 }
 
                 if (typeof socket.setNoDelay !== 'function') {
                     socket.setNoDelay = (_noDelay?: boolean) => {
-                        // no-op
                         return socket;
                     };
                 }
 
                 if (typeof socket.setKeepAlive !== 'function') {
                     socket.setKeepAlive = (_enable?: boolean, _initialDelay?: number) => {
-                        // no-op
                         return socket;
                     };
                 }
@@ -69,21 +64,15 @@ class SshHttpAgent extends http.Agent {
             },
         );
 
-        // Callback-style branch doesn't use return socket; placeholder is fine
         return undefined as unknown as import('stream').Duplex;
     }
 }
-
-
 
 export interface SshTunnel {
     agent: http.Agent;
     close(): Promise<void>;
 }
 
-/**
- * Create an SSH tunnel and return http.Agent + close()
- */
 export async function createSshTunnel(
     targetHost: string,
     targetPort: number,

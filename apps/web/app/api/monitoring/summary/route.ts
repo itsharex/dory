@@ -13,6 +13,7 @@ export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
     if ('response' in connection) {
         return connection.response;
     }
+    const insights = connection.capabilities.queryInsights;
 
     const payload = await req.json().catch(() => ({}));
     const filtersResult = await parseFiltersFromPayload(payload);
@@ -21,7 +22,10 @@ export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
     }
 
     try {
-        const summary = await connection.queryInsights.summary(filtersResult.filters);
+        if (!insights) {
+            throw new Error(t('Api.Monitoring.Errors.QueryFailed'));
+        }
+        const summary = await insights.summary(filtersResult.filters);
         return NextResponse.json(ResponseUtil.success(summary));
     } catch (error: any) {
         return NextResponse.json(

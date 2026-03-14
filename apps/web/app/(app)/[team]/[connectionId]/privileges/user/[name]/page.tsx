@@ -10,7 +10,6 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import type { ClickHouseRole, ClickHouseUser } from '@/types/privileges';
-import { currentConnectionAtom } from '@/shared/stores/app.store';
 import {
     fetchClickHouseRoles,
     fetchClickHouseUser,
@@ -21,6 +20,7 @@ import {
     fetchPrivilegeTargets,
     type ScopedPrivilegePayload,
 } from '../../request';
+import { usePrivilegesConnectionReady } from '../../use-connection-ready';
 
 import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { Button } from '@/registry/new-york-v4/ui/button';
@@ -60,27 +60,25 @@ export default function UserPrivilegesPage() {
     const params = useParams();
     const encodedName = getParamValue(params?.name);
     const userName = decodeURIComponent(encodedName ?? '');
-
-    const currentConnection = useAtomValue(currentConnectionAtom);
-    const connectionId = currentConnection?.connection.id;
+    const { connectionId, routeConnectionId, isConnectionReady } = usePrivilegesConnectionReady();
 
     const queryClient = useQueryClient();
 
     const userQuery = useQuery({
         queryKey: ['privileges', 'user', connectionId, userName],
-        queryFn: () => fetchClickHouseUser(userName, { errorMessage: t('Errors.FetchUser') }),
-        enabled: Boolean(connectionId && userName),
+        queryFn: () => fetchClickHouseUser(userName, { connectionId, errorMessage: t('Errors.FetchUser') }),
+        enabled: Boolean(connectionId && userName && isConnectionReady),
     });
 
     const rolesQuery = useQuery({
         queryKey: ['privileges', 'roles', connectionId],
-        queryFn: () => fetchClickHouseRoles({ errorMessage: t('Errors.FetchRoles') }),
-        enabled: Boolean(connectionId),
+        queryFn: () => fetchClickHouseRoles({ connectionId, errorMessage: t('Errors.FetchRoles') }),
+        enabled: Boolean(connectionId && isConnectionReady),
     });
 
     const user = userQuery.data as ClickHouseUser | undefined;
     const roles = rolesQuery.data as ClickHouseRole[] | undefined;
-    const isLoading = userQuery.isLoading || rolesQuery.isLoading;
+    const isLoading = !isConnectionReady || userQuery.isLoading || rolesQuery.isLoading;
     const hasError = userQuery.isError;
 
     const availableRolesMap = useMemo(() => {
@@ -190,25 +188,25 @@ export default function UserPrivilegesPage() {
 
     const loadDatabaseOptions = useCallback(async () => {
         try {
-            const options = await fetchPrivilegeTargets('database');
+            const options = await fetchPrivilegeTargets('database', undefined, { connectionId });
             setDatabaseOptions(options);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : t('Toasts.FetchDatabasesFailed'));
         }
-    }, [t]);
+    }, [connectionId, t]);
 
     const loadTableOptions = useCallback(
         async (database: string, force = false) => {
             if (!database) return;
             if (!force && tableOptionsByDatabase[database]) return;
             try {
-                const options = await fetchPrivilegeTargets('table', { database });
+                const options = await fetchPrivilegeTargets('table', { database }, { connectionId });
                 setTableOptionsByDatabase(prev => ({ ...prev, [database]: options }));
             } catch (error) {
                 toast.error(error instanceof Error ? error.message : t('Toasts.FetchTablesFailed'));
             }
         },
-        [t, tableOptionsByDatabase],
+        [connectionId, t, tableOptionsByDatabase],
     );
 
     const loadViewOptions = useCallback(
@@ -216,13 +214,13 @@ export default function UserPrivilegesPage() {
             if (!database) return;
             if (!force && viewOptionsByDatabase[database]) return;
             try {
-                const options = await fetchPrivilegeTargets('view', { database });
+                const options = await fetchPrivilegeTargets('view', { database }, { connectionId });
                 setViewOptionsByDatabase(prev => ({ ...prev, [database]: options }));
             } catch (error) {
                 toast.error(error instanceof Error ? error.message : t('Toasts.FetchViewsFailed'));
             }
         },
-        [t, viewOptionsByDatabase],
+        [connectionId, t, viewOptionsByDatabase],
     );
 
     useEffect(() => {
@@ -245,7 +243,7 @@ export default function UserPrivilegesPage() {
     const grantGlobalPrivilegesMutation = useMutation({
         mutationFn: async (privileges: string[]) => {
             if (!userName) throw new Error(t('Errors.UserNotSpecified'));
-            return grantUserGlobalPrivilegesApi(userName, privileges, { errorMessage: t('Errors.GrantGlobalFailed') });
+            return grantUserGlobalPrivilegesApi(userName, privileges, { connectionId, errorMessage: t('Errors.GrantGlobalFailed') });
         },
         onSuccess: () => {
             toast.success(t('Toasts.GlobalGranted'));
@@ -261,7 +259,7 @@ export default function UserPrivilegesPage() {
     const revokeGlobalPrivilegesMutation = useMutation({
         mutationFn: async (privileges: string[]) => {
             if (!userName) throw new Error(t('Errors.UserNotSpecified'));
-            return revokeUserGlobalPrivilegesApi(userName, privileges, { errorMessage: t('Errors.RevokeGlobalFailed') });
+            return revokeUserGlobalPrivilegesApi(userName, privileges, { connectionId, errorMessage: t('Errors.RevokeGlobalFailed') });
         },
         onSuccess: () => {
             toast.success(t('Toasts.GlobalRevoked'));
@@ -277,7 +275,7 @@ export default function UserPrivilegesPage() {
     const grantScopedPrivilegesMutation = useMutation({
         mutationFn: async (payload: ScopedPrivilegePayload) => {
             if (!userName) throw new Error(t('Errors.UserNotSpecified'));
-            return grantUserScopedPrivilegesApi(userName, payload, { errorMessage: t('Errors.GrantScopedFailed') });
+            return grantUserScopedPrivilegesApi(userName, payload, { connectionId, errorMessage: t('Errors.GrantScopedFailed') });
         },
         onSuccess: () => {
             toast.success(t('Toasts.ScopedGranted'));
@@ -293,7 +291,7 @@ export default function UserPrivilegesPage() {
     const revokeScopedPrivilegesMutation = useMutation({
         mutationFn: async (payload: ScopedPrivilegePayload) => {
             if (!userName) throw new Error(t('Errors.UserNotSpecified'));
-            return revokeUserScopedPrivilegesApi(userName, payload, { errorMessage: t('Errors.RevokeScopedFailed') });
+            return revokeUserScopedPrivilegesApi(userName, payload, { connectionId, errorMessage: t('Errors.RevokeScopedFailed') });
         },
         onSuccess: () => {
             toast.success(t('Toasts.ScopedRevoked'));
@@ -488,7 +486,7 @@ export default function UserPrivilegesPage() {
                 </div>
             </header>
 
-            {!connectionId ? (
+            {!routeConnectionId ? (
                 <Card>
                     <CardContent className="py-10 text-center text-muted-foreground">
                         {t('UserPage.Empty.NoConnection')}

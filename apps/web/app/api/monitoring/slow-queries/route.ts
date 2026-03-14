@@ -13,6 +13,7 @@ export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
     if ('response' in connection) {
         return connection.response;
     }
+    const insights = connection.capabilities.queryInsights;
 
     const payload = await req.json().catch(() => ({}));
     const filtersResult = await parseFiltersFromPayload(payload);
@@ -27,7 +28,10 @@ export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
     const pageSize = Number.isFinite(Number(rawPageSize)) ? Number(rawPageSize) : 10;
 
     try {
-        const { rows, total } = await connection.queryInsights.slowQueries(filtersResult.filters, {
+        if (!insights) {
+            throw new Error(t('Api.Monitoring.Errors.QueryFailed'));
+        }
+        const { rows, total } = await insights.slowQueries(filtersResult.filters, {
             pageIndex,
             pageSize,
         });

@@ -86,6 +86,7 @@ export function ConnectionSwitcher() {
     const [connectLoadings, setConnectLoadings] = useAtom(connectionLoadingAtom);
     const [pendingConnection, setPendingConnection] = useState<ConnectionListItem | null>(null);
     const [pendingIdentity, setPendingIdentity] = useState<ConnectionListIdentity | null>(null);
+    const [autoConnectedRouteId, setAutoConnectedRouteId] = useState<string | null>(null);
 
     const setConnectionListLoading = useSetAtom(connectionListLoadingAtom);
     const setLoadingMessage = useSetAtom(connectionLoadingMessageAtom);
@@ -216,14 +217,14 @@ export function ConnectionSwitcher() {
         return `/${teamId}/${nextConnectionId}/sql-console`;
     };
 
-    const handleSelect = (connectionItem: ConnectionListItem, identity?: ConnectionIdentity) => {
+    const startConnect = (connectionItem: ConnectionListItem, identity?: ConnectionIdentity | ConnectionListIdentity | null, targetPath?: string | null) => {
         if (!connectionItem?.connection) return;
 
         const loadingKey = makeLoadingKey(connectionItem.connection.id, identity?.id);
         if (connectLoadings?.[loadingKey]) return;
 
         setPendingConnection(connectionItem);
-        setPendingIdentity(identity ?? null);
+        setPendingIdentity((identity as ConnectionListIdentity | null) ?? null);
 
         setConnectLoadings((prev: Record<string, boolean> = {}) => ({
             ...prev,
@@ -233,8 +234,6 @@ export function ConnectionSwitcher() {
         const identityLabel = identity?.name ? ` (${identity.name})` : '';
         setLoadingMessage(t('Connect to', { name: `${connectionItem.connection.name ?? connectionItem.connection.id}${identityLabel}` }));
         setConnectionError(null);
-
-        const targetPath = buildConnectionPath(connectionItem.connection.id);
 
         connectMutation.mutate(
             {
@@ -261,6 +260,27 @@ export function ConnectionSwitcher() {
             },
         );
     };
+
+    const handleSelect = (connectionItem: ConnectionListItem, identity?: ConnectionIdentity) => {
+        if (!connectionItem?.connection) return;
+        const targetPath = buildConnectionPath(connectionItem.connection.id);
+        startConnect(connectionItem, identity, targetPath);
+    };
+
+    useEffect(() => {
+        if (!connectionId || !connections.length || isLoading) return;
+
+        const match = connections.find(item => item.connection.id === connectionId);
+        if (!match) return;
+
+        const identity = getActiveIdentity(match);
+        const loadingKey = makeLoadingKey(match.connection.id, identity?.id);
+        if (connectLoadings?.[loadingKey]) return;
+        if (autoConnectedRouteId === connectionId) return;
+
+        setAutoConnectedRouteId(connectionId);
+        startConnect(match, identity, null);
+    }, [autoConnectedRouteId, connectLoadings, connectionId, connections, isLoading]);
 
     const goToConnections = () => {
         router.push(`/${teamId}/connections`);

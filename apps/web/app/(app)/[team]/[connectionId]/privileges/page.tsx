@@ -1,7 +1,6 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useAtomValue } from 'jotai';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Users as UsersIcon, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
@@ -42,14 +41,13 @@ import { RolesSection } from './components/roles-section';
 import { UsersSection } from './components/users-section';
 import type { FormMode, RoleFormValues, UserFormValues } from './types';
 import { parseList } from './utils';
-import { currentConnectionAtom } from '@/shared/stores/app.store';
+import { usePrivilegesConnectionReady } from './use-connection-ready';
 
 const DEFAULT_TAB = 'users';
 
 export default function PrivilegesPage() {
     const t = useTranslations('Privileges');
-    const currentConnection = useAtomValue(currentConnectionAtom);
-    const connectionId = currentConnection?.connection.id;
+    const { connectionId, routeConnectionId, isConnectionReady } = usePrivilegesConnectionReady();
     const queryClient = useQueryClient();
 
     const usersQueryKey = useMemo(() => ['privileges', 'users', connectionId], [connectionId]);
@@ -58,20 +56,20 @@ export default function PrivilegesPage() {
 
     const usersQuery = useQuery({
         queryKey: usersQueryKey,
-        queryFn: () => fetchClickHouseUsers({ errorMessage: t('Errors.FetchUsers') }),
-        enabled: Boolean(connectionId),
+        queryFn: () => fetchClickHouseUsers({ connectionId, errorMessage: t('Errors.FetchUsers') }),
+        enabled: Boolean(connectionId && isConnectionReady),
     });
 
     const rolesQuery = useQuery({
         queryKey: rolesQueryKey,
-        queryFn: () => fetchClickHouseRoles({ errorMessage: t('Errors.FetchRoles') }),
-        enabled: Boolean(connectionId),
+        queryFn: () => fetchClickHouseRoles({ connectionId, errorMessage: t('Errors.FetchRoles') }),
+        enabled: Boolean(connectionId && isConnectionReady),
     });
 
     const clustersQuery = useQuery({
         queryKey: clustersQueryKey,
-        queryFn: () => fetchClickHouseClusters({ errorMessage: t('Errors.FetchClusters') }),
-        enabled: Boolean(connectionId),
+        queryFn: () => fetchClickHouseClusters({ connectionId, errorMessage: t('Errors.FetchClusters') }),
+        enabled: Boolean(connectionId && isConnectionReady),
     });
 
     const availableRoleNames = useMemo(() => {
@@ -93,7 +91,7 @@ export default function PrivilegesPage() {
 
     const createUserMutation = useMutation({
         mutationFn: (payload: Parameters<typeof createClickHouseUserApi>[0]) =>
-            createClickHouseUserApi(payload, { errorMessage: t('Errors.CreateUser') }),
+            createClickHouseUserApi(payload, { connectionId, errorMessage: t('Errors.CreateUser') }),
         onSuccess: () => {
             toast.success(t('Toasts.UserCreated'));
             queryClient.invalidateQueries({ queryKey: usersQueryKey });
@@ -107,7 +105,7 @@ export default function PrivilegesPage() {
 
     const updateUserMutation = useMutation({
         mutationFn: ({ name, payload }: { name: string; payload: Parameters<typeof updateClickHouseUserApi>[1] }) =>
-            updateClickHouseUserApi(name, payload, { errorMessage: t('Errors.UpdateUser') }),
+            updateClickHouseUserApi(name, payload, { connectionId, errorMessage: t('Errors.UpdateUser') }),
         onSuccess: () => {
             toast.success(t('Toasts.UserUpdated'));
             queryClient.invalidateQueries({ queryKey: usersQueryKey });
@@ -120,7 +118,7 @@ export default function PrivilegesPage() {
     });
 
     const deleteUserMutation = useMutation({
-        mutationFn: (name: string) => deleteClickHouseUserApi(name, { errorMessage: t('Errors.DeleteUser') }),
+        mutationFn: (name: string) => deleteClickHouseUserApi(name, { connectionId, errorMessage: t('Errors.DeleteUser') }),
         onSuccess: () => {
             toast.success(t('Toasts.UserDeleted'));
             queryClient.invalidateQueries({ queryKey: usersQueryKey });
@@ -134,7 +132,7 @@ export default function PrivilegesPage() {
 
     const createRoleMutation = useMutation({
         mutationFn: (payload: Parameters<typeof createClickHouseRoleApi>[0]) =>
-            createClickHouseRoleApi(payload, { errorMessage: t('Errors.CreateRole') }),
+            createClickHouseRoleApi(payload, { connectionId, errorMessage: t('Errors.CreateRole') }),
         onSuccess: () => {
             toast.success(t('Toasts.RoleCreated'));
             queryClient.invalidateQueries({ queryKey: rolesQueryKey });
@@ -147,7 +145,7 @@ export default function PrivilegesPage() {
 
     const updateRoleMutation = useMutation({
         mutationFn: ({ name, payload }: { name: string; payload: Parameters<typeof updateClickHouseRoleApi>[1] }) =>
-            updateClickHouseRoleApi(name, payload, { errorMessage: t('Errors.UpdateRole') }),
+            updateClickHouseRoleApi(name, payload, { connectionId, errorMessage: t('Errors.UpdateRole') }),
         onSuccess: () => {
             toast.success(t('Toasts.RoleUpdated'));
             queryClient.invalidateQueries({ queryKey: rolesQueryKey });
@@ -159,7 +157,7 @@ export default function PrivilegesPage() {
     });
 
     const deleteRoleMutation = useMutation({
-        mutationFn: (name: string) => deleteClickHouseRoleApi(name, { errorMessage: t('Errors.DeleteRole') }),
+        mutationFn: (name: string) => deleteClickHouseRoleApi(name, { connectionId, errorMessage: t('Errors.DeleteRole') }),
         onSuccess: () => {
             toast.success(t('Toasts.RoleDeleted'));
             queryClient.invalidateQueries({ queryKey: rolesQueryKey });
@@ -270,7 +268,7 @@ export default function PrivilegesPage() {
         });
     };
 
-    const isLoading = usersQuery.isLoading || rolesQuery.isLoading;
+    const isLoading = !isConnectionReady || usersQuery.isLoading || rolesQuery.isLoading;
 
     return (
         <div className="flex h-full flex-col gap-6 p-6">
@@ -283,7 +281,7 @@ export default function PrivilegesPage() {
                 </div>
             </header>
 
-            {!connectionId ? (
+            {!routeConnectionId ? (
                 <Card>
                     <CardContent className="py-10 text-center text-muted-foreground">
                         {t('Empty.NoConnection')}

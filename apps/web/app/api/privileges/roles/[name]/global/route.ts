@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
-import { resolveClickhouseDatasource, handlePrivilegesError } from '../../../_utils';
+import { resolvePrivilegesConnection, handlePrivilegesError } from '../../../_utils';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 
@@ -25,7 +25,7 @@ async function parsePayload(req: NextRequest): Promise<GlobalPrivilegePayload | 
 export async function POST(req: NextRequest, context: { params: Promise<{ name: string }> }) {
     const locale = await getApiLocale();
     return withUserAndTeamHandler(async ({ req, teamId }) => {
-        const resolved = await resolveClickhouseDatasource(req, { teamId });
+        const resolved = await resolvePrivilegesConnection(req, { teamId });
         if (resolved.response) return resolved.response;
         const params = await context.params;
         const payload = await parsePayload(req);
@@ -41,7 +41,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ name: 
         }
 
         try {
-            await resolved.resolved!.instance.privileges.grantRoleGlobalPrivileges({
+            await resolved.resolved!.privileges.grantRoleGlobalPrivileges({
                 name: params.name,
                 privileges: payload.privileges,
             });
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ name: 
 export async function DELETE(req: NextRequest, context: { params: Promise<{ name: string }> }) {
     const locale = await getApiLocale();
     return withUserAndTeamHandler(async ({ req, teamId }) => {
-        const resolved = await resolveClickhouseDatasource(req, { teamId });
+        const resolved = await resolvePrivilegesConnection(req, { teamId });
         if (resolved.response) return resolved.response;
         const params = await context.params;
         const payload = await parsePayload(req);
@@ -71,7 +71,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ name
         }
 
         try {
-            await resolved.resolved!.instance.privileges.revokeRoleGlobalPrivileges({
+            await resolved.resolved!.privileges.revokeRoleGlobalPrivileges({
                 name: params.name,
                 privileges: payload.privileges,
             });

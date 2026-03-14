@@ -1,9 +1,7 @@
 import { QueryInsightsFilters, QueryInsightsSummary, QueryTimelinePoint, QueryInsightsRow } from '@/types/monitoring';
-import { ResponseJSON } from '@clickhouse/client';
-import { Pagination } from '../type';
 import { TablePropertiesRow, TableStats } from '@/types/table-info';
 
-export type ConnectionType = 'clickhouse';
+export type ConnectionType = 'clickhouse' | 'postgres';
 
 export interface BaseConfig {
     id: string; // datasource_id
@@ -18,16 +16,26 @@ export interface BaseConfig {
     updatedAt?: string | number; // ✅ Optional: version awareness
 }
 
-export type SQLParams = unknown[] | Record<string, unknown>;
+export type ColumnMeta = {
+    name: string;
+    type?: string;
+};
+
+export type QueryContext = {
+    database?: string;
+    schema?: string;
+    queryId?: string;
+    statementTimeoutMs?: number;
+};
 
 export interface QueryResult<Row = any> {
     rows: Row[];
     rowCount?: number;
     limited?: boolean;
     limit?: number;
-    columns?: Array<{ name: string; type?: string }>;
+    columns?: ColumnMeta[];
     tookMs?: number;
-    statistics?: ResponseJSON['statistics'];
+    statistics?: Record<string, unknown>;
 }
 
 export interface HealthInfo {
@@ -46,6 +54,11 @@ export interface TableMeta {
     value: string;
     database?: string;
 }
+
+export type Pagination = {
+    pageIndex: number;
+    pageSize: number;
+};
 
 export type QueryInsightsImpl = {
     summary: (filters: QueryInsightsFilters) => Promise<QueryInsightsSummary>;
@@ -70,4 +83,16 @@ export type GetTableInfoAPI = {
     properties: (database: string, table: string) => Promise<TablePropertiesRow | null>;
     ddl: (database: string, table: string) => Promise<string | null>;
     stats: (database: string, table: string) => Promise<TableStats | null>;
+};
+
+export type ConnectionMetadataAPI = {
+    getDatabases: () => Promise<DatabaseMeta[]>;
+    getTables: (database?: string) => Promise<TableMeta[]>;
+};
+
+export type ConnectionCapabilities = {
+    metadata?: ConnectionMetadataAPI;
+    queryInsights?: QueryInsightsAPI;
+    tableInfo?: GetTableInfoAPI;
+    privileges?: Record<string, unknown>;
 };

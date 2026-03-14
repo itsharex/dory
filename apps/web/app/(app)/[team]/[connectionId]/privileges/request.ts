@@ -10,7 +10,16 @@ import type {
     UpdateUserPayload,
 } from '@/types/privileges';
 
-function getConnectionId(errorMessage?: string) {
+type RequestOptions = {
+    connectionId?: string;
+    errorMessage?: string;
+};
+
+function getConnectionId(options?: RequestOptions) {
+    if (options?.connectionId) {
+        return options.connectionId;
+    }
+
     const resolvedConnectionId = (() => {
         try {
             const stored = JSON.parse(localStorage.getItem('currentConnection') || '{}');
@@ -22,16 +31,31 @@ function getConnectionId(errorMessage?: string) {
     })();
 
     if (!resolvedConnectionId) {
-        throw new Error(errorMessage ?? 'Invalid connection');
+        throw new Error(options?.errorMessage ?? 'Invalid connection');
     }
 
     return resolvedConnectionId;
 }
 
-export async function fetchClickHouseUsers(options?: { errorMessage?: string }) {
-    const connectionId = getConnectionId(options?.errorMessage);
+function createConnectionHeaders(options?: {
+    connectionId?: string;
+    errorMessage?: string;
+    withContentType?: boolean;
+}) {
+    const connectionId = getConnectionId(options);
+
     const headers = new Headers();
     headers.set('X-Connection-ID', connectionId);
+
+    if (options?.withContentType) {
+        headers.set('Content-Type', 'application/json');
+    }
+
+    return headers;
+}
+
+export async function fetchClickHouseUsers(options?: RequestOptions) {
+    const headers = createConnectionHeaders({ errorMessage: options?.errorMessage });
 
     const response = await authFetch('/api/privileges/users', { method: 'GET', headers });
     const payload = (await response.json()) as ResponseObject<ClickHouseUser[]>;
@@ -41,10 +65,8 @@ export async function fetchClickHouseUsers(options?: { errorMessage?: string }) 
     return payload.data ?? [];
 }
 
-export async function fetchClickHouseRoles(options?: { errorMessage?: string }) {
-    const connectionId = getConnectionId(options?.errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
+export async function fetchClickHouseRoles(options?: RequestOptions) {
+    const headers = createConnectionHeaders({ errorMessage: options?.errorMessage });
 
     const response = await authFetch('/api/privileges/roles', { method: 'GET', headers });
     const payload = (await response.json()) as ResponseObject<ClickHouseRole[]>;
@@ -54,10 +76,8 @@ export async function fetchClickHouseRoles(options?: { errorMessage?: string }) 
     return payload.data ?? [];
 }
 
-export async function fetchClickHouseClusters(options?: { errorMessage?: string }) {
-    const connectionId = getConnectionId(options?.errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
+export async function fetchClickHouseClusters(options?: RequestOptions) {
+    const headers = createConnectionHeaders({ errorMessage: options?.errorMessage });
 
     const response = await authFetch('/api/privileges/clusters', { method: 'GET', headers });
     const payload = (await response.json()) as ResponseObject<string[]>;
@@ -67,10 +87,8 @@ export async function fetchClickHouseClusters(options?: { errorMessage?: string 
     return payload.data ?? [];
 }
 
-export async function fetchClickHouseUser(name: string, options?: { errorMessage?: string }) {
-    const connectionId = getConnectionId(options?.errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
+export async function fetchClickHouseUser(name: string, options?: RequestOptions) {
+    const headers = createConnectionHeaders({ errorMessage: options?.errorMessage });
 
     const response = await authFetch(`/api/privileges/users/${encodeURIComponent(name)}`, {
         method: 'GET',
@@ -83,10 +101,8 @@ export async function fetchClickHouseUser(name: string, options?: { errorMessage
     return payload.data!;
 }
 
-export async function fetchClickHouseRole(name: string, options?: { errorMessage?: string }) {
-    const connectionId = getConnectionId(options?.errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
+export async function fetchClickHouseRole(name: string, options?: RequestOptions) {
+    const headers = createConnectionHeaders({ errorMessage: options?.errorMessage });
 
     const response = await authFetch(`/api/privileges/roles/${encodeURIComponent(name)}`, {
         method: 'GET',
@@ -99,12 +115,9 @@ export async function fetchClickHouseRole(name: string, options?: { errorMessage
     return payload.data!;
 }
 
-export async function createClickHouseUserApi(payload: CreateUserPayload, options?: { errorMessage?: string }) {
+export async function createClickHouseUserApi(payload: CreateUserPayload, options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to create user';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
-    headers.set('Content-Type', 'application/json');
+    const headers = createConnectionHeaders({ errorMessage, withContentType: true });
 
     const response = await authFetch('/api/privileges/users', {
         method: 'POST',
@@ -118,12 +131,9 @@ export async function createClickHouseUserApi(payload: CreateUserPayload, option
     return responsePayload;
 }
 
-export async function updateClickHouseUserApi(name: string, payload: UpdateUserPayload, options?: { errorMessage?: string }) {
+export async function updateClickHouseUserApi(name: string, payload: UpdateUserPayload, options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to update user';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
-    headers.set('Content-Type', 'application/json');
+    const headers = createConnectionHeaders({ errorMessage, withContentType: true });
 
     const response = await authFetch(`/api/privileges/users/${encodeURIComponent(name)}`, {
         method: 'PATCH',
@@ -137,11 +147,9 @@ export async function updateClickHouseUserApi(name: string, payload: UpdateUserP
     return responsePayload;
 }
 
-export async function deleteClickHouseUserApi(name: string, options?: { errorMessage?: string }) {
+export async function deleteClickHouseUserApi(name: string, options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to delete user';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
+    const headers = createConnectionHeaders({ errorMessage });
 
     const response = await authFetch(`/api/privileges/users/${encodeURIComponent(name)}`, {
         method: 'DELETE',
@@ -154,12 +162,9 @@ export async function deleteClickHouseUserApi(name: string, options?: { errorMes
     return responsePayload;
 }
 
-export async function grantUserGlobalPrivilegesApi(name: string, privileges: string[], options?: { errorMessage?: string }) {
+export async function grantUserGlobalPrivilegesApi(name: string, privileges: string[], options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to add global privileges';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
-    headers.set('Content-Type', 'application/json');
+    const headers = createConnectionHeaders({ errorMessage, withContentType: true });
 
     const response = await authFetch(`/api/privileges/users/${encodeURIComponent(name)}/global`, {
         method: 'POST',
@@ -173,12 +178,9 @@ export async function grantUserGlobalPrivilegesApi(name: string, privileges: str
     return responsePayload;
 }
 
-export async function revokeUserGlobalPrivilegesApi(name: string, privileges: string[], options?: { errorMessage?: string }) {
+export async function revokeUserGlobalPrivilegesApi(name: string, privileges: string[], options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to revoke global privileges';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
-    headers.set('Content-Type', 'application/json');
+    const headers = createConnectionHeaders({ errorMessage, withContentType: true });
 
     const response = await authFetch(`/api/privileges/users/${encodeURIComponent(name)}/global`, {
         method: 'DELETE',
@@ -200,12 +202,9 @@ export type ScopedPrivilegePayload = {
     grantOption?: boolean;
 };
 
-export async function grantUserScopedPrivilegesApi(name: string, payload: ScopedPrivilegePayload, options?: { errorMessage?: string }) {
+export async function grantUserScopedPrivilegesApi(name: string, payload: ScopedPrivilegePayload, options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to grant privileges';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
-    headers.set('Content-Type', 'application/json');
+    const headers = createConnectionHeaders({ errorMessage, withContentType: true });
 
     const response = await authFetch(`/api/privileges/users/${encodeURIComponent(name)}/scoped`, {
         method: 'POST',
@@ -219,12 +218,9 @@ export async function grantUserScopedPrivilegesApi(name: string, payload: Scoped
     return responsePayload;
 }
 
-export async function revokeUserScopedPrivilegesApi(name: string, payload: ScopedPrivilegePayload, options?: { errorMessage?: string }) {
+export async function revokeUserScopedPrivilegesApi(name: string, payload: ScopedPrivilegePayload, options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to revoke privileges';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
-    headers.set('Content-Type', 'application/json');
+    const headers = createConnectionHeaders({ errorMessage, withContentType: true });
 
     const response = await authFetch(`/api/privileges/users/${encodeURIComponent(name)}/scoped`, {
         method: 'DELETE',
@@ -238,12 +234,9 @@ export async function revokeUserScopedPrivilegesApi(name: string, payload: Scope
     return responsePayload;
 }
 
-export async function grantRoleGlobalPrivilegesApi(name: string, privileges: string[], options?: { errorMessage?: string }) {
+export async function grantRoleGlobalPrivilegesApi(name: string, privileges: string[], options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to add global privileges';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
-    headers.set('Content-Type', 'application/json');
+    const headers = createConnectionHeaders({ errorMessage, withContentType: true });
 
     const response = await authFetch(`/api/privileges/roles/${encodeURIComponent(name)}/global`, {
         method: 'POST',
@@ -257,12 +250,9 @@ export async function grantRoleGlobalPrivilegesApi(name: string, privileges: str
     return responsePayload;
 }
 
-export async function revokeRoleGlobalPrivilegesApi(name: string, privileges: string[], options?: { errorMessage?: string }) {
+export async function revokeRoleGlobalPrivilegesApi(name: string, privileges: string[], options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to revoke global privileges';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
-    headers.set('Content-Type', 'application/json');
+    const headers = createConnectionHeaders({ errorMessage, withContentType: true });
 
     const response = await authFetch(`/api/privileges/roles/${encodeURIComponent(name)}/global`, {
         method: 'DELETE',
@@ -276,12 +266,9 @@ export async function revokeRoleGlobalPrivilegesApi(name: string, privileges: st
     return responsePayload;
 }
 
-export async function grantRoleScopedPrivilegesApi(name: string, payload: ScopedPrivilegePayload, options?: { errorMessage?: string }) {
+export async function grantRoleScopedPrivilegesApi(name: string, payload: ScopedPrivilegePayload, options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to grant privileges';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
-    headers.set('Content-Type', 'application/json');
+    const headers = createConnectionHeaders({ errorMessage, withContentType: true });
 
     const response = await authFetch(`/api/privileges/roles/${encodeURIComponent(name)}/scoped`, {
         method: 'POST',
@@ -295,12 +282,9 @@ export async function grantRoleScopedPrivilegesApi(name: string, payload: Scoped
     return responsePayload;
 }
 
-export async function revokeRoleScopedPrivilegesApi(name: string, payload: ScopedPrivilegePayload, options?: { errorMessage?: string }) {
+export async function revokeRoleScopedPrivilegesApi(name: string, payload: ScopedPrivilegePayload, options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to revoke privileges';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
-    headers.set('Content-Type', 'application/json');
+    const headers = createConnectionHeaders({ errorMessage, withContentType: true });
 
     const response = await authFetch(`/api/privileges/roles/${encodeURIComponent(name)}/scoped`, {
         method: 'DELETE',
@@ -314,15 +298,13 @@ export async function revokeRoleScopedPrivilegesApi(name: string, payload: Scope
     return responsePayload;
 }
 
-export async function fetchPrivilegeTargets(type: 'database' | 'table' | 'view', params?: { database?: string }, options?: { errorMessage?: string }) {
+export async function fetchPrivilegeTargets(type: 'database' | 'table' | 'view', params?: { database?: string }, options?: RequestOptions) {
     const search = new URLSearchParams({ type });
     if (params?.database) {
         search.set('database', params.database);
     }
     const errorMessage = options?.errorMessage ?? 'Failed to fetch targets';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
+    const headers = createConnectionHeaders({ errorMessage });
 
     const response = await authFetch(`/api/privileges/targets?${search.toString()}`, {
         method: 'GET',
@@ -335,12 +317,9 @@ export async function fetchPrivilegeTargets(type: 'database' | 'table' | 'view',
     return payload.data ?? [];
 }
 
-export async function createClickHouseRoleApi(payload: CreateRolePayload, options?: { errorMessage?: string }) {
+export async function createClickHouseRoleApi(payload: CreateRolePayload, options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to create role';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
-    headers.set('Content-Type', 'application/json');
+    const headers = createConnectionHeaders({ errorMessage, withContentType: true });
 
     const response = await authFetch('/api/privileges/roles', {
         method: 'POST',
@@ -354,12 +333,9 @@ export async function createClickHouseRoleApi(payload: CreateRolePayload, option
     return responsePayload;
 }
 
-export async function updateClickHouseRoleApi(name: string, payload: UpdateRolePayload, options?: { errorMessage?: string }) {
+export async function updateClickHouseRoleApi(name: string, payload: UpdateRolePayload, options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to update role';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
-    headers.set('Content-Type', 'application/json');
+    const headers = createConnectionHeaders({ errorMessage, withContentType: true });
 
     const response = await authFetch(`/api/privileges/roles/${encodeURIComponent(name)}`, {
         method: 'PATCH',
@@ -373,11 +349,9 @@ export async function updateClickHouseRoleApi(name: string, payload: UpdateRoleP
     return responsePayload;
 }
 
-export async function deleteClickHouseRoleApi(name: string, options?: { errorMessage?: string }) {
+export async function deleteClickHouseRoleApi(name: string, options?: RequestOptions) {
     const errorMessage = options?.errorMessage ?? 'Failed to delete role';
-    const connectionId = getConnectionId(errorMessage);
-    const headers = new Headers();
-    headers.set('X-Connection-ID', connectionId);
+    const headers = createConnectionHeaders({ errorMessage });
 
     const response = await authFetch(`/api/privileges/roles/${encodeURIComponent(name)}`, {
         method: 'DELETE',

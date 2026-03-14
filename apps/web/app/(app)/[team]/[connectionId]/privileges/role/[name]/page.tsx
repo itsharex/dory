@@ -10,7 +10,6 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 
 import type { ClickHouseRole } from '@/types/privileges';
-import { currentConnectionAtom } from '@/shared/stores/app.store';
 import {
     fetchClickHouseRole,
     fetchPrivilegeTargets,
@@ -20,6 +19,7 @@ import {
     revokeRoleScopedPrivilegesApi,
     type ScopedPrivilegePayload,
 } from '../../request';
+import { usePrivilegesConnectionReady } from '../../use-connection-ready';
 
 import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { Button } from '@/registry/new-york-v4/ui/button';
@@ -59,9 +59,7 @@ export default function RolePrivilegesPage() {
     const params = useParams();
     const encodedName = getParamValue(params?.name);
     const roleName = decodeURIComponent(encodedName ?? '');
-
-    const currentConnection = useAtomValue(currentConnectionAtom);
-    const connectionId = currentConnection?.connection.id;
+    const { connectionId, routeConnectionId, isConnectionReady } = usePrivilegesConnectionReady();
     const queryClient = useQueryClient();
 
     const roleQueryKey = ['privileges', 'role', connectionId, roleName] as const;
@@ -69,8 +67,8 @@ export default function RolePrivilegesPage() {
 
     const roleQuery = useQuery({
         queryKey: roleQueryKey,
-        queryFn: () => fetchClickHouseRole(roleName, { errorMessage: t('Errors.FetchRole') }),
-        enabled: Boolean(connectionId && roleName),
+        queryFn: () => fetchClickHouseRole(roleName, { connectionId, errorMessage: t('Errors.FetchRole') }),
+        enabled: Boolean(connectionId && roleName && isConnectionReady),
     });
 
     const role = roleQuery.data as ClickHouseRole | undefined;
@@ -162,25 +160,25 @@ export default function RolePrivilegesPage() {
 
     const loadDatabaseOptions = useCallback(async () => {
         try {
-            const options = await fetchPrivilegeTargets('database');
+            const options = await fetchPrivilegeTargets('database', undefined, { connectionId });
             setDatabaseOptions(options);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : t('Toasts.FetchDatabasesFailed'));
         }
-    }, [t]);
+    }, [connectionId, t]);
 
     const loadTableOptions = useCallback(
         async (database: string, force = false) => {
             if (!database) return;
             if (!force && tableOptionsByDatabase[database]) return;
             try {
-                const options = await fetchPrivilegeTargets('table', { database });
+                const options = await fetchPrivilegeTargets('table', { database }, { connectionId });
                 setTableOptionsByDatabase(prev => ({ ...prev, [database]: options }));
             } catch (error) {
                 toast.error(error instanceof Error ? error.message : t('Toasts.FetchTablesFailed'));
             }
         },
-        [t, tableOptionsByDatabase],
+        [connectionId, t, tableOptionsByDatabase],
     );
 
     const loadViewOptions = useCallback(
@@ -188,13 +186,13 @@ export default function RolePrivilegesPage() {
             if (!database) return;
             if (!force && viewOptionsByDatabase[database]) return;
             try {
-                const options = await fetchPrivilegeTargets('view', { database });
+                const options = await fetchPrivilegeTargets('view', { database }, { connectionId });
                 setViewOptionsByDatabase(prev => ({ ...prev, [database]: options }));
             } catch (error) {
                 toast.error(error instanceof Error ? error.message : t('Toasts.FetchViewsFailed'));
             }
         },
-        [t, viewOptionsByDatabase],
+        [connectionId, t, viewOptionsByDatabase],
     );
 
     useEffect(() => {
@@ -222,7 +220,7 @@ export default function RolePrivilegesPage() {
     const grantGlobalPrivilegesMutation = useMutation({
         mutationFn: async (privileges: string[]) => {
             if (!roleName) throw new Error(t('Errors.RoleNotSpecified'));
-            return grantRoleGlobalPrivilegesApi(roleName, privileges, { errorMessage: t('Errors.GrantGlobalFailed') });
+            return grantRoleGlobalPrivilegesApi(roleName, privileges, { connectionId, errorMessage: t('Errors.GrantGlobalFailed') });
         },
         onSuccess: () => {
             toast.success(t('Toasts.GlobalGranted'));
@@ -238,7 +236,7 @@ export default function RolePrivilegesPage() {
     const revokeGlobalPrivilegesMutation = useMutation({
         mutationFn: async (privileges: string[]) => {
             if (!roleName) throw new Error(t('Errors.RoleNotSpecified'));
-            return revokeRoleGlobalPrivilegesApi(roleName, privileges, { errorMessage: t('Errors.RevokeGlobalFailed') });
+            return revokeRoleGlobalPrivilegesApi(roleName, privileges, { connectionId, errorMessage: t('Errors.RevokeGlobalFailed') });
         },
         onSuccess: () => {
             toast.success(t('Toasts.GlobalRevoked'));
@@ -254,7 +252,7 @@ export default function RolePrivilegesPage() {
     const grantScopedPrivilegesMutation = useMutation({
         mutationFn: async (payload: ScopedPrivilegePayload) => {
             if (!roleName) throw new Error(t('Errors.RoleNotSpecified'));
-            return grantRoleScopedPrivilegesApi(roleName, payload, { errorMessage: t('Errors.GrantScopedFailed') });
+            return grantRoleScopedPrivilegesApi(roleName, payload, { connectionId, errorMessage: t('Errors.GrantScopedFailed') });
         },
         onSuccess: () => {
             toast.success(t('Toasts.ScopedGranted'));
@@ -270,7 +268,7 @@ export default function RolePrivilegesPage() {
     const revokeScopedPrivilegesMutation = useMutation({
         mutationFn: async (payload: ScopedPrivilegePayload) => {
             if (!roleName) throw new Error(t('Errors.RoleNotSpecified'));
-            return revokeRoleScopedPrivilegesApi(roleName, payload, { errorMessage: t('Errors.RevokeScopedFailed') });
+            return revokeRoleScopedPrivilegesApi(roleName, payload, { connectionId, errorMessage: t('Errors.RevokeScopedFailed') });
         },
         onSuccess: () => {
             toast.success(t('Toasts.ScopedRevoked'));
@@ -444,7 +442,7 @@ export default function RolePrivilegesPage() {
     const canGrantGlobalPrivileges = hasRoleContext && grantableGlobalPrivileges.length > 0;
     const canRevokeGlobalPrivileges = hasRoleContext && revocableGlobalPrivileges.length > 0;
 
-    const isLoading = roleQuery.isLoading;
+    const isLoading = !isConnectionReady || roleQuery.isLoading;
     const hasError = roleQuery.isError;
 
     return (
@@ -463,7 +461,7 @@ export default function RolePrivilegesPage() {
                 </div>
             </header>
 
-            {!connectionId ? (
+            {!routeConnectionId ? (
                 <Card>
                     <CardContent className="py-10 text-center text-muted-foreground">
                         {t('RolePage.Empty.NoConnection')}

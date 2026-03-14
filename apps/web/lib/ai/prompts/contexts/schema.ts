@@ -81,7 +81,11 @@ export async function buildSchemaContext(options: SchemaContextOptions): Promise
             }
         } else {
             //Multi-table mode: List some representative tables, each table displays several fields
-            const tables = await instance.getTables(resolvedDatabase);
+            const metadata = instance.capabilities.metadata;
+            if (!metadata) {
+                return null;
+            }
+            const tables = await metadata.getTables(resolvedDatabase);
             if (!tables || tables.length === 0) {
                 lines.push('No tables found.');
             } else {
@@ -236,7 +240,11 @@ async function resolveDatabaseName(instance: BaseConnection, configuredDatabase?
 
     if (table) {
         //Try to check the database to which the table belongs in the result of getTables
-        const tables = await instance.getTables();
+        const metadata = instance.capabilities.metadata;
+        if (!metadata) {
+            return configuredDatabase?.trim() || undefined;
+        }
+        const tables = await metadata.getTables();
         const matched = tables.find(meta => meta.value === table || meta.label === table);
         if (matched?.database?.trim()) {
             return matched.database.trim();
@@ -247,7 +255,11 @@ async function resolveDatabaseName(instance: BaseConnection, configuredDatabase?
         return configuredDatabase.trim();
     }
 
-    const databases = await instance.getDatabases();
+    const metadata = instance.capabilities.metadata;
+    if (!metadata) {
+        return undefined;
+    }
+    const databases = await metadata.getDatabases();
     return databases[0]?.value;
 }
 

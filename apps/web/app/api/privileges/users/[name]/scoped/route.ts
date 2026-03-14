@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
-import { resolveClickhouseDatasource, handlePrivilegesError } from '../../../_utils';
+import { resolvePrivilegesConnection, handlePrivilegesError } from '../../../_utils';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 
@@ -45,7 +45,7 @@ async function parseScopedPayload(req: NextRequest): Promise<ScopedPrivilegePayl
 export async function POST(req: NextRequest, context: { params: Promise<{ name: string }> }) {
     const locale = await getApiLocale();
     return withUserAndTeamHandler(async ({ req, teamId }) => {
-        const resolved = await resolveClickhouseDatasource(req, { teamId });
+        const resolved = await resolvePrivilegesConnection(req, { teamId });
         if (resolved.response) return resolved.response;
         const params = await context.params;
         const payload = await parseScopedPayload(req);
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ name: 
         }
 
         try {
-            await resolved.resolved!.instance.privileges.grantUserScopedPrivileges({
+            await resolved.resolved!.privileges.grantUserScopedPrivileges({
                 name: params.name,
                 privileges: payload.privileges,
                 database: payload.database,
@@ -79,7 +79,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ name: 
 export async function DELETE(req: NextRequest, context: { params: Promise<{ name: string }> }) {
     const locale = await getApiLocale();
     return withUserAndTeamHandler(async ({ req, teamId }) => {
-        const resolved = await resolveClickhouseDatasource(req, { teamId });
+        const resolved = await resolvePrivilegesConnection(req, { teamId });
         if (resolved.response) return resolved.response;
         const params = await context.params;
         const payload = await parseScopedPayload(req);
@@ -95,7 +95,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ name
         }
 
         try {
-            await resolved.resolved!.instance.privileges.revokeUserScopedPrivileges({
+            await resolved.resolved!.privileges.revokeUserScopedPrivileges({
                 name: params.name,
                 privileges: payload.privileges,
                 database: payload.database,

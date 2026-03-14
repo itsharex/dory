@@ -13,6 +13,7 @@ export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
     if ('response' in connection) {
         return connection.response;
     }
+    const insights = connection.capabilities.queryInsights;
 
     const payload = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const filtersResult = await parseFiltersFromPayload(payload);
@@ -25,7 +26,10 @@ export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
     const limit = Number.isFinite(normalizedLimit) ? Math.max(1, Math.floor(normalizedLimit)) : undefined;
 
     try {
-        const rows = await connection.queryInsights.recentQueries(filtersResult.filters, { limit });
+        if (!insights) {
+            throw new Error(t('Api.Monitoring.Errors.QueryFailed'));
+        }
+        const rows = await insights.recentQueries(filtersResult.filters, { limit });
         return NextResponse.json(
             ResponseUtil.success({
                 rows,

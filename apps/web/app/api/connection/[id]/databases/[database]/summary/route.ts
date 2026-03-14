@@ -4,7 +4,7 @@ import { X_CONNECTION_ID_KEY } from '@/app/config/app';
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
 import { ensureConnectionPoolForUser, mapConnectionErrorToResponse } from '@/app/api/connection/utils';
-import type { ClickhouseDatasource } from '@/lib/connection/drivers/clickhouse/ClickhouseDatasource';
+import type { ClickhouseMetadataAPI } from '@/lib/connection/drivers/clickhouse/capabilities/metadata';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 
@@ -103,9 +103,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ databas
             const { entry, config } = await ensureConnectionPoolForUser(userId, teamId, connectionId, null);
             const engine = (config.type ?? 'unknown') as 'clickhouse' | 'doris' | 'mysql' | 'unknown';
             const cluster = config.port ? `${config.host}:${config.port}` : config.host ?? null;
-
-            const instance = entry.instance as ClickhouseDatasource;
-            const summary = await instance.getDatabaseSummary({
+            const metadata = entry.instance.capabilities.metadata as ClickhouseMetadataAPI | undefined;
+            if (!metadata) {
+                throw new Error(t('Api.Connection.Databases.Errors.SummaryFailed'));
+            }
+            const summary = await metadata.getDatabaseSummary({
                 database: databaseName,
                 catalogName,
                 schemaName,

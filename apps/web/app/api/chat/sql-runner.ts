@@ -107,11 +107,13 @@ export function createSqlRunnerTool({
                         : inferColumnsFromRows(previewRows);
 
                 if (db?.audit) {
+                    const rowsRead = Number(result.statistics?.rows_read);
+                    const bytesRead = Number(result.statistics?.bytes_read);
                     await db.audit.logSuccess({
                         ...baseAudit,
                         durationMs: durationMs,
-                        rowsRead: result.statistics?.rows_read ?? null,
-                        bytesRead: result.statistics?.bytes_read ?? null,
+                        rowsRead: Number.isFinite(rowsRead) ? rowsRead : null,
+                        bytesRead: Number.isFinite(bytesRead) ? bytesRead : null,
                         tabId: 'chatbot',
                         userId,
                         sqlText: sql,
