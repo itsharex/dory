@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import { IconDatabase, IconFileAi, IconHelp, IconUsers } from '@tabler/icons-react';
 import React from 'react';
 import { useTranslations } from 'next-intl';
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader } from '@/registry/new-york-v4/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenuButton } from '@/registry/new-york-v4/ui/sidebar';
 import { NavMain } from './nav-main';
 import { NavUser } from './nav-user';
 import { authClient } from '@/lib/auth-client';
@@ -15,6 +15,7 @@ import { Separator } from '@/registry/new-york-v4/ui/separator';
 import { DoryLogo } from '@/components/@dory/ui/logo';
 import { ConnectionDialogRoot } from '../../connections/components/connection-dialog-root';
 import { Badge } from '@/registry/new-york-v4/ui/badge';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/registry/new-york-v4/ui/tooltip';
 import type { User } from 'better-auth';
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
@@ -34,6 +35,7 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
     });
     const [isRestartingUpdate, setIsRestartingUpdate] = React.useState(false);
     const restartInFlightRef = React.useRef(false);
+    const updateTooltip = updaterState.version ? t('UpdateTooltip', { version: updaterState.version }) : t('UpdateTooltipUnknown');
 
     const navMain = [
         {
@@ -130,47 +132,62 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
                 </div>
             </SidebarContent>
 
-
-            <div className="px-5 pb-3 pt-2 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:justify-center flex items-center gap-6">
-                <a
-                    href="https://github.com/dorylab/dory"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Dory"
-                >
-                    <DoryLogo className="h-5 w-auto group-data-[collapsible=icon]:hidden" />
-                </a>
-                {updaterState.readyToInstall && (
-                    <>
-                        <Badge
-                            onClick={() => {
-                                if (isRestartingUpdate) return;
-                                void handleRestartAndInstall();
-                            }}
-                            aria-disabled={isRestartingUpdate}
-                            className={`group-data-[collapsible=icon]:hidden ${isRestartingUpdate ? 'pointer-events-none opacity-60' : 'cursor-pointer'}`}
-                            title={updaterState.version ? t('UpdateVersion', { version: updaterState.version }) : undefined}
-                        >
-                            {isRestartingUpdate ? t('Updating') : t('Update')}
-                        </Badge>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                if (isRestartingUpdate) return;
-                                void handleRestartAndInstall();
-                            }}
-                            aria-disabled={isRestartingUpdate}
-                            aria-label={isRestartingUpdate ? t('Updating') : t('Update')}
-                            title={updaterState.version ? t('UpdateVersion', { version: updaterState.version }) : t('Update')}
-                            className={`hidden h-8 w-8 items-center justify-center rounded-md bg-muted text-muted-foreground group-data-[collapsible=icon]:inline-flex ${
-                                isRestartingUpdate ? 'pointer-events-none opacity-60' : 'cursor-pointer hover:bg-muted/80'
-                            }`}
-                        >
-                            <ArrowUpCircle className="h-4 w-4" />
-                        </button>
-                    </>
-                )}
+            <div className="relative min-h-10 px-5 pb-3 pt-2 group-data-[collapsible=icon]:px-0">
+                <div className="flex items-center gap-6 transition-[opacity,transform] duration-0 ease-out group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:translate-y-1 group-data-[collapsible=icon]:opacity-0">
+                    <a
+                        href="https://github.com/dorylab/dory"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
+                        aria-label="Dory"
+                    >
+                        <DoryLogo className="h-5 w-auto" />
+                    </a>
+                    {updaterState.readyToInstall ? (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Badge asChild>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (isRestartingUpdate) return;
+                                            void handleRestartAndInstall();
+                                        }}
+                                        aria-disabled={isRestartingUpdate}
+                                        className={isRestartingUpdate ? 'pointer-events-none opacity-60' : 'cursor-pointer'}
+                                    >
+                                        {isRestartingUpdate ? t('Updating') : t('Update')}
+                                    </button>
+                                </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="right">{updateTooltip}</TooltipContent>
+                        </Tooltip>
+                    ) : null}
+                </div>
+                {updaterState.readyToInstall ? (
+                    <div className="pointer-events-none absolute inset-x-0 top-2 flex translate-y-0.5 justify-center opacity-0 transition-[opacity,transform] duration-150 ease-out group-data-[collapsible=icon]:pointer-events-auto group-data-[collapsible=icon]:translate-y-0 group-data-[collapsible=icon]:opacity-100">
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <SidebarMenuButton
+                                    type="button"
+                                    aria-disabled={isRestartingUpdate}
+                                    aria-label={isRestartingUpdate ? t('Updating') : t('Update')}
+                                    onClick={() => {
+                                        if (isRestartingUpdate) return;
+                                        void handleRestartAndInstall();
+                                    }}
+                                    className={isRestartingUpdate ? 'pointer-events-none opacity-60' : undefined}
+                                >
+                                    <ArrowUpCircle className="h-4 w-4 shrink-0" />
+                                    <span>{isRestartingUpdate ? t('Updating') : t('Update')}</span>
+                                </SidebarMenuButton>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" align="center">
+                                {updateTooltip}
+                            </TooltipContent>
+                        </Tooltip>
+                    </div>
+                ) : null}
             </div>
 
             <Separator />

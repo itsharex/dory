@@ -11,7 +11,7 @@ export function SidebarSettingsEntry() {
             <SidebarMenu>
                 <SidebarMenuItem>
                     <DialogTrigger asChild>
-                        <SidebarMenuButton className="w-full justify-start">
+                        <SidebarMenuButton className="w-full justify-start group-data-[collapsible=icon]:justify-center">
                             <Settings className="h-4 w-4" />
                             <span>Settings</span>
                         </SidebarMenuButton>

@@ -1980,7 +1980,9 @@
         "GetHelp": "获取帮助",
         "Update": "更新",
         "Updating": "更新中...",
-        "UpdateVersion": "版本 {version}"
+        "UpdateVersion": "版本 {version}",
+        "UpdateTooltip": "点击后将重启应用并升级到 {version}",
+        "UpdateTooltipUnknown": "点击后将重启应用并升级到最新版本"
     },
     "Routes": {
         "SQL Console": "SQL 控制台"

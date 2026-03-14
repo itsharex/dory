@@ -32,12 +32,16 @@ export function NavUser({
     const collapsed = state === 'collapsed';
     if (collapsed) {
         return (
-            <div className="flex flex-col items-center w-[34px]">
-                <ModeToggle />
-                <SidebarTrigger className="size-1 p-4 -ml-[2px] mb-2" />
+            <div className="flex w-full flex-col items-center gap-2 px-2">
+                <div className="flex w-full justify-center">
+                    <ModeToggle />
+                </div>
+                <div className="flex w-full justify-center">
+                    <SidebarTrigger className="size-8 shrink-0" />
+                </div>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
+                        <SidebarMenuButton size="lg" className="w-full justify-center px-0 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
                             <Avatar className="h-8 w-8 rounded-lg grayscale">
                                 <AvatarImage src={user?.image || ''} alt={user?.name} />
                                 <BoringAvatar size={32} name={user?.name || ''} variant="beam" />

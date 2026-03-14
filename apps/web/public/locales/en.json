@@ -1978,7 +1978,9 @@
         "GetHelp": "Get Help",
         "Update": "Update",
         "Updating": "Updating...",
-        "UpdateVersion": "Version {version}"
+        "UpdateVersion": "Version {version}",
+        "UpdateTooltip": "Click to restart the app and upgrade to {version}",
+        "UpdateTooltipUnknown": "Click to restart the app and upgrade to the latest version"
     },
     "Routes": {
         "SQL Console": "SQL Console"

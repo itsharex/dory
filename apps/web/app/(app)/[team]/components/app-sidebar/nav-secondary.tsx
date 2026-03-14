@@ -42,7 +42,10 @@ export function NavSecondary({
                                         e.preventDefault();
                                     }
                                 }}
-                                className={cn('flex items-center gap-2', disabled && 'cursor-not-allowed opacity-60 text-muted-foreground')}
+                                className={cn(
+                                    'flex items-center gap-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:gap-0',
+                                    disabled && 'cursor-not-allowed opacity-60 text-muted-foreground',
+                                )}
                             >
                                 {IconComp && <IconComp className="h-4 w-4 shrink-0" />}
                                 <span>{item.title}</span>
