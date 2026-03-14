@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
-import { resolveClickhouseDatasource, handlePrivilegesError } from '../_utils';
+import { resolvePrivilegesConnection, handlePrivilegesError } from '../_utils';
 import type { CreateUserPayload } from '@/types/privileges';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 
 export const GET = withUserAndTeamHandler(async ({ req, teamId }) => {
     const locale = await getApiLocale();
-    const resolved = await resolveClickhouseDatasource(req, { teamId });
+    const resolved = await resolvePrivilegesConnection(req, { teamId });
     if (resolved.response) return resolved.response;
     try {
-        const users = await resolved.resolved!.instance.privileges.listClickHouseUsers();
+        const users = await resolved.resolved!.privileges.listClickHouseUsers();
         return NextResponse.json(ResponseUtil.success(users));
     } catch (error) {
         console.error('Error listing ClickHouse users:', error);
@@ -21,7 +21,7 @@ export const GET = withUserAndTeamHandler(async ({ req, teamId }) => {
 
 export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
     const locale = await getApiLocale();
-    const resolved = await resolveClickhouseDatasource(req, { teamId });
+    const resolved = await resolvePrivilegesConnection(req, { teamId });
     if (resolved.response) return resolved.response;
     let payload: CreateUserPayload;
     try {
@@ -47,7 +47,7 @@ export const POST = withUserAndTeamHandler(async ({ req, teamId }) => {
     }
 
     try {
-        await resolved.resolved!.instance.privileges.createClickHouseUser(payload);
+        await resolved.resolved!.privileges.createClickHouseUser(payload);
         return NextResponse.json(ResponseUtil.success());
     } catch (error) {
         return handlePrivilegesError(error, translateApi('Api.Privileges.Users.CreateFailed', undefined, locale));

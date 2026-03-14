@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
-import { resolveClickhouseDatasource, handlePrivilegesError } from '../../_utils';
+import { resolvePrivilegesConnection, handlePrivilegesError } from '../../_utils';
 import type { UpdateUserPayload } from '@/types/privileges';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
@@ -9,11 +9,11 @@ import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 export async function GET(req: NextRequest, context: { params: Promise<{ name: string }> }) {
     return withUserAndTeamHandler(async ({ req, teamId }) => {
         const locale = await getApiLocale();
-        const resolved = await resolveClickhouseDatasource(req, { teamId });
+        const resolved = await resolvePrivilegesConnection(req, { teamId });
         if (resolved.response) return resolved.response;
         const params = await context.params;
         try {
-            const user = await resolved.resolved!.instance.privileges.getClickHouseUser(params.name);
+            const user = await resolved.resolved!.privileges.getClickHouseUser(params.name);
             if (!user) {
                 return NextResponse.json(
                     ResponseUtil.error({
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ name: s
 export async function PATCH(req: NextRequest, context: { params: Promise<{ name: string }> }) {
     return withUserAndTeamHandler(async ({ req, teamId }) => {
         const locale = await getApiLocale();
-        const resolved = await resolveClickhouseDatasource(req, { teamId });
+        const resolved = await resolvePrivilegesConnection(req, { teamId });
         if (resolved.response) return resolved.response;
         const params = await context.params;
         let payload: UpdateUserPayload;
@@ -52,7 +52,7 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ name:
         payload.name = params.name;
 
         try {
-            await resolved.resolved!.instance.privileges.updateClickHouseUser(payload);
+            await resolved.resolved!.privileges.updateClickHouseUser(payload);
             return NextResponse.json(ResponseUtil.success());
         } catch (error) {
             return handlePrivilegesError(error, translateApi('Api.Privileges.Users.UpdateFailed', undefined, locale));
@@ -63,12 +63,12 @@ export async function PATCH(req: NextRequest, context: { params: Promise<{ name:
 export async function DELETE(req: NextRequest, context: { params: Promise<{ name: string }> }) {
     return withUserAndTeamHandler(async ({ req, teamId }) => {
         const locale = await getApiLocale();
-        const resolved = await resolveClickhouseDatasource(req, { teamId });
+        const resolved = await resolvePrivilegesConnection(req, { teamId });
         if (resolved.response) return resolved.response;
         const params = await context.params;
 
         try {
-            await resolved.resolved!.instance.privileges.deleteClickHouseUser({ name: params.name });
+            await resolved.resolved!.privileges.deleteClickHouseUser({ name: params.name });
             return NextResponse.json(ResponseUtil.success());
         } catch (error) {
             return handlePrivilegesError(error, translateApi('Api.Privileges.Users.DeleteFailed', undefined, locale));

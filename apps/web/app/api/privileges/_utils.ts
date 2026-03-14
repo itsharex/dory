@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
 import { X_CONNECTION_ID_KEY } from '@/app/config/app';
-import { ClickhouseDatasource } from '@/lib/connection/drivers/clickhouse/ClickhouseDatasource';
+import type { BaseConnection } from '@/lib/connection/base/base-connection';
+import type { ClickhousePrivilegesImpl } from '@/lib/connection/drivers/clickhouse/capabilities/privileges';
 import { getOrCreateConnectionPool } from '@/lib/connection/connection-service';
 import { getSessionFromRequest } from '@/lib/auth/session';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
@@ -16,14 +17,15 @@ const ERROR_MESSAGE_KEYS = {
     roleNotFound: 'Api.Privileges.Errors.RoleNotFound',
 };
 
-export type ResolvedDatasource = {
-    instance: ClickhouseDatasource;
+export type ResolvedPrivilegesConnection = {
+    instance: BaseConnection;
+    privileges: ClickhousePrivilegesImpl;
 };
 
-export async function resolveClickhouseDatasource(
+export async function resolvePrivilegesConnection(
     req: NextRequest,
     options?: { teamId?: string },
-): Promise<{ response?: NextResponse; resolved?: ResolvedDatasource }> {
+): Promise<{ response?: NextResponse; resolved?: ResolvedPrivilegesConnection }> {
     const locale = await getApiLocale();
     const teamId = options?.teamId ?? (await getSessionFromRequest(req))?.user?.defaultTeamId ?? null;
     const connectionId =
@@ -69,8 +71,8 @@ export async function resolveClickhouseDatasource(
     }
 
     const instance = entry.instance;
-    const isClickhouse = entry.type === 'clickhouse' || instance?.config?.type === 'clickhouse' || instance?.constructor?.name === ClickhouseDatasource.name;
-    if (!isClickhouse) {
+    const privileges = instance.capabilities.privileges as ClickhousePrivilegesImpl | undefined;
+    if (!privileges || instance.config.type !== 'clickhouse') {
         return {
             response: NextResponse.json(
                 ResponseUtil.error({
@@ -84,7 +86,8 @@ export async function resolveClickhouseDatasource(
 
     return {
         resolved: {
-            instance: instance as ClickhouseDatasource,
+            instance,
+            privileges,
         },
     };
 }

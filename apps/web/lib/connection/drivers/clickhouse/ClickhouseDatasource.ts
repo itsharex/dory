@@ -15,11 +15,10 @@ import {
 import { createClickhouseMetadataCapability, type ClickhouseMetadataAPI } from './capabilities/metadata';
 import { createClickhouseQueryInsightsCapability } from './capabilities/insights';
 import { createClickhouseTableInfoCapability } from './capabilities/table-info';
-import { createClickhousePrivilegesCapability, type ClickhousePrivilegesImpl } from './capabilities/privileges';
+import { createClickhousePrivilegesCapability } from './capabilities/privileges';
 
 export class ClickhouseDatasource extends BaseConnection {
     readonly dialect = ClickhouseDialect;
-    readonly privileges: ClickhousePrivilegesImpl;
     private client: ClickHouseClient | null = null;
 
     constructor(config: BaseConnection['config']) {
@@ -27,7 +26,7 @@ export class ClickhouseDatasource extends BaseConnection {
         this.capabilities.metadata = createClickhouseMetadataCapability(this);
         this.capabilities.queryInsights = createClickhouseQueryInsightsCapability(this);
         this.capabilities.tableInfo = createClickhouseTableInfoCapability(this);
-        this.privileges = createClickhousePrivilegesCapability(this);
+        this.capabilities.privileges = createClickhousePrivilegesCapability(this);
     }
 
     protected async _init(): Promise<void> {

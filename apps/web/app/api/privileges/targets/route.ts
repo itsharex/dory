@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
-import { resolveClickhouseDatasource, handlePrivilegesError } from '../_utils';
+import { resolvePrivilegesConnection, handlePrivilegesError } from '../_utils';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { withUserAndTeamHandler } from '@/app/api/utils/with-team-handler';
 
@@ -22,7 +22,7 @@ function toOption(name: unknown): TargetOption | null {
 
 export const GET = withUserAndTeamHandler(async ({ req, teamId }) => {
     const locale = await getApiLocale();
-    const resolved = await resolveClickhouseDatasource(req, { teamId });
+    const resolved = await resolvePrivilegesConnection(req, { teamId });
     if (resolved.response) return resolved.response;
 
     const url = new URL(req.url);
