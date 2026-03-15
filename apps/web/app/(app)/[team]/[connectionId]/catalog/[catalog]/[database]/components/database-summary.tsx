@@ -41,7 +41,7 @@ type DatabaseSummary = {
     databaseName: string;
     catalogName: string | null;
     schemaName: string | null;
-    engine: 'clickhouse' | 'doris' | 'mysql' | 'unknown';
+    engine: 'clickhouse' | 'doris' | 'mysql' | 'postgres' | 'unknown';
     cluster: string | null;
     tablesCount: number | null;
     viewsCount: number | null;
@@ -139,6 +139,7 @@ export default function DatabaseSummary({ catalog, database, schema }: DatabaseS
         clickhouse: 'ClickHouse',
         doris: 'Doris',
         mysql: 'MySQL',
+        postgres: 'PostgreSQL',
         unknown: t('Unknown engine'),
     };
 

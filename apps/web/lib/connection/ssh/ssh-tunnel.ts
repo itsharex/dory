@@ -1,4 +1,4 @@
-import http from 'node:http';
+import net from 'node:net';
 import { translate } from '@/lib/i18n/i18n';
 import { Locale, routing } from '@/lib/i18n/routing';
 
@@ -14,62 +14,9 @@ export type SshOptions = {
     targetHostOverride?: string;
 };
 
-class SshHttpAgent extends http.Agent {
-    constructor(
-        private readonly sshClient: any,
-        private readonly targetHost: string,
-        private readonly targetPort: number,
-    ) {
-        super({ keepAlive: true });
-    }
-
-    override createConnection(
-        options: http.ClientRequestArgs,
-        callback?: (err: Error | null, socket?: any) => void,
-    ): any {
-        this.sshClient.forwardOut(
-            options.localAddress ?? '127.0.0.1',
-            options.localPort ?? 0,
-            this.targetHost,
-            this.targetPort,
-            (err: Error | null, stream: any) => {
-                if (!callback) return;
-
-                if (err) {
-                    callback(err);
-                    return;
-                }
-
-                const socket: any = stream;
-
-                if (typeof socket.setTimeout !== 'function') {
-                    socket.setTimeout = (_msecs: number, _cb?: () => void) => {
-                        return socket;
-                    };
-                }
-
-                if (typeof socket.setNoDelay !== 'function') {
-                    socket.setNoDelay = (_noDelay?: boolean) => {
-                        return socket;
-                    };
-                }
-
-                if (typeof socket.setKeepAlive !== 'function') {
-                    socket.setKeepAlive = (_enable?: boolean, _initialDelay?: number) => {
-                        return socket;
-                    };
-                }
-
-                callback(null, socket);
-            },
-        );
-
-        return undefined as unknown as import('stream').Duplex;
-    }
-}
-
 export interface SshTunnel {
-    agent: http.Agent;
+    localHost: string;
+    localPort: number;
     close(): Promise<void>;
 }
 
@@ -136,12 +83,63 @@ export async function createSshTunnel(
         throw err;
     });
 
-    const agent = new SshHttpAgent(client, targetHost, targetPort);
+    const server = net.createServer(socket => {
+        client.forwardOut(
+            socket.localAddress ?? '127.0.0.1',
+            socket.localPort ?? 0,
+            targetHost,
+            targetPort,
+            (err: Error | null, upstream: net.Socket) => {
+                if (err) {
+                    socket.destroy(err);
+                    return;
+                }
+
+                socket.pipe(upstream);
+                upstream.pipe(socket);
+
+                const destroyBoth = () => {
+                    if (!socket.destroyed) socket.destroy();
+                    if (!upstream.destroyed) upstream.destroy();
+                };
+
+                socket.on('error', destroyBoth);
+                upstream.on('error', destroyBoth);
+                socket.on('close', () => {
+                    if (!upstream.destroyed) upstream.end();
+                });
+                upstream.on('close', () => {
+                    if (!socket.destroyed) socket.end();
+                });
+            },
+        );
+    });
+
+    await new Promise<void>((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(0, '127.0.0.1', () => resolve());
+    }).catch(err => {
+        server.removeAllListeners();
+        client.removeAllListeners();
+        client.end();
+        throw err;
+    });
+
+    const address = server.address();
+    if (!address || typeof address === 'string') {
+        server.close();
+        client.end();
+        throw new Error('Failed to resolve SSH local tunnel address');
+    }
 
     return {
-        agent,
+        localHost: address.address,
+        localPort: address.port,
         async close() {
-            agent.destroy();
+            await new Promise<void>(resolve => {
+                server.close(() => resolve());
+            }).catch(() => undefined);
+            server.removeAllListeners();
             client.removeAllListeners?.();
             client.end();
         },

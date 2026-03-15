@@ -1,0 +1,242 @@
+import type { GetTableInfoAPI } from '@/lib/connection/base/types';
+import type { TablePropertiesRow, TableStats } from '@/types/table-info';
+import type { PostgresDatasource } from '../PostgresDatasource';
+
+type TableIdentityRow = {
+    oid?: number;
+    schemaName?: string;
+    tableName?: string;
+    relkind?: string;
+    accessMethod?: string | null;
+    comment?: string | null;
+    totalRows?: number | string | null;
+    totalBytes?: number | string | null;
+    primaryKey?: string | null;
+    partitionKey?: string | null;
+};
+
+type TableColumnRow = {
+    columnName?: string;
+    dataType?: string;
+    isNullable?: string;
+    columnDefault?: string | null;
+};
+
+type ViewDefRow = {
+    definition?: string | null;
+};
+
+type PartitionRow = {
+    name?: string;
+    rowCount?: number | string | null;
+    compressedBytes?: number | string | null;
+};
+
+function toNumberOrNull(value: unknown): number | null {
+    if (value === null || value === undefined) return null;
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseTableName(table: string): { schema: string | null; name: string } {
+    const trimmed = table.trim();
+    const [schema, ...rest] = trimmed.split('.');
+    if (!rest.length) {
+        return { schema: null, name: schema };
+    }
+    return { schema, name: rest.join('.') };
+}
+
+async function getTableIdentity(datasource: PostgresDatasource, database: string, table: string) {
+    const parsed = parseTableName(table);
+    const result = await datasource.queryWithContext<TableIdentityRow>(
+        `
+            SELECT
+                c.oid,
+                n.nspname AS "schemaName",
+                c.relname AS "tableName",
+                c.relkind AS relkind,
+                am.amname AS "accessMethod",
+                obj_description(c.oid, 'pg_class') AS comment,
+                COALESCE(s.n_live_tup, c.reltuples) AS "totalRows",
+                pg_total_relation_size(c.oid) AS "totalBytes",
+                (
+                    SELECT string_agg(a.attname, ', ' ORDER BY a.attnum)
+                    FROM pg_index i
+                    JOIN pg_attribute a
+                      ON a.attrelid = i.indrelid
+                     AND a.attnum = ANY(i.indkey)
+                    WHERE i.indrelid = c.oid
+                      AND i.indisprimary
+                ) AS "primaryKey",
+                CASE
+                    WHEN c.relkind = 'p' THEN pg_get_partkeydef(c.oid)
+                    ELSE NULL
+                END AS "partitionKey"
+            FROM pg_class c
+            JOIN pg_namespace n
+              ON n.oid = c.relnamespace
+            LEFT JOIN pg_am am
+              ON am.oid = c.relam
+            LEFT JOIN pg_stat_user_tables s
+              ON s.relid = c.oid
+            WHERE n.nspname = COALESCE($1, current_schema())
+              AND c.relname = $2
+              AND c.relkind IN ('r', 'p', 'v', 'm', 'f')
+            LIMIT 1
+        `,
+        {
+            database,
+            params: [parsed.schema, parsed.name],
+        },
+    );
+
+    return result.rows[0] ?? null;
+}
+
+async function getTableProperties(datasource: PostgresDatasource, database: string, table: string): Promise<TablePropertiesRow | null> {
+    const identity = await getTableIdentity(datasource, database, table);
+    if (!identity) {
+        return null;
+    }
+
+    return {
+        engine: identity.accessMethod ?? identity.relkind ?? null,
+        comment: identity.comment ?? null,
+        primaryKey: identity.primaryKey ?? null,
+        sortingKey: null,
+        partitionKey: identity.partitionKey ?? null,
+        samplingKey: null,
+        storagePolicy: null,
+        totalRows: toNumberOrNull(identity.totalRows),
+        totalBytes: toNumberOrNull(identity.totalBytes),
+    };
+}
+
+async function getTableDDL(datasource: PostgresDatasource, database: string, table: string): Promise<string | null> {
+    const identity = await getTableIdentity(datasource, database, table);
+    if (!identity) {
+        return null;
+    }
+
+    const schemaName = identity.schemaName ?? 'public';
+    const tableName = identity.tableName ?? table;
+    const qualifiedName = `"${schemaName.replace(/"/g, '""')}"."${tableName.replace(/"/g, '""')}"`;
+
+    if (identity.relkind === 'v' || identity.relkind === 'm') {
+        const viewDefinition = await datasource.queryWithContext<ViewDefRow>(
+            'SELECT pg_get_viewdef($1::regclass, true) AS definition',
+            {
+                database,
+                params: [qualifiedName],
+            },
+        );
+
+        const definition = viewDefinition.rows[0]?.definition?.trim();
+        if (!definition) {
+            return null;
+        }
+
+        return `${identity.relkind === 'm' ? 'CREATE MATERIALIZED VIEW' : 'CREATE VIEW'} ${qualifiedName} AS\n${definition}`;
+    }
+
+    const columns = await datasource.queryWithContext<TableColumnRow>(
+        `
+            SELECT
+                column_name AS "columnName",
+                udt_name AS "dataType",
+                is_nullable AS "isNullable",
+                column_default AS "columnDefault"
+            FROM information_schema.columns
+            WHERE table_schema = $1
+              AND table_name = $2
+            ORDER BY ordinal_position
+        `,
+        {
+            database,
+            params: [schemaName, tableName],
+        },
+    );
+
+    const columnLines = columns.rows.map(column => {
+        const nullable = column.isNullable === 'NO' ? ' NOT NULL' : '';
+        const defaultClause = column.columnDefault ? ` DEFAULT ${column.columnDefault}` : '';
+        return `    "${(column.columnName ?? '').replace(/"/g, '""')}" ${column.dataType}${defaultClause}${nullable}`;
+    });
+
+    if (identity.primaryKey) {
+        const primaryKey = identity.primaryKey
+            .split(',')
+            .map(part => `"${part.trim().replace(/"/g, '""')}"`)
+            .join(', ');
+        columnLines.push(`    PRIMARY KEY (${primaryKey})`);
+    }
+
+    if (!columnLines.length) {
+        return `CREATE TABLE ${qualifiedName} ();`;
+    }
+
+    return `CREATE TABLE ${qualifiedName} (\n${columnLines.join(',\n')}\n);`;
+}
+
+async function getTableStats(datasource: PostgresDatasource, database: string, table: string): Promise<TableStats | null> {
+    const identity = await getTableIdentity(datasource, database, table);
+    if (!identity?.oid) {
+        return null;
+    }
+
+    const partitionResult = await datasource.queryWithContext<PartitionRow>(
+        `
+            SELECT
+                child.relname AS name,
+                COALESCE(stats.n_live_tup, child.reltuples) AS "rowCount",
+                pg_total_relation_size(child.oid) AS "compressedBytes"
+            FROM pg_inherits inh
+            JOIN pg_class parent
+              ON parent.oid = inh.inhparent
+            JOIN pg_class child
+              ON child.oid = inh.inhrelid
+            LEFT JOIN pg_stat_user_tables stats
+              ON stats.relid = child.oid
+            WHERE parent.oid = $1
+            ORDER BY child.relname
+        `,
+        {
+            database,
+            params: [identity.oid],
+        },
+    );
+
+    const partitions = partitionResult.rows
+        .filter(row => row.name)
+        .map(row => ({
+            name: row.name as string,
+            rowCount: toNumberOrNull(row.rowCount) ?? 0,
+            compressedBytes: toNumberOrNull(row.compressedBytes) ?? 0,
+            uncompressedBytes: toNumberOrNull(row.compressedBytes) ?? 0,
+        }));
+
+    const totalBytes = toNumberOrNull(identity.totalBytes);
+
+    return {
+        rowCount: toNumberOrNull(identity.totalRows),
+        compressedBytes: totalBytes,
+        uncompressedBytes: totalBytes,
+        compressionRatio: null,
+        partitionCount: partitions.length,
+        partitions,
+        partCount: partitions.length,
+        avgPartSize: partitions.length && totalBytes ? totalBytes / partitions.length : totalBytes,
+        maxPartSize: partitions.length ? Math.max(...partitions.map(partition => partition.compressedBytes)) : totalBytes,
+        activeMutations: [],
+        ttlExpression: null,
+    };
+}
+
+export function createPostgresTableInfoCapability(datasource: PostgresDatasource): GetTableInfoAPI {
+    return {
+        properties: (database, table) => getTableProperties(datasource, database, table),
+        ddl: (database, table) => getTableDDL(datasource, database, table),
+        stats: (database, table) => getTableStats(datasource, database, table),
+    };
+}

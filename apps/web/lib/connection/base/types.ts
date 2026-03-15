@@ -92,7 +92,7 @@ export type DatabaseRecentTable = {
     lastUpdatedAt: string | null;
 };
 
-export type DatabaseSummaryEngine = 'clickhouse' | 'doris' | 'mysql' | 'unknown';
+export type DatabaseSummaryEngine = 'clickhouse' | 'doris' | 'mysql' | 'postgres' | 'unknown';
 
 export type DatabaseSummary = {
     databaseName: string;

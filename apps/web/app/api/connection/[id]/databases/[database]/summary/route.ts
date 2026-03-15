@@ -21,7 +21,7 @@ const databaseSummarySchema = z.object({
     databaseName: z.string(),
     catalogName: z.string().nullable(),
     schemaName: z.string().nullable(),
-    engine: z.enum(['clickhouse', 'doris', 'mysql', 'unknown']),
+    engine: z.enum(['clickhouse', 'doris', 'mysql', 'postgres', 'unknown']),
     cluster: z.string().nullable(),
     tablesCount: z.number().nullable(),
     viewsCount: z.number().nullable(),
@@ -101,7 +101,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ databas
 
         try {
             const { entry, config } = await ensureConnectionPoolForUser(userId, teamId, connectionId, null);
-            const engine = (config.type ?? 'unknown') as 'clickhouse' | 'doris' | 'mysql' | 'unknown';
+            const engine = (config.type ?? 'unknown') as 'clickhouse' | 'doris' | 'mysql' | 'postgres' | 'unknown';
             const cluster = config.port ? `${config.host}:${config.port}` : config.host ?? null;
             const metadata = entry.instance.capabilities.metadata;
             if (!hasMetadataCapability(metadata, 'getDatabaseSummary')) {

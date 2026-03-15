@@ -32,7 +32,11 @@ export class ClickhouseDatasource extends BaseConnection {
     protected async _init(): Promise<void> {
         const targetPort = resolveClickhouseHttpPort(this.config) ?? (isClickhouseTlsEnabled(this.config) ? 8443 : 8123);
         await this.setupSshIfNeeded(targetPort);
-        this.client = createClickhouseClient(this.config, { sshAgent: this.sshAgent });
+        const sshEndpoint = this.getSshEndpoint();
+        this.client = createClickhouseClient(this.config, {
+            hostOverride: sshEndpoint?.host,
+            httpPortOverride: sshEndpoint?.port,
+        });
         await this.client.ping();
     }
 
@@ -65,9 +69,11 @@ export class ClickhouseDatasource extends BaseConnection {
             return this.query<Row>(sql, context?.params, context);
         }
 
+        const sshEndpoint = this.getSshEndpoint();
         const tempClient = createClickhouseClient(this.config, {
             database: targetDb,
-            sshAgent: this.sshAgent,
+            hostOverride: sshEndpoint?.host,
+            httpPortOverride: sshEndpoint?.port,
         });
 
         try {
