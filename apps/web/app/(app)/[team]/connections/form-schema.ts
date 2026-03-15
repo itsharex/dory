@@ -1,4 +1,5 @@
-import { z } from "zod";
+import { z } from 'zod';
+import { getConnectionDriver } from './components/forms/connection/drivers';
 
 const requiredPort = z.preprocess(
     value => {
@@ -16,8 +17,9 @@ export const ConnectionDialogFormSchema = z.object({
         description: z.string().optional().nullable(),
         host: z.string().min(1, 'Please provide a host'),
         port: requiredPort,
-        httpPort: requiredPort,
+        httpPort: requiredPort.optional().nullable(),
         ssl: z.boolean().default(false),
+        database: z.string().optional().nullable(),
         environment: z.string().optional(),
         tags: z.string().optional(),
     }),
@@ -38,4 +40,7 @@ export const ConnectionDialogFormSchema = z.object({
         privateKey: z.string().optional().nullable(),
         passphrase: z.string().optional().nullable(),
     }),
+}).superRefine((value, ctx) => {
+    const driver = getConnectionDriver(value.connection.type);
+    driver.validate(value.connection, ctx);
 });

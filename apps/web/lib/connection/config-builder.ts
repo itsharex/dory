@@ -104,7 +104,7 @@ export function buildStoredConnectionConfig(
     }
 
     const options = buildOptions(connection.options, { httpPort: connection.httpPort, port: connection.port }, ssh);
-    const type = resolveConnectionType(connection.engine ?? connection.type ?? 'clickhouse');
+    const type = resolveConnectionType(connection.type ?? connection.engine ?? 'clickhouse');
     const database = identity.database ?? (connection as any).database ?? undefined;
     const port = typeof connection.httpPort === 'number' ? connection.httpPort : connection.port;
     const updatedAt = connection.updatedAt instanceof Date ? connection.updatedAt.getTime() : connection.updatedAt;
@@ -140,7 +140,7 @@ export function buildTestConnectionConfig(
     }
 
     const options = buildOptions(connection.options, { httpPort: connection.httpPort, port: connection.port }, ssh);
-    const type = resolveConnectionType(connection.engine ?? connection.type ?? 'clickhouse');
+    const type = resolveConnectionType(connection.type ?? connection.engine ?? 'clickhouse');
     const database = identity.database ?? undefined;
     const id = connection.name ? `test-${connection.name}` : `test-${connection.host}`;
 
