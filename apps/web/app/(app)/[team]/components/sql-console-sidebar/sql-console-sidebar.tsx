@@ -19,7 +19,7 @@ type TableColumn = {
     columnType: string;
 };
 
-type SchemaSidebarProps = {
+type SQLConsoleSidebarProps = {
     onOpenTableTab?: (payload: { database?: string; tableName: string; tabLabel?: string }) => void;
     onSelectTable?: (payload: { database?: string; tableName: string; tabLabel?: string }) => void;
     onSelectDatabase?: (database: string) => void;
@@ -27,17 +27,17 @@ type SchemaSidebarProps = {
     selectedDatabase?: string;
 };
 
-export function SchemaSidebar({
+export function SQLConsoleSidebar({
     onOpenTableTab,
     onSelectTable,
     selectedTable,
     selectedDatabase,
     onSelectDatabase,
-}: SchemaSidebarProps) {
+}: SQLConsoleSidebarProps) {
     const [localFilter, setFilter] = useState('');
     const deferredFilter = useDeferredValue(localFilter);
     const [activeDatabase, setActiveDatabase] = useAtom(activeDatabaseAtom);
-    const t = useTranslations('SchemaSidebar');
+    const t = useTranslations('SQLConsoleSidebar');
 
     const { databases } = useDatabases();
     useEffect(() => {
@@ -150,7 +150,7 @@ export function SchemaSidebar({
                             (!selectedDatabase || activeDatabase === selectedDatabase);
 
                         return (
-                            <div key={tableValue} className="space-y-1 my-[1px]">
+                            <div key={tableValue} className="space-y-1 my-px">
                                 <div
                                     className={cn(
                                         'rounded-md mx-1',
@@ -162,7 +162,7 @@ export function SchemaSidebar({
                                         <div className="flex items-center gap-2 flex-1">
                                             <button
                                                 onClick={() => toggleTableExpansion(tableValue)}
-                                                className="flex-shrink-0 p-0.5 hover:bg-muted rounded cursor-pointer"
+                                                className="shrink-0 p-0.5 hover:bg-muted rounded cursor-pointer"
                                                 aria-label={`${isExpanded ? t('Collapse') : t('Expand')} ${tableValue} ${t('Columns')}`}
                                             >
                                                 {isLoading ? (
@@ -174,7 +174,7 @@ export function SchemaSidebar({
                                                 )}
                                             </button>
 
-                                            <Table className="h-3.5 w-3.5 flex-shrink-0" />
+                                            <Table className="h-3.5 w-3.5 shrink-0" />
 
                                             
                                             <button
@@ -208,7 +208,7 @@ export function SchemaSidebar({
                                                     key={column.columnName}
                                                     className="flex items-center gap-2 px-2 py-1 text-xs text-muted-foreground hover:bg-muted/30 rounded cursor-pointer"
                                                 >
-                                                    <div className="w-2 h-2 rounded-full bg-muted-foreground/40 flex-shrink-0" />
+                                                    <div className="w-2 h-2 rounded-full bg-muted-foreground/40 shrink-0" />
 
                                                     
                                                     <span
@@ -221,7 +221,7 @@ export function SchemaSidebar({
                                                     
                                                     <Badge
                                                         variant="outline"
-                                                        className="text-xs px-1 py-0 h-4 text-muted-foreground max-w-[140px] truncate justify-start cursor-pointer"
+                                                        className="text-xs px-1 py-0 h-4 text-muted-foreground max-w-35 truncate justify-start cursor-pointer"
                                                         title={column.columnType}
                                                     >
                                                         {column.columnType}

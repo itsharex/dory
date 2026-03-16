@@ -306,7 +306,7 @@
             "ConnectFailed": "Connection failed"
         }
     },
-    "SchemaSidebar": {
+    "SQLConsoleSidebar": {
         "Select database": "Select database",
         "Search databases": "Search databases...",
         "Databases": "Databases",

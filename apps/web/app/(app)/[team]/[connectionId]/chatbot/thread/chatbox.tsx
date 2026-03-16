@@ -37,7 +37,7 @@ import { useTables } from '@/hooks/use-tables';
 import MessageRenderer from './message-render';
 import { TableMentionTextarea } from './table-mention-textarea';
 import { getSqlResultFromPart, getChartResultFromPart } from '../core/utils';
-import { DatabasesSelect } from '../../../components/schema-sidebar/databases-select/databases-select';
+import { DatabasesSelect } from '../../../components/sql-console-sidebar/databases-select/databases-select';
 import { CopilotActionExecutor } from '../copilot/action-bridge';
 import { apiGetOrCreateCopilotSession } from '../core/api';
 

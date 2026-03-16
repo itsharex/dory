@@ -20,7 +20,7 @@ type Props = {
 export function DatabasesSelect({ value, databases, onChange, className }: Props) {
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
-    const t = useTranslations('SchemaSidebar');
+    const t = useTranslations('SQLConsoleSidebar');
 
     const selected = useMemo(() => databases.find(d => d.value === value) || null, [databases, value]);
 

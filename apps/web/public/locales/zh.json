@@ -308,7 +308,7 @@
             "ConnectFailed": "连接失败"
         }
     },
-    "SchemaSidebar": {
+    "SQLConsoleSidebar": {
         "Select database": "选择数据库",
         "Search databases": "搜索数据库...",
         "Databases": "数据库",
