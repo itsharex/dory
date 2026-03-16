@@ -6,7 +6,7 @@ import { RotateCw } from 'lucide-react';
 import { useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 
-import { useQuery } from '@/hooks/use-query';
+import { fetchTablePreview } from '@/lib/client/fetch-table-preview';
 import { useDB } from '@/lib/client/use-pglite';
 import { isSuccess } from '@/lib/result';
 import { currentConnectionAtom } from '@/shared/stores/app.store';
@@ -23,7 +23,7 @@ import { VTableSearchBar } from '../../../../[connectionId]/sql-console/componen
 import { currentSessionMetaAtom } from '../../../../[connectionId]/sql-console/components/result-table/stores/result-table.atoms';
 import VTable from '../../../../[connectionId]/sql-console/components/result-table/vtable';
 import { InspectorPanel } from '../../../../[connectionId]/sql-console/components/result-table/vtable/InspectorPanel';
-import { DEFAULT_TABLE_PREVIEW_LIMIT } from '../../../../[connectionId]/sql-console/hooks/useSqlTableQueryBuilder';
+import { DEFAULT_TABLE_PREVIEW_LIMIT } from '@/shared/data/app.data';
 
 interface TablePreviewProps {
     activeTab: SQLTab;
@@ -33,13 +33,6 @@ interface TablePreviewProps {
 function normalizeParam(value?: string | string[]) {
     if (!value) return undefined;
     return Array.isArray(value) ? value[0] : value;
-}
-
-function buildPreviewSql(databaseName?: string, tableName?: string) {
-    if (!tableName) return '';
-    const hasDbInName = tableName.includes('.');
-    const prefix = databaseName && !hasDbInName ? `${databaseName}.` : '';
-    return `SELECT * FROM ${prefix}${tableName} LIMIT ${DEFAULT_TABLE_PREVIEW_LIMIT}`;
 }
 
 export default function TablePreview({ activeTab, onRefresh }: TablePreviewProps) {
@@ -63,6 +56,7 @@ export default function TablePreview({ activeTab, onRefresh }: TablePreviewProps
     const [rowViewMode, setRowViewMode] = useState<'table' | 'json'>('table');
     const [inspectorWidth, setInspectorWidth] = useState(360);
     const t = useTranslations('TableBrowser');
+    const currentConnection = useAtomValue(currentConnectionAtom);
 
     const storageKey = useMemo(() => {
         if (!tabId || !sessionId) return undefined;
@@ -258,7 +252,6 @@ export function UrlTablePreview() {
     const databaseName = normalizeParam(params?.database);
     const tableName = normalizeParam(params?.table);
     const currentConnection = useAtomValue(currentConnectionAtom);
-    const { run } = useQuery();
     const t = useTranslations('TableBrowser');
 
     const sessionMeta = useAtomValue(currentSessionMetaAtom);
@@ -275,8 +268,6 @@ export function UrlTablePreview() {
     const [inspectorPayload, setInspectorPayload] = useState<any>(null);
     const [rowViewMode, setRowViewMode] = useState<'table' | 'json'>('table');
     const [inspectorWidth, setInspectorWidth] = useState(360);
-
-    const sql = useMemo(() => buildPreviewSql(databaseName, tableName), [databaseName, tableName]);
 
     const storageKey = useMemo(() => {
         if (!databaseName || !tableName) return undefined;
@@ -298,14 +289,18 @@ export function UrlTablePreview() {
 
     const runPreview = useCallback(
         async (signal?: AbortSignal) => {
-            if (!databaseName || !tableName || !sql) return;
+            if (!databaseName || !tableName || !currentConnection?.connection?.id) return;
             setLoading(true);
             setError(null);
             try {
-                const res = await run(
-                    { sql, database: databaseName, source: 'catalog-table-preview' },
-                    { signal },
-                );
+                const res = await fetchTablePreview({
+                    connectionId: currentConnection.connection.id,
+                    databaseName,
+                    tableName,
+                    limit: DEFAULT_TABLE_PREVIEW_LIMIT,
+                    source: 'catalog-table-preview',
+                    signal,
+                });
                 if (isSuccess(res as any)) {
                     const firstSet = res?.data?.queryResultSets?.[0] ?? null;
                     const resultRows = res?.data?.results?.[0] ?? [];
@@ -348,7 +343,7 @@ export function UrlTablePreview() {
                 setLoading(false);
             }
         },
-        [databaseName, tableName, run, sql, setSessionMeta, t],
+        [currentConnection?.connection?.id, databaseName, tableName, setSessionMeta, t],
     );
 
     useEffect(() => {

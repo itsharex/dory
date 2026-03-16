@@ -1483,7 +1483,8 @@
                     "ColumnsFailed": "获取数据列失败",
                     "PropertiesFailed": "获取表属性失败",
                     "StatsFailed": "获取表统计失败",
-                    "DdlFailed": "获取表 DDL 失败"
+                    "DdlFailed": "获取表 DDL 失败",
+                    "PreviewFailed": "获取表预览失败"
                 }
             }
         },

@@ -1481,7 +1481,8 @@
                     "ColumnsFailed": "Failed to fetch columns",
                     "PropertiesFailed": "Failed to fetch table properties",
                     "StatsFailed": "Failed to fetch table stats",
-                    "DdlFailed": "Failed to fetch table DDL"
+                    "DdlFailed": "Failed to fetch table DDL",
+                    "PreviewFailed": "Failed to fetch table preview"
                 }
             }
         },

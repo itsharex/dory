@@ -1,4 +1,5 @@
 import { type GetTableInfoAPI } from '@/lib/connection/base/types';
+import { DEFAULT_TABLE_PREVIEW_LIMIT } from '@/shared/data/app.data';
 import { TableMutationInfo, TablePartitionStat, TablePropertiesRow, TableStats } from '@/types/table-info';
 import type { ClickhouseDatasource } from '../ClickhouseDatasource';
 
@@ -40,6 +41,13 @@ const toStringOrNull = (value: unknown): string | null => {
     const str = String(value);
     return str.length ? str : null;
 };
+
+function normalizePreviewLimit(limit?: number): number {
+    if (!Number.isFinite(limit) || !limit || limit <= 0) {
+        return DEFAULT_TABLE_PREVIEW_LIMIT;
+    }
+    return Math.floor(limit);
+}
 
 async function getTableProperties(datasource: ClickhouseDatasource, database: string, table: string): Promise<TablePropertiesRow | null> {
     const tablePropsQuery = `
@@ -177,10 +185,37 @@ async function getTableStats(datasource: ClickhouseDatasource, database: string,
     };
 }
 
+async function getTablePreview(
+    datasource: ClickhouseDatasource,
+    database: string,
+    table: string,
+    options?: { limit?: number },
+) {
+    const limit = normalizePreviewLimit(options?.limit);
+    const result = await datasource.queryWithContext<Record<string, unknown>>(
+        'SELECT * FROM {db:Identifier}.{tbl:Identifier} LIMIT {limit:UInt64}',
+        {
+            database,
+            params: {
+                db: database,
+                tbl: table,
+                limit,
+            },
+        },
+    );
+
+    return {
+        ...result,
+        limited: true,
+        limit,
+    };
+}
+
 export function createClickhouseTableInfoCapability(datasource: ClickhouseDatasource): GetTableInfoAPI {
     return {
         properties: (database: string, table: string) => getTableProperties(datasource, database, table),
         ddl: (database: string, table: string) => getTableDDL(datasource, database, table),
         stats: (database: string, table: string) => getTableStats(datasource, database, table),
+        preview: (database: string, table: string, options) => getTablePreview(datasource, database, table, options),
     };
 }

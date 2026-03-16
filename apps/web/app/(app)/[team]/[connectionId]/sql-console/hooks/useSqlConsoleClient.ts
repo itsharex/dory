@@ -8,7 +8,6 @@ import { useSQLTabs } from '../components/tabs/hooks/use-tab-hooks';
 import { useTablePreviewManager } from '../../../components/table-browser/components/table-preview/use-table-preview';
 import { useSqlLayout } from './useSqlLayout';
 import { useSqlAiTabTitle } from './useSqlAiTabTitle';
-import { useSqlTableQueryBuilder } from './useSqlTableQueryBuilder';
 import { useSqlQueryRunner } from './useSqlQueryRunner';
 import { useSqlChatHandoff } from './useSqlChatHandoff';
 
@@ -22,7 +21,6 @@ export function useSqlConsoleClient(defaultLayout: number[] | undefined) {
     const [activeDatabase, setActiveDatabase] = useAtom(activeDatabaseAtom);
 
     const { requestAITabTitle, manualRenameTab } = useSqlAiTabTitle(activeDatabase, updateTab);
-    const { buildTableQuery } = useSqlTableQueryBuilder();
 
     const { editorRef, runQuery, cancelQuery, runningTabs, dbReady, userReady } = useSqlQueryRunner({
         activeDatabase,
@@ -30,7 +28,6 @@ export function useSqlConsoleClient(defaultLayout: number[] | undefined) {
         tabs,
         userId,
         requestAITabTitle,
-        buildTableQuery,
     });
 
     const { handleOpenTableTab, handleCloseTab, handleCloseOthers } = useTablePreviewManager({
@@ -45,7 +42,6 @@ export function useSqlConsoleClient(defaultLayout: number[] | undefined) {
         closeTab,
         closeOtherTabs,
         runTableQuery: runQuery,
-        buildTableQuery,
     });
 
     useSqlChatHandoff({

@@ -128,6 +128,10 @@ export type Pagination = {
     pageSize: number;
 };
 
+export type TablePreviewOptions = {
+    limit?: number;
+};
+
 export type QueryInsightsImpl = {
     summary: (filters: QueryInsightsFilters) => Promise<QueryInsightsSummary>;
     timeline: (filters: QueryInsightsFilters) => Promise<QueryTimelinePoint[]>;
@@ -142,6 +146,7 @@ export type GetTableInfoAPI = {
     properties: (database: string, table: string) => Promise<TablePropertiesRow | null>;
     ddl: (database: string, table: string) => Promise<string | null>;
     stats: (database: string, table: string) => Promise<TableStats | null>;
+    preview: (database: string, table: string, options?: TablePreviewOptions) => Promise<QueryResult<Record<string, unknown>>>;
 };
 
 export type ConnectionMetadataAPI = {
@@ -170,4 +175,11 @@ export function hasMetadataCapability<K extends keyof ConnectionMetadataAPI>(
     capability: K,
 ): metadata is ConnectionMetadataAPI & Required<Pick<ConnectionMetadataAPI, K>> {
     return Boolean(metadata && typeof metadata[capability] === 'function');
+}
+
+export function hasTableInfoCapability<K extends keyof GetTableInfoAPI>(
+    tableInfo: GetTableInfoAPI | undefined,
+    capability: K,
+): tableInfo is GetTableInfoAPI & Required<Pick<GetTableInfoAPI, K>> {
+    return Boolean(tableInfo && typeof tableInfo[capability] === 'function');
 }

@@ -1,4 +1,5 @@
 import type { GetTableInfoAPI } from '@/lib/connection/base/types';
+import { DEFAULT_TABLE_PREVIEW_LIMIT } from '@/shared/data/app.data';
 import type { TablePropertiesRow, TableStats } from '@/types/table-info';
 import type { PostgresDatasource } from '../PostgresDatasource';
 
@@ -45,6 +46,17 @@ function parseTableName(table: string): { schema: string | null; name: string } 
         return { schema: null, name: schema };
     }
     return { schema, name: rest.join('.') };
+}
+
+function quoteIdentifier(value: string): string {
+    return `"${value.replace(/"/g, '""')}"`;
+}
+
+function normalizePreviewLimit(limit?: number): number {
+    if (!Number.isFinite(limit) || !limit || limit <= 0) {
+        return DEFAULT_TABLE_PREVIEW_LIMIT;
+    }
+    return Math.floor(limit);
 }
 
 async function getTableIdentity(datasource: PostgresDatasource, database: string, table: string) {
@@ -233,10 +245,37 @@ async function getTableStats(datasource: PostgresDatasource, database: string, t
     };
 }
 
+async function getTablePreview(
+    datasource: PostgresDatasource,
+    database: string,
+    table: string,
+    options?: { limit?: number },
+) {
+    const parsed = parseTableName(table);
+    const schemaName = parsed.schema?.trim() || 'public';
+    const tableName = parsed.name.trim();
+    const limit = normalizePreviewLimit(options?.limit);
+    const qualifiedName = `${quoteIdentifier(schemaName)}.${quoteIdentifier(tableName)}`;
+    const result = await datasource.queryWithContext<Record<string, unknown>>(
+        `SELECT * FROM ${qualifiedName} LIMIT $1`,
+        {
+            database,
+            params: [limit],
+        },
+    );
+
+    return {
+        ...result,
+        limited: true,
+        limit,
+    };
+}
+
 export function createPostgresTableInfoCapability(datasource: PostgresDatasource): GetTableInfoAPI {
     return {
         properties: (database, table) => getTableProperties(datasource, database, table),
         ddl: (database, table) => getTableDDL(datasource, database, table),
         stats: (database, table) => getTableStats(datasource, database, table),
+        preview: (database, table, options) => getTablePreview(datasource, database, table, options),
     };
 }

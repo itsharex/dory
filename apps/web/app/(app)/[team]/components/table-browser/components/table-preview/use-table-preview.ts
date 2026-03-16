@@ -25,7 +25,6 @@ type TablePreviewManagerProps = {
         tab: SQLTab,
         options?: { sqlOverride?: string; databaseOverride?: string | null },
     ) => Promise<void> | void;
-    buildTableQuery: (tab: SQLTab) => string;
 };
 
 type PreviewState = 'idle' | 'loading' | 'ready';
@@ -42,7 +41,6 @@ export function useTablePreviewManager({
     closeTab,
     closeOtherTabs,
     runTableQuery,
-    buildTableQuery,
 }: TablePreviewManagerProps) {
     
     const tablePreviewStateRef = useRef<Record<string, PreviewState>>({});
@@ -78,9 +76,6 @@ export function useTablePreviewManager({
             if (!tab || tab.tabType !== 'table') return;
             if (!dbReady || !userReady) return;
 
-            const sql = buildTableQuery(tab);
-            if (!sql.trim()) return;
-
             const state = tablePreviewStateRef.current[tab.tabId] ?? 'idle';
 
             
@@ -99,7 +94,6 @@ export function useTablePreviewManager({
                 await Promise.resolve(
                     runTableQuery(tab, {
                         databaseOverride: tab.databaseName ?? activeDatabase ?? null,
-                        sqlOverride: sql,
                     }),
                 );
                 tablePreviewStateRef.current[tab.tabId] = 'ready';
@@ -109,7 +103,7 @@ export function useTablePreviewManager({
                 throw e;
             }
         },
-        [activeDatabase, buildTableQuery, dbReady, runTableQuery, userReady, findExistingPreview],
+        [activeDatabase, dbReady, runTableQuery, userReady, findExistingPreview],
     );
 
     const handleCloseTab = useCallback(
