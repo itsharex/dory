@@ -8,7 +8,6 @@ import { vsPlusTheme } from '@/components/@dory/ui/monaco-editor/theme';
 import { useColumns } from '@/hooks/use-columns';
 import { useDatabases } from '@/hooks/use-databases';
 import { useTables } from '@/hooks/use-tables';
-import { registerSQLCompletion } from '@/lib/providers/monaco-providers';
 import { activeDatabaseAtom } from '@/shared/stores/app.store';
 import { buildSqlEditorOptions, SqlEditorSettings } from '@/shared/stores/sql-editor-settings.store';
 import { useAtomValue, useSetAtom } from 'jotai';
@@ -48,6 +47,24 @@ const resolveTableName = (table: any) => {
 
 const resolveDatabaseName = (database: any) => {
     return (database?.value ?? database?.label ?? database?.name ?? database?.databaseName ?? '').toString();
+};
+
+const dedupeCompletionItems = (items: Monaco.languages.CompletionItem[]) => {
+    const seen = new Set<string>();
+
+    return items.filter(item => {
+        const label = typeof item.label === 'string' ? item.label : item.label.label;
+        const insertText = typeof item.insertText === 'string' ? item.insertText : String(item.insertText ?? '');
+        const detail = typeof item.detail === 'string' ? item.detail : String(item.detail ?? '');
+        const key = [label, item.kind ?? '', insertText, detail].join('::');
+
+        if (seen.has(key)) {
+            return false;
+        }
+
+        seen.add(key);
+        return true;
+    });
 };
 
 const resolveTablesForColumnContext = (
@@ -312,7 +329,7 @@ const registerDtSqlCompletion = (
                 }
             }
 
-            return { suggestions: items };
+            return { suggestions: dedupeCompletionItems(items) };
         },
     });
 };
@@ -414,12 +431,6 @@ export function useSqlMonacoEditor({
             monaco.editor.defineTheme('github-dark', vsPlusTheme.darkThemeData);
             monaco.editor.defineTheme('github-light', vsPlusTheme.lightThemeData);
             monaco.editor.setTheme(editorThemeRef.current);
-
-            try {
-                registerSQLCompletion(monaco, languageId, currentConnectionId || '');
-            } catch {
-                
-            }
 
             dtCompletionDisposableRef.current?.dispose();
             dtCompletionDisposableRef.current = registerDtSqlCompletion(
