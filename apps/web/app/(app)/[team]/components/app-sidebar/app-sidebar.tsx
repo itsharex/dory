@@ -17,6 +17,8 @@ import { ConnectionDialogRoot } from '../../connections/components/connection-di
 import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/registry/new-york-v4/ui/tooltip';
 import type { User } from 'better-auth';
+import { useAtomValue } from 'jotai';
+import { currentConnectionAtom } from '@/shared/stores/app.store';
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
     initialUser?: User | null;
@@ -29,6 +31,15 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
     const t = useTranslations('AppSidebar');
     const team = params.team;
     const connectionId = params.connectionId;
+    const currentConnection = useAtomValue(currentConnectionAtom);
+    const defaultDatabase =
+        currentConnection && currentConnection.connection.id === connectionId ? currentConnection.connection.database : null;
+    const schemaUrl =
+        connectionId && defaultDatabase
+            ? `/${team}/${connectionId}/catalog/default/${encodeURIComponent(defaultDatabase)}`
+            : connectionId
+              ? `/${team}/${connectionId}/catalog/default`
+              : `/${team}/connections`;
     const [updaterState, setUpdaterState] = React.useState<{ readyToInstall: boolean; version: string | null }>({
         readyToInstall: false,
         version: null,
@@ -46,7 +57,7 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
         },
         {
             title: t('Schema'),
-            url: connectionId ? `/${team}/${connectionId}/catalog/default` : `/${team}/connections`,
+            url: schemaUrl,
             icon: IconDatabase,
             requiresConnection: true,
         },

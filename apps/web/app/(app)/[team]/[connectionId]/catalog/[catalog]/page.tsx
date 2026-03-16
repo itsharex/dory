@@ -1,16 +1,16 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { Database } from 'lucide-react';
-import { useAtom } from 'jotai';
+import { useAtom, useAtomValue } from 'jotai';
 import { useTranslations } from 'next-intl';
 
 import { Card, CardContent } from '@/registry/new-york-v4/ui/card';
 import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { useDatabases } from '@/hooks/use-databases';
-import { activeDatabaseAtom } from '@/shared/stores/app.store';
+import { activeDatabaseAtom, currentConnectionAtom } from '@/shared/stores/app.store';
 import { cn } from '@/lib/utils';
 
 const DEFAULT_CATALOG = 'default';
@@ -34,15 +34,29 @@ export default function DatabasesPage() {
     const connectionId = resolveParam(params?.connectionId);
     const catalog = resolveParam(params?.catalog) ?? DEFAULT_CATALOG;
     const isDefaultCatalog = catalog === DEFAULT_CATALOG;
+    const router = useRouter();
     const { databases } = useDatabases();
     const [activeDatabase, setActiveDatabase] = useAtom(activeDatabaseAtom);
+    const currentConnection = useAtomValue(currentConnectionAtom);
     const t = useTranslations('Catalog');
 
     const items = useMemo(() => (Array.isArray(databases) ? (databases as DatabaseItem[]) : []), [databases]);
+    const preferredDatabase =
+        currentConnection && currentConnection.connection.id === connectionId ? currentConnection.connection.database : null;
     const basePath =
         team && connectionId
             ? `/${encodeURIComponent(team)}/${encodeURIComponent(connectionId)}/catalog/${encodeURIComponent(catalog)}`
             : null;
+
+    useEffect(() => {
+        if (!isDefaultCatalog || !basePath || !preferredDatabase || items.length === 0) return;
+
+        const matched = items.find(db => db.value === preferredDatabase);
+        if (!matched) return;
+
+        setActiveDatabase(matched.value);
+        router.replace(`${basePath}/${encodeURIComponent(matched.value)}`);
+    }, [basePath, isDefaultCatalog, items, preferredDatabase, router, setActiveDatabase]);
 
     return (
         <div className="p-6 h-full flex flex-col gap-4">

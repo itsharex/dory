@@ -38,7 +38,7 @@ export function SQLConsoleSidebar({ onOpenTableTab, onSelectTable, selectedTable
 
     useEffect(() => {
         if (!databaseOptions.length) return;
-        const initialDatabase = getInitialDatabase(databaseOptions);
+        const initialDatabase = getInitialDatabase(databaseOptions, currentConnection?.connection?.database);
         if (!initialDatabase) return;
 
         const hasActiveDatabase = activeDatabase && databaseOptions.some(database => database.value === activeDatabase);
@@ -46,7 +46,7 @@ export function SQLConsoleSidebar({ onOpenTableTab, onSelectTable, selectedTable
 
         setActiveDatabase(initialDatabase);
         onSelectDatabase?.(initialDatabase);
-    }, [activeDatabase, databaseOptions, onSelectDatabase, setActiveDatabase, sidebarConfig]);
+    }, [activeDatabase, currentConnection?.connection?.database, databaseOptions, onSelectDatabase, setActiveDatabase, sidebarConfig]);
 
     const { tables } = useTables(activeDatabase);
     const { schemas } = useSchemas(activeDatabase, sidebarConfig.supportsSchemas);

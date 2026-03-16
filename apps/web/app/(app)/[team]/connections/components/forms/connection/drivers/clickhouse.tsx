@@ -131,7 +131,7 @@ export function ClickhouseConnectionFields({ form }: { form: UseFormReturn<any> 
                                 <FieldHelp text="Use your ClickHouse server hostname or IP address." />
                             </FormLabel>
                             <FormControl>
-                                <Input placeholder="xxxx.us-east-1.aws.clickhouse.cloud" {...field} />
+                                <Input placeholder="example.us-east-1.aws.clickhouse.cloud" {...field} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>

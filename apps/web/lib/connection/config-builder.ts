@@ -141,7 +141,7 @@ export function buildTestConnectionConfig(
 
     const options = buildOptions(connection.options, { httpPort: connection.httpPort, port: connection.port }, ssh);
     const type = resolveConnectionType(connection.type ?? connection.engine ?? 'clickhouse');
-    const database = identity.database ?? undefined;
+    const database = identity.database ?? connection.database ?? undefined;
     const id = connection.name ? `test-${connection.name}` : `test-${connection.host}`;
 
     return {

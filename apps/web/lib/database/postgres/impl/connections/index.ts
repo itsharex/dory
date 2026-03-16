@@ -89,6 +89,7 @@ export class PostgresConnectionsRepository {
                 host: row.host,
                 port: row.port,
                 httpPort: row.httpPort,
+                database: row.database,
                 options: row.options,
                 configVersion: row.configVersion,
                 createdAt: row.createdAt,

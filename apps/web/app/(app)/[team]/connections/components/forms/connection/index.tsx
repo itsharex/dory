@@ -1,4 +1,4 @@
-import { UseFormReturn } from 'react-hook-form';
+import { UseFormReturn, useWatch } from 'react-hook-form';
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/registry/new-york-v4/ui/form';
 import { Input } from '@/registry/new-york-v4/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/registry/new-york-v4/ui/select';
@@ -10,8 +10,47 @@ export default function ConnectionForm(props: { form: UseFormReturn<any> }) {
     const { form } = props;
     const { control } = form;
     const t = useTranslations('Connections.ConnectionContent');
-    const driver = getConnectionDriver(form.watch('connection.type'));
+    const connectionType = useWatch({
+        control,
+        name: 'connection.type',
+    });
+    const driver = getConnectionDriver(connectionType);
     const DriverFields = driver.FormComponent;
+
+    const handleTypeChange = (nextType: string, onChange: (value: string) => void) => {
+        const nextDriver = getConnectionDriver(nextType);
+        const currentConnection = form.getValues('connection') ?? {};
+        const nextDefaults = nextDriver.createDefaults();
+
+        onChange(nextType);
+
+        form.setValue('connection.host', currentConnection.host ?? nextDefaults.host, { shouldDirty: true, shouldValidate: false });
+        form.setValue('connection.port', nextDefaults.port, { shouldDirty: true, shouldValidate: false });
+        form.setValue('connection.httpPort', nextDefaults.httpPort, { shouldDirty: true, shouldValidate: false });
+        form.setValue('connection.database', nextDefaults.database, { shouldDirty: true, shouldValidate: false });
+        form.setValue('connection.ssl', nextDefaults.ssl, { shouldDirty: true, shouldValidate: false });
+        form.setValue('connection.description', currentConnection.description ?? nextDefaults.description, {
+            shouldDirty: true,
+            shouldValidate: false,
+        });
+        form.setValue('connection.environment', currentConnection.environment ?? nextDefaults.environment, {
+            shouldDirty: true,
+            shouldValidate: false,
+        });
+        form.setValue('connection.tags', currentConnection.tags ?? nextDefaults.tags, {
+            shouldDirty: true,
+            shouldValidate: false,
+        });
+
+        form.clearErrors([
+            'connection.type',
+            'connection.host',
+            'connection.port',
+            'connection.httpPort',
+            'connection.database',
+            'connection.ssl',
+        ]);
+    };
 
     return (
         <div className="space-y-4">
@@ -45,7 +84,7 @@ export default function ConnectionForm(props: { form: UseFormReturn<any> }) {
                                 {t('Type')}
                                 <RequiredMark />
                             </FormLabel>
-                            <Select value={field.value} onValueChange={field.onChange}>
+                            <Select value={field.value} onValueChange={value => handleTypeChange(value, field.onChange)}>
                                 <FormControl className="w-full">
                                     <SelectTrigger>
                                         <SelectValue placeholder={t('Select Database Type')} />
@@ -64,8 +103,7 @@ export default function ConnectionForm(props: { form: UseFormReturn<any> }) {
                     )}
                 />
             </div>
-
-            <DriverFields form={form} />
+            <DriverFields key={connectionType} form={form} />
         </div>
     );
 }

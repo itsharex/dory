@@ -10,7 +10,14 @@ export function normalizeOption(option?: { value?: string; label?: string; name?
     };
 }
 
-export function getInitialDatabase(databases: SidebarOption[]): string | null {
+export function getInitialDatabase(databases: SidebarOption[], preferredDatabase?: string | null): string | null {
+    if (preferredDatabase) {
+        const matched = databases.find(database => database.value === preferredDatabase);
+        if (matched) {
+            return matched.value;
+        }
+    }
+
     return databases[0]?.value ?? null;
 }
 
