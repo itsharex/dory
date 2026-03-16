@@ -13,13 +13,13 @@ import { CatalogSchemaSidebar } from '../../components/catalog-schema-sidebar/ca
 import { useDataExplorerLayout } from './hooks/use-layout';
 
 function normalizeHorizontalLayout(layout: readonly number[] | undefined): [number, number] {
-    if (!Array.isArray(layout) || layout.length === 0) return [33, 67];
+    if (!Array.isArray(layout) || layout.length === 0) return [20, 80];
 
-    const left = layout[0] ?? 33;
+    const left = layout[0] ?? 20;
     const middle = layout[1] ?? 100 - left;
     const total = left + middle;
 
-    if (total <= 0) return [33, 67];
+    if (total <= 0) return [20, 80];
 
     const normalizedLeft = (left / total) * 100;
     return [normalizedLeft, 100 - normalizedLeft];
@@ -40,7 +40,7 @@ function resolveParam(value?: string | string[]) {
 }
 
 export default function CatalogLayout({
-    defaultLayout = [33, 67],
+    defaultLayout = [20, 80],
     catalog,
     database,
     table,
