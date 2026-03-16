@@ -32,8 +32,8 @@ const aiCache = new Map<string, monaco.languages.CompletionItem[]>();
 //     return {};
 // }
 
-export function registerSQLCompletion(monacoInstance: typeof monaco, connectionId: string) {
-    monacoInstance.languages.registerCompletionItemProvider('sql', {
+export function registerSQLCompletion(monacoInstance: typeof monaco, languageId: string, connectionId: string) {
+    monacoInstance.languages.registerCompletionItemProvider(languageId, {
         triggerCharacters: ['.', ' ', '(', ','],
 
         provideCompletionItems: async (model, position) => {

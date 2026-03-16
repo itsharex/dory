@@ -9,7 +9,7 @@ export async function hydrateActionContext(ctx: ActionContext): Promise<ActionCo
         return ctx;
     }
 
-    const inferred = inferSqlDraftContext({
+    const inferred = await inferSqlDraftContext({
         dialect: ctx.dialect,
         editorText: ctx.sql,
         baselineDatabase: ctx.database ?? null,

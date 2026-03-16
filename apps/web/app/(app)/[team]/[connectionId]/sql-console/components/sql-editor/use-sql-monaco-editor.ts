@@ -16,9 +16,10 @@ import type { UITabPayload } from '@/types/tabs';
 import { buildColumnPrefix, normalizeTableName, resolveTableFromAliasInSql } from './utils';
 import { editorSelectionByTabAtom } from '../../sql-console.store';
 import { useTranslations } from 'next-intl';
+import type { ConnectionType } from '@/types/connections';
+import { getSqlDialectConfigForConnectionType, getSqlDialectParser, type SqlDialectParser } from '@/lib/sql/sql-dialect';
 
 const MAX_SQL_LEN_FOR_PARSE = 20000;
-const languageId = 'mysql';
 
 type ContentChangeHandler = (tabId: string, content: string) => void;
 
@@ -27,6 +28,7 @@ interface UseSqlMonacoEditorProps {
     editorTheme: string;
     editorSettings: SqlEditorSettings;
     currentConnectionId?: string;
+    currentConnectionType?: ConnectionType;
     containerRef: RefObject<HTMLDivElement | null>;
     onContentChange: ContentChangeHandler;
     onRunQuery?: () => void;
@@ -89,10 +91,8 @@ const resolveTablesForColumnContext = (
 
 const registerDtSqlCompletion = (
     monaco: typeof import('monaco-editor'),
-    parser: {
-        getSuggestionAtCaretPosition: (sql: string, caretPos: { lineNumber: number; column: number }) => unknown;
-        getAllEntities?: (sql: string, caretPos: { lineNumber: number; column: number }) => any[] | null;
-    },
+    languageId: string,
+    parser: SqlDialectParser,
     t: ReturnType<typeof useTranslations>,
     getTables: () => any[],
     getColumns: (tableName: string) => Promise<any[] | undefined>,
@@ -125,7 +125,7 @@ const registerDtSqlCompletion = (
             
             let suggestion: any = {};
             try {
-                suggestion = parser.getSuggestionAtCaretPosition(sql, caretPos) || {};
+                suggestion = parser.getSuggestionAtCaretPosition?.(sql, caretPos) || {};
             } catch (err) {
                 console.warn('dt-sql-parser getSuggestionAtCaretPosition error:', err);
                 suggestion = {};
@@ -322,6 +322,7 @@ export function useSqlMonacoEditor({
     editorTheme,
     editorSettings,
     currentConnectionId,
+    currentConnectionType,
     containerRef,
     onContentChange,
     onRunQuery,
@@ -330,7 +331,6 @@ export function useSqlMonacoEditor({
     const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
     const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
     const dtCompletionDisposableRef = useRef<Monaco.IDisposable | null>(null);
-    const parserRef = useRef<any | null>(null);
     const tablesRef = useRef<any[]>([]);
     const activeDatabaseRef = useRef<string>('');
     const databasesRef = useRef<any[]>([]);
@@ -404,21 +404,18 @@ export function useSqlMonacoEditor({
         (async () => {
             const monaco = await import('monaco-editor');
             monacoRef.current = monaco;
+            const dialectConfig = getSqlDialectConfigForConnectionType(currentConnectionType);
+            const languageId = dialectConfig.monacoLanguageId;
 
             
-            if (!parserRef.current) {
-                const dt = await import('dt-sql-parser');
-                
-                parserRef.current = new dt.PostgreSQL();
-            }
-            const parser = parserRef.current;
+            const parser = await getSqlDialectParser(dialectConfig.dialect);
 
             monaco.editor.defineTheme('github-dark', vsPlusTheme.darkThemeData);
             monaco.editor.defineTheme('github-light', vsPlusTheme.lightThemeData);
             monaco.editor.setTheme(editorThemeRef.current);
 
             try {
-                registerSQLCompletion(monaco, currentConnectionId || '');
+                registerSQLCompletion(monaco, languageId, currentConnectionId || '');
             } catch {
                 
             }
@@ -426,6 +423,7 @@ export function useSqlMonacoEditor({
             dtCompletionDisposableRef.current?.dispose();
             dtCompletionDisposableRef.current = registerDtSqlCompletion(
                 monaco,
+                languageId,
                 parser,
                 t,
                 () => tablesRef.current,
@@ -502,7 +500,7 @@ export function useSqlMonacoEditor({
                 return { ...prev, [activeTab.tabId]: null };
             });
         };
-    }, [activeTab?.tabId, activeTab?.tabType, containerRef, currentConnectionId, onContentChange, setSelectionByTab, t]);
+    }, [activeTab?.tabId, activeTab?.tabType, containerRef, currentConnectionId, currentConnectionType, onContentChange, setSelectionByTab, t]);
 
     useEffect(() => {
         const editor = editorRef.current;

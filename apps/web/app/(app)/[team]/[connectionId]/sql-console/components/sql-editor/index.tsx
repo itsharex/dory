@@ -59,6 +59,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(({ activeTab, upda
         editorTheme,
         editorSettings,
         currentConnectionId: currentConnection?.connection.id,
+        currentConnectionType: currentConnection?.connection.type,
         containerRef,
         onContentChange: handleContentChange,
         onRunQuery,
@@ -78,6 +79,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(({ activeTab, upda
         handleExecuteSql,
     } = useSqlEditorActions({
         editorRef,
+        currentConnectionType: currentConnection?.connection.type,
         onRunQuery,
         formatHandlerRef,
     });

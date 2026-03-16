@@ -1,32 +1,9 @@
 import { ConnectionDialect } from '@/types';
 import type { CopilotContextSQL } from './types/copilot-context-sql';
-import { MySQL, PostgreSQL } from 'dt-sql-parser';
+import { getSqlDialectParser } from '@/lib/sql/sql-dialect';
 
 type ParserInstance = {
-    getAllEntities: (sql: string) => Array<{ entityContextType?: string; text?: string }> | null;
-};
-
-const parserCache: Partial<Record<ConnectionDialect, ParserInstance>> = {};
-
-const getParser = (dialect: ConnectionDialect): ParserInstance => {
-    if (parserCache[dialect]) return parserCache[dialect]!;
-
-    let parser: ParserInstance;
-    switch (dialect) {
-        case 'postgres':
-            parser = new PostgreSQL() as ParserInstance;
-            break;
-        case 'mysql':
-        case 'clickhouse':
-        case 'duckdb':
-        case 'unknown':
-        default:
-            parser = new MySQL() as ParserInstance;
-            break;
-    }
-
-    parserCache[dialect] = parser;
-    return parser;
+    getAllEntities?: (sql: string) => Array<{ entityContextType?: string; text?: string }> | null;
 };
 
 const stripWrapping = (value: string) => {
@@ -72,11 +49,11 @@ const fallbackInferred = (
     confidence: 'low',
 });
 
-export function inferSqlDraftContext(params: {
+export async function inferSqlDraftContext(params: {
     dialect: ConnectionDialect;
     editorText: string;
     baselineDatabase?: string | null;
-}): CopilotContextSQL['draft']['inferred'] {
+}): Promise<CopilotContextSQL['draft']['inferred']> {
     const { dialect, editorText, baselineDatabase } = params;
 
     if (!editorText.trim()) {
@@ -89,8 +66,8 @@ export function inferSqlDraftContext(params: {
 
     let entities: Array<{ entityContextType?: string; text?: string }> | null = null;
     try {
-        const parser = getParser(dialect);
-        entities = parser.getAllEntities(editorText) ?? null;
+        const parser = (await getSqlDialectParser(dialect)) as ParserInstance;
+        entities = parser.getAllEntities?.(editorText) ?? null;
     } catch (error) {
         return fallbackInferred(baselineDatabase);
     }

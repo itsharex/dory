@@ -3,6 +3,7 @@ import type { CopilotFixInput } from './types/copilot-fix-input';
 import type { CopilotEnvelopeMeta, CopilotEnvelopeV1 } from './types/copilot-envelope';
 import { inferSqlDraftContext } from './infer-sql-context';
 import { ConnectionDialect } from '@/types';
+import { normalizeSqlDialect } from '@/lib/sql/sql-dialect';
 
 const TRUNCATION_SUFFIX = '…(truncated)';
 
@@ -22,16 +23,16 @@ function truncateText(value: string, limit: number): string {
     return `${value.slice(0, sliceLength)}${TRUNCATION_SUFFIX}`;
 }
 
-export function createCopilotSQLContextEnvelope(params: {
+export async function createCopilotSQLContextEnvelope(params: {
     editorText: string;
     selection?: { start: number; end: number } | null;
     baselineDatabase?: string | null;
     dialect?: ConnectionDialect;
     meta?: CopilotEnvelopeMeta;
     updatedAt?: number;
-}): CopilotEnvelopeV1 {
+}): Promise<CopilotEnvelopeV1> {
     const dialect = params.dialect ?? 'unknown';
-    const inferred = inferSqlDraftContext({
+    const inferred = await inferSqlDraftContext({
         dialect,
         editorText: params.editorText,
         baselineDatabase: params.baselineDatabase ?? null,
@@ -87,19 +88,7 @@ export function createCopilotFixInputFromExecution(execution: {
 }
 
 function normalizeDialect(dialect?: string): ConnectionDialect {
-    switch ((dialect ?? '').toLowerCase()) {
-        case 'clickhouse':
-            return 'clickhouse';
-        case 'duckdb':
-            return 'duckdb';
-        case 'mysql':
-            return 'mysql';
-        case 'postgres':
-        case 'postgresql':
-            return 'postgres';
-        default:
-            return 'unknown';
-    }
+    return normalizeSqlDialect(dialect);
 }
 
 export function toPromptContext(envelope: CopilotEnvelopeV1): Record<string, unknown> {
