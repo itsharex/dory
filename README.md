@@ -37,6 +37,7 @@ docker run -d --name dory \
   -p 3000:3000 \
   -e DS_SECRET_KEY="$(openssl rand -base64 32 | tr -d '\n')" \
   -e BETTER_AUTH_SECRET="$(openssl rand -hex 32)" \
+  -e BETTER_AUTH_URL="http://localhost:3000" \
   -e DORY_AI_PROVIDER=openai \
   -e DORY_AI_MODEL=gpt-4o-mini \
   -e DORY_AI_API_KEY=your_api_key_here \
