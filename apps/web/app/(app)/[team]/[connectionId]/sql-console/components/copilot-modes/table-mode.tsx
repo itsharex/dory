@@ -14,7 +14,6 @@ export function TableMode({
     setActiveTabId,
     addTab,
     updateTab,
-    runQuery,
     showChatbot,
     chatWidth,
     setChatWidth,
@@ -38,7 +37,7 @@ export function TableMode({
                 <Panel defaultSize={showChatbot ? 100 - chatWidth : 100} minSize={40} order={1} className="min-h-0">
                     <div className="flex h-full flex-col min-h-0">
                         <div className="flex-1 min-h-0 overflow-auto">
-                            <TableBrowser activeTab={activeTab} updateTab={updateTab} runQuery={runQuery} />
+                            <TableBrowser activeTab={activeTab} updateTab={updateTab} />
                         </div>
                     </div>
                 </Panel>

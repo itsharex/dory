@@ -5,7 +5,7 @@ import { useAtom } from 'jotai';
 import { useDB } from '@/lib/client/use-pglite';
 import { useQuery } from '@/hooks/use-query';
 import { authFetch } from '@/lib/client/auth-fetch';
-import { fetchTablePreview } from '@/lib/client/fetch-table-preview';
+import { fetchTablePreview } from '../../../components/table-browser/lib/fetch-table-preview';
 import { SQLTab } from '@/types/tabs';
 import { runningTabsAtom, sessionIdByTabAtom } from '../sql-console.store';
 import { SQLEditorHandle } from '../components/sql-editor';
@@ -94,7 +94,7 @@ export function useSqlQueryRunner({
             const tableName = tab.tabType === 'table' ? tab.tableName : undefined;
 
             const stopOnError = false;
-            const source = tab.tabType === 'table' ? 'table-preview' : 'sql-console';
+            const source = tab.tabType === 'table' ? 'data-preview' : 'sql-console';
 
             setRunningTabs(p => ({ ...p, [tabId]: 'running' }));
             const controller = new AbortController();

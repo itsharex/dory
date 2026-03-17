@@ -5,7 +5,7 @@ import { useAtom } from 'jotai';
 import { authClient } from '@/lib/auth-client';
 import { activeDatabaseAtom } from '@/shared/stores/app.store';
 import { useSQLTabs } from '../components/tabs/hooks/use-tab-hooks';
-import { useTablePreviewManager } from '../../../components/table-browser/components/table-preview/use-table-preview';
+import { useDataPreviewManager } from '../../../components/table-browser/components/data-preview/use-data-preview';
 import { useSqlLayout } from './useSqlLayout';
 import { useSqlAiTabTitle } from './useSqlAiTabTitle';
 import { useSqlQueryRunner } from './useSqlQueryRunner';
@@ -22,7 +22,7 @@ export function useSqlConsoleClient(defaultLayout: number[] | undefined) {
 
     const { requestAITabTitle, manualRenameTab } = useSqlAiTabTitle(activeDatabase, updateTab);
 
-    const { editorRef, runQuery, cancelQuery, runningTabs, dbReady, userReady } = useSqlQueryRunner({
+    const { editorRef, runQuery, cancelQuery, runningTabs } = useSqlQueryRunner({
         activeDatabase,
         activeTab,
         tabs,
@@ -30,18 +30,14 @@ export function useSqlConsoleClient(defaultLayout: number[] | undefined) {
         requestAITabTitle,
     });
 
-    const { handleOpenTableTab, handleCloseTab, handleCloseOthers } = useTablePreviewManager({
+    const { handleOpenTableTab, handleCloseTab, handleCloseOthers } = useDataPreviewManager({
         tabs,
-        activeTab,
         activeDatabase,
-        dbReady,
-        userReady,
         setActiveDatabase,
         setActiveTabId,
         addTableTab,
         closeTab,
         closeOtherTabs,
-        runTableQuery: runQuery,
     });
 
     useSqlChatHandoff({

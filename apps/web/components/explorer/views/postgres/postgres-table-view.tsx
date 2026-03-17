@@ -1,8 +1,11 @@
 'use client';
 
-import UrlTableBrowser from '@/app/(app)/[team]/components/table-browser/url-table-browser';
-import { useTranslations } from 'next-intl';
+import { TableOverview } from '@/app/(app)/[team]/components/table-browser/components/overview';
+import TableStats from '@/app/(app)/[team]/components/table-browser/components/stats';
+import TableStructure from '@/app/(app)/[team]/components/table-browser/components/structure';
+import { UrlDataPreview } from '@/app/(app)/[team]/components/table-browser/components/data-preview';
 import type { ExplorerResource } from '@/lib/explorer/types';
+import { useTranslations } from 'next-intl';
 import { PostgresTabsShell, type PostgresExplorerTab } from './postgres-tabs-shell';
 import { PostgresTableIndexesTab } from './postgres-table-indexes-tab';
 
@@ -20,22 +23,22 @@ export function PostgresTableView({ catalog, resource }: PostgresTableViewProps)
         {
             value: 'overview',
             label: t('Tabs.overview'),
-            content: <UrlTableBrowser catalog={catalog} databaseName={resource.database} tableName={qualifiedName} initialTab="overview" />,
+            content: <TableOverview databaseName={resource.database} tableName={qualifiedName} />,
         },
         {
             value: 'data',
             label: t('Tabs.data'),
-            content: <UrlTableBrowser catalog={catalog} databaseName={resource.database} tableName={qualifiedName} initialTab="data" />,
+            content: <UrlDataPreview />,
         },
         {
             value: 'structure',
             label: t('Tabs.structure'),
-            content: <UrlTableBrowser catalog={catalog} databaseName={resource.database} tableName={qualifiedName} initialTab="structure" />,
+            content: <TableStructure databaseName={resource.database} tableName={qualifiedName} />,
         },
         {
             value: 'stats',
             label: t('Tabs.stats'),
-            content: <UrlTableBrowser catalog={catalog} databaseName={resource.database} tableName={qualifiedName} initialTab="stats" />,
+            content: <TableStats databaseName={resource.database} tableName={qualifiedName} />,
         },
         {
             value: 'indexes',
