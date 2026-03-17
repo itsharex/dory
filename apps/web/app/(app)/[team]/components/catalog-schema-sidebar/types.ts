@@ -1,9 +1,39 @@
+import type { ExplorerListKind, ExplorerObjectKind } from '@/lib/explorer/types';
+
 export type TargetOption = {
     label?: string;
     value?: string;
     name?: string;
     schema?: string;
     [key: string]: unknown;
+};
+
+export type SidebarObjectKind = Extract<ExplorerObjectKind, 'table' | 'view' | 'materializedView' | 'function'>;
+export type SidebarListKind = Extract<ExplorerListKind, 'tables' | 'views' | 'materializedViews' | 'functions'>;
+
+export type SidebarSelection = {
+    schema?: string;
+    name: string;
+    objectKind: SidebarObjectKind;
+};
+
+export type SidebarSchemaTarget = {
+    database: string;
+    schema: string;
+};
+
+export type SidebarListTarget = {
+    database: string;
+    schema?: string;
+    listKind: SidebarListKind;
+};
+
+export type SidebarObjectTarget = {
+    database: string;
+    schema?: string;
+    objectKind: SidebarObjectKind;
+    name: string;
+    label?: string;
 };
 
 export type GroupState = {

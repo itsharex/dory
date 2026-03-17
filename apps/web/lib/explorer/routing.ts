@@ -6,20 +6,9 @@ import { resolveDorisExplorerResource } from './resolvers/doris';
 import { resolveMysqlExplorerResource } from './resolvers/mysql';
 import { resolvePostgresExplorerResource } from './resolvers/postgres';
 import { resolveTrinoExplorerResource } from './resolvers/trino';
-import type {
-    BreadcrumbItem,
-    ExplorerBaseParams,
-    ExplorerDriver,
-    ExplorerListKind,
-    ExplorerObjectKind,
-    ExplorerResolvedRoute,
-    ExplorerResource,
-} from './types';
+import type { BreadcrumbItem, ExplorerBaseParams, ExplorerDriver, ExplorerListKind, ExplorerObjectKind, ExplorerResolvedRoute, ExplorerResource } from './types';
 
-function normalizeExplorerResourceForDriver(
-    driver: ExplorerDriver,
-    resource?: ExplorerResource,
-): ExplorerResource | undefined {
+function normalizeExplorerResourceForDriver(driver: ExplorerDriver, resource?: ExplorerResource): ExplorerResource | undefined {
     switch (driver) {
         case 'postgres':
         case 'duckdb':
@@ -34,6 +23,27 @@ function normalizeExplorerResourceForDriver(
             return resolveTrinoExplorerResource(resource);
         default:
             return resolveMysqlExplorerResource(resource);
+    }
+}
+
+export function objectKindToListKind(kind: Exclude<ExplorerObjectKind, 'database' | 'schema'>): ExplorerListKind | undefined {
+    switch (kind) {
+        case 'table':
+            return 'tables';
+        case 'view':
+            return 'views';
+        case 'materializedView':
+            return 'materializedViews';
+        case 'function':
+            return 'functions';
+        case 'sequence':
+            return 'sequences';
+        case 'dictionary':
+            return 'dictionaries';
+        case 'procedure':
+            return 'procedures';
+        default:
+            return undefined;
     }
 }
 
@@ -72,10 +82,7 @@ function getPageType(resource?: ExplorerResource): ExplorerResolvedRoute['pageTy
     return 'namespace';
 }
 
-export function resolveExplorerRoute(params: {
-    driver?: string | null;
-    slug?: string[];
-}): ExplorerResolvedRoute {
+export function resolveExplorerRoute(params: { driver?: string | null; slug?: string[] }): ExplorerResolvedRoute {
     const parsed = parseExplorerSlug(params.slug);
     const driver = resolveExplorerDriver(params.driver);
     const resource = normalizeExplorerResourceForDriver(driver, parsed.resource);
@@ -100,9 +107,7 @@ function buildExplorerResourceSegments(resource: ExplorerResource): string[] {
         case 'schema':
             return ['database', resource.database, 'schema', resource.schema];
         case 'list':
-            return resource.schema
-                ? ['database', resource.database, 'schema', resource.schema, resource.listKind]
-                : ['database', resource.database, resource.listKind];
+            return resource.schema ? ['database', resource.database, 'schema', resource.schema, resource.listKind] : ['database', resource.database, resource.listKind];
         case 'object':
             return resource.schema
                 ? ['database', resource.database, 'schema', resource.schema, resource.objectKind, resource.name]
@@ -110,10 +115,7 @@ function buildExplorerResourceSegments(resource: ExplorerResource): string[] {
     }
 }
 
-export function buildExplorerBreadcrumbs(
-    params: ExplorerBaseParams,
-    resource?: ExplorerResource,
-): BreadcrumbItem[] {
+export function buildExplorerBreadcrumbs(params: ExplorerBaseParams, resource?: ExplorerResource): BreadcrumbItem[] {
     const items: BreadcrumbItem[] = [
         {
             label: 'Explorer',
@@ -144,26 +146,8 @@ export function buildExplorerBreadcrumbs(
     }
 
     if (resource.kind === 'list') {
-        items.push({
-            label: formatListKindLabel(resource.listKind),
-            href: buildExplorerListPath(params, {
-                database: resource.database,
-                schema: resource.schema,
-                listKind: resource.listKind,
-            }),
-        });
         return items;
     }
-
-    items.push({
-        label: formatObjectKindLabel(resource.objectKind),
-        href: buildExplorerObjectPath(params, {
-            database: resource.database,
-            schema: resource.schema,
-            objectKind: resource.objectKind,
-            name: resource.name,
-        }),
-    });
 
     items.push({
         label: resource.name,
@@ -176,6 +160,26 @@ export function buildExplorerBreadcrumbs(
     });
 
     return items;
+}
+
+export function getExplorerHeaderBadgeLabel(resource?: ExplorerResource): string | undefined {
+    if (!resource) {
+        return undefined;
+    }
+
+    if (resource.kind === 'database') {
+        return 'Database';
+    }
+
+    if (resource.kind === 'schema') {
+        return 'Schema';
+    }
+
+    if (resource.kind === 'list') {
+        return formatListKindLabel(resource.listKind);
+    }
+
+    return formatObjectKindLabel(resource.objectKind);
 }
 
 export function formatListKindLabel(kind: ExplorerListKind): string {

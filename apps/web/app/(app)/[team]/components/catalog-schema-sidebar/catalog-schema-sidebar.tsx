@@ -17,15 +17,19 @@ import { isSuccess } from '@/lib/result';
 import { activeDatabaseAtom, currentConnectionAtom } from '@/shared/stores/app.store';
 import { CatalogSchemaTree } from './catalog-schema-sidebar-tree';
 import { DEFAULT_GROUP_STATE, EMPTY_DATABASE_OBJECTS } from './types';
-import type { DatabaseObjects, GroupState, SchemaNode, TargetOption } from './types';
+import type { DatabaseObjects, GroupState, SchemaNode, SidebarListKind, SidebarListTarget, SidebarObjectTarget, SidebarSelection, TargetOption } from './types';
 
 type CatalogSchemaSidebarProps = {
     catalogName?: string;
-    onOpenTableTab?: (payload: { database?: string; tableName: string; tabLabel?: string }) => void;
-    onSelectTable?: (payload: { database?: string; tableName: string; tabLabel?: string }) => void;
     onSelectDatabase?: (database: string) => void;
-    selectedTable?: string;
+    onSelectSchema?: (target: { database: string; schema: string }) => void;
+    onSelectList?: (target: SidebarListTarget) => void;
+    onSelectObject?: (target: SidebarObjectTarget) => void;
+    onOpenObject?: (target: SidebarObjectTarget) => void;
     selectedDatabase?: string;
+    selectedSchema?: string;
+    selectedList?: SidebarListKind;
+    selectedObject?: SidebarSelection;
 };
 
 const STALE_TIME = 1000 * 60 * 5;
@@ -58,9 +62,7 @@ function normalizeEntry(entry: TargetOption): TargetOption | null {
 }
 
 function normalizeEntries(entries: TargetOption[]): TargetOption[] {
-    return entries
-        .map(entry => normalizeEntry(entry))
-        .filter((entry): entry is TargetOption => Boolean(entry));
+    return entries.map(entry => normalizeEntry(entry)).filter((entry): entry is TargetOption => Boolean(entry));
 }
 
 function resolveSchemaName(entry: TargetOption, defaultSchemaName?: string | null) {
@@ -83,11 +85,15 @@ function resolveSchemaName(entry: TargetOption, defaultSchemaName?: string | nul
 
 export function CatalogSchemaSidebar({
     catalogName = 'default',
-    onOpenTableTab,
-    onSelectTable,
     onSelectDatabase,
-    selectedTable,
+    onSelectSchema,
+    onSelectList,
+    onSelectObject,
+    onOpenObject,
     selectedDatabase,
+    selectedSchema,
+    selectedList,
+    selectedObject,
 }: CatalogSchemaSidebarProps) {
     const [localFilter, setFilter] = useState('');
     const deferredFilter = useDeferredValue(localFilter);
@@ -144,16 +150,13 @@ export function CatalogSchemaSidebar({
                 if (!connectionId || !supportsSchemas) return [];
 
                 try {
-                    const response = await authFetch(
-                        `/api/connection/${connectionId}/databases/${encodeURIComponent(entry.value)}/schemas`,
-                        {
-                            method: 'GET',
-                            signal,
-                            headers: {
-                                'X-Connection-ID': connectionId,
-                            },
+                    const response = await authFetch(`/api/connection/${connectionId}/databases/${encodeURIComponent(entry.value)}/schemas`, {
+                        method: 'GET',
+                        signal,
+                        headers: {
+                            'X-Connection-ID': connectionId,
                         },
-                    );
+                    });
                     const payload = (await response.json()) as ResponseObject<TargetOption[]>;
                     if (!isSuccess(payload)) return [];
                     return normalizeEntries(payload.data ?? []);
@@ -176,16 +179,13 @@ export function CatalogSchemaSidebar({
                     if (!connectionId) return [];
 
                     try {
-                        const response = await authFetch(
-                            `/api/connection/${connectionId}/databases/${encodeURIComponent(entry.value)}/${GROUP_ENDPOINTS[group]}`,
-                            {
-                                method: 'GET',
-                                signal,
-                                headers: {
-                                    'X-Connection-ID': connectionId,
-                                },
+                        const response = await authFetch(`/api/connection/${connectionId}/databases/${encodeURIComponent(entry.value)}/${GROUP_ENDPOINTS[group]}`, {
+                            method: 'GET',
+                            signal,
+                            headers: {
+                                'X-Connection-ID': connectionId,
                             },
-                        );
+                        });
                         const payload = (await response.json()) as ResponseObject<TargetOption[]>;
                         if (!isSuccess(payload)) return [];
                         return normalizeEntries(payload.data ?? []);
@@ -258,7 +258,7 @@ export function CatalogSchemaSidebar({
         const next: Record<string, SchemaNode[]> = {};
 
         databaseEntries.forEach((entry, index) => {
-            const schemaEntries = supportsSchemas ? schemaQueries[index]?.data ?? [] : [];
+            const schemaEntries = supportsSchemas ? (schemaQueries[index]?.data ?? []) : [];
             const seen = new Set<string>();
             const nodes: SchemaNode[] = [];
 
@@ -335,9 +335,10 @@ export function CatalogSchemaSidebar({
     }, [selectedDatabase]);
 
     useEffect(() => {
-        if (!supportsSchemas || !selectedDatabase || !selectedTable) return;
+        if (!supportsSchemas || !selectedDatabase || !selectedObject?.name) return;
 
-        const entrySchema = resolveSchemaName({ value: selectedTable }, defaultSchemaName);
+        const selectedValue = selectedObject.schema ? `${selectedObject.schema}.${selectedObject.name}` : selectedObject.name;
+        const entrySchema = resolveSchemaName({ value: selectedValue, schema: selectedObject.schema }, defaultSchemaName);
         if (!entrySchema) return;
 
         const scopeKey = buildScopeKey(selectedDatabase, entrySchema);
@@ -348,7 +349,7 @@ export function CatalogSchemaSidebar({
                 [scopeKey]: true,
             };
         });
-    }, [defaultSchemaName, selectedDatabase, selectedTable, supportsSchemas]);
+    }, [defaultSchemaName, selectedDatabase, selectedObject, supportsSchemas]);
 
     const toggleDatabase = useCallback((database: string) => {
         setExpandedDatabases(prev => {
@@ -446,7 +447,9 @@ export function CatalogSchemaSidebar({
                         normalized={normalized}
                         hasAnyResults={hasAnyResults}
                         selectedDatabase={selectedDatabase}
-                        selectedTable={selectedTable}
+                        selectedSchema={selectedSchema}
+                        selectedList={selectedList}
+                        selectedObject={selectedObject}
                         onToggleCatalog={() => setExpandedCatalog(prev => !prev)}
                         onToggleDatabase={toggleDatabase}
                         onToggleGroup={toggleGroup}
@@ -456,13 +459,21 @@ export function CatalogSchemaSidebar({
                             setActiveDatabase(dbName);
                             onSelectDatabase?.(dbName);
                         }}
-                        onSelectObject={payload => {
-                            setActiveDatabase(payload.database);
-                            onSelectTable?.(payload);
+                        onSelectSchema={target => {
+                            setActiveDatabase(target.database);
+                            onSelectSchema?.(target);
                         }}
-                        onOpenObject={payload => {
-                            setActiveDatabase(payload.database);
-                            onOpenTableTab?.(payload);
+                        onSelectList={target => {
+                            setActiveDatabase(target.database);
+                            onSelectList?.(target);
+                        }}
+                        onSelectObject={target => {
+                            setActiveDatabase(target.database);
+                            onSelectObject?.(target);
+                        }}
+                        onOpenObject={target => {
+                            setActiveDatabase(target.database);
+                            onOpenObject?.(target);
                         }}
                         filterEntries={filterEntries}
                         getSchemaObjects={getSchemaObjects}

@@ -1,17 +1,6 @@
 'use client';
 
-import {
-    Boxes,
-    ChevronDown,
-    ChevronRight,
-    Database,
-    Eye,
-    FolderTree,
-    Layers,
-    Loader2,
-    Sigma,
-    Table,
-} from 'lucide-react';
+import { Boxes, ChevronDown, ChevronRight, Database, Eye, FolderTree, Layers, Loader2, Sigma, Table } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/utils';
@@ -19,7 +8,7 @@ import { ObjectGroup } from './catalog-object-group';
 import type { GroupConfig } from './catalog-object-group';
 import { SchemaNodeRow } from './schema-node-row';
 import { DEFAULT_GROUP_STATE, EMPTY_DATABASE_OBJECTS } from './types';
-import type { DatabaseObjects, GroupState, SchemaNode, TargetOption } from './types';
+import type { DatabaseObjects, GroupState, SchemaNode, SidebarListKind, SidebarListTarget, SidebarObjectTarget, SidebarSelection, TargetOption } from './types';
 
 type CatalogSchemaTreeProps = {
     catalogName: string;
@@ -37,14 +26,18 @@ type CatalogSchemaTreeProps = {
     normalized: string;
     hasAnyResults: boolean;
     selectedDatabase?: string;
-    selectedTable?: string;
+    selectedSchema?: string;
+    selectedList?: SidebarListKind;
+    selectedObject?: SidebarSelection;
     onToggleCatalog: () => void;
     onToggleDatabase: (database: string) => void;
     onToggleGroup: (scopeKey: string, group: keyof GroupState) => void;
     onToggleSchema: (database: string, schema: string) => void;
     onSelectDatabase: (database: string) => void;
-    onSelectObject: (payload: { database: string; tableName: string; tabLabel?: string }) => void;
-    onOpenObject: (payload: { database: string; tableName: string; tabLabel?: string }) => void;
+    onSelectSchema: (target: { database: string; schema: string }) => void;
+    onSelectList: (target: SidebarListTarget) => void;
+    onSelectObject: (target: SidebarObjectTarget) => void;
+    onOpenObject: (target: SidebarObjectTarget) => void;
     filterEntries: (entries: TargetOption[]) => TargetOption[];
     getSchemaObjects: (database: string, schema: string) => DatabaseObjects;
 };
@@ -74,12 +67,16 @@ export function CatalogSchemaTree({
     normalized,
     hasAnyResults,
     selectedDatabase,
-    selectedTable,
+    selectedSchema,
+    selectedList,
+    selectedObject,
     onToggleCatalog,
     onToggleDatabase,
     onToggleGroup,
     onToggleSchema,
     onSelectDatabase,
+    onSelectSchema,
+    onSelectList,
     onSelectObject,
     onOpenObject,
     filterEntries,
@@ -126,11 +123,15 @@ export function CatalogSchemaTree({
                                     supportsSchemas={supportsSchemas}
                                     groupConfigs={groupConfigs}
                                     selectedDatabase={selectedDatabase}
-                                    selectedTable={selectedTable}
+                                    selectedSchema={selectedSchema}
+                                    selectedList={selectedList}
+                                    selectedObject={selectedObject}
                                     onToggleDatabase={onToggleDatabase}
                                     onToggleSchema={onToggleSchema}
                                     onToggleGroup={onToggleGroup}
                                     onSelectDatabase={onSelectDatabase}
+                                    onSelectSchema={onSelectSchema}
+                                    onSelectList={onSelectList}
                                     onSelectObject={onSelectObject}
                                     onOpenObject={onOpenObject}
                                     filterEntries={filterEntries}
@@ -145,15 +146,7 @@ export function CatalogSchemaTree({
     );
 }
 
-function CatalogHeader({
-    catalogName,
-    expanded,
-    onToggle,
-}: {
-    catalogName: string;
-    expanded: boolean;
-    onToggle: () => void;
-}) {
+function CatalogHeader({ catalogName, expanded, onToggle }: { catalogName: string; expanded: boolean; onToggle: () => void }) {
     const t = useTranslations('CatalogSchemaSidebar');
 
     return (
@@ -187,13 +180,17 @@ type DatabaseNodeProps = {
     supportsSchemas: boolean;
     groupConfigs: GroupConfig[];
     selectedDatabase?: string;
-    selectedTable?: string;
+    selectedSchema?: string;
+    selectedList?: SidebarListKind;
+    selectedObject?: SidebarSelection;
     onToggleDatabase: (database: string) => void;
     onToggleSchema: (database: string, schema: string) => void;
     onToggleGroup: (scopeKey: string, group: keyof GroupState) => void;
     onSelectDatabase: (database: string) => void;
-    onSelectObject: (payload: { database: string; tableName: string; tabLabel?: string }) => void;
-    onOpenObject: (payload: { database: string; tableName: string; tabLabel?: string }) => void;
+    onSelectSchema: (target: { database: string; schema: string }) => void;
+    onSelectList: (target: SidebarListTarget) => void;
+    onSelectObject: (target: SidebarObjectTarget) => void;
+    onOpenObject: (target: SidebarObjectTarget) => void;
     filterEntries: (entries: TargetOption[]) => TargetOption[];
     getSchemaObjects: (database: string, schema: string) => DatabaseObjects;
 };
@@ -213,11 +210,15 @@ function DatabaseNode({
     supportsSchemas,
     groupConfigs,
     selectedDatabase,
-    selectedTable,
+    selectedSchema,
+    selectedList,
+    selectedObject,
     onToggleDatabase,
     onToggleSchema,
     onToggleGroup,
     onSelectDatabase,
+    onSelectSchema,
+    onSelectList,
     onSelectObject,
     onOpenObject,
     filterEntries,
@@ -258,9 +259,7 @@ function DatabaseNode({
                     onClick={() => onSelectDatabase(dbName)}
                     className={cn(
                         'flex-1 truncate rounded px-1 py-0.5 text-left text-sm',
-                        selectedDatabase === dbName
-                            ? 'text-foreground'
-                            : 'text-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                        selectedDatabase === dbName ? 'text-foreground' : 'text-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
                     )}
                     title={dbName}
                 >
@@ -273,60 +272,76 @@ function DatabaseNode({
                     {supportsSchemas ? (
                         <>
                             {!loadingSchemas[dbName]
-                                ? (
-                                visibleSchemas.map(schema => {
-                                    const scopeKey = buildScopeKey(dbName, schema.name);
+                                ? visibleSchemas.map(schema => {
+                                      const scopeKey = buildScopeKey(dbName, schema.name);
 
-                                    return (
-                                        <SchemaNodeRow
-                                            key={scopeKey}
-                                            dbName={dbName}
-                                            schema={schema}
-                                            scopeKey={scopeKey}
-                                            isExpanded={Boolean(expandedSchemas[scopeKey])}
-                                            expandedGroups={expandedGroups}
-                                            groupConfigs={groupConfigs}
-                                            objects={getSchemaObjects(dbName, schema.name)}
-                                            loadingState={loadingGroups[scopeKey] ?? DEFAULT_GROUP_STATE}
-                                            normalized={normalized}
-                                            selectedDatabase={selectedDatabase}
-                                            selectedTable={selectedTable}
-                                            onToggleSchema={onToggleSchema}
-                                            onToggleGroup={onToggleGroup}
-                                            onSelectObject={onSelectObject}
-                                            onOpenObject={onOpenObject}
-                                            filterEntries={filterEntries}
-                                        />
-                                    );
-                                })
-                                )
+                                      return (
+                                          <SchemaNodeRow
+                                              key={scopeKey}
+                                              dbName={dbName}
+                                              schema={schema}
+                                              scopeKey={scopeKey}
+                                              isExpanded={Boolean(expandedSchemas[scopeKey])}
+                                              expandedGroups={expandedGroups}
+                                              groupConfigs={groupConfigs}
+                                              objects={getSchemaObjects(dbName, schema.name)}
+                                              loadingState={loadingGroups[scopeKey] ?? DEFAULT_GROUP_STATE}
+                                              normalized={normalized}
+                                              selectedDatabase={selectedDatabase}
+                                              selectedSchema={selectedSchema}
+                                              selectedList={selectedList}
+                                              selectedObject={selectedObject}
+                                              onToggleSchema={onToggleSchema}
+                                              onToggleGroup={onToggleGroup}
+                                              onSelectSchema={onSelectSchema}
+                                              onSelectList={onSelectList}
+                                              onSelectObject={onSelectObject}
+                                              onOpenObject={onOpenObject}
+                                              filterEntries={filterEntries}
+                                          />
+                                      );
+                                  })
                                 : null}
 
-                            {!visibleSchemas.length && !loadingSchemas[dbName] ? (
-                                <div className="px-2 py-1.5 text-xs text-sidebar-foreground/70">{t('No schemas')}</div>
-                            ) : null}
+                            {!visibleSchemas.length && !loadingSchemas[dbName] ? <div className="px-2 py-1.5 text-xs text-sidebar-foreground/70">{t('No schemas')}</div> : null}
                         </>
                     ) : (
                         <>
-                            {!isAnyGroupLoading(loadingGroups[dbName]) ? (
-                                groupConfigs.map(group => (
-                                    <ObjectGroup
-                                        key={`${dbName}-${group.key}`}
-                                        scopeKey={dbName}
-                                        dbName={dbName}
-                                        group={group}
-                                        isExpanded={groupState[group.key]}
-                                        isLoading={loadingGroups[dbName]?.[group.key] ?? false}
-                                        entries={normalized ? filterEntries(objects[group.key]) : objects[group.key]}
-                                        normalized={normalized}
-                                        selectedDatabase={selectedDatabase}
-                                        selectedTable={selectedTable}
-                                        onToggle={() => onToggleGroup(dbName, group.key)}
-                                        onSelectObject={onSelectObject}
-                                        onOpenObject={onOpenObject}
-                                    />
-                                ))
-                            ) : null}
+                            {!isAnyGroupLoading(loadingGroups[dbName])
+                                ? groupConfigs.map(group => (
+                                      <ObjectGroup
+                                          key={`${dbName}-${group.key}`}
+                                          scopeKey={dbName}
+                                          dbName={dbName}
+                                          group={group}
+                                          objectKind={
+                                              group.key === 'tables'
+                                                  ? 'table'
+                                                  : group.key === 'views'
+                                                    ? 'view'
+                                                    : group.key === 'materializedViews'
+                                                      ? 'materializedView'
+                                                      : 'function'
+                                          }
+                                          listTarget={{
+                                              database: dbName,
+                                              listKind: group.key,
+                                          }}
+                                          isExpanded={groupState[group.key]}
+                                          isLoading={loadingGroups[dbName]?.[group.key] ?? false}
+                                          entries={normalized ? filterEntries(objects[group.key]) : objects[group.key]}
+                                          normalized={normalized}
+                                          selectedDatabase={selectedDatabase}
+                                          selectedSchema={selectedSchema}
+                                          selectedList={selectedList}
+                                          selectedObject={selectedObject}
+                                          onToggle={() => onToggleGroup(dbName, group.key)}
+                                          onSelectList={onSelectList}
+                                          onSelectObject={onSelectObject}
+                                          onOpenObject={onOpenObject}
+                                      />
+                                  ))
+                                : null}
                         </>
                     )}
                 </div>

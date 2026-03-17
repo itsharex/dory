@@ -1,32 +1,27 @@
 'use client';
 
-import Link from 'next/link';
-import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator } from '@/registry/new-york-v4/ui/breadcrumb';
 import type { BreadcrumbItem as ExplorerBreadcrumbItem } from '@/lib/explorer/types';
+import { ExplorerBreadcrumb } from '@/app/(app)/[team]/[connectionId]/explorer/components/explorer-breadcrumb';
+import { Badge } from '@/registry/new-york-v4/ui/badge';
 
 type ExplorerHeaderProps = {
     breadcrumbs: ExplorerBreadcrumbItem[];
+    badgeLabel?: string;
 };
 
-export function ExplorerHeader({ breadcrumbs }: ExplorerHeaderProps) {
-    if (breadcrumbs.length === 0) {
+export function ExplorerHeader({ breadcrumbs, badgeLabel }: ExplorerHeaderProps) {
+    if (breadcrumbs.length === 0 && !badgeLabel) {
         return null;
     }
 
     return (
-        <div className="border-b px-6 py-3">
-            <Breadcrumb>
-                <BreadcrumbList>
-                    {breadcrumbs.map((item, index) => (
-                        <BreadcrumbItem key={`${item.label}-${item.href}`}>
-                            <BreadcrumbLink asChild>
-                                <Link href={item.href}>{item.label}</Link>
-                            </BreadcrumbLink>
-                            {index < breadcrumbs.length - 1 ? <BreadcrumbSeparator /> : null}
-                        </BreadcrumbItem>
-                    ))}
-                </BreadcrumbList>
-            </Breadcrumb>
+        <div className="flex items-center justify-between gap-4 border-b px-6 py-3">
+            <ExplorerBreadcrumb items={breadcrumbs} />
+            {badgeLabel ? (
+                <Badge variant="outline" className="shrink-0">
+                    {badgeLabel}
+                </Badge>
+            ) : null}
         </div>
     );
 }

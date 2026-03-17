@@ -1,6 +1,6 @@
 'use client';
 
-import { buildExplorerBreadcrumbs } from '@/lib/explorer/routing';
+import { buildExplorerBreadcrumbs, getExplorerHeaderBadgeLabel } from '@/lib/explorer/routing';
 import type { ExplorerBaseParams, ExplorerResolvedRoute } from '@/lib/explorer/types';
 import { ExplorerHeader } from './explorer-header';
 import { ObjectNotFound } from './object-not-found';
@@ -20,10 +20,11 @@ export function ExplorerRouter({ baseParams, route }: ExplorerRouterProps) {
         catalog: route.catalog,
     };
     const breadcrumbs = buildExplorerBreadcrumbs(paramsWithCatalog, route.resource);
+    const badgeLabel = getExplorerHeaderBadgeLabel(route.resource);
 
     return (
         <div className="flex h-full min-h-0 flex-col">
-            <ExplorerHeader breadcrumbs={breadcrumbs} />
+            <ExplorerHeader breadcrumbs={breadcrumbs} badgeLabel={badgeLabel} />
             <div className="min-h-0 flex-1 overflow-auto">
                 {route.pageType === 'root' ? <RootView team={baseParams.team} connectionId={baseParams.connectionId} catalog={route.catalog} /> : null}
                 {route.pageType === 'namespace' && route.resource ? (

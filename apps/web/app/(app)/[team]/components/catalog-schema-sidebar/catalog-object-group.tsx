@@ -5,7 +5,7 @@ import type { LucideIcon } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 import { cn } from '@/lib/utils';
-import type { GroupState, TargetOption } from './types';
+import type { GroupState, SidebarListKind, SidebarListTarget, SidebarObjectKind, SidebarObjectTarget, SidebarSelection, TargetOption } from './types';
 
 export type GroupConfig = {
     key: keyof GroupState;
@@ -18,15 +18,21 @@ type ObjectGroupProps = {
     scopeKey: string;
     dbName: string;
     group: GroupConfig;
+    objectKind: SidebarObjectKind;
+    listTarget: SidebarListTarget;
+    fallbackSchema?: string;
     isExpanded: boolean;
     isLoading: boolean;
     entries: TargetOption[];
     normalized: string;
     selectedDatabase?: string;
-    selectedTable?: string;
+    selectedSchema?: string;
+    selectedList?: SidebarListKind;
+    selectedObject?: SidebarSelection;
     onToggle: () => void;
-    onSelectObject: (payload: { database: string; tableName: string; tabLabel?: string }) => void;
-    onOpenObject: (payload: { database: string; tableName: string; tabLabel?: string }) => void;
+    onSelectList: (target: SidebarListTarget) => void;
+    onSelectObject: (target: SidebarObjectTarget) => void;
+    onOpenObject: (target: SidebarObjectTarget) => void;
 };
 
 const resolveEntryValue = (entry: TargetOption) => (entry.value ?? entry.label ?? entry.name ?? '').toString();
@@ -36,34 +42,49 @@ export function ObjectGroup({
     scopeKey,
     dbName,
     group,
+    objectKind,
+    listTarget,
+    fallbackSchema,
     isExpanded,
     isLoading,
     entries,
     normalized,
     selectedDatabase,
-    selectedTable,
+    selectedSchema,
+    selectedList,
+    selectedObject,
     onToggle,
+    onSelectList,
     onSelectObject,
     onOpenObject,
 }: ObjectGroupProps) {
     const t = useTranslations('CatalogSchemaSidebar');
+    const isSelectedList = selectedDatabase === dbName && selectedSchema === listTarget.schema && selectedList === listTarget.listKind;
 
     return (
         <div className="space-y-1">
-            <button
-                type="button"
-                onClick={onToggle}
-                className="flex items-center gap-2 rounded px-2 py-1 text-xs text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-            >
-                {isLoading ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : isExpanded ? (
-                    <ChevronDown className="h-3.5 w-3.5" />
-                ) : (
-                    <ChevronRight className="h-3.5 w-3.5" />
-                )}
-                <span>{`${group.label} (${entries.length})`}</span>
-            </button>
+            <div className="flex items-center gap-2 px-2 py-1">
+                <button
+                    type="button"
+                    onClick={onToggle}
+                    className="rounded p-0.5 text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                    aria-label={`${isExpanded ? t('Collapse') : t('Expand')} ${group.label}`}
+                >
+                    {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => onSelectList(listTarget)}
+                    className={cn(
+                        'flex-1 truncate rounded px-1 py-0.5 text-left text-xs',
+                        isSelectedList
+                            ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                            : 'text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                    )}
+                >
+                    {`${group.label} (${entries.length})`}
+                </button>
+            </div>
 
             {isExpanded ? (
                 <div className="ml-6 space-y-1">
@@ -77,16 +98,16 @@ export function ObjectGroup({
                                     dbName={dbName}
                                     entry={item.entry}
                                     icon={group.icon}
+                                    objectKind={objectKind}
+                                    fallbackSchema={fallbackSchema}
                                     selectedDatabase={selectedDatabase}
-                                    selectedTable={selectedTable}
+                                    selectedObject={selectedObject}
                                     onSelectObject={onSelectObject}
                                     onOpenObject={onOpenObject}
                                 />
                             ))
                     ) : (
-                        <div className="px-2 py-1.5 text-xs text-sidebar-foreground/70">
-                            {normalized ? t('No matching items') : group.emptyLabel}
-                        </div>
+                        <div className="px-2 py-1.5 text-xs text-sidebar-foreground/70">{normalized ? t('No matching items') : group.emptyLabel}</div>
                     )}
                 </div>
             ) : null}
@@ -98,44 +119,57 @@ function ObjectItem({
     dbName,
     entry,
     icon: Icon,
+    objectKind,
+    fallbackSchema,
     selectedDatabase,
-    selectedTable,
+    selectedObject,
     onSelectObject,
     onOpenObject,
 }: {
     dbName: string;
     entry: TargetOption;
     icon: LucideIcon;
+    objectKind: SidebarObjectKind;
+    fallbackSchema?: string;
     selectedDatabase?: string;
-    selectedTable?: string;
-    onSelectObject: (payload: { database: string; tableName: string; tabLabel?: string }) => void;
-    onOpenObject: (payload: { database: string; tableName: string; tabLabel?: string }) => void;
+    selectedObject?: SidebarSelection;
+    onSelectObject: (target: SidebarObjectTarget) => void;
+    onOpenObject: (target: SidebarObjectTarget) => void;
 }) {
     const entryValue = resolveEntryValue(entry);
     const entryLabel = resolveEntryLabel(entry);
-    const isSelected = selectedTable === entryValue && selectedDatabase === dbName;
+    const entrySchema = typeof entry.schema === 'string' && entry.schema.trim() ? entry.schema.trim() : fallbackSchema;
+    const entryName = entrySchema && entryValue.startsWith(`${entrySchema}.`) ? entryValue.slice(entrySchema.length + 1) : entryValue;
+    const isSelected =
+        selectedDatabase === dbName &&
+        selectedObject?.objectKind === objectKind &&
+        (entryValue === selectedObject.name ||
+            entryName === selectedObject.name ||
+            (selectedObject.schema ? entryValue === `${selectedObject.schema}.${selectedObject.name}` : false));
 
     return (
         <button
             type="button"
             className={cn(
                 'flex w-full items-center gap-2 truncate rounded px-2 py-1 text-left text-sm',
-                isSelected
-                    ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                    : 'text-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                isSelected ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
             )}
             onClick={() =>
                 onSelectObject({
                     database: dbName,
-                    tableName: entryValue,
-                    tabLabel: entryLabel,
+                    schema: entrySchema,
+                    objectKind,
+                    name: entryName,
+                    label: entryLabel,
                 })
             }
             onDoubleClick={() =>
                 onOpenObject({
                     database: dbName,
-                    tableName: entryValue,
-                    tabLabel: entryLabel,
+                    schema: entrySchema,
+                    objectKind,
+                    name: entryName,
+                    label: entryLabel,
                 })
             }
             title={entryLabel}
