@@ -2003,6 +2003,7 @@
     },
     "AppSidebar": {
         "SQLConsole": "SQL 控制台",
+        "Explorer": "Explorer",
         "Schema": "Schema",
         "Chatbot": "Chatbot",
         "Monitoring": "监控",

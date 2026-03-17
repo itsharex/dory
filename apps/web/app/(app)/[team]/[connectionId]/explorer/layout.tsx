@@ -1,16 +1,16 @@
 import type { ReactNode } from 'react';
-import { ExplorerLayout } from '../explorer/components/explorer-layout';
+import { ExplorerLayout } from './components/explorer-layout';
 
-type CatalogRouteLayoutParams = {
+type ExplorerLayoutParams = {
     team: string;
     connectionId: string;
 };
 
-export default async function CatalogPageLayout({
+export default async function ExplorerPageLayout({
     params: _params,
     children,
 }: {
-    params: Promise<CatalogRouteLayoutParams>;
+    params: Promise<ExplorerLayoutParams>;
     children: ReactNode;
 }) {
     return (

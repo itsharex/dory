@@ -8,7 +8,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenuButto
 import { NavMain } from './nav-main';
 import { NavUser } from './nav-user';
 import { authClient } from '@/lib/auth-client';
-import { ArrowUpCircle, FileChartColumnIncreasing, SquareCode } from 'lucide-react';
+import { ArrowUpCircle, Compass, FileChartColumnIncreasing, SquareCode } from 'lucide-react';
 import { NavSecondary } from './nav-secondary';
 import { ConnectionSwitcher } from './connection-switcher';
 import { Separator } from '@/registry/new-york-v4/ui/separator';
@@ -40,6 +40,12 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
             : connectionId
               ? `/${team}/${connectionId}/catalog/default`
               : `/${team}/connections`;
+    const explorerUrl =
+        connectionId && defaultDatabase
+            ? `/${team}/${connectionId}/explorer/${encodeURIComponent(defaultDatabase)}`
+            : connectionId
+              ? `/${team}/${connectionId}/explorer`
+              : `/${team}/connections`;
     const [updaterState, setUpdaterState] = React.useState<{ readyToInstall: boolean; version: string | null }>({
         readyToInstall: false,
         version: null,
@@ -53,6 +59,12 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
             title: t('SQLConsole'),
             url: connectionId ? `/${team}/${connectionId}/sql-console` : `/${team}/connections`,
             icon: SquareCode,
+            requiresConnection: true,
+        },
+        {
+            title: t('Explorer'),
+            url: explorerUrl,
+            icon: Compass,
             requiresConnection: true,
         },
         {

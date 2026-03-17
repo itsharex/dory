@@ -2001,6 +2001,7 @@
     },
     "AppSidebar": {
         "SQLConsole": "SQL Console",
+        "Explorer": "Explorer",
         "Schema": "Schema",
         "Chatbot": "Chatbot",
         "Monitoring": "Monitoring",
