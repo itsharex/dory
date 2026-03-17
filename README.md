@@ -5,7 +5,7 @@
 <h1 align="center">Dory</h1>
 
 
-**Dory is an AI-native SQL Studio for modern databases.**  
+**Dory is an AI-native Data Workspace for modern databases.**  
 
 > The AI-powered Data Studio you’ve been waiting for.
 
