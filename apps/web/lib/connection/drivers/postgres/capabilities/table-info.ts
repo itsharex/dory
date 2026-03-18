@@ -1,6 +1,6 @@
 import type { GetTableInfoAPI } from '@/lib/connection/base/types';
 import { DEFAULT_TABLE_PREVIEW_LIMIT } from '@/shared/data/app.data';
-import type { PostgresTableStats, TableIndexInfo, TablePropertiesRow, TableStats } from '@/types/table-info';
+import type { TableIndexInfo, TablePropertiesRow, TableStats } from '@/types/table-info';
 import type { PostgresDatasource } from '../PostgresDatasource';
 
 type TableIdentityRow = {
@@ -254,6 +254,43 @@ async function getTableStats(datasource: PostgresDatasource, database: string, t
 
     const totalBytes = toNumberOrNull(identity.totalBytes);
 
+    const [indexUsageResult, vacuumResult] = await Promise.all([
+        datasource.queryWithContext<IndexUsageRow>(
+            `
+                SELECT
+                    idx.relname AS "indexName",
+                    s.idx_scan AS "indexScans",
+                    s.idx_tup_read AS "tupleReads",
+                    s.idx_tup_fetch AS "tupleFetches",
+                    pg_relation_size(idx.oid) AS "sizeBytes"
+                FROM pg_index i
+                JOIN pg_class idx ON idx.oid = i.indexrelid
+                LEFT JOIN pg_stat_user_indexes s ON s.indexrelid = idx.oid
+                WHERE i.indrelid = $1
+                ORDER BY COALESCE(s.idx_scan, 0) DESC
+            `,
+            { database, params: [identity.oid] },
+        ),
+        datasource.queryWithContext<VacuumStatRow>(
+            `
+                SELECT
+                    last_vacuum AS "lastVacuum",
+                    last_autovacuum AS "lastAutovacuum",
+                    last_analyze AS "lastAnalyze",
+                    last_autoanalyze AS "lastAutoanalyze",
+                    n_dead_tup AS "deadTuples",
+                    n_live_tup AS "liveTuples",
+                    n_mod_since_analyze AS "modsSinceAnalyze"
+                FROM pg_stat_user_tables
+                WHERE relid = $1
+                LIMIT 1
+            `,
+            { database, params: [identity.oid] },
+        ),
+    ]);
+
+    const vacuumRow = vacuumResult.rows[0] ?? null;
+
     return {
         rowCount: toNumberOrNull(identity.totalRows),
         compressedBytes: totalBytes,
@@ -266,6 +303,28 @@ async function getTableStats(datasource: PostgresDatasource, database: string, t
         maxPartSize: partitions.length ? Math.max(...partitions.map(partition => partition.compressedBytes)) : totalBytes,
         activeMutations: [],
         ttlExpression: null,
+        totalBytes,
+        rowEstimate: toNumberOrNull(identity.totalRows),
+        indexUsage: indexUsageResult.rows
+            .filter(row => row.indexName)
+            .map(row => ({
+                indexName: row.indexName as string,
+                indexScans: toNumberOrNull(row.indexScans) ?? 0,
+                tupleReads: toNumberOrNull(row.tupleReads) ?? 0,
+                tupleFetches: toNumberOrNull(row.tupleFetches) ?? 0,
+                sizeBytes: toNumberOrNull(row.sizeBytes),
+            })),
+        vacuumHealth: vacuumRow
+            ? {
+                  lastVacuum: vacuumRow.lastVacuum ?? null,
+                  lastAutovacuum: vacuumRow.lastAutovacuum ?? null,
+                  lastAnalyze: vacuumRow.lastAnalyze ?? null,
+                  lastAutoanalyze: vacuumRow.lastAutoanalyze ?? null,
+                  deadTuples: toNumberOrNull(vacuumRow.deadTuples),
+                  liveTuples: toNumberOrNull(vacuumRow.liveTuples),
+                  modsSinceAnalyze: toNumberOrNull(vacuumRow.modsSinceAnalyze),
+              }
+            : null,
     };
 }
 
@@ -328,85 +387,11 @@ async function getTableIndexes(datasource: PostgresDatasource, database: string,
         }));
 }
 
-async function getPostgresTableStats(
-    datasource: PostgresDatasource,
-    database: string,
-    table: string,
-): Promise<PostgresTableStats | null> {
-    const identity = await getTableIdentity(datasource, database, table);
-    if (!identity?.oid) {
-        return null;
-    }
-
-    const [indexUsageResult, vacuumResult] = await Promise.all([
-        datasource.queryWithContext<IndexUsageRow>(
-            `
-                SELECT
-                    idx.relname AS "indexName",
-                    s.idx_scan AS "indexScans",
-                    s.idx_tup_read AS "tupleReads",
-                    s.idx_tup_fetch AS "tupleFetches",
-                    pg_relation_size(idx.oid) AS "sizeBytes"
-                FROM pg_index i
-                JOIN pg_class idx ON idx.oid = i.indexrelid
-                LEFT JOIN pg_stat_user_indexes s ON s.indexrelid = idx.oid
-                WHERE i.indrelid = $1
-                ORDER BY COALESCE(s.idx_scan, 0) DESC
-            `,
-            { database, params: [identity.oid] },
-        ),
-        datasource.queryWithContext<VacuumStatRow>(
-            `
-                SELECT
-                    last_vacuum AS "lastVacuum",
-                    last_autovacuum AS "lastAutovacuum",
-                    last_analyze AS "lastAnalyze",
-                    last_autoanalyze AS "lastAutoanalyze",
-                    n_dead_tup AS "deadTuples",
-                    n_live_tup AS "liveTuples",
-                    n_mod_since_analyze AS "modsSinceAnalyze"
-                FROM pg_stat_user_tables
-                WHERE relid = $1
-                LIMIT 1
-            `,
-            { database, params: [identity.oid] },
-        ),
-    ]);
-
-    const vacuumRow = vacuumResult.rows[0] ?? null;
-
-    return {
-        totalBytes: toNumberOrNull(identity.totalBytes),
-        rowEstimate: toNumberOrNull(identity.totalRows),
-        indexUsage: indexUsageResult.rows
-            .filter(row => row.indexName)
-            .map(row => ({
-                indexName: row.indexName as string,
-                indexScans: toNumberOrNull(row.indexScans) ?? 0,
-                tupleReads: toNumberOrNull(row.tupleReads) ?? 0,
-                tupleFetches: toNumberOrNull(row.tupleFetches) ?? 0,
-                sizeBytes: toNumberOrNull(row.sizeBytes),
-            })),
-        vacuumHealth: vacuumRow
-            ? {
-                  lastVacuum: vacuumRow.lastVacuum ?? null,
-                  lastAutovacuum: vacuumRow.lastAutovacuum ?? null,
-                  lastAnalyze: vacuumRow.lastAnalyze ?? null,
-                  lastAutoanalyze: vacuumRow.lastAutoanalyze ?? null,
-                  deadTuples: toNumberOrNull(vacuumRow.deadTuples),
-                  liveTuples: toNumberOrNull(vacuumRow.liveTuples),
-                  modsSinceAnalyze: toNumberOrNull(vacuumRow.modsSinceAnalyze),
-              }
-            : null,
-    };
-}
-
 export function createPostgresTableInfoCapability(datasource: PostgresDatasource): GetTableInfoAPI {
     return {
         properties: (database, table) => getTableProperties(datasource, database, table),
         ddl: (database, table) => getTableDDL(datasource, database, table),
         stats: (database, table) => getTableStats(datasource, database, table),
-        postgresStats: (database, table) => getPostgresTableStats(datasource, database, table),
         preview: (database, table, options) => getTablePreview(datasource, database, table, options),
         indexes: (database, table) => getTableIndexes(datasource, database, table),
     };

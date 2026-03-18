@@ -4,7 +4,7 @@ import { useAtomValue } from 'jotai';
 import { Alert, AlertDescription, AlertTitle } from '@/registry/new-york-v4/ui/alert';
 import { ScrollArea } from '@/registry/new-york-v4/ui/scroll-area';
 import { currentConnectionAtom } from '@/shared/stores/app.store';
-import { usePostgresTableStatsQuery } from '../table-queries';
+import { useTableStatsQuery } from '../table-queries';
 import { useTranslations } from 'next-intl';
 import PostgresSizeCard from './components/postgres-size-card';
 import PostgresIndexUsageCard from './components/postgres-index-usage-card';
@@ -20,7 +20,7 @@ export default function PostgresTableStatsView({ databaseName, tableName }: Prop
     const connectionId = currentConnection?.connection.id;
     const t = useTranslations('PostgresTableStats');
 
-    const statsQuery = usePostgresTableStatsQuery({ databaseName, tableName, connectionId });
+    const statsQuery = useTableStatsQuery({ databaseName, tableName, connectionId });
 
     const stats = statsQuery.data ?? null;
     const loading = statsQuery.isLoading;
