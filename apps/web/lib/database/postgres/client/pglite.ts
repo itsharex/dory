@@ -34,8 +34,9 @@ async function resolvePgliteDataDir(): Promise<string> {
 
     // 3) Fallback (e.g. local Node debugging)
     const defaultDir = isDesktopRuntime() ? DESKTOP_PGLITE_DB_PATH : DEFAULT_PGLITE_DB_PATH;
-    const dir = path.resolve(process.cwd(), defaultDir);
-    return dir;
+    // Indirect call to prevent Turbopack from statically tracing this as a file pattern
+    const resolve = path.resolve.bind(path);
+    return resolve(process.cwd(), defaultDir);
 }
 
 async function initPglite(): Promise<PostgresDBClient> {
