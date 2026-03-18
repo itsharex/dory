@@ -4,8 +4,8 @@ import { buildExplorerBreadcrumbs, getExplorerHeaderBadgeLabel } from '@/lib/exp
 import type { ExplorerBaseParams, ExplorerResolvedRoute } from '@/lib/explorer/types';
 import { ExplorerHeader } from './explorer-header';
 import { ObjectNotFound } from './object-not-found';
-import { RootView } from './views/root-view';
-import { getExplorerViewRegistry } from './views/view-registry';
+import { getExplorerViewRegistry } from './core/view-registry';
+import { RootView } from './resources/database/views/root-view';
 
 type ExplorerRouterProps = {
     baseParams: ExplorerBaseParams;
