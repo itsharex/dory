@@ -1,55 +1,55 @@
-FROM node:22-alpine AS installer
+FROM node:lts AS installer
 WORKDIR /app
 
+# Install bun and enable corepack for yarn
 RUN corepack enable \
- && corepack prepare yarn@1.22.22 --activate
-COPY . .
+ && npm install -g bun
 
 ARG VERSION
-ENV VERSION="${VERSION}"
-ENV CI=true
+ENV VERSION="${VERSION}" \
+    CI=true
 
-RUN apk add --no-cache curl bash
-RUN curl -fsSL https://bun.sh/install | bash
-ENV PATH="/root/.bun/bin:${PATH}"
+# Copy dependency files first for better caching (includes all workspaces)
+COPY package.json yarn.lock .yarnrc.yml ./
+COPY apps/web/package.json ./apps/web/
+COPY apps/electron/package.json ./apps/electron/
+COPY apps/admin/package.json ./apps/admin/
+COPY packages/auth-core/package.json ./packages/auth-core/
 
-RUN yarn install --frozen-lockfile --non-interactive --network-concurrency 4
-RUN yarn run build
-RUN mkdir -p apps/web/dist-scripts \
- && bun build apps/web/scripts/bootstrap.ts --target=node --format=esm --outfile=apps/web/dist-scripts/bootstrap.mjs
+# Install dependencies (this layer is cached unless dependency files change)
+RUN yarn install --immutable
 
-# copy pglite runtime assets next to bootstrap.mjs
-RUN DIST="$(find apps/web -path '*/@electric-sql/pglite*/dist' -type d -print -quit)" \
- && [ -n "$DIST" ] \
- && cp -a "$DIST"/postgres.* apps/web/dist-scripts/ \
- && cp -a "$DIST"/*.wasm apps/web/dist-scripts/ \
- && ls -lah apps/web/dist-scripts | sed -n '1,120p'
- 
-RUN rm -f apps/web/.next/standalone/.env apps/web/.next/standalone/.env.local
-RUN yarn install --production --frozen-lockfile
+# Copy source code
+COPY . .
 
-FROM node:22-alpine AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-ENV DORY_RUNTIME=docker
-ENV NEXT_PUBLIC_DORY_RUNTIME=docker
+# Build application and bootstrap script
+RUN yarn run build \
+ && mkdir -p apps/web/dist-scripts \
+ && bun build apps/web/scripts/bootstrap.ts --target=node --format=esm --outfile=apps/web/dist-scripts/bootstrap.mjs \
+ && cp -rn node_modules/@electric-sql/pglite/dist/. apps/web/dist-scripts/ \
+ && rm -f apps/web/.next/standalone/.env apps/web/.next/standalone/.env.local
+
+FROM node:lts AS runner
+
+ENV NODE_ENV=production \
+    HOSTNAME=0.0.0.0 \
+    PORT=3000 \
+    DORY_RUNTIME=docker \
+    NEXT_PUBLIC_DORY_RUNTIME=docker
 
 # tzdata
-RUN apk add --no-cache tzdata ca-certificates
+RUN apt-get update && apt-get install -y --no-install-recommends tzdata ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
 
-RUN addgroup -S -g 1001 nodejs \
- && adduser -S -u 1001 -G nodejs nextjs \
- && mkdir -p /app/logs /app/data \
- && chown -R nextjs:nodejs /app
+# Use built-in node user for security
+USER node
 
-USER nextjs
+WORKDIR /app
 
-COPY --from=installer /app/apps/web/package.json .
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/public ./apps/web/public
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/dist-scripts ./dist-scripts
-COPY --from=installer --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
-
+COPY --from=installer --chown=node:node /app/apps/web/.next/standalone ./
+COPY --from=installer --chown=node:node /app/apps/web/public ./apps/web/public
+COPY --from=installer --chown=node:node /app/apps/web/dist-scripts ./dist-scripts
+COPY --from=installer --chown=node:node /app/apps/web/.next/static ./apps/web/.next/static
 
 EXPOSE 3000
-CMD ["sh", "-lc", "node dist-scripts/bootstrap.mjs && if [ -f apps/web/server.js ]; then node apps/web/server.js; else node server.js; fi"]
+CMD ["sh", "-c", "node dist-scripts/bootstrap.mjs && exec node apps/web/server.js"]

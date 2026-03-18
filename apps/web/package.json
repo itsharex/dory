@@ -38,7 +38,7 @@
         "@ai-sdk/anthropic": "^3.0.13",
         "@ai-sdk/google": "^3.0.8",
         "@ai-sdk/openai": "^3.0.21",
-        "@ai-sdk/openai-compatible": "^1.0.18",
+        "@ai-sdk/openai-compatible": "^2.0.0",
         "@ai-sdk/react": "^3.0.61",
         "@ai-sdk/xai": "^3.0.23",
         "@clickhouse/client": "^1.12.0",
