@@ -57,5 +57,6 @@ apps/admin/.next/
 playwright-report
 playwright/.auth
 test-results
+apps/web/data/
 .tmp/
 apps/web/.tmp/

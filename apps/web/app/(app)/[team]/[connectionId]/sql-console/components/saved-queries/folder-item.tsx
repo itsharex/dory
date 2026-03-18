@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { ChevronRight, Folder, MoreHorizontal } from 'lucide-react';
+import { ChevronRight, Folder, GripVertical, MoreHorizontal } from 'lucide-react';
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -24,19 +24,32 @@ type FolderItemProps = {
     onDelete: (folder: FolderData) => void;
     children?: React.ReactNode;
     t: (key: string) => string;
+    dragHandleListeners?: Record<string, Function>;
+    dragHandleAttributes?: Record<string, any>;
+    isDragging?: boolean;
 };
 
-export function FolderItem({ folder, expanded, onToggle, onRename, onDelete, children, t }: FolderItemProps) {
+export function FolderItem({ folder, expanded, onToggle, onRename, onDelete, children, t, dragHandleListeners, dragHandleAttributes, isDragging }: FolderItemProps) {
     const [menuOpen, setMenuOpen] = useState(false);
 
     return (
-        <div>
+        <div className={cn(isDragging && 'opacity-50')}>
             <div
                 className={cn(
                     'group flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left transition-colors',
                     'border border-transparent hover:border-muted-foreground/20 hover:bg-muted/40',
                 )}
             >
+                {dragHandleListeners && (
+                    <button
+                        type="button"
+                        className="shrink-0 p-0.5 cursor-grab opacity-30 group-hover:opacity-60 hover:!opacity-100 active:cursor-grabbing touch-none"
+                        {...dragHandleListeners}
+                        {...dragHandleAttributes}
+                    >
+                        <GripVertical className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                )}
                 <button
                     type="button"
                     className="shrink-0 p-0.5"
