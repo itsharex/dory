@@ -24,6 +24,10 @@ jobs:
         with:
           node-version: lts/*
           cache: yarn
+          cache-dependency-path: yarn.lock
+
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
