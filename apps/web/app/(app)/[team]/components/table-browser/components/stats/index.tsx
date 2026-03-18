@@ -8,6 +8,7 @@ import SizeAndRowsCard from './components/size-and-rows-card';
 import PartitionsCard from './components/partitions-card';
 import StorageHealthCard from './components/storage-health-card';
 import { TableHealthReportCard } from './components/ai-insight';
+import PostgresTableStatsView from './postgres-stats';
 import { useTableStatsQuery } from '../table-queries';
 import { useTranslations } from 'next-intl';
 // import TTLCard from './components/ttl-card';
@@ -15,9 +16,10 @@ import { useTranslations } from 'next-intl';
 type TableStatsProps = {
     databaseName?: string;
     tableName?: string;
+    driver?: string;
 };
 
-export default function TableStatsView({ databaseName, tableName }: TableStatsProps) {
+function ClickhouseTableStatsView({ databaseName, tableName }: Omit<TableStatsProps, 'driver'>) {
     const currentConnection = useAtomValue(currentConnectionAtom);
     const connectionId = currentConnection?.connection.id;
     const t = useTranslations('TableStats');
@@ -57,3 +59,11 @@ export default function TableStatsView({ databaseName, tableName }: TableStatsPr
         </ScrollArea>
     );
 }
+
+export default function TableStatsView({ databaseName, tableName, driver }: TableStatsProps) {
+    if (driver === 'postgres') {
+        return <PostgresTableStatsView databaseName={databaseName} tableName={tableName} />;
+    }
+    return <ClickhouseTableStatsView databaseName={databaseName} tableName={tableName} />;
+}
+

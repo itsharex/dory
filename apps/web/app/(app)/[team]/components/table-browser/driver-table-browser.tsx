@@ -62,14 +62,17 @@ export function DriverTableBrowser({
 
     if (driver !== 'postgres') {
         return (
-            <TableViewTabs
-                connectionId={connectionId}
-                databaseName={databaseName}
-                tableName={tableName}
-                activeSubTab={currentTab}
-                initialSubTab={normalizeTab(driver, initialSubTab)}
-                onSubTabChange={handleTabChange}
-            />
+            <div className="p-6 h-full flex flex-col">
+                <TableViewTabs
+                    connectionId={connectionId}
+                    databaseName={databaseName}
+                    tableName={tableName}
+                    driver={driver}
+                    activeSubTab={currentTab}
+                    initialSubTab={normalizeTab(driver, initialSubTab)}
+                    onSubTabChange={handleTabChange}
+                />
+            </div>
         );
     }
 
@@ -95,7 +98,7 @@ export function DriverTableBrowser({
                         <TableStructure databaseName={databaseName} tableName={tableName} />
                     </TabsContent>
                     <TabsContent value="stats" className="h-full mt-0 data-[state=inactive]:hidden" forceMount>
-                        <TableStats databaseName={databaseName} tableName={tableName} />
+                        <TableStats databaseName={databaseName} tableName={tableName} driver={driver} />
                     </TabsContent>
                     <TabsContent value="indexes" className="h-full mt-0 data-[state=inactive]:hidden" forceMount>
                         <TableIndexesTab

@@ -13,6 +13,7 @@ type TableViewTabsProps = {
     connectionId?: string;
     databaseName?: string;
     tableName?: string;
+    driver?: string;
     activeSubTab?: TableSubTab;
     initialSubTab?: TableSubTab;
     onSubTabChange?: (tab: TableSubTab) => void;
@@ -20,7 +21,7 @@ type TableViewTabsProps = {
 
 const SUB_TABS: TableSubTab[] = ['overview', 'data', 'structure', 'stats'];
 
-export function TableViewTabs({ connectionId, databaseName, tableName, activeSubTab, initialSubTab = 'overview', onSubTabChange }: TableViewTabsProps) {
+export function TableViewTabs({ connectionId, databaseName, tableName, driver, activeSubTab, initialSubTab = 'overview', onSubTabChange }: TableViewTabsProps) {
     const t = useTranslations('TableBrowser');
     const [currentTab, setCurrentTab] = useState<TableSubTab>(activeSubTab ?? initialSubTab);
 
@@ -59,7 +60,7 @@ export function TableViewTabs({ connectionId, databaseName, tableName, activeSub
                     <TableStructure databaseName={databaseName} tableName={tableName} />
                 </TabsContent>
                 <TabsContent value="stats" className="h-full">
-                    <TableStats databaseName={databaseName} tableName={tableName} />
+                    <TableStats databaseName={databaseName} tableName={tableName} driver={driver} />
                 </TabsContent>
             </div>
         </Tabs>

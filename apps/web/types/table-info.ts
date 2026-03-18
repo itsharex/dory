@@ -48,3 +48,28 @@ export type TableIndexInfo = {
     sizeBytes?: number | null;
     definition?: string | null;
 };
+
+export type PostgresIndexUsageStat = {
+    indexName: string;
+    indexScans: number;
+    tupleReads: number;
+    tupleFetches: number;
+    sizeBytes: number | null;
+};
+
+export type PostgresVacuumHealth = {
+    lastVacuum: string | null;
+    lastAutovacuum: string | null;
+    lastAnalyze: string | null;
+    lastAutoanalyze: string | null;
+    deadTuples: number | null;
+    liveTuples: number | null;
+    modsSinceAnalyze: number | null;
+};
+
+export type PostgresTableStats = {
+    totalBytes: number | null;
+    rowEstimate: number | null;
+    indexUsage: PostgresIndexUsageStat[];
+    vacuumHealth: PostgresVacuumHealth | null;
+};

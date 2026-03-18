@@ -5,7 +5,7 @@ import { useColumns } from '@/hooks/use-columns';
 import type { ResponseObject } from '@/types';
 import { authFetch } from '@/lib/client/auth-fetch';
 import { isSuccess } from '@/lib/result';
-import type { TableStats, TablePropertiesRow } from '@/types/table-info';
+import type { PostgresTableStats, TableStats, TablePropertiesRow } from '@/types/table-info';
 import type { TableProperties } from './structure/properties-section';
 import type { ColumnInfo } from '../type';
 
@@ -25,6 +25,8 @@ export const tableQueryKeys = {
         ['table-ai-overview', connectionId, databaseName, tableName] as const,
     aiStatsInsights: (connectionId?: string, databaseName?: string, tableName?: string) =>
         ['table-stats-insights', connectionId, databaseName, tableName] as const,
+    postgresStats: (connectionId?: string, databaseName?: string, tableName?: string) =>
+        ['table-postgres-stats', connectionId, databaseName, tableName] as const,
 };
 
 function normalizeColumns(raw: any[]): ColumnInfo[] {
@@ -272,6 +274,47 @@ export function useTableDdlQuery({
             }
 
             throw new Error(res.message || 'Failed to load table DDL');
+        },
+    });
+}
+
+export function usePostgresTableStatsQuery({
+    databaseName,
+    tableName,
+    connectionId,
+}: {
+    databaseName?: string;
+    tableName?: string;
+    connectionId?: string;
+}) {
+    return useQuery({
+        queryKey: tableQueryKeys.postgresStats(connectionId, databaseName, tableName),
+        enabled: Boolean(connectionId && databaseName && tableName),
+        staleTime: STALE_TIME,
+        gcTime: GC_TIME,
+        refetchOnWindowFocus: false,
+        queryFn: async ({ signal }) => {
+            if (!connectionId) {
+                throw new Error('Missing connection');
+            }
+            const encodedDb = encodeURIComponent(databaseName as string);
+            const encodedTable = encodeURIComponent(tableName as string);
+            const response = await authFetch(
+                `/api/connection/${connectionId}/databases/${encodedDb}/tables/${encodedTable}/postgres-stats`,
+                {
+                    method: 'GET',
+                    signal,
+                    headers: {
+                        'X-Connection-ID': connectionId,
+                    },
+                },
+            );
+            const res = (await response.json()) as ResponseObject<PostgresTableStats>;
+
+            if (isSuccess(res) && res.data) {
+                return res.data;
+            }
+            throw new Error(res.message || 'Failed to load postgres table stats');
         },
     });
 }

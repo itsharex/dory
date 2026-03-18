@@ -1,5 +1,5 @@
 import { QueryInsightsFilters, QueryInsightsSummary, QueryTimelinePoint, QueryInsightsRow } from '@/types/monitoring';
-import { TableIndexInfo, TablePropertiesRow, TableStats } from '@/types/table-info';
+import { PostgresTableStats, TableIndexInfo, TablePropertiesRow, TableStats } from '@/types/table-info';
 
 export type ConnectionType = 'clickhouse' | 'postgres';
 
@@ -154,6 +154,7 @@ export type GetTableInfoAPI = {
     properties: (database: string, table: string) => Promise<TablePropertiesRow | null>;
     ddl: (database: string, table: string) => Promise<string | null>;
     stats: (database: string, table: string) => Promise<TableStats | null>;
+    postgresStats?: (database: string, table: string) => Promise<PostgresTableStats | null>;
     preview: (database: string, table: string, options?: TablePreviewOptions) => Promise<QueryResult<Record<string, unknown>>>;
     indexes?: (database: string, table: string) => Promise<TableIndexInfo[]>;
 };
