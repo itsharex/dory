@@ -61,7 +61,7 @@ export function SchemaNodeRow({
 
     return (
         <div className="space-y-1">
-            <div className="flex items-center gap-1 px-2 py-0.5">
+            <div className="flex items-center gap-1 px-2">
                 <button
                     type="button"
                     onClick={() => onToggleSchema(dbName, schema.name)}
@@ -80,7 +80,7 @@ export function SchemaNodeRow({
                     type="button"
                     onClick={() => onSelectSchema({ database: dbName, schema: schema.name })}
                     className={cn(
-                        'flex flex-1 cursor-pointer items-center gap-1.5 truncate rounded px-2 py-0.5 text-left text-sm',
+                        'flex flex-1 cursor-pointer items-center gap-1.5 truncate rounded px-2 py-1 text-left text-sm',
                         isSelected
                             ? 'bg-sidebar-accent text-sidebar-accent-foreground'
                             : 'text-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
