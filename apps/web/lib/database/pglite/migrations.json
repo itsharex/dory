@@ -109,5 +109,17 @@
     "bps": true,
     "folderMillis": 1773060051273,
     "hash": "e5bf63a7f0c6462842b90b1007bf8ae2b3530b86780c0ee759d305f36d955f13"
+  },
+  {
+    "sql": [
+      "CREATE TABLE \"saved_query_folders\" (\n\t\"id\" text PRIMARY KEY NOT NULL,\n\t\"team_id\" text NOT NULL,\n\t\"user_id\" text NOT NULL,\n\t\"name\" text NOT NULL,\n\t\"position\" integer DEFAULT 0 NOT NULL,\n\t\"created_at\" timestamp with time zone DEFAULT now() NOT NULL,\n\t\"updated_at\" timestamp with time zone DEFAULT now() NOT NULL\n);\n",
+      "\nALTER TABLE \"saved_queries\" ADD COLUMN \"folder_id\" text;",
+      "\nALTER TABLE \"saved_queries\" ADD COLUMN \"position\" integer DEFAULT 0 NOT NULL;",
+      "\nCREATE INDEX \"idx_saved_query_folders_team_user\" ON \"saved_query_folders\" USING btree (\"team_id\",\"user_id\");",
+      "\nCREATE INDEX \"idx_saved_queries_folder_id\" ON \"saved_queries\" USING btree (\"folder_id\");"
+    ],
+    "bps": true,
+    "folderMillis": 1773803901672,
+    "hash": "bfb5380091c78d5df89375af8d56e02bd8351dd74fe1a08a35644f0d58e75700"
   }
 ]
