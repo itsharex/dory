@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { IconDatabase, IconFileAi, IconHelp, IconUsers } from '@tabler/icons-react';
+import { IconFileAi, IconHelp, IconUsers } from '@tabler/icons-react';
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenuButton } from '@/registry/new-york-v4/ui/sidebar';
@@ -34,12 +34,6 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
     const connectionId = params.connectionId;
     const currentConnection = useAtomValue(currentConnectionAtom);
     const defaultDatabase = currentConnection && currentConnection.connection.id === connectionId ? currentConnection.connection.database : null;
-    const schemaUrl =
-        connectionId && defaultDatabase
-            ? buildExplorerDatabasePath({ team, connectionId }, defaultDatabase)
-            : connectionId
-              ? buildExplorerBasePath({ team, connectionId })
-              : `/${team}/connections`;
     const explorerUrl =
         connectionId && defaultDatabase
             ? buildExplorerDatabasePath({ team, connectionId }, defaultDatabase)
@@ -65,12 +59,6 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
             title: t('Explorer'),
             url: explorerUrl,
             icon: Compass,
-            requiresConnection: true,
-        },
-        {
-            title: t('Schema'),
-            url: schemaUrl,
-            icon: IconDatabase,
             requiresConnection: true,
         },
         {

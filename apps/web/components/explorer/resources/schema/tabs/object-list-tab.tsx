@@ -89,7 +89,9 @@ export function ObjectListTab(props: ObjectListTabProps) {
         const scopedRows = schema
             ? rows.filter(row => {
                   const qualified = splitQualifiedName(row.name);
-                  return qualified.schema === schema;
+                  // Rows without a schema qualifier are treated as belonging to the current schema
+                  // because postgres normalizes 'public' schema names by stripping the prefix
+                  return (qualified.schema ?? schema) === schema;
               })
             : rows;
 

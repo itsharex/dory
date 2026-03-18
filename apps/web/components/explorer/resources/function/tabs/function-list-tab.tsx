@@ -56,7 +56,12 @@ export function FunctionListResourceTab(props: FunctionListResourceTabProps) {
     }, [loadRows]);
 
     const visibleRows = React.useMemo(() => {
-        const scopedRows = schema ? rows.filter(row => splitQualifiedName(row.value).schema === schema) : rows;
+        const scopedRows = schema
+            ? rows.filter(row => {
+                  const qualified = splitQualifiedName(row.value);
+                  return (qualified.schema ?? schema) === schema;
+              })
+            : rows;
 
         const keyword = searchValue.trim().toLowerCase();
         if (!keyword) return scopedRows;
