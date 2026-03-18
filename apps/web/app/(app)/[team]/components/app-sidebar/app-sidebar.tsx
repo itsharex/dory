@@ -58,6 +58,7 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
         {
             title: t('Explorer'),
             url: explorerUrl,
+            matchPrefix: connectionId ? buildExplorerBasePath({ team, connectionId }) : undefined,
             icon: Compass,
             requiresConnection: true,
         },

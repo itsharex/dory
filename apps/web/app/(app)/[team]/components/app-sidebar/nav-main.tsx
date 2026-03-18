@@ -9,6 +9,7 @@ import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, Side
 export type NavItem = {
     title: string;
     url: string;
+    matchPrefix?: string;
     icon?: React.ComponentType<{ className?: string }>;
     requiresConnection?: boolean; 
 };
@@ -34,7 +35,8 @@ export function NavMain({
                         const IconComp = item.icon;
                         const itemDisabled = disabled || (item.requiresConnection && !hasActiveConnection);
 
-                        const isActive = !itemDisabled && (pathname === item.url || pathname.startsWith(`${item.url}/`));
+                        const matchBase = item.matchPrefix ?? item.url;
+                        const isActive = !itemDisabled && (pathname === item.url || pathname.startsWith(`${item.url}/`) || pathname === matchBase || pathname.startsWith(`${matchBase}/`));
 
                         const content = (
                             <Link
