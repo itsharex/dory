@@ -59,7 +59,7 @@ export default function RolePrivilegesPage() {
     const params = useParams();
     const encodedName = getParamValue(params?.name);
     const roleName = decodeURIComponent(encodedName ?? '');
-    const { connectionId, isClickhouseConnection, isConnectionReady } = usePrivilegesConnectionReady();
+    const { connectionId, routeConnectionId, isClickhouseConnection, isConnectionReady } = usePrivilegesConnectionReady();
 
     if (isConnectionReady && !isClickhouseConnection) {
         return null;

@@ -60,7 +60,7 @@ export default function UserPrivilegesPage() {
     const params = useParams();
     const encodedName = getParamValue(params?.name);
     const userName = decodeURIComponent(encodedName ?? '');
-    const { connectionId, isClickhouseConnection, isConnectionReady } = usePrivilegesConnectionReady();
+    const { connectionId, routeConnectionId, isClickhouseConnection, isConnectionReady } = usePrivilegesConnectionReady();
 
     if (isConnectionReady && !isClickhouseConnection) {
         return null;

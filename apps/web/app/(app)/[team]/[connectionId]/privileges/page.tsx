@@ -47,7 +47,7 @@ const DEFAULT_TAB = 'users';
 
 export default function PrivilegesPage() {
     const t = useTranslations('Privileges');
-    const { connectionId, isClickhouseConnection, isConnectionReady } = usePrivilegesConnectionReady();
+    const { connectionId, routeConnectionId, isClickhouseConnection, isConnectionReady } = usePrivilegesConnectionReady();
     const queryClient = useQueryClient();
 
     if (isConnectionReady && !isClickhouseConnection) {
