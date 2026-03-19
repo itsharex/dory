@@ -1,5 +1,4 @@
 import { createClient, type ClickHouseClient, type ClickHouseClientConfigOptions, type ClickHouseSettings, type ResponseJSON } from '@clickhouse/client';
-import type http from 'node:http';
 import { MAX_RESULT_ROWS } from '@/app/config/sql-console';
 import { translate } from '@/lib/i18n/i18n';
 import { routing } from '@/lib/i18n/routing';
@@ -105,11 +104,11 @@ function extractSettings(config: BaseConfig): ClickHouseSettings | undefined {
 
 export function createClickhouseClient(
     config: BaseConfig,
-    options?: { database?: string; sshAgent?: http.Agent | null },
+    options?: { database?: string; hostOverride?: string; httpPortOverride?: number },
 ): ClickHouseClient {
-    const httpPort = resolveClickhouseHttpPort(config);
+    const httpPort = options?.httpPortOverride ?? resolveClickhouseHttpPort(config);
     const useTls = isClickhouseTlsEnabled(config);
-    const url = buildUrl(config.host, httpPort, useTls);
+    const url = buildUrl(options?.hostOverride ?? config.host, httpPort, useTls && !options?.hostOverride);
     const requestTimeout = resolveRequestTimeout(config);
 
     const clientOptions: ClickHouseClientConfigOptions = {
@@ -119,10 +118,6 @@ export function createClickhouseClient(
         database: options?.database || config.database || 'default',
         request_timeout: requestTimeout,
     };
-
-    if (options?.sshAgent) {
-        clientOptions.http_agent = options.sshAgent;
-    }
 
     const settings = extractSettings(config);
     if (settings) {

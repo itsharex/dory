@@ -21,15 +21,61 @@ const databaseSummarySchema = z.object({
     databaseName: z.string(),
     catalogName: z.string().nullable(),
     schemaName: z.string().nullable(),
-    engine: z.enum(['clickhouse', 'doris', 'mysql', 'unknown']),
+    engine: z.enum(['clickhouse', 'doris', 'mysql', 'postgres', 'unknown']),
     cluster: z.string().nullable(),
+    owner: z.string().nullable(),
     tablesCount: z.number().nullable(),
     viewsCount: z.number().nullable(),
     materializedViewsCount: z.number().nullable(),
+    functionsCount: z.number().nullable(),
     totalBytes: z.number().nullable(),
     totalRowsEstimate: z.number().nullable(),
     lastUpdatedAt: z.string().nullable(),
     lastQueriedAt: z.string().nullable(),
+    tableSizeDistribution: z.object({
+        smallTablesCount: z.number().nullable(),
+        mediumTablesCount: z.number().nullable(),
+        largeTablesCount: z.number().nullable(),
+    }),
+    columnComplexity: z.object({
+        averageColumnsPerTable: z.number().nullable(),
+        maxColumns: z.number().nullable(),
+        maxColumnsTable: z.string().nullable(),
+    }),
+    foreignKeyLinksCount: z.number().nullable(),
+    relationshipPaths: z
+        .array(
+            z.object({
+                path: z.string(),
+            }),
+        )
+        .max(3),
+    detectedPatterns: z
+        .array(
+            z.object({
+                label: z.string(),
+                kind: z.enum(['domain', 'partition']),
+            }),
+        )
+        .max(4),
+    coreTables: z
+        .array(
+            z.object({
+                name: z.string(),
+                reason: z.enum([
+                    'centralAndHighRowVolume',
+                    'centralAndHighStorage',
+                    'centralInRelationships',
+                    'highRowVolume',
+                    'largeStorageFootprint',
+                    'recentlyUpdated',
+                    'goodStartingPoint',
+                ]),
+                bytes: z.number().nullable(),
+                rowsEstimate: z.number().nullable(),
+            }),
+        )
+        .max(3),
     topTablesByBytes: z
         .array(
             z.object({
@@ -58,6 +104,24 @@ const databaseSummarySchema = z.object({
             }),
         )
         .max(5),
+    startHere: z
+        .array(
+            z.object({
+                name: z.string(),
+                reason: z.enum([
+                    'centralAndHighRowVolume',
+                    'centralAndHighStorage',
+                    'centralInRelationships',
+                    'highRowVolume',
+                    'largeStorageFootprint',
+                    'recentlyUpdated',
+                    'goodStartingPoint',
+                ]),
+                bytes: z.number().nullable(),
+                rowsEstimate: z.number().nullable(),
+            }),
+        )
+        .max(3),
     oneLineSummary: z.string().nullable(),
 });
 
@@ -75,18 +139,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ databas
         const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
         const connectionId = req.headers.get(X_CONNECTION_ID_KEY);
         if (!connectionId) {
-            return NextResponse.json(
-                ResponseUtil.error({ code: ErrorCodes.INVALID_PARAMS, message: t('Api.Connection.Errors.MissingConnectionId') }),
-                { status: 400 },
-            );
+            return NextResponse.json(ResponseUtil.error({ code: ErrorCodes.INVALID_PARAMS, message: t('Api.Connection.Errors.MissingConnectionId') }), { status: 400 });
         }
 
         const parsedParams = paramsSchema.safeParse(await context.params);
         if (!parsedParams.success) {
-            return NextResponse.json(
-                ResponseUtil.error({ code: ErrorCodes.INVALID_PARAMS, message: t('Api.Connection.Validation.DatabaseRequired') }),
-                { status: 400 },
-            );
+            return NextResponse.json(ResponseUtil.error({ code: ErrorCodes.INVALID_PARAMS, message: t('Api.Connection.Validation.DatabaseRequired') }), { status: 400 });
         }
 
         const databaseName = decodeParam(parsedParams.data.database);
@@ -96,13 +154,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ databas
             schema: url.searchParams.get('schema') ?? undefined,
         });
 
-        const catalogName = parsedQuery.success ? parsedQuery.data.catalog ?? null : null;
-        const schemaName = parsedQuery.success ? parsedQuery.data.schema ?? null : null;
+        const catalogName = parsedQuery.success ? (parsedQuery.data.catalog ?? null) : null;
+        const schemaName = parsedQuery.success ? (parsedQuery.data.schema ?? null) : null;
 
         try {
             const { entry, config } = await ensureConnectionPoolForUser(userId, teamId, connectionId, null);
-            const engine = (config.type ?? 'unknown') as 'clickhouse' | 'doris' | 'mysql' | 'unknown';
-            const cluster = config.port ? `${config.host}:${config.port}` : config.host ?? null;
+            const engine = (config.type ?? 'unknown') as 'clickhouse' | 'doris' | 'mysql' | 'postgres' | 'unknown';
+            const cluster = config.port ? `${config.host}:${config.port}` : (config.host ?? null);
             const metadata = entry.instance.capabilities.metadata;
             if (!hasMetadataCapability(metadata, 'getDatabaseSummary')) {
                 throw new Error(t('Api.Connection.Databases.Errors.SummaryFailed'));

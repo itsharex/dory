@@ -4,15 +4,19 @@ import { useCallback, useEffect } from 'react';
 import type { MutableRefObject, RefObject } from 'react';
 import type * as Monaco from 'monaco-editor';
 import { format as formatSql } from 'sql-formatter';
+import type { ConnectionType } from '@/types/connections';
+import { getSqlDialectConfigForConnectionType } from '@/lib/sql/sql-dialect';
 
 interface UseSqlEditorActionsProps {
     editorRef: RefObject<Monaco.editor.IStandaloneCodeEditor | null>;
+    currentConnectionType?: ConnectionType;
     onRunQuery?: () => void;
     formatHandlerRef: MutableRefObject<(() => void) | null>;
 }
 
 export function useSqlEditorActions({
     editorRef,
+    currentConnectionType,
     onRunQuery,
     formatHandlerRef,
 }: UseSqlEditorActionsProps) {
@@ -93,7 +97,8 @@ export function useSqlEditorActions({
 
         if (!input.trim()) return;
 
-        const formatted = formatSql(input, { language: 'mysql' });
+        const dialectConfig = getSqlDialectConfigForConnectionType(currentConnectionType);
+        const formatted = formatSql(input, { language: dialectConfig.formatterLanguage });
         if (formatted === input) return;
 
         editor.pushUndoStop();
@@ -103,7 +108,7 @@ export function useSqlEditorActions({
             editor.executeEdits('format', [{ range: model.getFullModelRange(), text: formatted }]);
         }
         editor.pushUndoStop();
-    }, [editorRef]);
+    }, [currentConnectionType, editorRef]);
 
     const applyCaseTransform = useCallback(
         (transform: (value: string) => string) => {

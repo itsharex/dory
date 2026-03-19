@@ -21,7 +21,7 @@ import {
 } from '@/registry/new-york-v4/ui/alert-dialog';
 import { copilotPanelOpenAtom, copilotPanelWidthAtom, editorSelectionByTabAtom } from './sql-console.store';
 
-import { SchemaSidebar } from '../../components/schema-sidebar/schema-sidebar';
+import { SQLConsoleSidebar } from '../../components/sql-console-sidebar/sql-console-sidebar';
 import { SavedQueriesSidebar, type SavedQueryItem } from './components/saved-queries/saved-queries-sidebar';
 import SQLTabEmpty from './components/tabs/tab-empty';
 import { SQLTabs } from './components/tabs';
@@ -300,7 +300,7 @@ export default function SQLConsoleClient({
                     minSize={INITIAL_LAYOUT.horizontal.leftPanel.min}
                     maxSize={INITIAL_LAYOUT.horizontal.leftPanel.max}
                 >
-                    <div className="flex flex-col h-full border-r min-h-0 bg-card">
+                    <div className="flex flex-col h-full min-h-0 bg-card">
                         <Tabs defaultValue="tables" className="flex-1 min-h-0">
                             <TabsList className="w-full rounded-none px-2">
                                 <TabsTrigger value="tables" className="flex-1">
@@ -312,7 +312,7 @@ export default function SQLConsoleClient({
                             </TabsList>
                             {/* <Separator /> */}
                             <TabsContent value="tables" className="flex-1 min-h-0">
-                                <SchemaSidebar onOpenTableTab={handleOpenTableTab} />
+                                <SQLConsoleSidebar onOpenTableTab={handleOpenTableTab} />
                             </TabsContent>
                             <TabsContent value="saved" className="flex-1 min-h-0">
                                 <SavedQueriesSidebar onSelect={handleSavedQuerySelect} />

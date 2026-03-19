@@ -5,38 +5,85 @@ import { authFetch } from '@/lib/client/auth-fetch';
 import { isSuccess } from '@/lib/result';
 import { currentConnectionAtom, tablesAtom } from '@/shared/stores/app.store';
 
+const inflightTableRequests = new Map<string, Promise<void>>();
+
 export function useTables(databases: string) {
-    const [tables, setTables] = useAtom(tablesAtom);
+    const [tablesState, setTablesState] = useAtom(tablesAtom);
     const currentConnection = useAtomValue(currentConnectionAtom);
+    const connectionId = currentConnection?.connection.id ?? null;
+    const requestKey = connectionId && databases ? `${connectionId}::${databases}` : null;
 
     useEffect(() => {
-        if (!databases) {
-            console.log('no database selected');
+        if (!connectionId || !databases) {
+            setTablesState({
+                connectionId,
+                database: databases || null,
+                items: [],
+            });
             return;
         }
-        refresh();
-    }, [currentConnection?.connection.id, databases]);
 
-    const refresh = async () => {
-        const connectionId = currentConnection?.connection.id as string | undefined;
-        if (!connectionId) {
+        if (tablesState.connectionId === connectionId && tablesState.database === databases && tablesState.items.length > 0) {
             return;
         }
-        const encodedDb = encodeURIComponent(databases);
-        const response = await authFetch(`/api/connection/${connectionId}/databases/${encodedDb}/tables`, {
-            method: 'GET',
-            headers: {
-                'X-Connection-ID': connectionId,
-            },
-        });
-        const res = (await response.json()) as ResponseObject<any>;
-        if (isSuccess(res)) {
-            setTables(res.data);
+
+        if (tablesState.connectionId !== connectionId || tablesState.database !== databases) {
+            setTablesState({
+                connectionId,
+                database: databases,
+                items: [],
+            });
+        }
+
+        void refresh(connectionId, databases);
+    }, [connectionId, databases, tablesState.connectionId, tablesState.database, tablesState.items.length, setTablesState]);
+
+    const refresh = async (requestedConnectionId = connectionId ?? undefined, requestedDatabase = databases) => {
+        if (!requestedConnectionId || !requestedDatabase) {
+            return;
+        }
+
+        const scopedRequestKey = `${requestedConnectionId}::${requestedDatabase}`;
+        const existingRequest = inflightTableRequests.get(scopedRequestKey);
+        if (existingRequest) {
+            await existingRequest;
+            return;
+        }
+
+        const encodedDb = encodeURIComponent(requestedDatabase);
+        const request = (async () => {
+            const response = await authFetch(`/api/connection/${requestedConnectionId}/databases/${encodedDb}/tables`, {
+                method: 'GET',
+                headers: {
+                    'X-Connection-ID': requestedConnectionId,
+                },
+            });
+            const res = (await response.json()) as ResponseObject<any>;
+            if (isSuccess(res)) {
+                setTablesState(prev => {
+                    if (prev.connectionId !== requestedConnectionId || prev.database !== requestedDatabase) {
+                        return prev;
+                    }
+
+                    return {
+                        connectionId: requestedConnectionId,
+                        database: requestedDatabase,
+                        items: res.data ?? [],
+                    };
+                });
+            }
+        })();
+
+        inflightTableRequests.set(scopedRequestKey, request);
+        try {
+            await request;
+        } finally {
+            inflightTableRequests.delete(scopedRequestKey);
         }
     };
 
     return {
-        tables: tables,
+        tables: requestKey && tablesState.connectionId === connectionId && tablesState.database === databases ? tablesState.items : [],
         refresh,
     };
 }

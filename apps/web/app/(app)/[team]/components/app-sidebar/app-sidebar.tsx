@@ -1,14 +1,14 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { IconDatabase, IconFileAi, IconHelp, IconUsers } from '@tabler/icons-react';
+import { IconFileAi, IconHelp, IconUsers } from '@tabler/icons-react';
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenuButton } from '@/registry/new-york-v4/ui/sidebar';
 import { NavMain } from './nav-main';
 import { NavUser } from './nav-user';
 import { authClient } from '@/lib/auth-client';
-import { ArrowUpCircle, FileChartColumnIncreasing, SquareCode } from 'lucide-react';
+import { ArrowUpCircle, Compass, FileChartColumnIncreasing, SquareCode } from 'lucide-react';
 import { NavSecondary } from './nav-secondary';
 import { ConnectionSwitcher } from './connection-switcher';
 import { Separator } from '@/registry/new-york-v4/ui/separator';
@@ -17,6 +17,9 @@ import { ConnectionDialogRoot } from '../../connections/components/connection-di
 import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/registry/new-york-v4/ui/tooltip';
 import type { User } from 'better-auth';
+import { useAtomValue } from 'jotai';
+import { currentConnectionAtom } from '@/shared/stores/app.store';
+import { buildExplorerBasePath, buildExplorerDatabasePath } from '@/lib/explorer/build-path';
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
     initialUser?: User | null;
@@ -29,6 +32,14 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
     const t = useTranslations('AppSidebar');
     const team = params.team;
     const connectionId = params.connectionId;
+    const currentConnection = useAtomValue(currentConnectionAtom);
+    const defaultDatabase = currentConnection && currentConnection.connection.id === connectionId ? currentConnection.connection.database : null;
+    const explorerUrl =
+        connectionId && defaultDatabase
+            ? buildExplorerDatabasePath({ team, connectionId }, defaultDatabase)
+            : connectionId
+              ? buildExplorerBasePath({ team, connectionId })
+              : `/${team}/connections`;
     const [updaterState, setUpdaterState] = React.useState<{ readyToInstall: boolean; version: string | null }>({
         readyToInstall: false,
         version: null,
@@ -45,9 +56,10 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
             requiresConnection: true,
         },
         {
-            title: t('Schema'),
-            url: connectionId ? `/${team}/${connectionId}/catalog/default` : `/${team}/connections`,
-            icon: IconDatabase,
+            title: t('Explorer'),
+            url: explorerUrl,
+            matchPrefix: connectionId ? buildExplorerBasePath({ team, connectionId }) : undefined,
+            icon: Compass,
             requiresConnection: true,
         },
         {

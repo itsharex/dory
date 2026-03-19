@@ -60,16 +60,13 @@ async function getDatabases(datasource: ClickhouseDatasource) {
 
 async function getTables(datasource: ClickhouseDatasource, database?: string) {
     if (database) {
-        const rows = await datasource.query<{ table: string; db: string }>(
-            'SELECT name AS table, database AS db FROM system.tables WHERE database = {db:String} ORDER BY name',
-            { db: database },
-        );
+        const rows = await datasource.query<{ table: string; db: string }>('SELECT name AS table, database AS db FROM system.tables WHERE database = {db:String} ORDER BY name', {
+            db: database,
+        });
         return rows.rows.map(row => ({ value: row.table, label: row.table, database: row.db }));
     }
 
-    const rows = await datasource.query<{ table: string; db: string }>(
-        'SELECT name AS table, database AS db FROM system.tables ORDER BY database, name',
-    );
+    const rows = await datasource.query<{ table: string; db: string }>('SELECT name AS table, database AS db FROM system.tables ORDER BY database, name');
     return rows.rows.map(row => ({ value: row.table, label: `${row.db}.${row.table}`, database: row.db }));
 }
 
@@ -92,10 +89,7 @@ async function getSchema(datasource: ClickhouseDatasource, database?: string): P
             ORDER BY table, position
         `;
 
-    const result = await datasource.query<{ tableName?: string; columnName?: string }>(
-        schemaSql,
-        targetDatabase ? { db: targetDatabase } : undefined,
-    );
+    const result = await datasource.query<{ tableName?: string; columnName?: string }>(schemaSql, targetDatabase ? { db: targetDatabase } : undefined);
     const rows = Array.isArray(result.rows) ? result.rows : [];
 
     return rows.reduce<ConnectionSchemaMap>((schema, row) => {
@@ -131,10 +125,7 @@ async function getTableColumns(datasource: ClickhouseDatasource, database: strin
     return Array.isArray(result.rows) ? result.rows : [];
 }
 
-async function getDatabaseSummary(
-    datasource: ClickhouseDatasource,
-    options: DatabaseSummaryOptions,
-): Promise<DatabaseSummary> {
+async function getDatabaseSummary(datasource: ClickhouseDatasource, options: DatabaseSummaryOptions): Promise<DatabaseSummary> {
     const timeoutMs = options.timeoutMs ?? DEFAULT_SUMMARY_TIMEOUT_MS;
     const baseSummary: DatabaseSummary = {
         databaseName: options.database,
@@ -142,16 +133,33 @@ async function getDatabaseSummary(
         schemaName: options.schemaName ?? null,
         engine: options.engine ?? 'clickhouse',
         cluster: options.cluster ?? null,
+        owner: null,
         tablesCount: null,
         viewsCount: null,
         materializedViewsCount: null,
+        functionsCount: null,
         totalBytes: null,
         totalRowsEstimate: null,
         lastUpdatedAt: null,
         lastQueriedAt: null,
+        tableSizeDistribution: {
+            smallTablesCount: null,
+            mediumTablesCount: null,
+            largeTablesCount: null,
+        },
+        columnComplexity: {
+            averageColumnsPerTable: null,
+            maxColumns: null,
+            maxColumnsTable: null,
+        },
+        foreignKeyLinksCount: null,
+        relationshipPaths: [],
+        detectedPatterns: [],
+        coreTables: [],
         topTablesByBytes: [],
         topTablesByRows: [],
         recentTables: [],
+        startHere: [],
         oneLineSummary: null,
     };
 
@@ -159,9 +167,15 @@ async function getDatabaseSummary(
         SELECT
             sum(total_bytes) AS totalBytes,
             sum(total_rows) AS totalRows,
-            sumIf(1, NOT has([${Array.from(VIEW_ENGINES).map(engine => `'${engine}'`).join(',')}], upper(engine))) AS tablesCount,
-            sumIf(1, has([${Array.from(VIEW_ENGINES).map(engine => `'${engine}'`).join(',')}], upper(engine))) AS viewsCount,
-            sumIf(1, has([${Array.from(MATERIALIZED_VIEW_ENGINES).map(engine => `'${engine}'`).join(',')}], upper(engine))) AS materializedViewsCount,
+            sumIf(1, NOT has([${Array.from(VIEW_ENGINES)
+                .map(engine => `'${engine}'`)
+                .join(',')}], upper(engine))) AS tablesCount,
+            sumIf(1, has([${Array.from(VIEW_ENGINES)
+                .map(engine => `'${engine}'`)
+                .join(',')}], upper(engine))) AS viewsCount,
+            sumIf(1, has([${Array.from(MATERIALIZED_VIEW_ENGINES)
+                .map(engine => `'${engine}'`)
+                .join(',')}], upper(engine))) AS materializedViewsCount,
             max(metadata_modification_time) AS lastUpdatedAt
         FROM system.tables
         WHERE database = {db:String}
@@ -175,8 +189,12 @@ async function getDatabaseSummary(
             comment
         FROM system.tables
         WHERE database = {db:String}
-          AND NOT has([${Array.from(VIEW_ENGINES).map(engine => `'${engine}'`).join(',')}], upper(engine))
-          AND NOT has([${Array.from(MATERIALIZED_VIEW_ENGINES).map(engine => `'${engine}'`).join(',')}], upper(engine))
+          AND NOT has([${Array.from(VIEW_ENGINES)
+              .map(engine => `'${engine}'`)
+              .join(',')}], upper(engine))
+          AND NOT has([${Array.from(MATERIALIZED_VIEW_ENGINES)
+              .map(engine => `'${engine}'`)
+              .join(',')}], upper(engine))
         ORDER BY total_bytes DESC
         LIMIT 5
     `;
@@ -189,8 +207,12 @@ async function getDatabaseSummary(
             comment
         FROM system.tables
         WHERE database = {db:String}
-          AND NOT has([${Array.from(VIEW_ENGINES).map(engine => `'${engine}'`).join(',')}], upper(engine))
-          AND NOT has([${Array.from(MATERIALIZED_VIEW_ENGINES).map(engine => `'${engine}'`).join(',')}], upper(engine))
+          AND NOT has([${Array.from(VIEW_ENGINES)
+              .map(engine => `'${engine}'`)
+              .join(',')}], upper(engine))
+          AND NOT has([${Array.from(MATERIALIZED_VIEW_ENGINES)
+              .map(engine => `'${engine}'`)
+              .join(',')}], upper(engine))
         ORDER BY total_rows DESC
         LIMIT 5
     `;
@@ -216,19 +238,11 @@ async function getDatabaseSummary(
         withTimeout(datasource.query(summarySql, { db: options.database }), timeoutMs, 'clickhouse summary'),
         withTimeout(datasource.query<DatabaseSummaryTable>(topTablesSql, { db: options.database }), timeoutMs, 'clickhouse top tables by bytes'),
         withTimeout(datasource.query<DatabaseSummaryTable>(topRowsSql, { db: options.database }), timeoutMs, 'clickhouse top tables by rows'),
-        withTimeout(
-            datasource.query<{ name?: string; lastUpdatedAt?: string | null }>(recentTablesSql, { db: options.database }),
-            timeoutMs,
-            'clickhouse recent tables',
-        ),
-        withTimeout(
-            datasource.query<{ lastQueriedAt?: string | null }>(lastQueriedSql, { db: options.database }),
-            timeoutMs,
-            'clickhouse last queried',
-        ),
+        withTimeout(datasource.query<{ name?: string; lastUpdatedAt?: string | null }>(recentTablesSql, { db: options.database }), timeoutMs, 'clickhouse recent tables'),
+        withTimeout(datasource.query<{ lastQueriedAt?: string | null }>(lastQueriedSql, { db: options.database }), timeoutMs, 'clickhouse last queried'),
     ]);
 
-    const summaryRow = summaryResult.status === 'fulfilled' ? summaryResult.value.rows?.[0] ?? {} : {};
+    const summaryRow = summaryResult.status === 'fulfilled' ? (summaryResult.value.rows?.[0] ?? {}) : {};
     const topTablesByBytes =
         topBytesResult.status === 'fulfilled'
             ? (topBytesResult.value.rows ?? []).map(row => ({
@@ -256,10 +270,7 @@ async function getDatabaseSummary(
                   }))
                   .filter(row => row.name)
             : [];
-    const lastQueriedAt =
-        lastQueriedResult.status === 'fulfilled'
-            ? toIsoString(lastQueriedResult.value.rows?.[0]?.lastQueriedAt)
-            : null;
+    const lastQueriedAt = lastQueriedResult.status === 'fulfilled' ? toIsoString(lastQueriedResult.value.rows?.[0]?.lastQueriedAt) : null;
 
     return {
         ...baseSummary,
@@ -313,9 +324,7 @@ async function getMaterializedViews(datasource: ClickhouseDatasource, database: 
 }
 
 async function getFunctions(datasource: ClickhouseDatasource, database?: string) {
-    const sql = database
-        ? 'SELECT name FROM system.user_defined_functions WHERE database = {db:String} ORDER BY name'
-        : 'SELECT name FROM system.functions ORDER BY name';
+    const sql = database ? 'SELECT name FROM system.user_defined_functions WHERE database = {db:String} ORDER BY name' : 'SELECT name FROM system.functions ORDER BY name';
     const result = await datasource.query<{ name?: string }>(sql, database ? { db: database } : undefined);
     return (Array.isArray(result.rows) ? result.rows : [])
         .map(row => row?.name)

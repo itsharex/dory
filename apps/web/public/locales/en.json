@@ -306,10 +306,13 @@
             "ConnectFailed": "Connection failed"
         }
     },
-    "SchemaSidebar": {
+    "SQLConsoleSidebar": {
         "Select database": "Select database",
+        "Select schema": "Select schema",
         "Search databases": "Search databases...",
+        "Search schemas": "Search schemas...",
         "Databases": "Databases",
+        "Schemas": "Schemas",
         "No results": "No results found",
         "Filter tables": "Filter tables",
         "No matching tables found": "No matching tables found",
@@ -325,9 +328,14 @@
         "Tables": "Tables",
         "Materialized views": "Materialized views",
         "Views": "Views",
+        "Functions": "Functions",
+        "System": "System",
+        "Loading schemas": "Loading schemas",
+        "No schemas": "No schemas",
         "No tables": "No tables",
         "No materialized views": "No materialized views",
         "No views": "No views",
+        "No functions": "No functions",
         "Collapse": "Collapse",
         "Expand": "Expand"
     },
@@ -439,6 +447,60 @@
             "Name": "name"
         }
     },
+    "PostgresExplorer": {
+        "Tabs": {
+            "summary": "Summary",
+            "schemas": "Schemas",
+            "search": "Search",
+            "extensions": "Extensions",
+            "tables": "Tables",
+            "views": "Views",
+            "functions": "Functions",
+            "sequences": "Sequences",
+            "overview": "Overview",
+            "data": "Data",
+            "structure": "Structure",
+            "stats": "Stats",
+            "indexes": "Indexes"
+        },
+        "Schemas": {
+            "SearchPlaceholder": "Search schemas",
+            "Empty": "No schemas",
+            "FilteredEmpty": "No matching schemas"
+        },
+        "Search": {
+            "Placeholder": "Search schemas, tables, views, functions, or sequences",
+            "Empty": "No matching objects"
+        },
+        "Extensions": {
+            "SearchPlaceholder": "Search extensions",
+            "Empty": "No extensions",
+            "FilteredEmpty": "No matching extensions"
+        },
+        "Tables": {
+            "SearchPlaceholder": "Search tables",
+            "Empty": "No tables",
+            "FilteredEmpty": "No matching tables"
+        },
+        "Views": {
+            "SearchPlaceholder": "Search views",
+            "Empty": "No views",
+            "FilteredEmpty": "No matching views"
+        },
+        "Functions": {
+            "SearchPlaceholder": "Search functions",
+            "Empty": "No functions",
+            "FilteredEmpty": "No matching functions"
+        },
+        "Sequences": {
+            "SearchPlaceholder": "Search sequences",
+            "Empty": "No sequences",
+            "FilteredEmpty": "No matching sequences"
+        },
+        "Indexes": {
+            "Empty": "No indexes"
+        }
+    },
     "TableStats": {
         "No available connection": "No available connection found.",
         "Select table to view stats": "Select a table to view stats.",
@@ -484,6 +546,32 @@
         "TTL description": "Time-to-live rule for the table, if configured.",
         "No TTL rule configured": "No TTL rule configured."
     },
+    "PostgresTableStats": {
+        "No available connection": "No available connection found.",
+        "Select table to view stats": "Select a table to view stats.",
+        "Failed to load stats": "Unable to load table stats",
+        "Size": "Size",
+        "Size description": "Total table size on disk and estimated row count.",
+        "Total size": "Total size",
+        "Row estimate": "Row estimate",
+        "Index usage": "Index Usage",
+        "Index usage description": "Scan counts and tuple access metrics per index.",
+        "No indexes": "No indexes found.",
+        "Index scans": "Scans",
+        "Tuple reads": "Tuples read",
+        "Tuple fetches": "Tuples fetched",
+        "Index size": "Index size",
+        "Vacuum health": "Vacuum Health",
+        "Vacuum health description": "Last autovacuum/analyze activity and tuple bloat statistics.",
+        "No vacuum data": "No vacuum statistics available.",
+        "Last vacuum": "Last vacuum",
+        "Last autovacuum": "Last autovacuum",
+        "Last analyze": "Last analyze",
+        "Last autoanalyze": "Last autoanalyze",
+        "Live tuples": "Live tuples",
+        "Dead tuples": "Dead tuples",
+        "Mods since analyze": "Mods since analyze"
+    },
     "Catalog": {
         "Catalog": "Catalog",
         "Databases": "Databases",
@@ -522,6 +610,8 @@
         "Summary placeholder": "NYC Taxi dataset focused on trips, fares, and passenger-level analysis.",
         "Unknown engine": "Unknown",
         "Updated": "Updated",
+        "Functions": "Functions",
+        "Owner": "Owner",
         "Open table": "Open table",
         "Size": "Size",
         "Rows": "Rows",
@@ -530,17 +620,37 @@
         "Failed to save summary": "Failed to save summary",
         "Failed to save summary note": "Failed to save summary note.",
         "Database Summary": "Database Summary",
+        "Schema Summary": "Schema Summary",
         "Summary unavailable description": "Summary data is temporarily unavailable.",
         "Failed to load summary": "Failed to load summary",
         "Retry": "Retry",
         "Database summary description": "Identity, size, and activity overview for this database.",
+        "Schema summary description": "Identity, structure, and exploration entry points for this schema.",
         "Identity": "Identity",
+        "Identity description": "Confirm the schema context before diving into individual tables.",
         "Database": "Database",
         "Catalog": "Catalog",
         "Schema": "Schema",
         "Engine": "Engine",
         "Cluster / Endpoint": "Cluster / Endpoint",
         "Size & Activity": "Size & Activity",
+        "Structure": "Structure",
+        "Structure description": "A structural profile of object types, table scale, and column complexity.",
+        "Object Type Distribution": "Object Type Distribution",
+        "Table Size Distribution": "Table Size Distribution",
+        "Column Complexity": "Column Complexity",
+        "Small tables": "Small tables (<1k rows)",
+        "Medium tables": "Medium tables (1k-100k rows)",
+        "Large tables": "Large tables (>100k rows)",
+        "Avg columns per table": "Avg columns per table",
+        "Max columns": "Max columns",
+        "Widest table": "Widest table",
+        "Highlights": "Highlights",
+        "Highlights description": "Key tables, relationship structure, and naming signals worth exploring first.",
+        "Core Tables": "Core Tables",
+        "Core Tables description": "Rule-based recommendations for the most central tables in this schema.",
+        "Largest Tables": "Largest Tables",
+        "Largest Tables description": "Tables with the highest storage footprint.",
         "Tables": "Tables",
         "Views": "Views",
         "Materialized Views": "Materialized Views",
@@ -548,6 +658,21 @@
         "Rows (est)": "Rows (est.)",
         "Last Updated": "Last Updated",
         "Last Queried": "Last Queried",
+        "Relationships": "Relationships",
+        "Relationships description": "Foreign-key density and representative join paths.",
+        "Foreign key links": "Foreign key links",
+        "Detected Patterns": "Detected Patterns",
+        "Detected Patterns description": "Lightweight naming groups and partition hints detected from table names.",
+        "Entry Points": "Entry Points",
+        "Entry Points description": "Quick ways to start exploring this schema without guessing.",
+        "Quick Actions": "Quick Actions",
+        "Quick Actions description": "Shortcuts into the most useful next steps.",
+        "Quick Action Explore largest table": "Explore largest table",
+        "Quick Action Show recent changes": "Show recent changes",
+        "Quick Action Analyze relationships": "Analyze relationships",
+        "Quick Action Browse tables": "Browse tables",
+        "Start Here": "Start Here",
+        "Start Here description": "Recommended first tables to inspect in this schema.",
         "One-line summary": "One-line summary",
         "Edit": "Edit",
         "Saving": "Saving...",
@@ -559,8 +684,21 @@
         "Top by Rows description": "Largest tables by estimated rows.",
         "Recently Updated": "Recently Updated",
         "Recently Updated description": "Latest table changes detected.",
+        "No recent updates found": "No recent updates found.",
+        "No relationships found": "No relationships found.",
+        "No patterns detected": "No patterns detected.",
+        "No recommendations": "No recommendations available.",
         "No tables found": "No tables found.",
-        "Create or Import": "Create or Import"
+        "Create or Import": "Create or Import",
+        "RecommendationReasons": {
+            "centralAndHighRowVolume": "Central in relationships and high row volume",
+            "centralAndHighStorage": "Central in relationships and high storage footprint",
+            "centralInRelationships": "Central in relationships",
+            "highRowVolume": "High row volume",
+            "largeStorageFootprint": "Large storage footprint",
+            "recentlyUpdated": "Recently updated",
+            "goodStartingPoint": "Good starting point"
+        }
     },
     "Chatbot": {
         "Close": "Close",
@@ -827,6 +965,7 @@
                 "CopyLabel": "Copy {label}",
                 "InferredTitle": "Inferred Context",
                 "DatabaseLabel": "Database",
+                "SchemaLabel": "Schema",
                 "TablesLabel": "Tables",
                 "ConfidenceLabel": "Confidence",
                 "EmptyValue": "—",
@@ -1440,21 +1579,21 @@
         "Connection": {
             "Errors": {
                 "Unauthorized": "Unauthorized or insufficient permissions",
-            "FetchCatalogFailed": "Failed to fetch catalog context",
-            "NotFound": "Connection not found or insufficient permissions",
-            "MissingHost": "Connection is missing host information",
-            "MissingConnectionId": "Missing connection ID",
-            "MissingUsername": "Missing username",
-            "MissingIdentity": "No available identity found",
-            "MissingIdentityInfo": "Missing identity information",
-            "MissingPassword": "Missing identity password",
-            "MissingSshPassword": "Missing SSH password",
-            "MissingSshPrivateKey": "Missing SSH private key",
-            "UnsupportedType": "This database type is not supported yet",
-            "ConnectFailed": "Connection failed",
-            "SchemaReadFailed": "Failed to read schema",
-            "TestFailed": "Test connection failed"
-        },
+                "FetchCatalogFailed": "Failed to fetch catalog context",
+                "NotFound": "Connection not found or insufficient permissions",
+                "MissingHost": "Connection is missing host information",
+                "MissingConnectionId": "Missing connection ID",
+                "MissingUsername": "Missing username",
+                "MissingIdentity": "No available identity found",
+                "MissingIdentityInfo": "Missing identity information",
+                "MissingPassword": "Missing identity password",
+                "MissingSshPassword": "Missing SSH password",
+                "MissingSshPrivateKey": "Missing SSH private key",
+                "UnsupportedType": "This database type is not supported yet",
+                "ConnectFailed": "Connection failed",
+                "SchemaReadFailed": "Failed to read schema",
+                "TestFailed": "Test connection failed"
+            },
             "Validation": {
                 "DatabaseRequired": "Database name is required",
                 "TableRequired": "Table name is required"
@@ -1472,7 +1611,8 @@
                     "ColumnsFailed": "Failed to fetch columns",
                     "PropertiesFailed": "Failed to fetch table properties",
                     "StatsFailed": "Failed to fetch table stats",
-                    "DdlFailed": "Failed to fetch table DDL"
+                    "DdlFailed": "Failed to fetch table DDL",
+                    "PreviewFailed": "Failed to fetch table preview"
                 }
             }
         },
@@ -1661,8 +1801,7 @@
                 "DatabaseRequired": "Database is required",
                 "UnsupportedType": "Unsupported type",
                 "FetchFailed": "Failed to fetch privilege targets"
-            }
-            ,
+            },
             "Clusters": {
                 "FetchFailed": "Failed to fetch cluster metadata"
             }
@@ -1991,6 +2130,7 @@
     },
     "AppSidebar": {
         "SQLConsole": "SQL Console",
+        "Explorer": "Explorer",
         "Schema": "Schema",
         "Chatbot": "Chatbot",
         "Monitoring": "Monitoring",
@@ -2006,4 +2146,3 @@
         "SQL Console": "SQL Console"
     }
 }
-    

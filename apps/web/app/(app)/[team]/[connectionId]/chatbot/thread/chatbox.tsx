@@ -12,21 +12,10 @@ import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
 import type { SqlResultManualExecutionMode } from '@/components/@dory/ui/ai/sql-result/type';
 
-import {
-    Conversation,
-    ConversationContent,
-    ConversationScrollButton,
-} from '@/components/ai-elements/conversation';
+import { Conversation, ConversationContent, ConversationScrollButton } from '@/components/ai-elements/conversation';
 import { Loader } from '@/components/ai-elements/loader';
 
-import {
-    PromptInput,
-    PromptInputBody,
-    PromptInputSubmit,
-    PromptInputTextarea,
-    PromptInputFooter,
-    type PromptInputMessage,
-} from '@/components/ai-elements/prompt-input';
+import { PromptInput, PromptInputBody, PromptInputSubmit, PromptInputTextarea, PromptInputFooter, type PromptInputMessage } from '@/components/ai-elements/prompt-input';
 
 import { AssistantFallbackCard } from '@/components/@dory/ui/ai/assistant-fallback';
 
@@ -37,7 +26,7 @@ import { useTables } from '@/hooks/use-tables';
 import MessageRenderer from './message-render';
 import { TableMentionTextarea } from './table-mention-textarea';
 import { getSqlResultFromPart, getChartResultFromPart } from '../core/utils';
-import { DatabasesSelect } from '../../../components/schema-sidebar/databases-select/databases-select';
+import { DatabaseSelect } from '../../../components/sql-console-sidebar/database-select';
 import { CopilotActionExecutor } from '../copilot/action-bridge';
 import { apiGetOrCreateCopilotSession } from '../core/api';
 
@@ -52,15 +41,7 @@ type ChatBotCompProps = {
     onExecuteAction?: CopilotActionExecutor;
 };
 
-const ChatBotComp = ({
-    sessionId,
-    initialMessages,
-    onConversationActivity,
-    onSessionCreated,
-    mode = 'global',
-    copilotEnvelope = null,
-    onExecuteAction,
-}: ChatBotCompProps) => {
+const ChatBotComp = ({ sessionId, initialMessages, onConversationActivity, onSessionCreated, mode = 'global', copilotEnvelope = null, onExecuteAction }: ChatBotCompProps) => {
     const router = useRouter();
     const params = useParams<{ team: string; connectionId: string }>();
     const t = useTranslations('Chatbot');
@@ -77,10 +58,9 @@ const ChatBotComp = ({
     const { databases } = useDatabases();
     const { tables } = useTables(activeDatabase);
 
-
     const [selectedTable, setSelectedTable] = useState<string>('');
 
-    const tabId = mode === 'copilot' ? copilotEnvelope?.meta?.tabId ?? 'unknown' : null;
+    const tabId = mode === 'copilot' ? (copilotEnvelope?.meta?.tabId ?? 'unknown') : null;
     const chatStateId = mode === 'copilot' ? `copilot:${tabId}` : (sessionId ?? 'global');
 
     const { messages, sendMessage, status, error, setMessages } = useChat({
@@ -91,7 +71,7 @@ const ChatBotComp = ({
     const sessionRef = useRef<string>(chatStateId);
     const activityRef = useRef(false);
 
-    const hasAssistantContent = messages.some((m) => {
+    const hasAssistantContent = messages.some(m => {
         if (m.role !== 'assistant') return false;
         if (!Array.isArray((m as any).parts)) return false;
 
@@ -111,7 +91,7 @@ const ChatBotComp = ({
             appliedInitialRef.current = null;
         }
 
-        const key = initialMessages.map((message) => message.id).join('|');
+        const key = initialMessages.map(message => message.id).join('|');
         if (appliedInitialRef.current !== key) {
             setMessages(initialMessages);
             appliedInitialRef.current = key;
@@ -143,8 +123,7 @@ const ChatBotComp = ({
         if (!context || !scrollElement) return;
 
         const savedScrollTop = scrollPositionsRef.current.get(chatStateId);
-        const distanceToBottom =
-            scrollElement.scrollHeight - scrollElement.clientHeight - (savedScrollTop ?? 0);
+        const distanceToBottom = scrollElement.scrollHeight - scrollElement.clientHeight - (savedScrollTop ?? 0);
 
         if (savedScrollTop !== undefined) {
             scrollElement.scrollTop = savedScrollTop;
@@ -178,24 +157,19 @@ const ChatBotComp = ({
         return () => cancelAnimationFrame(raf);
     }, [chatStateId, messages, restoreScrollPosition]);
 
-    const handleCopySql = useCallback(async (sql: string) => {
-        try {
-            await navigator.clipboard.writeText(sql);
-        } catch (error) {
-            console.error(t('Errors.CopySqlFailed'), error);
-        }
-    }, [t]);
+    const handleCopySql = useCallback(
+        async (sql: string) => {
+            try {
+                await navigator.clipboard.writeText(sql);
+            } catch (error) {
+                console.error(t('Errors.CopySqlFailed'), error);
+            }
+        },
+        [t],
+    );
 
     const handleManualExecute = useCallback(
-        ({
-            sql,
-            database,
-            mode,
-        }: {
-            sql: string;
-            database: string | null;
-            mode?: SqlResultManualExecutionMode;
-        }) => {
+        ({ sql, database, mode }: { sql: string; database: string | null; mode?: SqlResultManualExecutionMode }) => {
             try {
                 const payload: {
                     sql: string;
@@ -216,8 +190,7 @@ const ChatBotComp = ({
             }
             const team = params?.team;
             const connectionIdTarget = params?.connectionId ?? currentConnection?.connection.id;
-            const targetPath =
-                team && connectionIdTarget ? `/${team}/${connectionIdTarget}/sql-console` : '/sql-console';
+            const targetPath = team && connectionIdTarget ? `/${team}/${connectionIdTarget}/sql-console` : '/sql-console';
             router.push(targetPath);
         },
         [router, t, params, currentConnection],
@@ -233,23 +206,18 @@ const ChatBotComp = ({
         const hasAttachments = Boolean(message.files?.length);
         if (!(hasText || hasAttachments)) return;
 
-        const tabId = mode === 'copilot' ? copilotEnvelope?.meta?.tabId ?? null : null;
+        const tabId = mode === 'copilot' ? (copilotEnvelope?.meta?.tabId ?? null) : null;
         if (mode === 'copilot' && !tabId) return;
         const connectionId = copilotEnvelope?.meta?.connectionId ?? currentConnection?.connection.id ?? null;
 
         const databaseForContext =
             mode === 'copilot'
                 ? copilotEnvelope?.surface === 'sql'
-                    ? copilotEnvelope.context.baseline.database ?? activeDatabase ?? null
-                    : copilotEnvelope?.context.database ?? activeDatabase ?? null
+                    ? (copilotEnvelope.context.baseline.database ?? activeDatabase ?? null)
+                    : (copilotEnvelope?.context.database ?? activeDatabase ?? null)
                 : activeDatabase || null;
 
-        const tableForContext =
-            mode === 'copilot'
-                ? copilotEnvelope?.surface === 'table'
-                    ? copilotEnvelope.context.table.name ?? null
-                    : null
-                : selectedTable || null;
+        const tableForContext = mode === 'copilot' ? (copilotEnvelope?.surface === 'table' ? (copilotEnvelope.context.table.name ?? null) : null) : selectedTable || null;
 
         let chatIdForRequest = sessionId ?? null;
         if (mode === 'copilot' && !chatIdForRequest) {
@@ -295,11 +263,7 @@ const ChatBotComp = ({
 
     return (
         <div className="relative flex h-full w-full flex-col p-4">
-            <Conversation
-                className="flex-1 min-h-0"
-                contextRef={handleStickToBottomContextRef}
-
-            >
+            <Conversation className="flex-1 min-h-0" contextRef={handleStickToBottomContextRef}>
                 <ConversationContent>
                     {messages.map((message, messageIndex) => (
                         <MessageRenderer
@@ -329,7 +293,7 @@ const ChatBotComp = ({
                             <div className="flex items-center justify-between gap-2">
                                 <div className="flex flex-1 items-center gap-2">
                                     {mode === 'global' && (
-                                        <DatabasesSelect
+                                        <DatabaseSelect
                                             className="w-auto max-w-80 border-0 shadow-none text-xs outline-0 focus-visible:ring-0"
                                             value={activeDatabase}
                                             databases={databases}
@@ -341,11 +305,11 @@ const ChatBotComp = ({
 
                             <div className="flex items-start gap-2 w-full">
                                 {mode === 'global' ? (
-                                    <TableMentionTextarea value={input} onChange={setInput} tables={tables.map((t) => (t as any).name ?? t)}>
+                                    <TableMentionTextarea value={input} onChange={setInput} tables={tables.map(t => (t as any).name ?? t)}>
                                         <PromptInputTextarea
                                             placeholder={t('Input.GlobalPlaceholder')}
                                             value={input}
-                                            onChange={(e) => setInput(e.target.value)}
+                                            onChange={e => setInput(e.target.value)}
                                             className="min-h-18 w-full resize-none border-0 bg-transparent text-sm focus-visible:outline-none focus-visible:ring-0"
                                         />
                                     </TableMentionTextarea>
@@ -353,7 +317,7 @@ const ChatBotComp = ({
                                     <PromptInputTextarea
                                         placeholder={t('Input.CopilotPlaceholder')}
                                         value={input}
-                                        onChange={(e) => setInput(e.target.value)}
+                                        onChange={e => setInput(e.target.value)}
                                         className="min-h-18 w-full resize-none border-0 bg-transparent text-sm focus-visible:outline-none focus-visible:ring-0"
                                     />
                                 )}
@@ -361,11 +325,8 @@ const ChatBotComp = ({
                         </div>
                     </PromptInputBody>
 
-                    <PromptInputFooter className='justify-end'>
-                        <PromptInputSubmit
-                            status={status}
-                            disabled={!input || status === 'submitted' || status === 'streaming'}
-                        />
+                    <PromptInputFooter className="justify-end">
+                        <PromptInputSubmit status={status} disabled={!input || status === 'submitted' || status === 'streaming'} />
                     </PromptInputFooter>
                 </PromptInput>
             </div>

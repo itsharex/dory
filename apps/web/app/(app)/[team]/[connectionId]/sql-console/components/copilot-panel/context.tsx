@@ -120,9 +120,10 @@ const ContextInferred = ({ copilotEnvelope }: { copilotEnvelope: CopilotEnvelope
     if (copilotEnvelope.surface !== 'sql') return null;
 
     const inferred = copilotEnvelope.context.draft.inferred;
+    const isPostgres = copilotEnvelope.context.baseline.dialect === 'postgres';
     const tableLabel = inferred.tables.length
         ? inferred.tables
-              .map(table => [table.database, table.name].filter(Boolean).join('.'))
+              .map(table => table.name)
               .join(', ')
         : '-';
 
@@ -135,6 +136,13 @@ const ContextInferred = ({ copilotEnvelope }: { copilotEnvelope: CopilotEnvelope
                     value={inferred.database ?? t('Copilot.Context.EmptyValue')}
                     copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.DatabaseLabel') })}
                 />
+                {isPostgres ? (
+                    <SummaryRow
+                        label={t('Copilot.Context.SchemaLabel')}
+                        value={inferred.schema ?? t('Copilot.Context.EmptyValue')}
+                        copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.SchemaLabel') })}
+                    />
+                ) : null}
                 <SummaryRow
                     label={t('Copilot.Context.TablesLabel')}
                     value={tableLabel || t('Copilot.Context.EmptyValue')}

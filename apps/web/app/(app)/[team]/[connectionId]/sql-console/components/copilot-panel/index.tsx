@@ -57,6 +57,7 @@ export default function CopilotPanel({
 
     const [subTab, setSubTab] = useState<SubTabKey>('ask');
     const [actionsState, setActionsState] = useState<ActionsState | null>(null);
+    const [copilotEnvelope, setCopilotEnvelope] = useState<CopilotEnvelopeV1 | null>(null);
     const activeTabCoreFields = activeTab
         ? {
             tabId: activeTab.tabId,
@@ -92,27 +93,41 @@ export default function CopilotPanel({
     
     const isSqlTab = tabType === 'sql';
 
-    const copilotEnvelope: CopilotEnvelopeV1 | null = useMemo(() => {
-        if (!tabId || !tabType) return null;
-        if (tabType !== 'sql') return null;
+    useEffect(() => {
+        if (!tabId || !tabType || tabType !== 'sql') {
+            setCopilotEnvelope(null);
+            return;
+        }
+
+        let cancelled = false;
 
         const connectionId = tabConnectionId ?? currentConnection?.connection.id ?? undefined;
         const editorSqlText = typeof tabContent === 'string' ? tabContent : '';
-
         const lastUpdatedAt = sessionFinishedAt ?? sessionStartedAt ?? undefined;
 
-        return createCopilotSQLContextEnvelope({
-            editorText: editorSqlText || '',
-            selection: editorSelection,
-            baselineDatabase: activeDatabase || null,
-            dialect: (currentConnection as any)?.connection?.type ?? 'unknown',
-            updatedAt: lastUpdatedAt ?? undefined,
-            meta: {
-                tabId,
-                tabName,
-                connectionId,
-            },
-        });
+        void (async () => {
+            const nextEnvelope = await createCopilotSQLContextEnvelope({
+                editorText: editorSqlText || '',
+                selection: editorSelection,
+                baselineDatabase: activeDatabase || null,
+                dialect: (currentConnection as any)?.connection?.type ?? 'unknown',
+                updatedAt: lastUpdatedAt ?? undefined,
+                meta: {
+                    tabId,
+                    tabName,
+                    connectionId,
+                },
+            });
+
+
+            if (!cancelled) {
+                setCopilotEnvelope(nextEnvelope);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
     }, [
         tabId,
         tabType,

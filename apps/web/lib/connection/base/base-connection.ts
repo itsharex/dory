@@ -1,4 +1,3 @@
-import http from 'node:http';
 import { NotInitializedError } from './errors';
 import type { ConnectionParameterDialect } from '../registry/types';
 import { BaseConfig, ConnectionCapabilities, ConnectionQueryContext, HealthInfo, QueryResult } from './types';
@@ -15,7 +14,7 @@ export abstract class BaseConnection {
     constructor(public readonly config: BaseConfig) {}
 
     private sshTunnel: SshTunnel | null = null;
-    protected sshAgent: http.Agent | null = null;
+    protected sshLocalEndpoint: { host: string; port: number } | null = null;
 
     /** Connection/pool initialization (idempotent) */
     async init(): Promise<void> {
@@ -60,9 +59,12 @@ export abstract class BaseConnection {
     protected async setupSshIfNeeded(targetPort: number) {
         const ssh = this.getSshOptions();
         if (!ssh?.enabled) return;
-        const targetHost = ssh.targetHostOverride ?? this.config.host;
+        const targetHost = ssh.targetHostOverride ?? this.resolveTunnelTargetHost(this.config.host);
         this.sshTunnel = await createSshTunnel(targetHost, targetPort, ssh);
-        this.sshAgent = this.sshTunnel.agent;
+        this.sshLocalEndpoint = {
+            host: this.sshTunnel.localHost,
+            port: this.sshTunnel.localPort,
+        };
     }
 
     protected async teardownSsh(): Promise<void> {
@@ -70,7 +72,11 @@ export abstract class BaseConnection {
             await this.sshTunnel.close();
             this.sshTunnel = null;
         }
-        this.sshAgent = null;
+        this.sshLocalEndpoint = null;
+    }
+
+    protected getSshEndpoint(): { host: string; port: number } | null {
+        return this.sshLocalEndpoint;
     }
 
     private getSshOptions(): SshOptions | null {
@@ -79,5 +85,19 @@ export abstract class BaseConnection {
         const ssh = (options as any).ssh as SshOptions | undefined;
         if (!ssh || !ssh.enabled) return null;
         return ssh;
+    }
+
+    private resolveTunnelTargetHost(host: string): string {
+        const trimmed = host.trim();
+
+        try {
+            return new URL(trimmed).hostname;
+        } catch {
+            try {
+                return new URL(`tcp://${trimmed}`).hostname;
+            } catch {
+                return trimmed;
+            }
+        }
     }
 }

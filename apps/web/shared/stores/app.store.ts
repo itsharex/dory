@@ -12,17 +12,31 @@ export const clientDBReadyAtom = atomWithStorage('clientDBReady', 'false', sessi
 export const currentConnectionAtom = atomWithStorage<ConnectionListItem | null>('currentConnection', null);
 
 // export const databasesStorageAtom = atomWithStorage<any[]>('databases', []);
-export const databasesAtom = atom<{ label: string; value: string }[]>([]);
-export const tablesAtom = atom<{ label: string; value?: string }[]>([]);
+export type DatabasesState = {
+    connectionId: string | null;
+    items: { label: string; value: string }[];
+};
+
+export type TablesState = {
+    connectionId: string | null;
+    database: string | null;
+    items: { label: string; value?: string }[];
+};
+
+export const databasesAtom = atom<DatabasesState>({
+    connectionId: null,
+    items: [],
+});
+export const tablesAtom = atom<TablesState>({
+    connectionId: null,
+    database: null,
+    items: [],
+});
 export const columnsAtom = atom<TableColumn[]>([]);
 export type ColumnsCacheEntry = { columns: TableColumn[]; updatedAt: number };
 const columnsCacheStorage = createJSONStorage<Record<string, ColumnsCacheEntry>>(() => sessionStorage);
-export const columnsCacheAtom = atomWithStorage<Record<string, ColumnsCacheEntry>>(
-    'columnsCache',
-    {},
-    columnsCacheStorage,
-);
-export const activeDatabaseAtom = atomWithStorage('activeDatabase', '');
+export const columnsCacheAtom = atomWithStorage<Record<string, ColumnsCacheEntry>>('columnsCache', {}, columnsCacheStorage);
+const activeDatabaseByConnectionAtom = atomWithStorage<Record<string, string>>('activeDatabaseByConnection', {});
 
 const DEFAULT_CONNECTION_KEY = '__default__';
 
@@ -30,6 +44,22 @@ const tabsByConnectionAtom = atomWithStorage<Record<string, UITabPayload[]>>('ta
 const activeTabIdByConnectionAtom = atomWithStorage<Record<string, string>>('activeTabIdByConnection', {});
 
 const resolveConnectionKey = (get: Getter) => get(currentConnectionAtom)?.connection.id ?? DEFAULT_CONNECTION_KEY;
+
+export const activeDatabaseAtom = atom(
+    get => {
+        const key = resolveConnectionKey(get);
+        const activeDatabaseByConnection = get(activeDatabaseByConnectionAtom);
+        return activeDatabaseByConnection[key] ?? '';
+    },
+    (get, set, value: string) => {
+        const key = resolveConnectionKey(get);
+        const prev = get(activeDatabaseByConnectionAtom);
+        set(activeDatabaseByConnectionAtom, {
+            ...prev,
+            [key]: value,
+        });
+    },
+);
 
 export const tabsAtom = atom(
     (get): UITabPayload[] => {

@@ -3,7 +3,7 @@ import { ensureConnectionPoolForUser } from '@/app/api/connection/utils';
 
 type ColumnInfo = {
     columnName?: string;
-    columnType?: string;
+    columnType?: string | null;
     defaultExpression?: string | null;
     defaultKind?: string | null;
     isPrimaryKey?: boolean | number | string | null;
@@ -22,6 +22,7 @@ type SchemaContextOptions = {
 
 type SchemaTableRef = {
     database?: string | null;
+    schema?: string | null;
     name: string;
 };
 
@@ -137,10 +138,11 @@ export async function buildSchemaContextForTables(options: {
     teamId: string;
     datasourceId: string;
     database?: string | null;
+    schema?: string | null;
     tables: SchemaTableRef[];
     columnSampleLimit?: number;
 }): Promise<string | null> {
-    const { userId, teamId, datasourceId, database, tables, columnSampleLimit = DEFAULT_COLUMN_SAMPLE_LIMIT } = options;
+    const { userId, teamId, datasourceId, database, schema, tables, columnSampleLimit = DEFAULT_COLUMN_SAMPLE_LIMIT } = options;
 
     if (!tables.length) {
         return null;
@@ -161,10 +163,15 @@ export async function buildSchemaContextForTables(options: {
         for (const table of dedupedTables) {
             const resolvedDatabase =
                 table.database?.trim() ||
-                (await resolveDatabaseName(instance, config.database, database, table.name));
+                (await resolveDatabaseName(instance, config.database, database, qualifyTableName(table)));
+
+            const resolvedTable = qualifyTableRef({
+                ...table,
+                schema: table.schema?.trim() || schema?.trim() || null,
+            });
 
             lines.push(
-                `Table: ${resolvedDatabase ? `${resolvedDatabase}.` : ''}${table.name}`,
+                `Table: ${resolvedDatabase ? `${resolvedDatabase}.` : ''}${resolvedTable}`,
             );
 
             if (!resolvedDatabase) {
@@ -173,7 +180,7 @@ export async function buildSchemaContextForTables(options: {
                 continue;
             }
 
-            const columns = await fetchColumns(instance, resolvedDatabase, table.name, effectiveColumnLimit);
+            const columns = await fetchColumns(instance, resolvedDatabase, resolvedTable, effectiveColumnLimit);
             if (columns.length > 0) {
                 lines.push(`Column examples (up to ${Math.min(effectiveColumnLimit, columns.length)}):`);
                 for (const column of columns) {
@@ -223,13 +230,29 @@ function dedupeSchemaTables(tables: SchemaTableRef[]): SchemaTableRef[] {
         if (!name) continue;
 
         const database = table.database?.trim() || null;
-        const key = `${database ?? ''}:${name}`;
+        const schema = table.schema?.trim() || null;
+        const key = `${database ?? ''}:${schema ?? ''}:${name}`;
         if (seen.has(key)) continue;
         seen.add(key);
-        deduped.push({ database, name });
+        deduped.push({ database, schema, name });
     }
 
     return deduped;
+}
+
+function qualifyTableRef(table: SchemaTableRef): string {
+    const schema = table.schema?.trim();
+    const name = table.name.trim();
+
+    if (!schema || schema === 'public') {
+        return name;
+    }
+
+    return `${schema}.${name}`;
+}
+
+function qualifyTableName(table: SchemaTableRef): string {
+    return qualifyTableRef(table);
 }
 
 async function resolveDatabaseName(instance: BaseConnection, configuredDatabase?: string, providedDatabase?: string | null, table?: string | null): Promise<string | undefined> {
@@ -268,32 +291,15 @@ async function fetchColumns(instance: BaseConnection, database: string, table: s
         return [];
     }
 
-    const columnLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : undefined;
-
-    //It is assumed here that it is ClickHouse, directly check system.columns
-    const query = `
-        SELECT
-            name AS columnName,
-            type AS columnType,
-            default_expression AS defaultExpression,
-            default_kind AS defaultKind,
-            is_in_primary_key AS isPrimaryKey,
-            comment
-        FROM system.columns
-        WHERE database = {db:String}
-          AND table = {tbl:String}
-        ORDER BY position
-        ${columnLimit ? 'LIMIT {limit:UInt32}' : ''}
-    `;
-
-    const params: Record<string, unknown> = { db: database, tbl: table };
-    if (columnLimit) {
-        params.limit = columnLimit;
+    const metadata = instance.capabilities.metadata;
+    if (!metadata?.getTableColumns) {
+        return [];
     }
 
     try {
-        const result = await instance.query<ColumnInfo>(query, params);
-        return Array.isArray(result.rows) ? result.rows : [];
+        const columns = await metadata.getTableColumns(database, table);
+        const effectiveLimit = Number.isFinite(limit) && limit > 0 ? Math.floor(limit) : columns.length;
+        return columns.slice(0, effectiveLimit);
     } catch (error) {
         console.error('[chat] failed to fetch columns', { database, table, error });
         return [];

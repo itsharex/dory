@@ -78,8 +78,8 @@ Run from the repository root unless workspace-local execution is more appropriat
 
 Useful workspace commands:
 
-- `yarn workspace v4 run lint`
-- `yarn workspace v4 run typecheck`
+- `yarn workspace web run lint`
+- `yarn workspace web run typecheck`
 - `yarn workspace admin run lint`
 - `yarn workspace admin run typecheck`
 

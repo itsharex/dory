@@ -21,6 +21,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/registry/new-york-v4/ui/tooltip';
 
 import { cn } from '@/lib/utils';
+import { buildExplorerBasePath, buildExplorerDatabasePath } from '@/lib/explorer/build-path';
 import {
     connectionErrorAtom,
     connectionListLoadingAtom,
@@ -209,8 +210,17 @@ export function ConnectionSwitcher() {
     const activeLoadingKey = displayedConnection ? makeLoadingKey(displayedConnection.connection.id, displayedIdentity?.id) : null;
     const isConnecting = pendingLoadingKey ? Boolean(connectLoadings?.[pendingLoadingKey]) : activeLoadingKey ? Boolean(connectLoadings?.[activeLoadingKey]) : false;
 
-    const buildConnectionPath = (nextConnectionId: string) => {
+    const buildConnectionPath = (connectionItem: ConnectionListItem) => {
         if (!teamId) return null;
+        const nextConnectionId = connectionItem.connection.id;
+
+        if (pathname?.includes(`/${teamId}/${connectionId}/explorer`)) {
+            const defaultDatabase = connectionItem.connection.database;
+            return defaultDatabase
+                ? buildExplorerDatabasePath({ team: teamId, connectionId: nextConnectionId }, defaultDatabase)
+                : buildExplorerBasePath({ team: teamId, connectionId: nextConnectionId });
+        }
+
         if (connectionId && pathname && pathname.includes(`/${teamId}/${connectionId}`)) {
             return pathname.replace(`/${teamId}/${connectionId}`, `/${teamId}/${nextConnectionId}`);
         }
@@ -263,7 +273,7 @@ export function ConnectionSwitcher() {
 
     const handleSelect = (connectionItem: ConnectionListItem, identity?: ConnectionIdentity) => {
         if (!connectionItem?.connection) return;
-        const targetPath = buildConnectionPath(connectionItem.connection.id);
+        const targetPath = buildConnectionPath(connectionItem);
         startConnect(connectionItem, identity, targetPath);
     };
 

@@ -1,24 +1,24 @@
-import { ConnectionListItem } from "@/types/connections";
+import { ConnectionListItem } from '@/types/connections';
 
 
 export const DatasourceTypesWithDBEngine = [
     {
         type: 'postgres',
-        engine: 'postgresql'
+        engine: 'postgres',
     },
     {
         type: 'clickhouse',
-        engine: 'clickhouse'
+        engine: 'clickhouse',
     },
     {
         type: 'mysql',
-        engine: 'mysql'
+        engine: 'mysql',
     },
     {
         type: 'doris',
-        engine: 'doris'
+        engine: 'doris',
     },
-]
+];
 
 export function getDBEngineViaType(type: string): string {
     return DatasourceTypesWithDBEngine.find(t => t.type === type)?.engine || 'unknown';

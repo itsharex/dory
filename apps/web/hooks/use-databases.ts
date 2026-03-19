@@ -6,38 +6,83 @@ import type { ResponseObject } from '@/types';
 import { authFetch } from '@/lib/client/auth-fetch';
 import { isSuccess } from '@/lib/result';
 
+const inflightDatabaseRequests = new Map<string, Promise<void>>();
+
 export function useDatabases() {
-    const [databases, setDatabases] = useAtom(databasesAtom);
+    const [databasesState, setDatabasesState] = useAtom(databasesAtom);
     const currentConnection = useAtomValue(currentConnectionAtom);
     const params = useParams<{ connectionId?: string | string[]; connection?: string | string[] }>();
     const routeConnectionParam = params?.connectionId ?? params?.connection;
     const routeConnectionId = Array.isArray(routeConnectionParam) ? routeConnectionParam[0] : routeConnectionParam;
+    const connectionId = routeConnectionId ?? currentConnection?.connection.id ?? null;
 
     useEffect(() => {
-        if (!routeConnectionId) return;
-        refresh();
-    }, [routeConnectionId]);
-
-    const refresh = async () => {
-        if (!routeConnectionId) return;
-        const connectionId = routeConnectionId ?? currentConnection?.connection.id;
         if (!connectionId) {
+            setDatabasesState({
+                connectionId: null,
+                items: [],
+            });
             return;
         }
-        const response = await authFetch(`/api/connection/${connectionId}/databases`, {
-            method: 'GET',
-            headers: {
-                'X-Connection-ID': connectionId,
-            },
-        });
-        const res = (await response.json()) as ResponseObject<any>;
-        if (isSuccess(res)) {
-            setDatabases(res.data);
+
+        if (databasesState.connectionId === connectionId && databasesState.items.length > 0) {
+            return;
+        }
+
+        if (databasesState.connectionId !== connectionId) {
+            setDatabasesState({
+                connectionId,
+                items: [],
+            });
+        }
+
+        void refresh(connectionId);
+    }, [connectionId, databasesState.connectionId, databasesState.items.length, setDatabasesState]);
+
+    const refresh = async (requestedConnectionId = connectionId ?? undefined) => {
+        if (!requestedConnectionId) {
+            return;
+        }
+
+        const requestKey = requestedConnectionId;
+        const existingRequest = inflightDatabaseRequests.get(requestKey);
+        if (existingRequest) {
+            await existingRequest;
+            return;
+        }
+
+        const request = (async () => {
+            const response = await authFetch(`/api/connection/${requestedConnectionId}/databases`, {
+                method: 'GET',
+                headers: {
+                    'X-Connection-ID': requestedConnectionId,
+                },
+            });
+            const res = (await response.json()) as ResponseObject<any>;
+            if (isSuccess(res)) {
+                setDatabasesState(prev => {
+                    if (prev.connectionId !== requestedConnectionId && prev.items.length > 0) {
+                        return prev;
+                    }
+
+                    return {
+                        connectionId: requestedConnectionId,
+                        items: res.data ?? [],
+                    };
+                });
+            }
+        })();
+
+        inflightDatabaseRequests.set(requestKey, request);
+        try {
+            await request;
+        } finally {
+            inflightDatabaseRequests.delete(requestKey);
         }
     };
 
     return {
-        databases: databases,
+        databases: databasesState.connectionId === connectionId ? databasesState.items : [],
         refresh,
     };
 }

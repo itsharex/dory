@@ -1,32 +1,9 @@
 import { ConnectionDialect } from '@/types';
 import type { CopilotContextSQL } from './types/copilot-context-sql';
-import { MySQL, PostgreSQL } from 'dt-sql-parser';
+import { getSqlDialectParser } from '@/lib/sql/sql-dialect';
 
 type ParserInstance = {
-    getAllEntities: (sql: string) => Array<{ entityContextType?: string; text?: string }> | null;
-};
-
-const parserCache: Partial<Record<ConnectionDialect, ParserInstance>> = {};
-
-const getParser = (dialect: ConnectionDialect): ParserInstance => {
-    if (parserCache[dialect]) return parserCache[dialect]!;
-
-    let parser: ParserInstance;
-    switch (dialect) {
-        case 'postgres':
-            parser = new PostgreSQL() as ParserInstance;
-            break;
-        case 'mysql':
-        case 'clickhouse':
-        case 'duckdb':
-        case 'unknown':
-        default:
-            parser = new MySQL() as ParserInstance;
-            break;
-    }
-
-    parserCache[dialect] = parser;
-    return parser;
+    getAllEntities?: (sql: string) => Array<{ entityContextType?: string; text?: string }> | null;
 };
 
 const stripWrapping = (value: string) => {
@@ -47,7 +24,7 @@ const stripWrapping = (value: string) => {
     return next.trim();
 };
 
-const parseTableIdentifier = (raw: string) => {
+const parseTableIdentifier = (raw: string, dialect: ConnectionDialect) => {
     const cleaned = raw.trim();
     if (!cleaned) return null;
 
@@ -55,10 +32,19 @@ const parseTableIdentifier = (raw: string) => {
     const name = parts[parts.length - 1]?.trim();
     if (!name) return null;
 
-    const database = parts.length > 1 ? parts[parts.length - 2]?.trim() : null;
+    let database: string | null = null;
+    let schema: string | null = null;
+
+    if (dialect === 'postgres') {
+        schema = parts.length > 1 ? parts[parts.length - 2]?.trim() || null : null;
+        database = parts.length > 2 ? parts[parts.length - 3]?.trim() || null : null;
+    } else {
+        database = parts.length > 1 ? parts[parts.length - 2]?.trim() || null : null;
+    }
 
     return {
-        database: database || null,
+        database,
+        schema,
         name,
         raw,
     };
@@ -69,28 +55,32 @@ const fallbackInferred = (
 ): CopilotContextSQL['draft']['inferred'] => ({
     tables: [],
     database: baselineDatabase ?? null,
+    schema: null,
     confidence: 'low',
 });
 
-export function inferSqlDraftContext(params: {
+export async function inferSqlDraftContext(params: {
     dialect: ConnectionDialect;
     editorText: string;
     baselineDatabase?: string | null;
-}): CopilotContextSQL['draft']['inferred'] {
+}): Promise<CopilotContextSQL['draft']['inferred']> {
     const { dialect, editorText, baselineDatabase } = params;
 
     if (!editorText.trim()) {
         return {
             tables: [],
             database: baselineDatabase ?? null,
+            schema: null,
             confidence: 'mid',
         };
     }
 
     let entities: Array<{ entityContextType?: string; text?: string }> | null = null;
     try {
-        const parser = getParser(dialect);
-        entities = parser.getAllEntities(editorText) ?? null;
+        console.log(`[inferSqlDraftContext] Inferring context for dialect=${dialect} with editorText length=${editorText.length}`); 
+        const parser = (await getSqlDialectParser(dialect)) as ParserInstance;
+        console.log('parser', parser);
+        entities = parser.getAllEntities?.(editorText) ?? null;
     } catch (error) {
         return fallbackInferred(baselineDatabase);
     }
@@ -106,10 +96,10 @@ export function inferSqlDraftContext(params: {
         const type = String(entity?.entityContextType ?? '').toLowerCase();
         if (type !== 'table' && type !== 'view') continue;
 
-        const parsed = parseTableIdentifier(String(entity?.text ?? '').trim());
+        const parsed = parseTableIdentifier(String(entity?.text ?? '').trim(), dialect);
         if (!parsed) continue;
 
-        const key = `${parsed.database ?? ''}:${parsed.name}`;
+        const key = `${parsed.database ?? ''}:${parsed.schema ?? ''}:${parsed.name}`;
         if (seen.has(key)) continue;
         seen.add(key);
         tables.push(parsed);
@@ -126,9 +116,20 @@ export function inferSqlDraftContext(params: {
     const inferredDatabase =
         databases.length === 1 ? databases[0] : baselineDatabase ?? null;
 
+    const schemas = Array.from(
+        new Set(
+            tables
+                .map(table => table.schema ?? '')
+                .filter(schema => schema.trim().length > 0),
+        ),
+    );
+
+    const inferredSchema = schemas.length === 1 ? schemas[0] : null;
+
     return {
         tables,
         database: inferredDatabase,
+        schema: inferredSchema,
         confidence: tables.length ? 'high' : 'mid',
     };
 }

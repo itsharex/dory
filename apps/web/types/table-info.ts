@@ -26,6 +26,24 @@ export type TableMutationInfo = {
     createTime?: string | null;
 };
 
+export type PostgresIndexUsageStat = {
+    indexName: string;
+    indexScans: number;
+    tupleReads: number;
+    tupleFetches: number;
+    sizeBytes: number | null;
+};
+
+export type PostgresVacuumHealth = {
+    lastVacuum: string | null;
+    lastAutovacuum: string | null;
+    lastAnalyze: string | null;
+    lastAutoanalyze: string | null;
+    deadTuples: number | null;
+    liveTuples: number | null;
+    modsSinceAnalyze: number | null;
+};
+
 export type TableStats = {
     rowCount?: number | null;
     compressedBytes?: number | null;
@@ -38,4 +56,25 @@ export type TableStats = {
     maxPartSize?: number | null;
     activeMutations: TableMutationInfo[];
     ttlExpression?: string | null;
+    // postgres-specific optional fields
+    totalBytes?: number | null;
+    rowEstimate?: number | null;
+    indexUsage?: PostgresIndexUsageStat[];
+    vacuumHealth?: PostgresVacuumHealth | null;
+};
+
+export type TableIndexInfo = {
+    name: string;
+    method?: string | null;
+    isPrimary?: boolean | null;
+    isUnique?: boolean | null;
+    sizeBytes?: number | null;
+    definition?: string | null;
+};
+
+export type PostgresTableStats = {
+    totalBytes: number | null;
+    rowEstimate: number | null;
+    indexUsage: PostgresIndexUsageStat[];
+    vacuumHealth: PostgresVacuumHealth | null;
 };

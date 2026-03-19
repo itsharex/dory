@@ -308,10 +308,13 @@
             "ConnectFailed": "连接失败"
         }
     },
-    "SchemaSidebar": {
+    "SQLConsoleSidebar": {
         "Select database": "选择数据库",
+        "Select schema": "选择 Schema",
         "Search databases": "搜索数据库...",
+        "Search schemas": "搜索 Schema...",
         "Databases": "数据库",
+        "Schemas": "Schemas",
         "No results": "未找到匹配项",
         "Filter tables": "筛选表",
         "No matching tables found": "未找到匹配的表",
@@ -327,9 +330,14 @@
         "Tables": "表",
         "Materialized views": "物化视图",
         "Views": "视图",
+        "Functions": "函数",
+        "System": "系统",
+        "Loading schemas": "正在加载 Schema",
+        "No schemas": "暂无 Schema",
         "No tables": "暂无表",
         "No materialized views": "暂无物化视图",
         "No views": "暂无视图",
+        "No functions": "暂无函数",
         "Collapse": "收起",
         "Expand": "展开"
     },
@@ -441,6 +449,60 @@
             "Name": "名称"
         }
     },
+    "PostgresExplorer": {
+        "Tabs": {
+            "summary": "Summary",
+            "schemas": "Schemas",
+            "search": "Search",
+            "extensions": "Extensions",
+            "tables": "Tables",
+            "views": "Views",
+            "functions": "Functions",
+            "sequences": "Sequences",
+            "overview": "Overview",
+            "data": "Data",
+            "structure": "Structure",
+            "stats": "Stats",
+            "indexes": "Indexes"
+        },
+        "Schemas": {
+            "SearchPlaceholder": "搜索 Schema",
+            "Empty": "暂无 Schema",
+            "FilteredEmpty": "未找到匹配的 Schema"
+        },
+        "Search": {
+            "Placeholder": "搜索 Schema、表、视图、函数或序列",
+            "Empty": "未找到匹配对象"
+        },
+        "Extensions": {
+            "SearchPlaceholder": "搜索扩展",
+            "Empty": "暂无扩展",
+            "FilteredEmpty": "未找到匹配的扩展"
+        },
+        "Tables": {
+            "SearchPlaceholder": "搜索表",
+            "Empty": "暂无表",
+            "FilteredEmpty": "未找到匹配的表"
+        },
+        "Views": {
+            "SearchPlaceholder": "搜索视图",
+            "Empty": "暂无视图",
+            "FilteredEmpty": "未找到匹配的视图"
+        },
+        "Functions": {
+            "SearchPlaceholder": "搜索函数",
+            "Empty": "暂无函数",
+            "FilteredEmpty": "未找到匹配的函数"
+        },
+        "Sequences": {
+            "SearchPlaceholder": "搜索序列",
+            "Empty": "暂无序列",
+            "FilteredEmpty": "未找到匹配的序列"
+        },
+        "Indexes": {
+            "Empty": "暂无索引"
+        }
+    },
     "TableStats": {
         "No available connection": "未找到可用的数据源连接。",
         "Select table to view stats": "请选择一张表查看统计信息。",
@@ -486,6 +548,32 @@
         "TTL description": "表的存活时间规则（如已配置）。",
         "No TTL rule configured": "未配置 TTL 规则。"
     },
+    "PostgresTableStats": {
+        "No available connection": "未找到可用连接。",
+        "Select table to view stats": "请选择一张表以查看统计信息。",
+        "Failed to load stats": "无法加载表统计信息",
+        "Size": "大小",
+        "Size description": "表在磁盘上的总大小及预估行数。",
+        "Total size": "总大小",
+        "Row estimate": "预估行数",
+        "Index usage": "索引使用情况",
+        "Index usage description": "每个索引的扫描次数及元组访问指标。",
+        "No indexes": "未找到索引。",
+        "Index scans": "扫描次数",
+        "Tuple reads": "元组读取",
+        "Tuple fetches": "元组获取",
+        "Index size": "索引大小",
+        "Vacuum health": "清理健康状态",
+        "Vacuum health description": "最近一次自动清理/分析活动及元组膨胀统计。",
+        "No vacuum data": "暂无清理统计数据。",
+        "Last vacuum": "上次清理",
+        "Last autovacuum": "上次自动清理",
+        "Last analyze": "上次分析",
+        "Last autoanalyze": "上次自动分析",
+        "Live tuples": "存活元组",
+        "Dead tuples": "死亡元组",
+        "Mods since analyze": "分析后修改次数"
+    },
     "Catalog": {
         "Catalog": "目录",
         "Databases": "数据库",
@@ -524,6 +612,8 @@
         "Summary placeholder": "纽约出租车数据集，聚焦行程、费用和乘客层级分析。",
         "Unknown engine": "未知",
         "Updated": "更新于",
+        "Functions": "函数",
+        "Owner": "所有者",
         "Open table": "打开表",
         "Size": "大小",
         "Rows": "行数",
@@ -532,17 +622,37 @@
         "Failed to save summary": "保存概览失败",
         "Failed to save summary note": "保存概览备注失败。",
         "Database Summary": "数据库概览",
+        "Schema Summary": "Schema 概览",
         "Summary unavailable description": "概览数据暂时不可用。",
         "Failed to load summary": "无法加载概览",
         "Retry": "重试",
         "Database summary description": "当前数据库的身份、规模与活跃度概览。",
+        "Schema summary description": "当前 Schema 的基础信息、结构画像与探索入口。",
         "Identity": "身份",
+        "Identity description": "先确认 Schema 上下文，再进入具体表的探索。",
         "Database": "数据库",
         "Catalog": "目录",
         "Schema": "Schema",
         "Engine": "引擎",
         "Cluster / Endpoint": "集群 / 终端",
         "Size & Activity": "规模与活跃度",
+        "Structure": "结构",
+        "Structure description": "从对象类型、表规模和字段复杂度理解这个 Schema 的结构画像。",
+        "Object Type Distribution": "对象类型分布",
+        "Table Size Distribution": "表规模分布",
+        "Column Complexity": "字段复杂度",
+        "Small tables": "小表（<1k 行）",
+        "Medium tables": "中表（1k-100k 行）",
+        "Large tables": "大表（>100k 行）",
+        "Avg columns per table": "平均每表字段数",
+        "Max columns": "最多字段数",
+        "Widest table": "字段最多的表",
+        "Highlights": "重点",
+        "Highlights description": "优先展示最值得查看的表、关系结构和命名模式。",
+        "Core Tables": "核心表",
+        "Core Tables description": "基于规则推断出的 Schema 核心表。",
+        "Largest Tables": "最大表",
+        "Largest Tables description": "按存储占用排序的重点表。",
         "Tables": "表",
         "Views": "视图",
         "Materialized Views": "物化视图",
@@ -550,6 +660,21 @@
         "Rows (est)": "行数（估计）",
         "Last Updated": "最后更新",
         "Last Queried": "最近查询",
+        "Relationships": "关系",
+        "Relationships description": "外键密度和代表性的 join 路径。",
+        "Foreign key links": "外键连接数",
+        "Detected Patterns": "命名模式",
+        "Detected Patterns description": "从表名中检测到的轻量模式和分组信号。",
+        "Entry Points": "探索入口",
+        "Entry Points description": "帮助你快速开始探索，而不是先自己猜。",
+        "Quick Actions": "快捷操作",
+        "Quick Actions description": "直接进入下一步最有价值的探索动作。",
+        "Quick Action Explore largest table": "查看最大表",
+        "Quick Action Show recent changes": "查看最近变更",
+        "Quick Action Analyze relationships": "分析关系",
+        "Quick Action Browse tables": "浏览表列表",
+        "Start Here": "从这里开始",
+        "Start Here description": "推荐你优先查看的第一批表。",
         "One-line summary": "一句话概览",
         "Edit": "编辑",
         "Saving": "保存中...",
@@ -561,8 +686,21 @@
         "Top by Rows description": "按估算行数排序的最大表。",
         "Recently Updated": "最近更新",
         "Recently Updated description": "最近发生变更的表。",
+        "No recent updates found": "未发现最近更新。",
+        "No relationships found": "未发现关系。",
+        "No patterns detected": "未检测到明显模式。",
+        "No recommendations": "暂无推荐。",
         "No tables found": "未找到表。",
-        "Create or Import": "创建或导入"
+        "Create or Import": "创建或导入",
+        "RecommendationReasons": {
+            "centralAndHighRowVolume": "关系中心且行数高",
+            "centralAndHighStorage": "关系中心且存储占用高",
+            "centralInRelationships": "位于关系网络中心",
+            "highRowVolume": "行数较高",
+            "largeStorageFootprint": "存储占用较高",
+            "recentlyUpdated": "最近有更新",
+            "goodStartingPoint": "适合作为起点"
+        }
     },
     "Chatbot": {
         "Close": "关闭",
@@ -829,6 +967,7 @@
                 "CopyLabel": "复制{label}",
                 "InferredTitle": "推断上下文",
                 "DatabaseLabel": "数据库",
+                "SchemaLabel": "Schema",
                 "TablesLabel": "表",
                 "ConfidenceLabel": "置信度",
                 "EmptyValue": "—",
@@ -1442,21 +1581,21 @@
         "Connection": {
             "Errors": {
                 "Unauthorized": "用户未登录或无权限",
-            "FetchCatalogFailed": "获取目录对象失败",
-            "NotFound": "数据源不存在或无权限",
-            "MissingHost": "数据源缺少主机信息",
-            "MissingConnectionId": "缺少数据源 ID",
-            "MissingUsername": "缺少用户名",
-            "MissingIdentity": "未找到可用身份",
-            "MissingIdentityInfo": "缺少身份信息",
-            "MissingPassword": "缺少身份密码",
-            "MissingSshPassword": "缺少 SSH 密码",
-            "MissingSshPrivateKey": "缺少 SSH 私钥",
-            "UnsupportedType": "暂不支持该类型的数据库",
-            "ConnectFailed": "连接失败",
-            "SchemaReadFailed": "读取 schema 失败",
-            "TestFailed": "连接测试失败"
-        },
+                "FetchCatalogFailed": "获取目录对象失败",
+                "NotFound": "数据源不存在或无权限",
+                "MissingHost": "数据源缺少主机信息",
+                "MissingConnectionId": "缺少数据源 ID",
+                "MissingUsername": "缺少用户名",
+                "MissingIdentity": "未找到可用身份",
+                "MissingIdentityInfo": "缺少身份信息",
+                "MissingPassword": "缺少身份密码",
+                "MissingSshPassword": "缺少 SSH 密码",
+                "MissingSshPrivateKey": "缺少 SSH 私钥",
+                "UnsupportedType": "暂不支持该类型的数据库",
+                "ConnectFailed": "连接失败",
+                "SchemaReadFailed": "读取 schema 失败",
+                "TestFailed": "连接测试失败"
+            },
             "Validation": {
                 "DatabaseRequired": "数据库名称不能为空",
                 "TableRequired": "数据表名不能为空"
@@ -1474,7 +1613,8 @@
                     "ColumnsFailed": "获取数据列失败",
                     "PropertiesFailed": "获取表属性失败",
                     "StatsFailed": "获取表统计失败",
-                    "DdlFailed": "获取表 DDL 失败"
+                    "DdlFailed": "获取表 DDL 失败",
+                    "PreviewFailed": "获取表预览失败"
                 }
             }
         },
@@ -1663,8 +1803,7 @@
                 "DatabaseRequired": "缺少数据库信息",
                 "UnsupportedType": "不支持的类型",
                 "FetchFailed": "获取权限对象失败"
-            }
-            ,
+            },
             "Clusters": {
                 "FetchFailed": "获取集群信息失败"
             }
@@ -1993,6 +2132,7 @@
     },
     "AppSidebar": {
         "SQLConsole": "SQL 控制台",
+        "Explorer": "Explorer",
         "Schema": "Schema",
         "Chatbot": "Chatbot",
         "Monitoring": "监控",

@@ -5,6 +5,7 @@ import { useAtom } from 'jotai';
 import { useDB } from '@/lib/client/use-pglite';
 import { useQuery } from '@/hooks/use-query';
 import { authFetch } from '@/lib/client/auth-fetch';
+import { fetchTablePreview } from '../../../components/table-browser/lib/fetch-table-preview';
 import { SQLTab } from '@/types/tabs';
 import { runningTabsAtom, sessionIdByTabAtom } from '../sql-console.store';
 import { SQLEditorHandle } from '../components/sql-editor';
@@ -13,7 +14,6 @@ import { enforceSelectLimit } from '@/lib/utils/enforce-select-limit';
 import { splitMultiSQL } from '@/lib/utils/split-multi-sql';
 
 type RequestAITabTitle = (tab: SQLTab, options?: { force?: boolean; sqlTextOverride?: string }) => Promise<void> | void;
-type BuildTableQuery = (tab: SQLTab) => string;
 
 function genSessionId() {
     // @ts-ignore
@@ -48,14 +48,12 @@ export function useSqlQueryRunner({
     tabs,
     userId,
     requestAITabTitle,
-    buildTableQuery,
 }: {
     activeDatabase: string | null | undefined;
     activeTab: SQLTab | undefined;
     tabs: SQLTab[];
     userId: string | undefined;
     requestAITabTitle: RequestAITabTitle;
-    buildTableQuery: BuildTableQuery;
 }) {
     const { run: query } = useQuery();
     const { dbReady, setUserId, createQuerySession, finishQuerySession, applyServerResult } = useDB();
@@ -79,9 +77,8 @@ export function useSqlQueryRunner({
 
             const tabId = tab.tabId;
             const sql = editorRef.current?.getValue() ?? (activeTab?.tabType === 'sql' ? activeTab?.content ?? '' : '');
-            const sqlText = (options?.sqlOverride ?? (tab.tabType === 'table' ? buildTableQuery(tab) : sql ?? '')).trim();
+            const sqlText = (options?.sqlOverride ?? (tab.tabType === 'sql' ? sql ?? '' : '')).trim();
             const finalSqlText = tab.tabType === 'sql' ? applyLimitToSql(sqlText, options?.limit) : sqlText;
-            if (!finalSqlText) return;
             let database: string | null = null;
 
             if (options?.databaseOverride) {
@@ -92,8 +89,12 @@ export function useSqlQueryRunner({
                 database = activeDatabase;
             }
 
+            if (tab.tabType === 'sql' && !finalSqlText) return;
+            if (tab.tabType === 'table' && (!database || !tab.tableName || !tab.connectionId)) return;
+            const tableName = tab.tabType === 'table' ? tab.tableName : undefined;
+
             const stopOnError = false;
-            const source = tab.tabType === 'table' ? 'table-preview' : 'sql-console';
+            const source = tab.tabType === 'table' ? 'data-preview' : 'sql-console';
 
             setRunningTabs(p => ({ ...p, [tabId]: 'running' }));
             const controller = new AbortController();
@@ -112,25 +113,37 @@ export function useSqlQueryRunner({
             try {
                 await createQuerySession({
                     tabId,
-                    sqlText: finalSqlText,
+                    sqlText: tab.tabType === 'table' ? `TABLE PREVIEW ${database}.${tableName}` : finalSqlText,
                     database,
                     stopOnError,
                     source,
                     sessionId,
                 });
 
-                const res = await query(
-                    {
-                        sql: finalSqlText,
-                        database,
-                        stopOnError,
-                        sessionId,
-                        userId,
-                        tabId,
-                        source,
-                    },
-                    { signal: controller.signal },
-                );
+                const res =
+                    tab.tabType === 'table'
+                        ? await fetchTablePreview({
+                              connectionId: tab.connectionId,
+                              databaseName: database as string,
+                              tableName: tableName as string,
+                              limit: tab.dataView?.limit,
+                              sessionId,
+                              tabId,
+                              source,
+                              signal: controller.signal,
+                          })
+                        : await query(
+                              {
+                                  sql: finalSqlText,
+                                  database,
+                                  stopOnError,
+                                  sessionId,
+                                  userId,
+                                  tabId,
+                                  source,
+                              },
+                              { signal: controller.signal },
+                          );
 
                 const payload = (res as any)?.data;
                 if (!payload || !payload.session) {
@@ -151,7 +164,7 @@ export function useSqlQueryRunner({
                 }));
 
                 const latestTab = tabs.find(t => t.tabId === tabId);
-                if (latestTab) {
+                if (latestTab && latestTab.tabType === 'sql') {
                     void requestAITabTitle(latestTab, { sqlTextOverride: finalSqlText });
                 }
             } catch (e: any) {
@@ -186,7 +199,7 @@ export function useSqlQueryRunner({
                 }
             }
         },
-        [dbReady, userReady, activeTab, activeDatabase, query, createQuerySession, applyServerResult, finishQuerySession, setRunningTabs, setSessionIdMap, userId, tabs, requestAITabTitle, buildTableQuery, t],
+        [dbReady, userReady, activeTab, activeDatabase, query, createQuerySession, applyServerResult, finishQuerySession, setRunningTabs, setSessionIdMap, userId, tabs, requestAITabTitle, t],
     );
 
     const cancelQuery = useCallback(
