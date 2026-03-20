@@ -3,8 +3,6 @@ import { newEntityId } from '@/lib/id';
 
 /**
  * User table: users can join multiple organizations/teams.
- * defaultTeamId is kept as a legacy fallback pointer during the
- * organization-plugin migration.
  */
 export const user = pgTable('user', {
     id: text('id')
@@ -12,9 +10,6 @@ export const user = pgTable('user', {
         .$defaultFn(() => newEntityId()),
     name: text('name').notNull(),
     email: text('email').notNull().unique(),
-
-    // Legacy current organization pointer. New code should prefer session.activeOrganizationId.
-    defaultTeamId: text('default_team_id'),
 
     emailVerified: boolean('email_verified')
         .$defaultFn(() => false)

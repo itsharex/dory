@@ -36,6 +36,13 @@
       "when": 1774011208393,
       "tag": "0004_dapper_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1774013589368,
+      "tag": "0005_ambiguous_pride",
+      "breakpoints": true
     }
   ]
 }

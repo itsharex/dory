@@ -136,5 +136,13 @@
     "bps": true,
     "folderMillis": 1774011208433,
     "hash": "90ae87cfcb0aac0744c27a0985c94233f81fdcc71e94e37a3d5bfa35c5181830"
+  },
+  {
+    "sql": [
+      "ALTER TABLE \"user\" DROP COLUMN \"default_team_id\";"
+    ],
+    "bps": true,
+    "folderMillis": 1774013589412,
+    "hash": "f056fb9ae531c818970b769d976bd526f15d17c065a67963ab73c56145780f6b"
   }
 ]

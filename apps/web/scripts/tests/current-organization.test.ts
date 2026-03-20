@@ -2,36 +2,42 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
     getActiveOrganizationIdFromSession,
-    getLegacyDefaultTeamIdFromSession,
     resolveCurrentOrganizationId,
+    resolveCurrentOrganizationIdStrict,
 } from '../../lib/auth/current-organization';
 import {
     buildElectronTicketUser,
     buildSessionOrganizationPatch,
     resolveOrganizationIdForSession,
     resolveOrganizationIdFromTicket,
-    shouldBackfillLegacyDefaultTeamId,
     shouldCreateDefaultOrganization,
 } from '../../lib/auth/migration-state';
 
-test('resolveCurrentOrganizationId prefers active organization over legacy default team', () => {
+test('resolveCurrentOrganizationId returns the active organization id when present', () => {
+    const session = {
+        session: { activeOrganizationId: 'org_active' },
+    } as any;
+
+    assert.equal(resolveCurrentOrganizationId(session), 'org_active');
+    assert.equal(getActiveOrganizationIdFromSession(session), 'org_active');
+});
+
+test('resolveCurrentOrganizationId returns null when active organization is missing', () => {
+    const session = {
+        session: { activeOrganizationId: null },
+    } as any;
+
+    assert.equal(resolveCurrentOrganizationId(session), null);
+    assert.equal(resolveCurrentOrganizationIdStrict(session), null);
+});
+
+test('resolveCurrentOrganizationIdStrict only trusts active organization id', () => {
     const session = {
         session: { activeOrganizationId: 'org_active' },
         user: { defaultTeamId: 'team_legacy' },
     } as any;
 
-    assert.equal(resolveCurrentOrganizationId(session), 'org_active');
-    assert.equal(getActiveOrganizationIdFromSession(session), 'org_active');
-    assert.equal(getLegacyDefaultTeamIdFromSession(session), 'team_legacy');
-});
-
-test('resolveCurrentOrganizationId falls back to legacy default team when needed', () => {
-    const session = {
-        session: { activeOrganizationId: null },
-        user: { defaultTeamId: 'team_legacy' },
-    } as any;
-
-    assert.equal(resolveCurrentOrganizationId(session), 'team_legacy');
+    assert.equal(resolveCurrentOrganizationIdStrict(session), 'org_active');
 });
 
 test('resolveCurrentOrganizationId returns null when neither source is present', () => {
@@ -43,21 +49,12 @@ test('resolveOrganizationIdForSession falls back from active org to legacy to me
     assert.equal(
         resolveOrganizationIdForSession({
             activeOrganizationId: 'org_active',
-            legacyDefaultTeamId: 'team_legacy',
             membershipOrganizationId: 'org_membership',
         }),
         'org_active',
     );
     assert.equal(
         resolveOrganizationIdForSession({
-            legacyDefaultTeamId: 'team_legacy',
-            membershipOrganizationId: 'org_membership',
-        }),
-        'team_legacy',
-    );
-    assert.equal(
-        resolveOrganizationIdForSession({
-            legacyDefaultTeamId: null,
             membershipOrganizationId: 'org_membership',
         }),
         'org_membership',
@@ -99,48 +96,22 @@ test('shouldCreateDefaultOrganization only allows verified users without existin
     );
 });
 
-test('shouldBackfillLegacyDefaultTeamId only writes when missing or divergent', () => {
-    assert.equal(
-        shouldBackfillLegacyDefaultTeamId({
-            currentLegacyDefaultTeamId: null,
-            organizationId: 'org_new',
-        }),
-        true,
-    );
-    assert.equal(
-        shouldBackfillLegacyDefaultTeamId({
-            currentLegacyDefaultTeamId: 'org_new',
-            organizationId: 'org_new',
-        }),
-        false,
-    );
-    assert.equal(
-        shouldBackfillLegacyDefaultTeamId({
-            currentLegacyDefaultTeamId: 'org_old',
-            organizationId: 'org_new',
-        }),
-        false,
-    );
-});
-
-test('resolveOrganizationIdFromTicket prefers active organization then legacy default team', () => {
+test('resolveOrganizationIdFromTicket only trusts active organization', () => {
     assert.equal(
         resolveOrganizationIdFromTicket({
             activeOrganizationId: 'org_active',
-            legacyDefaultTeamId: 'team_legacy',
         }),
         'org_active',
     );
     assert.equal(
         resolveOrganizationIdFromTicket({
             activeOrganizationId: null,
-            legacyDefaultTeamId: 'team_legacy',
         }),
-        'team_legacy',
+        null,
     );
 });
 
-test('buildElectronTicketUser keeps active organization and backfills legacy default team', () => {
+test('buildElectronTicketUser only includes active organization in new tickets', () => {
     assert.deepEqual(
         buildElectronTicketUser({
             id: 'user_1',
@@ -149,7 +120,6 @@ test('buildElectronTicketUser keeps active organization and backfills legacy def
             image: null,
             emailVerified: true,
             activeOrganizationId: 'org_active',
-            legacyDefaultTeamId: null,
         }),
         {
             id: 'user_1',
@@ -158,30 +128,20 @@ test('buildElectronTicketUser keeps active organization and backfills legacy def
             image: null,
             emailVerified: true,
             activeOrganizationId: 'org_active',
-            defaultTeamId: 'org_active',
         },
     );
 });
 
-test('buildSessionOrganizationPatch only returns a patch when an organization can be resolved', () => {
+test('buildSessionOrganizationPatch only returns a patch when active organization exists', () => {
     assert.deepEqual(
         buildSessionOrganizationPatch({
             activeOrganizationId: 'org_active',
-            legacyDefaultTeamId: 'team_legacy',
         }),
         { activeOrganizationId: 'org_active' },
-    );
-    assert.deepEqual(
-        buildSessionOrganizationPatch({
-            activeOrganizationId: null,
-            legacyDefaultTeamId: 'team_legacy',
-        }),
-        { activeOrganizationId: 'team_legacy' },
     );
     assert.equal(
         buildSessionOrganizationPatch({
             activeOrganizationId: null,
-            legacyDefaultTeamId: null,
         }),
         null,
     );

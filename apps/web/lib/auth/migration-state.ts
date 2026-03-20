@@ -1,6 +1,5 @@
 type OrganizationResolutionInput = {
     activeOrganizationId?: string | null;
-    legacyDefaultTeamId?: string | null;
     membershipOrganizationId?: string | null;
 };
 
@@ -11,11 +10,10 @@ type TicketUserInput = {
     image: string | null;
     emailVerified: boolean;
     activeOrganizationId?: string | null;
-    legacyDefaultTeamId?: string | null;
 };
 
 export function resolveOrganizationIdForSession(input: OrganizationResolutionInput): string | null {
-    return input.activeOrganizationId ?? input.legacyDefaultTeamId ?? input.membershipOrganizationId ?? null;
+    return input.activeOrganizationId ?? input.membershipOrganizationId ?? null;
 }
 
 export function shouldCreateDefaultOrganization(input: {
@@ -34,27 +32,14 @@ export function shouldCreateDefaultOrganization(input: {
     return input.emailVerified;
 }
 
-export function shouldBackfillLegacyDefaultTeamId(input: {
-    currentLegacyDefaultTeamId?: string | null;
-    organizationId?: string | null;
-}): boolean {
-    if (!input.organizationId) {
-        return false;
-    }
-
-    return !input.currentLegacyDefaultTeamId;
-}
-
 export function resolveOrganizationIdFromTicket(input: {
     activeOrganizationId?: string | null;
-    legacyDefaultTeamId?: string | null;
 }): string | null {
-    return input.activeOrganizationId ?? input.legacyDefaultTeamId ?? null;
+    return input.activeOrganizationId ?? null;
 }
 
 export function buildElectronTicketUser(input: TicketUserInput) {
     const activeOrganizationId = input.activeOrganizationId ?? null;
-    const defaultTeamId = input.legacyDefaultTeamId ?? activeOrganizationId ?? null;
 
     return {
         id: input.id,
@@ -63,13 +48,11 @@ export function buildElectronTicketUser(input: TicketUserInput) {
         image: input.image,
         emailVerified: input.emailVerified,
         activeOrganizationId,
-        defaultTeamId,
     };
 }
 
 export function buildSessionOrganizationPatch(input: {
     activeOrganizationId?: string | null;
-    legacyDefaultTeamId?: string | null;
 }) {
     const activeOrganizationId = resolveOrganizationIdFromTicket(input);
     return activeOrganizationId ? { activeOrganizationId } : null;

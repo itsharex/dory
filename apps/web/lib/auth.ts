@@ -13,16 +13,13 @@ import { createCachedAsyncFactory } from '@dory/auth-core';
 import { isDesktopRuntime } from './runtime/runtime';
 import {
     resolveOrganizationIdForSession,
-    shouldBackfillLegacyDefaultTeamId,
     shouldCreateDefaultOrganization,
 } from './auth/migration-state';
 
-// User type with legacy defaultTeamId, used during the migration window.
-type UserWithDefaultTeam = {
+type AuthUser = {
     id: string;
     email: string | null;
     emailVerified: boolean;
-    defaultTeamId?: string | null;
 };
 
 type SessionWithActiveOrganization = {
@@ -40,24 +37,6 @@ function slugifyOrganizationName(name: string) {
     return normalized || 'workspace';
 }
 
-async function syncLegacyDefaultTeamId(db: PostgresDBClient, userId: string, organizationId: string) {
-    const [dbUser] = await db
-        .select({ defaultTeamId: schema.user.defaultTeamId })
-        .from(schema.user)
-        .where(eq(schema.user.id, userId));
-
-    if (!shouldBackfillLegacyDefaultTeamId({
-        currentLegacyDefaultTeamId: dbUser?.defaultTeamId ?? null,
-        organizationId,
-    })) {
-        return dbUser?.defaultTeamId ?? organizationId;
-    }
-
-    await db.update(schema.user).set({ defaultTeamId: organizationId }).where(eq(schema.user.id, userId));
-
-    return organizationId;
-}
-
 function createAuth() {
     return (async () => {
         const db = (await getClient()) as PostgresDBClient;
@@ -71,7 +50,6 @@ function createAuth() {
         console.log('[auth] TRUSTED_ORIGINS =', process.env.TRUSTED_ORIGINS);
 
         async function findInitialOrganizationId(userId: string): Promise<string | null> {
-            const [existingUser] = await db.select({ defaultTeamId: schema.user.defaultTeamId }).from(schema.user).where(eq(schema.user.id, userId));
             const [existingMembership] = await db
                 .select({ organizationId: schema.teamMembers.teamId })
                 .from(schema.teamMembers)
@@ -79,7 +57,6 @@ function createAuth() {
                 .limit(1);
 
             const resolvedOrganizationId = resolveOrganizationIdForSession({
-                legacyDefaultTeamId: existingUser?.defaultTeamId ?? null,
                 membershipOrganizationId: existingMembership?.organizationId ?? null,
             });
 
@@ -87,7 +64,7 @@ function createAuth() {
                 return null;
             }
 
-            return syncLegacyDefaultTeamId(db, userId, resolvedOrganizationId);
+            return resolvedOrganizationId;
         }
 
         async function hasExistingOrganization(userId: string): Promise<boolean> {
@@ -96,8 +73,7 @@ function createAuth() {
 
         /**
          * Shared helper: create a default organization + member relation through better-auth.
-         * The plugin owns the organization/member writes; we keep user.defaultTeamId as a
-         * legacy fallback during the migration.
+         * The plugin owns the organization/member writes.
          */
         async function ensureDefaultOrganizationForUser(auth: any, userId: string, email: string | null | undefined) {
             if (isDesktop) {
@@ -127,7 +103,6 @@ function createAuth() {
                 throw new Error(`failed_to_create_default_organization_for_${userId}`);
             }
 
-            await syncLegacyDefaultTeamId(db, userId, organizationId);
             console.log(`[auth] default organization ${organizationId} created for user ${userId}`);
         }
 
@@ -208,9 +183,6 @@ function createAuth() {
                                 },
                             };
                         },
-                        afterCreateOrganization: async ({ organization, user }) => {
-                            await syncLegacyDefaultTeamId(db, user.id, organization.id);
-                        },
                     },
                 }),
             ],
@@ -230,20 +202,6 @@ function createAuth() {
             ],
 
             /**
-             * Extra user field: defaultTeamId
-             */
-            user: {
-                additionalFields: {
-                    defaultTeamId: {
-                        type: 'string',
-                        required: false,
-                        input: false, // Disallow client input
-                        defaultValue: null,
-                    },
-                },
-            },
-
-            /**
              * ✅ Database hooks:
              * user.create.after: runs after any new-user creation (email / social / magic link, etc.)
              *
@@ -255,8 +213,7 @@ function createAuth() {
                 user: {
                     create: {
                         after: async rawUser => {
-                            // Explicitly narrow type to include defaultTeamId
-                            const user = rawUser as UserWithDefaultTeam;
+                            const user = rawUser as AuthUser;
 
                             // Skip if the user is already attached to an organization.
                             const existingOrganizationId = await findInitialOrganizationId(user.id);
@@ -377,13 +334,13 @@ function createAuth() {
 
                 /**
                  * ✅ After email verification:
-                 * - Create organization only if defaultTeamId is missing
+                 * - Create organization only if the user has not joined any organization yet
                  * - Covers two cases:
                  *   1) Standard email+password signup
                  *   2) Social login where SSO doesn't mark emailVerified
                  */
                 afterEmailVerification: async (rawUser, request) => {
-                    const user = rawUser as UserWithDefaultTeam;
+                    const user = rawUser as AuthUser;
 
                     if (await hasExistingOrganization(user.id)) {
                         // Possibly created via databaseHooks during social login,

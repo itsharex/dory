@@ -1,0 +1,1 @@
+ALTER TABLE "user" DROP COLUMN "default_team_id";

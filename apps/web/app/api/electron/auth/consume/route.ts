@@ -19,7 +19,6 @@ type TicketUser = {
     image: string | null;
     emailVerified: boolean;
     activeOrganizationId?: string | null;
-    defaultTeamId?: string | null;
 };
 
 async function consumeTicketLocally(ticket: string) {
@@ -58,7 +57,6 @@ async function consumeTicketLocally(ticket: string) {
 
     const sessionPatch = buildSessionOrganizationPatch({
         activeOrganizationId: user.activeOrganizationId,
-        legacyDefaultTeamId: user.defaultTeamId,
     });
     if (sessionPatch) {
         await ctx.internalAdapter.updateSession(session.token, sessionPatch);
