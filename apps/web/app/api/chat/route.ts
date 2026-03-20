@@ -27,6 +27,7 @@ import type { CopilotEnvelopeV1 } from '@/app/(app)/[team]/[connectionId]/chatbo
 import { toPromptContext } from '@/app/(app)/[team]/[connectionId]/chatbot/copilot/copilot-envelope';
 import { getApiLocale } from '@/app/api/utils/i18n';
 import { withUserAndTeamHandler } from '../utils/with-team-handler';
+import { resolveCurrentOrganizationId } from '@/lib/auth/current-organization';
 import { USE_CLOUD_AI } from '@/app/config/app';
 import { buildCloudForwardHeaders } from '@/app/api/utils/cloud-ai-proxy';
 import { getCloudApiBaseUrl } from '@/lib/cloud/url';
@@ -100,7 +101,7 @@ async function handleChatRequest(req: NextRequest) {
 
     const session = await getSessionFromRequest(req);
     const userId = session?.user?.id ?? null;
-    const teamId = session?.user?.defaultTeamId ?? null;
+    const teamId = resolveCurrentOrganizationId(session);
     const connectionId =
         connectionIdFromBody ?? req.headers.get('x-connection-id') ?? null;
 

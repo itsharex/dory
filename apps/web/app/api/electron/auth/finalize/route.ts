@@ -6,6 +6,7 @@ import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { randomUUID } from 'crypto';
 import { eq } from 'drizzle-orm';
 import { NextResponse } from 'next/server';
+import { resolveCurrentOrganizationId } from '@/lib/auth/current-organization';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,6 +20,7 @@ type TicketUser = {
     name: string | null;
     image: string | null;
     emailVerified: boolean;
+    activeOrganizationId?: string | null;
     defaultTeamId?: string | null;
 };
 
@@ -279,6 +281,7 @@ export async function GET(req: Request) {
         name: dbUser?.name ?? session.user.name ?? null,
         image: dbUser?.image ?? session.user.image ?? null,
         emailVerified: dbUser?.emailVerified ?? session.user.emailVerified ?? false,
+        activeOrganizationId: resolveCurrentOrganizationId(activeSession),
         defaultTeamId: dbUser?.defaultTeamId ?? (session.user as TicketUser).defaultTeamId ?? null,
     } satisfies TicketUser;
     const ticket = await createTicket(auth, { user });

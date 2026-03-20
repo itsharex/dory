@@ -4,13 +4,14 @@ import { ErrorCodes } from '@/lib/errors';
 import { ResponseUtil } from '@/lib/result';
 import { NextResponse } from 'next/server';
 import { resolveTeamAccess } from '@/lib/server/authz';
+import { resolveCurrentOrganizationId } from '@/lib/auth/current-organization';
 
 export const runtime = 'nodejs';
 
 export const GET = withUserHandler(async ({ req, session, userId }) => {
     const locale = await getApiLocale();
     const requestedTeamId = req.nextUrl.searchParams.get('teamId');
-    const teamId = requestedTeamId ?? session?.user?.defaultTeamId ?? null;
+    const teamId = requestedTeamId ?? resolveCurrentOrganizationId(session);
 
     if (!teamId) {
         return NextResponse.json(

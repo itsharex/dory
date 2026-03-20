@@ -6,6 +6,7 @@ import { ErrorCodes } from '@/lib/errors';
 import { ResponseUtil } from '@/lib/result';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { canManageTeam, resolveTeamAccess } from '@/lib/server/authz';
+import { resolveCurrentOrganizationId } from '@/lib/auth/current-organization';
 
 type TeamHandlerContext = {
     req: NextRequest;
@@ -104,7 +105,7 @@ export function withTeamHandler(handler: TeamHandlerFn) {
     return async function routeHandler(req: NextRequest): Promise<Response> {
         const locale = await getApiLocale();
         const session = await getSessionFromRequest(req);
-        const teamId = session?.user?.defaultTeamId ?? null;
+        const teamId = resolveCurrentOrganizationId(session);
         const userId = session?.user?.id ?? null;
 
         if (!teamId) {
@@ -135,7 +136,7 @@ export function withUserAndTeamHandler(handler: UserTeamHandlerFn) {
     return async function routeHandler(req: NextRequest): Promise<Response> {
         const locale = await getApiLocale();
         const session = await getSessionFromRequest(req);
-        const teamId = session?.user?.defaultTeamId ?? null;
+        const teamId = resolveCurrentOrganizationId(session);
         const userId = session?.user?.id ?? null;
 
         if (!userId) {

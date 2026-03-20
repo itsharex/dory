@@ -13,6 +13,7 @@ export const teams = pgTable(
 
         // URL /team/:slug
         slug: text('slug'),
+        logo: text('logo'),
 
         createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
         updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

@@ -17,6 +17,7 @@ type TicketUser = {
     name: string | null;
     image: string | null;
     emailVerified: boolean;
+    activeOrganizationId?: string | null;
     defaultTeamId?: string | null;
 };
 

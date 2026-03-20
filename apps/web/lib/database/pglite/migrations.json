@@ -121,5 +121,20 @@
     "bps": true,
     "folderMillis": 1773803901672,
     "hash": "bfb5380091c78d5df89375af8d56e02bd8351dd74fe1a08a35644f0d58e75700"
+  },
+  {
+    "sql": [
+      "CREATE TABLE \"invitation\" (\n\t\"id\" text PRIMARY KEY NOT NULL,\n\t\"organization_id\" text NOT NULL,\n\t\"email\" text NOT NULL,\n\t\"role\" text NOT NULL,\n\t\"status\" text DEFAULT 'pending' NOT NULL,\n\t\"expires_at\" timestamp with time zone,\n\t\"created_at\" timestamp with time zone DEFAULT now() NOT NULL,\n\t\"inviter_id\" text NOT NULL\n);\n",
+      "\nALTER TABLE \"session\" ADD COLUMN \"active_organization_id\" text;",
+      "\nALTER TABLE \"teams\" ADD COLUMN \"logo\" text;",
+      "\nUPDATE \"session\" AS s\nSET \"active_organization_id\" = u.\"default_team_id\"\nFROM \"user\" AS u\nWHERE s.\"user_id\" = u.\"id\"\n  AND s.\"active_organization_id\" IS NULL\n  AND u.\"default_team_id\" IS NOT NULL;",
+      "\nUPDATE \"teams\"\nSET \"slug\" = \"id\"\nWHERE \"slug\" IS NULL OR \"slug\" = '';",
+      "\nCREATE INDEX \"idx_invitation_organization_id\" ON \"invitation\" USING btree (\"organization_id\");",
+      "\nCREATE INDEX \"idx_invitation_email\" ON \"invitation\" USING btree (\"email\");",
+      "\nCREATE INDEX \"idx_invitation_status\" ON \"invitation\" USING btree (\"status\");\n"
+    ],
+    "bps": true,
+    "folderMillis": 1774011208433,
+    "hash": "90ae87cfcb0aac0744c27a0985c94233f81fdcc71e94e37a3d5bfa35c5181830"
   }
 ]

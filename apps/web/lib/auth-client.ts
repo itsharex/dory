@@ -1,9 +1,11 @@
 // lib/auth/client.ts — only import in client components
 'use client';
 import { createAuthClient } from 'better-auth/react';
+import { inferOrgAdditionalFields, organizationClient } from 'better-auth/client/plugins';
 import { translate } from '@/lib/i18n/i18n';
 import { getClientLocale } from '@/lib/i18n/client-locale';
 import { getAuthBaseUrl } from '@/lib/client/auth-runtime';
+import type { getAuth } from './auth';
 
 const authBaseUrl = getAuthBaseUrl();
 
@@ -11,6 +13,11 @@ export const authClient = createAuthClient({
     // Same origin: omit baseURL
     // Cross-origin (gateway/subdomain): baseURL: process.env.NEXT_PUBLIC_AUTH_ORIGIN,
     ...(authBaseUrl ? { baseURL: authBaseUrl } : {}),
+    plugins: [
+        organizationClient({
+            schema: inferOrgAdditionalFields<Awaited<ReturnType<typeof getAuth>>>(),
+        }),
+    ],
 });
 
 

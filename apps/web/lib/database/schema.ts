@@ -13,6 +13,7 @@ export const user = activeSchemas.user;
 export const session = activeSchemas.session;
 export const account = activeSchemas.account;
 export const verification = activeSchemas.verification;
+export const invitation = activeSchemas.invitation;
 export const teams = activeSchemas?.teams;
 export const ai_schema_cache = activeSchemas?.aiSchemaCache;
 

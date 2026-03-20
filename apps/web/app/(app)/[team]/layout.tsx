@@ -6,6 +6,7 @@ import { AppContentShell } from './components/app-sidebar/app-content-shell';
 import { AppSidebar } from './components/app-sidebar/app-sidebar';
 import { getSessionFromRequest } from '@/lib/auth/session';
 import { getTeamBySlugOrId } from '@/lib/server/team';
+import { resolveCurrentOrganizationId } from '@/lib/auth/current-organization';
 
 
 export default async function TeamLayout({ children, params }: { children: React.ReactNode; params: Promise<{ team: string } > }) {
@@ -17,9 +18,9 @@ export default async function TeamLayout({ children, params }: { children: React
         redirect('/sign-in');
     }
 
-    const defaultTeamId = session.user.defaultTeamId;
+    const currentOrganizationId = resolveCurrentOrganizationId(session);
 
-    if (!defaultTeamId) {
+    if (!currentOrganizationId) {
         redirect('/create-team');
     }
 
@@ -27,7 +28,7 @@ export default async function TeamLayout({ children, params }: { children: React
     const team = teamParam ? await getTeamBySlugOrId(teamParam, session.user.id) : null;
 
     if (!team) {
-        redirect(`/${defaultTeamId}/connections`);
+        redirect(`/${currentOrganizationId}/connections`);
     }
 
     return (

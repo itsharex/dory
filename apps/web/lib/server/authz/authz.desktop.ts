@@ -3,6 +3,7 @@ import { createAuthProxyHeaders } from '@/lib/auth/auth-proxy';
 import { getCloudApiBaseUrl } from '@/lib/cloud/url';
 import { headers } from 'next/headers';
 import type { TeamAccess } from './types';
+import { resolveCurrentOrganizationId } from '@/lib/auth/current-organization';
 
 async function fetchCloudTeamAccess(teamId: string): Promise<TeamAccess | null> {
     const cloudBaseUrl = getCloudApiBaseUrl();
@@ -63,19 +64,19 @@ async function fetchCloudTeamAccess(teamId: string): Promise<TeamAccess | null> 
 export async function resolveDesktopTeamAccess(teamId: string, userId: string): Promise<TeamAccess | null> {
     const session = await getSessionFromRequest();
     const sessionUserId = session?.user?.id ?? null;
-    const defaultTeamId = session?.user?.defaultTeamId ?? null;
+    const activeOrganizationId = resolveCurrentOrganizationId(session);
     console.log('[authz][desktop] resolveDesktopTeamAccess', {
         teamId,
         userId,
         sessionUserId,
-        defaultTeamId,
+        activeOrganizationId,
     });
 
-    if (!sessionUserId || !defaultTeamId) {
+    if (!sessionUserId || !activeOrganizationId) {
         return null;
     }
 
-    if (sessionUserId !== userId || defaultTeamId !== teamId) {
+    if (sessionUserId !== userId || activeOrganizationId !== teamId) {
         return null;
     }
 

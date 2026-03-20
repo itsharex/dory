@@ -2,8 +2,9 @@ import { pgTable, text, timestamp, boolean, index } from 'drizzle-orm/pg-core';
 import { newEntityId } from '@/lib/id';
 
 /**
- * User table: users can join multiple teams
- * Keep defaultTeamId as the current/default team
+ * User table: users can join multiple organizations/teams.
+ * defaultTeamId is kept as a legacy fallback pointer during the
+ * organization-plugin migration.
  */
 export const user = pgTable('user', {
     id: text('id')
@@ -12,7 +13,7 @@ export const user = pgTable('user', {
     name: text('name').notNull(),
     email: text('email').notNull().unique(),
 
-    // Default team (nullable; set when user first joins a team)
+    // Legacy current organization pointer. New code should prefer session.activeOrganizationId.
     defaultTeamId: text('default_team_id'),
 
     emailVerified: boolean('email_verified')
@@ -24,8 +25,7 @@ export const user = pgTable('user', {
 });
 
 /**
- * Session table: bind to user, not required to bind team
- * Current team via cookie/header, or user.defaultTeamId
+ * Session table: bind to user and optionally the currently active organization.
  */
 export const session = pgTable('session', {
     id: text('id')
@@ -39,6 +39,7 @@ export const session = pgTable('session', {
     userAgent: text('user_agent'),
 
     userId: text('user_id').notNull(),
+    activeOrganizationId: text('active_organization_id'),
 });
 
 /**
@@ -77,6 +78,31 @@ export const verification = pgTable('verification', {
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+/**
+ * Organization invitations used by better-auth organization plugin.
+ * We do not enable nested teams yet, so teamId is intentionally omitted.
+ */
+export const invitation = pgTable(
+    'invitation',
+    {
+        id: text('id')
+            .primaryKey()
+            .$defaultFn(() => newEntityId()),
+        organizationId: text('organization_id').notNull(),
+        email: text('email').notNull(),
+        role: text('role').notNull(),
+        status: text('status').notNull().default('pending'),
+        expiresAt: timestamp('expires_at', { withTimezone: true }),
+        createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+        inviterId: text('inviter_id').notNull(),
+    },
+    table => ({
+        organizationIdIdx: index('idx_invitation_organization_id').on(table.organizationId),
+        emailIdx: index('idx_invitation_email').on(table.email),
+        statusIdx: index('idx_invitation_status').on(table.status),
+    }),
+);
 
 /**
  * JWKS (for Better Auth JWT plugin signing/verification)

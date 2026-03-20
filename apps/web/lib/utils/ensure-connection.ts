@@ -7,6 +7,7 @@ import { getSessionFromRequest } from '@/lib/auth/session';
 import { getOrCreateConnectionPool } from '../connection/connection-service';
 import { translate } from '@/lib/i18n/i18n';
 import { Locale, routing } from '@/lib/i18n/routing';
+import { resolveCurrentOrganizationId } from '@/lib/auth/current-organization';
 
 type EnsureConnectionOptions = {
     locale?: Locale;
@@ -53,7 +54,7 @@ export async function ensureConnection(
         };
     }
 
-    const teamId = options?.teamId ?? (await getSessionFromRequest(req))?.user?.defaultTeamId ?? null;
+    const teamId = options?.teamId ?? resolveCurrentOrganizationId(await getSessionFromRequest(req));
     if (!teamId) {
         return {
             response: NextResponse.json(

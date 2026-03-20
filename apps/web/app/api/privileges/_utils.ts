@@ -7,6 +7,7 @@ import type { ClickhousePrivilegesImpl } from '@/lib/connection/drivers/clickhou
 import { getOrCreateConnectionPool } from '@/lib/connection/connection-service';
 import { getSessionFromRequest } from '@/lib/auth/session';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
+import { resolveCurrentOrganizationId } from '@/lib/auth/current-organization';
 
 const ERROR_MESSAGE_KEYS = {
     missingConnection: 'Api.Privileges.Errors.MissingConnectionId',
@@ -27,7 +28,7 @@ export async function resolvePrivilegesConnection(
     options?: { teamId?: string },
 ): Promise<{ response?: NextResponse; resolved?: ResolvedPrivilegesConnection }> {
     const locale = await getApiLocale();
-    const teamId = options?.teamId ?? (await getSessionFromRequest(req))?.user?.defaultTeamId ?? null;
+    const teamId = options?.teamId ?? resolveCurrentOrganizationId(await getSessionFromRequest(req));
     const connectionId =
         req.headers.get(X_CONNECTION_ID_KEY) ??
         req.headers.get(X_CONNECTION_ID_KEY.toLowerCase()) ??
