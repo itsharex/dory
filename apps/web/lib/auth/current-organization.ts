@@ -1,4 +1,5 @@
 import type { getSessionFromRequest } from './session';
+import { resolveOrganizationIdForSession } from './migration-state';
 
 type SessionResult = Awaited<ReturnType<typeof getSessionFromRequest>>;
 
@@ -31,5 +32,8 @@ export function getLegacyDefaultTeamIdFromSession(session: SessionLike): string 
 }
 
 export function resolveCurrentOrganizationId(session: SessionLike): string | null {
-    return getActiveOrganizationIdFromSession(session) ?? getLegacyDefaultTeamIdFromSession(session);
+    return resolveOrganizationIdForSession({
+        activeOrganizationId: getActiveOrganizationIdFromSession(session),
+        legacyDefaultTeamId: getLegacyDefaultTeamIdFromSession(session),
+    });
 }

@@ -11,6 +11,11 @@ import { getServerLocale } from './i18n/server-locale';
 import { translate } from './i18n/i18n';
 import { createCachedAsyncFactory } from '@dory/auth-core';
 import { isDesktopRuntime } from './runtime/runtime';
+import {
+    resolveOrganizationIdForSession,
+    shouldBackfillLegacyDefaultTeamId,
+    shouldCreateDefaultOrganization,
+} from './auth/migration-state';
 
 // User type with legacy defaultTeamId, used during the migration window.
 type UserWithDefaultTeam = {
@@ -41,13 +46,14 @@ async function syncLegacyDefaultTeamId(db: PostgresDBClient, userId: string, org
         .from(schema.user)
         .where(eq(schema.user.id, userId));
 
-    if (dbUser?.defaultTeamId === organizationId) {
-        return organizationId;
+    if (!shouldBackfillLegacyDefaultTeamId({
+        currentLegacyDefaultTeamId: dbUser?.defaultTeamId ?? null,
+        organizationId,
+    })) {
+        return dbUser?.defaultTeamId ?? organizationId;
     }
 
-    if (!dbUser?.defaultTeamId) {
-        await db.update(schema.user).set({ defaultTeamId: organizationId }).where(eq(schema.user.id, userId));
-    }
+    await db.update(schema.user).set({ defaultTeamId: organizationId }).where(eq(schema.user.id, userId));
 
     return organizationId;
 }
@@ -66,22 +72,22 @@ function createAuth() {
 
         async function findInitialOrganizationId(userId: string): Promise<string | null> {
             const [existingUser] = await db.select({ defaultTeamId: schema.user.defaultTeamId }).from(schema.user).where(eq(schema.user.id, userId));
-
-            if (existingUser?.defaultTeamId) {
-                return existingUser.defaultTeamId;
-            }
-
             const [existingMembership] = await db
                 .select({ organizationId: schema.teamMembers.teamId })
                 .from(schema.teamMembers)
                 .where(eq(schema.teamMembers.userId, userId))
                 .limit(1);
 
-            if (!existingMembership?.organizationId) {
+            const resolvedOrganizationId = resolveOrganizationIdForSession({
+                legacyDefaultTeamId: existingUser?.defaultTeamId ?? null,
+                membershipOrganizationId: existingMembership?.organizationId ?? null,
+            });
+
+            if (!resolvedOrganizationId) {
                 return null;
             }
 
-            return syncLegacyDefaultTeamId(db, userId, existingMembership.organizationId);
+            return syncLegacyDefaultTeamId(db, userId, resolvedOrganizationId);
         }
 
         async function hasExistingOrganization(userId: string): Promise<boolean> {
@@ -253,16 +259,20 @@ function createAuth() {
                             const user = rawUser as UserWithDefaultTeam;
 
                             // Skip if the user is already attached to an organization.
-                            if (await hasExistingOrganization(user.id)) return;
+                            const existingOrganizationId = await findInitialOrganizationId(user.id);
 
                             // For social login:
                             //   - If SSO marks email as verified, emailVerified is true
-                            //   → Create the team immediately here
+                            //   → Create the organization immediately here
                             //
                             // For email+password signup:
                             //   - With requireEmailVerification, emailVerified is usually false
-                            //   → Create the team in afterEmailVerification instead
-                            if (user.emailVerified) {
+                            //   → Create the organization in afterEmailVerification instead
+                            if (shouldCreateDefaultOrganization({
+                                isDesktop,
+                                existingOrganizationId,
+                                emailVerified: user.emailVerified,
+                            })) {
                                 await ensureDefaultOrganizationForUser(auth as any, user.id, user.email);
                             }
                         },
@@ -272,7 +282,10 @@ function createAuth() {
                     create: {
                         before: async rawSession => {
                             const session = rawSession as SessionWithActiveOrganization;
-                            const activeOrganizationId = session.activeOrganizationId ?? (await findInitialOrganizationId(session.userId));
+                            const activeOrganizationId = resolveOrganizationIdForSession({
+                                activeOrganizationId: session.activeOrganizationId ?? null,
+                                membershipOrganizationId: await findInitialOrganizationId(session.userId),
+                            });
 
                             return {
                                 data: {

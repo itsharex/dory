@@ -1,4 +1,5 @@
 import { getAuth } from '@/lib/auth';
+import { buildSessionOrganizationPatch } from '@/lib/auth/migration-state';
 import { serializeSignedCookie } from 'better-call';
 import { proxyAuthRequest, shouldProxyAuthRequest } from '@/lib/auth/auth-proxy';
 import { NextResponse } from 'next/server';
@@ -20,10 +21,6 @@ type TicketUser = {
     activeOrganizationId?: string | null;
     defaultTeamId?: string | null;
 };
-
-function resolveTicketOrganizationId(user: TicketUser): string | null {
-    return user.activeOrganizationId ?? user.defaultTeamId ?? null;
-}
 
 async function consumeTicketLocally(ticket: string) {
     const auth = await getAuth();
@@ -59,11 +56,12 @@ async function consumeTicketLocally(ticket: string) {
         return NextResponse.json({ error: 'failed_to_create_session' }, { status: 500 });
     }
 
-    const activeOrganizationId = resolveTicketOrganizationId(user);
-    if (activeOrganizationId) {
-        await ctx.internalAdapter.updateSession(session.token, {
-            activeOrganizationId,
-        });
+    const sessionPatch = buildSessionOrganizationPatch({
+        activeOrganizationId: user.activeOrganizationId,
+        legacyDefaultTeamId: user.defaultTeamId,
+    });
+    if (sessionPatch) {
+        await ctx.internalAdapter.updateSession(session.token, sessionPatch);
     }
 
     const baseAttrs = ctx.authCookies.sessionToken.attributes ?? {};
