@@ -21,6 +21,10 @@ type TicketUser = {
     defaultTeamId?: string | null;
 };
 
+function resolveTicketOrganizationId(user: TicketUser): string | null {
+    return user.activeOrganizationId ?? user.defaultTeamId ?? null;
+}
+
 async function consumeTicketLocally(ticket: string) {
     const auth = await getAuth();
     const ctx = await auth.$context;
@@ -53,6 +57,13 @@ async function consumeTicketLocally(ticket: string) {
     const session = await ctx.internalAdapter.createSession(user.id, false);
     if (!session) {
         return NextResponse.json({ error: 'failed_to_create_session' }, { status: 500 });
+    }
+
+    const activeOrganizationId = resolveTicketOrganizationId(user);
+    if (activeOrganizationId) {
+        await ctx.internalAdapter.updateSession(session.token, {
+            activeOrganizationId,
+        });
     }
 
     const baseAttrs = ctx.authCookies.sessionToken.attributes ?? {};

@@ -282,7 +282,11 @@ export async function GET(req: Request) {
         image: dbUser?.image ?? session.user.image ?? null,
         emailVerified: dbUser?.emailVerified ?? session.user.emailVerified ?? false,
         activeOrganizationId: resolveCurrentOrganizationId(activeSession),
-        defaultTeamId: dbUser?.defaultTeamId ?? (session.user as TicketUser).defaultTeamId ?? null,
+        defaultTeamId:
+            dbUser?.defaultTeamId ??
+            resolveCurrentOrganizationId(activeSession) ??
+            (session.user as TicketUser).defaultTeamId ??
+            null,
     } satisfies TicketUser;
     const ticket = await createTicket(auth, { user });
     const deepLinkUrl = buildDeepLinkUrl({ ticket });

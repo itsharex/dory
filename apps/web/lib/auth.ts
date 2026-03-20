@@ -12,7 +12,7 @@ import { translate } from './i18n/i18n';
 import { createCachedAsyncFactory } from '@dory/auth-core';
 import { isDesktopRuntime } from './runtime/runtime';
 
-// User type with defaultTeamId, used for narrowing in hooks
+// User type with legacy defaultTeamId, used during the migration window.
 type UserWithDefaultTeam = {
     id: string;
     email: string | null;
@@ -67,6 +67,10 @@ function createAuth() {
             await db.update(schema.user).set({ defaultTeamId: existingMembership.organizationId }).where(eq(schema.user.id, userId));
 
             return existingMembership.organizationId;
+        }
+
+        async function hasExistingOrganization(userId: string): Promise<boolean> {
+            return Boolean(await findInitialOrganizationId(userId));
         }
 
         /**
@@ -240,8 +244,8 @@ function createAuth() {
                             // Explicitly narrow type to include defaultTeamId
                             const user = rawUser as UserWithDefaultTeam;
 
-                            // Skip if default team already exists
-                            if (user.defaultTeamId) return;
+                            // Skip if the user is already attached to an organization.
+                            if (await hasExistingOrganization(user.id)) return;
 
                             // For social login:
                             //   - If SSO marks email as verified, emailVerified is true
@@ -360,8 +364,9 @@ function createAuth() {
                 afterEmailVerification: async (rawUser, request) => {
                     const user = rawUser as UserWithDefaultTeam;
 
-                    if (user.defaultTeamId) {
-                        // Possibly created via databaseHooks during social login
+                    if (await hasExistingOrganization(user.id)) {
+                        // Possibly created via databaseHooks during social login,
+                        // or backfilled from an existing membership.
                         return;
                     }
 
