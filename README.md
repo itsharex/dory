@@ -139,6 +139,8 @@ A native observability interface designed specifically for ClickHouse.
 
 ---
 
+![Dory Preview](./public/monitor-overview.png)
+
 ### 🔐 ClickHouse Privileges (Deep Integration)
 
 Native ClickHouse user and role management UI.
