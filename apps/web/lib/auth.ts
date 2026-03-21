@@ -242,6 +242,8 @@ function createAuth() {
                     },
                 },
                 session: {
+                    expiresIn: 60 * 60 * 24 * 30, // 30 days
+                    updateAge: 60 * 60 * 24,// 1 day (every 1 day the session expiration is updated)
                     create: {
                         before: async rawSession => {
                             const session = rawSession as SessionWithActiveOrganization;
