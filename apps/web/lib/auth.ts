@@ -2,6 +2,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { jwt, organization } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
+import { dash, sentinel } from '@better-auth/infra';
 import { createCachedAsyncFactory } from '@dory/auth-core';
 import type { PostgresDBClient } from '../types';
 import { getClient } from './database/postgres/client';
@@ -12,7 +13,6 @@ import { resolveOrganizationIdForSession, shouldCreateDefaultOrganization } from
 import { translate } from './i18n/i18n';
 import { getServerLocale } from './i18n/server-locale';
 import { isDesktopRuntime } from './runtime/runtime';
-import { dash } from '@better-auth/infra';
 import { organizationAc, organizationRoles } from './auth/organization-ac';
 
 type AuthUser = {
@@ -44,6 +44,14 @@ function createAuth() {
         const desktopOrigin =
             process.env.DORY_ELECTRON_ORIGIN?.trim() || process.env.NEXT_PUBLIC_DORY_ELECTRON_ORIGIN?.trim() || (isDesktop ? `http://127.0.0.1:${process.env.PORT ?? 3000}` : '');
         const publicAuthBaseUrl = process.env.BETTER_AUTH_URL?.trim() || desktopOrigin || null;
+        const betterAuthApiKey = process.env.BETTER_AUTH_API_KEY?.trim() || undefined;
+        const betterAuthApiUrl = process.env.BETTER_AUTH_API_URL?.trim() || undefined;
+        const betterAuthKvUrl = process.env.BETTER_AUTH_KV_URL?.trim() || undefined;
+        const betterAuthInfraOptions = {
+            ...(betterAuthApiKey ? { apiKey: betterAuthApiKey } : {}),
+            ...(betterAuthApiUrl ? { apiUrl: betterAuthApiUrl } : {}),
+            ...(betterAuthKvUrl ? { kvUrl: betterAuthKvUrl } : {}),
+        };
 
         console.log('[auth] TRUSTED_ORIGINS =', process.env.TRUSTED_ORIGINS);
 
@@ -109,10 +117,47 @@ function createAuth() {
             plugins: [
                 jwt(),
                 dash({
-                    apiKey: process.env.BETTER_AUTH_API_KEY,
+                    ...betterAuthInfraOptions,
                     activityTracking: {
                         enabled: true,
                         updateInterval: 300000,
+                    },
+                }),
+                sentinel({
+                    ...betterAuthInfraOptions,
+                    security: {
+                        credentialStuffing: {
+                            enabled: true,
+                            thresholds: {
+                                challenge: 3,
+                                block: 5,
+                            },
+                            windowSeconds: 3600,
+                            cooldownSeconds: 900,
+                        },
+                        impossibleTravel: {
+                            enabled: true,
+                            action: 'log',
+                        },
+                        botBlocking: {
+                            action: 'challenge',
+                        },
+                        suspiciousIpBlocking: {
+                            action: 'challenge',
+                        },
+                        velocity: {
+                            enabled: true,
+                            thresholds: {
+                                challenge: 10,
+                                block: 20,
+                            },
+                            maxSignupsPerVisitor: 5,
+                            maxPasswordResetsPerIp: 10,
+                            maxSignInsPerIp: 50,
+                            windowSeconds: 3600,
+                            action: 'challenge',
+                        },
+                        challengeDifficulty: 18,
                     },
                 }),
                 organization({
