@@ -113,10 +113,10 @@ function createAuth() {
         }
 
         const auth = betterAuth({
-            appName: "Dory",
-            experimental: {
-                joins: true, // Enable database joins for better performance
-            },
+            appName: 'Dory',
+            // experimental: {
+            //     joins: true,
+            // },
             database: drizzleAdapter(db, { provider, schema }),
             plugins: [
                 jwt(),
@@ -336,7 +336,7 @@ function createAuth() {
                 },
                 session: {
                     expiresIn: 60 * 60 * 24 * 30, // 30 days
-                    updateAge: 60 * 60 * 24,// 1 day (every 1 day the session expiration is updated)
+                    updateAge: 60 * 60 * 24, // 1 day (every 1 day the session expiration is updated)
                     create: {
                         before: async rawSession => {
                             const session = rawSession as SessionWithActiveOrganization;
