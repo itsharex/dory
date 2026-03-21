@@ -7,7 +7,7 @@ export type OrganizationMemberRole = 'owner' | 'admin' | 'member' | 'viewer';
 export type OrganizationMemberStatus = 'active' | 'invited' | 'disabled';
 
 export const organizationMembers = pgTable(
-    'organization_members',
+    'members',
     {
         id: text('id')
             .primaryKey()
@@ -30,8 +30,8 @@ export const organizationMembers = pgTable(
         joinedAt: timestamp('joined_at', { withTimezone: true }),
     },
     table => [
-        uniqueIndex('organization_members_organization_id_user_id_unique').on(table.organizationId, table.userId),
-        index('idx_organization_members_organization').on(table.organizationId),
-        index('idx_organization_members_user').on(table.userId),
+        uniqueIndex('members_organization_id_user_id_unique').on(table.organizationId, table.userId),
+        index('idx_members_organization').on(table.organizationId),
+        index('idx_members_user').on(table.userId),
     ]
 );

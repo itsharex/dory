@@ -78,8 +78,8 @@ const RECOVERY_TABLES: RecoveryTableSpec[] = [
         ],
     },
     {
-        key: 'organization_members',
-        sourceTables: ['organization_members', 'team_members'],
+        key: 'members',
+        sourceTables: ['members', 'organization_members', 'team_members'],
         targetTable: organizationMembers,
         columns: [
             { target: 'id', required: true },
