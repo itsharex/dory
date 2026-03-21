@@ -2,7 +2,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import posthog from 'posthog-js';
 
 import { cn } from '@/lib/utils';
@@ -20,6 +20,7 @@ import { runtime, isDesktopRuntime } from '@/lib/runtime/runtime';
 export function SignInForm({ className, imageUrl, ...props }: React.ComponentProps<'div'> & { imageUrl?: string }) {
     const t = useTranslations('Auth');
     const router = useRouter();
+    const searchParams = useSearchParams();
     const isDesktop = isDesktopRuntime();
     const [loading, setLoading] = useState(false);
     const [demoLoading, setDemoLoading] = useState(false);
@@ -27,6 +28,7 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
     const [pwd, setPwd] = useState('');
     const [err, setErr] = useState<string | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
+    const callbackURL = searchParams?.get('callbackURL') || '/';
 
     useEffect(() => {
         if (!window.authBridge?.onCallback) return;
@@ -135,15 +137,13 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
                     posthog.identify(email, { email });
                     posthog.capture('user_signed_in', { method: 'email' });
                     router.refresh();
-                    router.push(`/`);
+                    router.push(callbackURL);
                 }
             } else {
                 const { error } = await authClient.signIn.email({
                     email,
                     password: pwd,
-                    //Jump after logging in (can be modified as needed)
-                    callbackURL: `/`,
-                    //You can also add rememberMe: true
+                    callbackURL,
                 });
                 if (error) {
                     setErr(error.message ?? t('SignIn.LoginFailedRetry'));
@@ -152,7 +152,7 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
                     //Success: Better Auth will handle the callback; for SSR/CSR consistency, it will also perform a local jump.
                     posthog.identify(email, { email });
                     posthog.capture('user_signed_in', { method: 'email' });
-                    router.push(`/`);
+                    router.push(callbackURL);
                 }
             }
         } catch (e: any) {
@@ -224,7 +224,7 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
             }
             posthog.capture('user_signed_in', { method: 'demo' });
             router.refresh();
-            router.push(`/`);
+            router.push(callbackURL);
         } catch (e: any) {
             setErr(e?.message ?? t('SignIn.NetworkErrorRetry'));
             posthog.capture('user_sign_in_failed', { method: 'demo', error: e?.message });
@@ -293,7 +293,7 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
                                         if (window.authBridge?.openExternal) {
                                             void signInViaGithubElectron();
                                         } else {
-                                            signInViaGithub();
+                                            signInViaGithub(callbackURL);
                                         }
                                     }}
                                 >
@@ -309,7 +309,7 @@ export function SignInForm({ className, imageUrl, ...props }: React.ComponentPro
                                         if (window.authBridge?.openExternal) {
                                             void signInViaGoogleElectron();
                                         } else {
-                                            signInViaGoogle();
+                                            signInViaGoogle(callbackURL);
                                         }
                                     }}
                                 >

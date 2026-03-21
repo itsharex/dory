@@ -1,6 +1,6 @@
 {
-  "id": "9245b6fc-504d-47e2-a9c8-596d220ba6e1",
-  "prevId": "9b8f6981-8682-4a87-8ec6-c9a2377b1cce",
+  "id": "52979466-6578-4bd0-9fda-85ef2eb4ef04",
+  "prevId": "66be7e8d-37c0-4b29-bd58-71842b846214",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -201,6 +201,115 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.invitation": {
+      "name": "invitation",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "inviter_id": {
+          "name": "inviter_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "idx_invitation_organization_id": {
+          "name": "idx_invitation_organization_id",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_invitation_email": {
+          "name": "idx_invitation_email",
+          "columns": [
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_invitation_status": {
+          "name": "idx_invitation_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.jwks": {
       "name": "jwks",
       "schema": "",
@@ -310,6 +419,12 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "active_organization_id": {
+          "name": "active_organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -350,12 +465,6 @@
           "primaryKey": false,
           "notNull": true
         },
-        "default_team_id": {
-          "name": "default_team_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "email_verified": {
           "name": "email_verified",
           "type": "boolean",
@@ -365,6 +474,12 @@
         "image": {
           "name": "image",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_active_at": {
+          "name": "last_active_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
@@ -460,8 +575,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "team_id": {
-          "name": "team_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -515,7 +630,7 @@
           "name": "idx_chat_messages_session_time",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -542,7 +657,7 @@
           "name": "idx_chat_messages_session_id",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -565,11 +680,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_chat_messages_team_conn_time": {
-          "name": "idx_chat_messages_team_conn_time",
+        "idx_chat_messages_organization_conn_time": {
+          "name": "idx_chat_messages_organization_conn_time",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -610,8 +725,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "team_id": {
-          "name": "team_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -673,11 +788,11 @@
         }
       },
       "indexes": {
-        "idx_chat_state_team_conn": {
-          "name": "idx_chat_state_team_conn",
+        "idx_chat_state_organization_conn": {
+          "name": "idx_chat_state_organization_conn",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -694,11 +809,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_chat_state_team_tab": {
-          "name": "idx_chat_state_team_tab",
+        "idx_chat_state_organization_tab": {
+          "name": "idx_chat_state_organization_tab",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -715,11 +830,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_chat_state_team_updated": {
-          "name": "idx_chat_state_team_updated",
+        "idx_chat_state_organization_updated": {
+          "name": "idx_chat_state_organization_updated",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -754,8 +869,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "team_id": {
-          "name": "team_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -846,7 +961,7 @@
           "name": "idx_chat_sessions_list",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -875,11 +990,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_chat_sessions_team_user_type": {
-          "name": "idx_chat_sessions_team_user_type",
+        "idx_chat_sessions_organization_user_type": {
+          "name": "idx_chat_sessions_organization_user_type",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -902,11 +1017,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_chat_sessions_team_conn": {
-          "name": "idx_chat_sessions_team_conn",
+        "idx_chat_sessions_organization_conn": {
+          "name": "idx_chat_sessions_organization_conn",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -923,11 +1038,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_chat_sessions_team_db": {
-          "name": "idx_chat_sessions_team_db",
+        "idx_chat_sessions_organization_db": {
+          "name": "idx_chat_sessions_organization_db",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -948,7 +1063,7 @@
           "name": "uidx_chat_sessions_copilot_tab",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -976,12 +1091,12 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "uq_chat_sessions_id_team": {
-          "name": "uq_chat_sessions_id_team",
+        "uq_chat_sessions_id_organization": {
+          "name": "uq_chat_sessions_id_organization",
           "nullsNotDistinct": false,
           "columns": [
             "id",
-            "team_id"
+            "organization_id"
           ]
         }
       },
@@ -1004,8 +1119,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "team_id": {
-          "name": "team_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -1109,11 +1224,11 @@
         }
       },
       "indexes": {
-        "idx_team_created": {
-          "name": "idx_team_created",
+        "idx_organization_created": {
+          "name": "idx_organization_created",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1174,8 +1289,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.team_members": {
-      "name": "team_members",
+    "public.members": {
+      "name": "members",
       "schema": "",
       "columns": {
         "id": {
@@ -1190,8 +1305,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "team_id": {
-          "name": "team_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -1207,8 +1322,7 @@
           "name": "status",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'active'"
+          "notNull": false
         },
         "created_at": {
           "name": "created_at",
@@ -1221,16 +1335,15 @@
           "name": "joined_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
+          "notNull": false
         }
       },
       "indexes": {
-        "team_members_team_id_user_id_unique": {
-          "name": "team_members_team_id_user_id_unique",
+        "members_organization_id_user_id_unique": {
+          "name": "members_organization_id_user_id_unique",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1247,11 +1360,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_team_members_team": {
-          "name": "idx_team_members_team",
+        "idx_members_organization": {
+          "name": "idx_members_organization",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1262,8 +1375,8 @@
           "method": "btree",
           "with": {}
         },
-        "idx_team_members_user": {
-          "name": "idx_team_members_user",
+        "idx_members_user": {
+          "name": "idx_members_user",
           "columns": [
             {
               "expression": "user_id",
@@ -1285,8 +1398,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.teams": {
-      "name": "teams",
+    "public.organizations": {
+      "name": "organizations",
       "schema": "",
       "columns": {
         "id": {
@@ -1313,6 +1426,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "logo": {
+          "name": "logo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -1329,8 +1454,8 @@
         }
       },
       "indexes": {
-        "teams_slug_unique": {
-          "name": "teams_slug_unique",
+        "organizations_slug_unique": {
+          "name": "organizations_slug_unique",
           "columns": [
             {
               "expression": "slug",
@@ -1362,17 +1487,61 @@
           "primaryKey": true,
           "notNull": true
         },
+        "created_by_user_id": {
+          "name": "created_by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "connection_id": {
           "name": "connection_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
         },
-        "team_id": {
-          "name": "team_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'local'"
+        },
+        "cloud_id": {
+          "name": "cloud_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sync_status": {
+          "name": "sync_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'local_only'"
+        },
+        "last_synced_at": {
+          "name": "last_synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "remote_updated_at": {
+          "name": "remote_updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sync_error": {
+          "name": "sync_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "name": {
           "name": "name",
@@ -1469,6 +1638,22 @@
           "method": "btree",
           "with": {}
         },
+        "uniq_conn_identity_cloud_id": {
+          "name": "uniq_conn_identity_cloud_id",
+          "columns": [
+            {
+              "expression": "cloud_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"connection_identities\".\"cloud_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "uniq_conn_identity_default_per_connection": {
           "name": "uniq_conn_identity_default_per_connection",
           "columns": [
@@ -1480,7 +1665,7 @@
             }
           ],
           "isUnique": true,
-          "where": "\"connection_identities\".\"is_default\" = true",
+          "where": "\"connection_identities\".\"is_default\" = true AND \"connection_identities\".\"deleted_at\" IS NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -1500,11 +1685,26 @@
           "method": "btree",
           "with": {}
         },
-        "idx_conn_identity_team_id": {
-          "name": "idx_conn_identity_team_id",
+        "idx_conn_identity_created_by_user_id": {
+          "name": "idx_conn_identity_created_by_user_id",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "created_by_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_conn_identity_organization_id": {
+          "name": "idx_conn_identity_organization_id",
+          "columns": [
+            {
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1520,6 +1720,42 @@
           "columns": [
             {
               "expression": "enabled",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_conn_identity_sync_status": {
+          "name": "idx_conn_identity_sync_status",
+          "columns": [
+            {
+              "expression": "sync_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_conn_identity_organization_cloud_id": {
+          "name": "idx_conn_identity_organization_cloud_id",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "cloud_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1556,6 +1792,12 @@
         },
         "vault_ref": {
           "name": "vault_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "secret_ref": {
+          "name": "secret_ref",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -1684,11 +1926,49 @@
           "primaryKey": false,
           "notNull": false
         },
-        "team_id": {
-          "name": "team_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'local'"
+        },
+        "cloud_id": {
+          "name": "cloud_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sync_status": {
+          "name": "sync_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'local_only'"
+        },
+        "last_synced_at": {
+          "name": "last_synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "remote_updated_at": {
+          "name": "remote_updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sync_error": {
+          "name": "sync_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         },
         "type": {
           "name": "type",
@@ -1833,11 +2113,11 @@
         }
       },
       "indexes": {
-        "uniq_connections_team_name": {
-          "name": "uniq_connections_team_name",
+        "uniq_connections_organization_name": {
+          "name": "uniq_connections_organization_name",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1855,11 +2135,27 @@
           "method": "btree",
           "with": {}
         },
-        "idx_connections_team_id_status": {
-          "name": "idx_connections_team_id_status",
+        "uniq_connections_cloud_id": {
+          "name": "uniq_connections_cloud_id",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "cloud_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"connections\".\"cloud_id\" IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_connections_organization_id_status": {
+          "name": "idx_connections_organization_id_status",
+          "columns": [
+            {
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1891,11 +2187,47 @@
           "method": "btree",
           "with": {}
         },
-        "idx_connections_team_env": {
-          "name": "idx_connections_team_env",
+        "idx_connections_sync_status": {
+          "name": "idx_connections_sync_status",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "sync_status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_connections_organization_cloud_id": {
+          "name": "idx_connections_organization_cloud_id",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "cloud_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_connections_organization_env": {
+          "name": "idx_connections_organization_env",
+          "columns": [
+            {
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1939,8 +2271,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "team_id": {
-          "name": "team_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -2023,11 +2355,11 @@
         }
       },
       "indexes": {
-        "uniq_ai_cache_team_conn_catalog_feature_schema_model_prompt": {
-          "name": "uniq_ai_cache_team_conn_catalog_feature_schema_model_prompt",
+        "uniq_ai_cache_organization_conn_catalog_feature_schema_model_prompt": {
+          "name": "uniq_ai_cache_organization_conn_catalog_feature_schema_model_prompt",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2074,11 +2406,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_ai_cache_team_conn": {
-          "name": "idx_ai_cache_team_conn",
+        "idx_ai_cache_organization_conn": {
+          "name": "idx_ai_cache_organization_conn",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2155,8 +2487,8 @@
           "primaryKey": true,
           "notNull": true
         },
-        "team_id": {
-          "name": "team_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -2205,6 +2537,19 @@
           "notNull": true,
           "default": "'{}'::text[]"
         },
+        "folder_id": {
+          "name": "folder_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
         "work_id": {
           "name": "work_id",
           "type": "uuid",
@@ -2233,11 +2578,11 @@
         }
       },
       "indexes": {
-        "idx_saved_queries_team_user": {
-          "name": "idx_saved_queries_team_user",
+        "idx_saved_queries_organization_user": {
+          "name": "idx_saved_queries_organization_user",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2259,6 +2604,101 @@
           "columns": [
             {
               "expression": "updated_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_saved_queries_folder_id": {
+          "name": "idx_saved_queries_folder_id",
+          "columns": [
+            {
+              "expression": "folder_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.saved_query_folders": {
+      "name": "saved_query_folders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_saved_query_folders_organization_user": {
+          "name": "idx_saved_query_folders_organization_user",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "user_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2293,8 +2733,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "team_id": {
-          "name": "team_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -2451,11 +2891,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_ai_usage_events_team_created": {
-          "name": "idx_ai_usage_events_team_created",
+        "idx_ai_usage_events_organization_created": {
+          "name": "idx_ai_usage_events_organization_created",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2472,11 +2912,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_ai_usage_events_team_created_total": {
-          "name": "idx_ai_usage_events_team_created_total",
+        "idx_ai_usage_events_organization_created_total": {
+          "name": "idx_ai_usage_events_organization_created_total",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2499,11 +2939,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_ai_usage_events_team_user_created": {
-          "name": "idx_ai_usage_events_team_user_created",
+        "idx_ai_usage_events_organization_user_created": {
+          "name": "idx_ai_usage_events_organization_user_created",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2547,11 +2987,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_ai_usage_events_team_feature_created": {
-          "name": "idx_ai_usage_events_team_feature_created",
+        "idx_ai_usage_events_organization_feature_created": {
+          "name": "idx_ai_usage_events_organization_feature_created",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2603,8 +3043,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "team_id": {
-          "name": "team_id",
+        "organization_id": {
+          "name": "organization_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -2689,11 +3129,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_ai_usage_traces_team_created": {
-          "name": "idx_ai_usage_traces_team_created",
+        "idx_ai_usage_traces_organization_created": {
+          "name": "idx_ai_usage_traces_organization_created",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2710,11 +3150,11 @@
           "method": "btree",
           "with": {}
         },
-        "idx_ai_usage_traces_team_user_created": {
-          "name": "idx_ai_usage_traces_team_user_created",
+        "idx_ai_usage_traces_organization_user_created": {
+          "name": "idx_ai_usage_traces_organization_user_created",
           "columns": [
             {
-              "expression": "team_id",
+              "expression": "organization_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2742,6 +3182,160 @@
           "columns": [
             {
               "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sync_operations": {
+      "name": "sync_operations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "organization_id": {
+          "name": "organization_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "entity_type": {
+          "name": "entity_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'connection'"
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "operation": {
+          "name": "operation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "retry_count": {
+          "name": "retry_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "last_attempt_at": {
+          "name": "last_attempt_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "synced_at": {
+          "name": "synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_message": {
+          "name": "error_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "idx_sync_operations_organization_status": {
+          "name": "idx_sync_operations_organization_status",
+          "columns": [
+            {
+              "expression": "organization_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_sync_operations_entity": {
+          "name": "idx_sync_operations_entity",
+          "columns": [
+            {
+              "expression": "entity_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "entity_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_sync_operations_created_at": {
+          "name": "idx_sync_operations_created_at",
+          "columns": [
+            {
+              "expression": "created_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"

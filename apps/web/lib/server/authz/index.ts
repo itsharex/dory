@@ -1,29 +1,30 @@
 import { shouldProxyAuthRequest } from '@/lib/auth/auth-proxy';
-import { resolveDesktopTeamAccess } from './authz.desktop';
-import { resolveLocalTeamAccess } from './authz.local';
-import type { TeamAccess, TeamAccessRole } from './types';
+import { canManageOrganizationRole } from '@/lib/auth/organization-ac';
+import { resolveDesktopOrganizationAccess } from './authz.desktop';
+import { resolveLocalOrganizationAccess } from './authz.local';
+import type { OrganizationAccess, OrganizationAccessRole } from './types';
 
-export type { TeamAccess, TeamAccessRole } from './types';
+export type { OrganizationAccess, OrganizationAccessRole } from './types';
 
-const TEAM_ACCESS_TTL_MS = 60 * 1000;
+const ORGANIZATION_ACCESS_TTL_MS = 60 * 1000;
 
-const teamAccessCache = new Map<
+const organizationAccessCache = new Map<
     string,
     {
         expiresAt: number;
-        value: TeamAccess | null;
+        value: OrganizationAccess | null;
     }
 >();
 
-export async function resolveTeamAccess(teamId: string, userId: string): Promise<TeamAccess | null> {
+export async function resolveOrganizationAccess(organizationId: string, userId: string): Promise<OrganizationAccess | null> {
     const proxy = shouldProxyAuthRequest();
-    const cacheKey = `${proxy ? 'desktop' : 'local'}:${userId}:${teamId}`;
-    const cached = teamAccessCache.get(cacheKey);
+    const cacheKey = `${proxy ? 'desktop' : 'local'}:${userId}:${organizationId}`;
+    const cached = organizationAccessCache.get(cacheKey);
     const now = Date.now();
 
     if (cached && cached.expiresAt > now) {
-        console.log('[authz] resolveTeamAccess:cache-hit', {
-            teamId,
+        console.log('[authz] resolveOrganizationAccess:cache-hit', {
+            organizationId,
             userId,
             proxy,
             expiresInMs: cached.expiresAt - now,
@@ -31,8 +32,8 @@ export async function resolveTeamAccess(teamId: string, userId: string): Promise
         return cached.value;
     }
 
-    console.log('[authz] resolveTeamAccess', {
-        teamId,
+    console.log('[authz] resolveOrganizationAccess', {
+        organizationId,
         userId,
         proxy,
         runtime: process.env.DORY_RUNTIME ?? null,
@@ -41,21 +42,38 @@ export async function resolveTeamAccess(teamId: string, userId: string): Promise
     });
 
     const value = proxy
-        ? await resolveDesktopTeamAccess(teamId, userId)
-        : await resolveLocalTeamAccess(teamId, userId);
+        ? await resolveDesktopOrganizationAccess(organizationId, userId)
+        : await resolveLocalOrganizationAccess(organizationId, userId);
 
-    teamAccessCache.set(cacheKey, {
-        expiresAt: now + TEAM_ACCESS_TTL_MS,
+    organizationAccessCache.set(cacheKey, {
+        expiresAt: now + ORGANIZATION_ACCESS_TTL_MS,
         value,
     });
 
     return value;
 }
 
-export function canManageTeam(access: Pick<TeamAccess, 'isMember' | 'role'> | null): boolean {
+export function canManageOrganization(access: Pick<OrganizationAccess, 'isMember' | 'role'> | null): boolean {
     if (!access?.isMember) {
         return false;
     }
 
-    return access.role === 'owner' || access.role === 'admin';
+    return canManageOrganizationRole(access.role);
+}
+
+export function canReadWorkspace(access: Pick<OrganizationAccess, 'isMember' | 'permissions'> | null): boolean {
+    return Boolean(access?.isMember && access.permissions.workspace.read);
+}
+
+export function canWriteWorkspace(access: Pick<OrganizationAccess, 'isMember' | 'permissions'> | null): boolean {
+    return Boolean(access?.isMember && access.permissions.workspace.write);
+}
+
+export function canManageConnections(access: Pick<OrganizationAccess, 'isMember' | 'permissions'> | null): boolean {
+    return Boolean(
+        access?.isMember &&
+            (access.permissions.connection.create ||
+                access.permissions.connection.update ||
+                access.permissions.connection.delete),
+    );
 }

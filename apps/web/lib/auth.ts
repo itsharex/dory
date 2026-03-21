@@ -1,20 +1,19 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { jwt, organization, role } from 'better-auth/plugins';
-import { schema } from '@/lib/database/schema';
-import { getDatabaseProvider } from '@/lib/database/provider';
-import { sendEmail } from './email';
-import { PostgresDBClient } from '@/types';
+import { jwt, organization } from 'better-auth/plugins';
 import { eq } from 'drizzle-orm';
-import { getClient } from './database/postgres/client';
-import { getServerLocale } from './i18n/server-locale';
-import { translate } from './i18n/i18n';
+import { dash, sentinel } from '@better-auth/infra';
 import { createCachedAsyncFactory } from '@dory/auth-core';
+import type { PostgresDBClient } from '../types';
+import { getClient } from './database/postgres/client';
+import { getDatabaseProvider } from './database/provider';
+import { schema } from './database/schema';
+import { sendEmail } from './email';
+import { resolveOrganizationIdForSession, shouldCreateDefaultOrganization } from './auth/migration-state';
+import { translate } from './i18n/i18n';
+import { getServerLocale } from './i18n/server-locale';
 import { isDesktopRuntime } from './runtime/runtime';
-import {
-    resolveOrganizationIdForSession,
-    shouldCreateDefaultOrganization,
-} from './auth/migration-state';
+import { organizationAc, organizationRoles } from './auth/organization-ac';
 
 type AuthUser = {
     id: string;
@@ -43,17 +42,24 @@ function createAuth() {
         const provider = getDatabaseProvider() === 'pglite' ? 'pg' : 'pg';
         const isDesktop = isDesktopRuntime();
         const desktopOrigin =
-            process.env.DORY_ELECTRON_ORIGIN?.trim() ||
-            process.env.NEXT_PUBLIC_DORY_ELECTRON_ORIGIN?.trim() ||
-            (isDesktop ? `http://127.0.0.1:${process.env.PORT ?? 3000}` : '');
+            process.env.DORY_ELECTRON_ORIGIN?.trim() || process.env.NEXT_PUBLIC_DORY_ELECTRON_ORIGIN?.trim() || (isDesktop ? `http://127.0.0.1:${process.env.PORT ?? 3000}` : '');
+        const publicAuthBaseUrl = process.env.BETTER_AUTH_URL?.trim() || desktopOrigin || null;
+        const betterAuthApiKey = process.env.BETTER_AUTH_API_KEY?.trim() || undefined;
+        const betterAuthApiUrl = process.env.BETTER_AUTH_API_URL?.trim() || undefined;
+        const betterAuthKvUrl = process.env.BETTER_AUTH_KV_URL?.trim() || undefined;
+        const betterAuthInfraOptions = {
+            ...(betterAuthApiKey ? { apiKey: betterAuthApiKey } : {}),
+            ...(betterAuthApiUrl ? { apiUrl: betterAuthApiUrl } : {}),
+            ...(betterAuthKvUrl ? { kvUrl: betterAuthKvUrl } : {}),
+        };
 
         console.log('[auth] TRUSTED_ORIGINS =', process.env.TRUSTED_ORIGINS);
 
         async function findInitialOrganizationId(userId: string): Promise<string | null> {
             const [existingMembership] = await db
-                .select({ organizationId: schema.teamMembers.teamId })
-                .from(schema.teamMembers)
-                .where(eq(schema.teamMembers.userId, userId))
+                .select({ organizationId: schema.organizationMembers.organizationId })
+                .from(schema.organizationMembers)
+                .where(eq(schema.organizationMembers.userId, userId))
                 .limit(1);
 
             const resolvedOrganizationId = resolveOrganizationIdForSession({
@@ -110,13 +116,56 @@ function createAuth() {
             database: drizzleAdapter(db, { provider, schema }),
             plugins: [
                 jwt(),
-                organization({
-                    roles: {
-                        owner: role({}),
-                        admin: role({}),
-                        member: role({}),
-                        viewer: role({}),
+                dash({
+                    ...betterAuthInfraOptions,
+                    activityTracking: {
+                        enabled: true,
+                        updateInterval: 300000,
                     },
+                }),
+                sentinel({
+                    ...betterAuthInfraOptions,
+                    security: {
+                        credentialStuffing: {
+                            enabled: true,
+                            thresholds: {
+                                challenge: 3,
+                                block: 5,
+                            },
+                            windowSeconds: 3600,
+                            cooldownSeconds: 900,
+                        },
+                        impossibleTravel: {
+                            enabled: true,
+                            action: 'log',
+                        },
+                        botBlocking: {
+                            action: 'challenge',
+                        },
+                        suspiciousIpBlocking: {
+                            action: 'challenge',
+                        },
+                        velocity: {
+                            enabled: true,
+                            thresholds: {
+                                challenge: 10,
+                                block: 20,
+                            },
+                            maxSignupsPerVisitor: 5,
+                            maxPasswordResetsPerIp: 10,
+                            maxSignInsPerIp: 50,
+                            windowSeconds: 3600,
+                            action: 'challenge',
+                        },
+                        challengeDifficulty: 18,
+                    },
+                }),
+                organization({
+                    ac: organizationAc,
+                    roles: organizationRoles,
+                    creatorRole: 'owner',
+                    invitationExpiresIn: 60 * 60 * 48,
+                    cancelPendingInvitationsOnReInvite: true,
                     schema: {
                         session: {
                             fields: {
@@ -124,11 +173,12 @@ function createAuth() {
                             },
                         },
                         organization: {
-                            modelName: 'teams',
+                            modelName: 'organizations',
                             fields: {
                                 name: 'name',
                                 slug: 'slug',
                                 logo: 'logo',
+                                metadata: 'metadata',
                                 createdAt: 'createdAt',
                                 updatedAt: 'updatedAt',
                             },
@@ -141,9 +191,9 @@ function createAuth() {
                             },
                         },
                         member: {
-                            modelName: 'teamMembers',
+                            modelName: 'organizationMembers',
                             fields: {
-                                organizationId: 'teamId',
+                                organizationId: 'organizationId',
                                 userId: 'userId',
                                 role: 'role',
                                 createdAt: 'createdAt',
@@ -184,6 +234,49 @@ function createAuth() {
                             };
                         },
                     },
+                    sendInvitationEmail: async ({ id, email, role, organization, inviter }) => {
+                        if (!publicAuthBaseUrl) {
+                            console.warn('[auth] missing BETTER_AUTH_URL, skipping invitation email', {
+                                invitationId: id,
+                                email,
+                            });
+                            return;
+                        }
+
+                        const locale = await getServerLocale();
+                        const t = (key: string, values?: Record<string, unknown>) => translate(locale, key, values);
+                        const invitationUrl = new URL('/organization/accept-invitation', publicAuthBaseUrl);
+                        invitationUrl.searchParams.set('invitationId', id);
+
+                        await sendEmail({
+                            to: email,
+                            subject: `Invitation to join ${organization.name}`,
+                            text: `You've been invited to join ${organization.name} as ${role}. Accept the invitation: ${invitationUrl.toString()}`,
+                            html: `
+                                <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; line-height: 1.6; color: #0f172a; padding: 24px;">
+                                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 16px;">
+                                        <img src="https://app.getdory.dev/logo.png" width="32" height="32" alt="Dory" style="display: inline-block; border-radius: 6px;" />
+                                        <span style="font-size: 16px; font-weight: 600; color: #0f172a;">Dory</span>
+                                    </div>
+                                    <h2 style="margin: 0 0 12px; font-size: 20px;">Invitation to join ${organization.name}</h2>
+                                    <p style="margin: 0 0 12px; font-size: 14px; color: #334155;">
+                                        ${inviter.user.name || inviter.user.email} invited you to join <strong>${organization.name}</strong> as <strong>${role}</strong>.
+                                    </p>
+                                    <p style="margin: 0 0 24px;">
+                                        <a href="${invitationUrl.toString()}" style="display: inline-block; padding: 10px 18px; background: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px;">
+                                            Accept invitation
+                                        </a>
+                                    </p>
+                                    <p style="margin: 0 0 8px; font-size: 12px; color: #64748b;">
+                                        If you do not have an account yet, sign up with this email address first, then accept the invitation.
+                                    </p>
+                                    <p style="margin: 0; font-size: 12px; color: #2563eb; word-break: break-all;">
+                                        <a href="${invitationUrl.toString()}" style="color: #2563eb; text-decoration: underline;">${invitationUrl.toString()}</a>
+                                    </p>
+                                </div>
+                            `.trim(),
+                        });
+                    },
                 }),
             ],
             baseURL: isDesktop && desktopOrigin ? desktopOrigin : undefined,
@@ -206,7 +299,7 @@ function createAuth() {
              * user.create.after: runs after any new-user creation (email / social / magic link, etc.)
              *
              * Used to:
-             *   - auto-create a team on first social login
+             *   - auto-create a organization on first social login
              *   - for email signup, optionally wait for emailVerified=true (enabled here)
              */
             databaseHooks: {
@@ -225,17 +318,21 @@ function createAuth() {
                             // For email+password signup:
                             //   - With requireEmailVerification, emailVerified is usually false
                             //   → Create the organization in afterEmailVerification instead
-                            if (shouldCreateDefaultOrganization({
-                                isDesktop,
-                                existingOrganizationId,
-                                emailVerified: user.emailVerified,
-                            })) {
+                            if (
+                                shouldCreateDefaultOrganization({
+                                    isDesktop,
+                                    existingOrganizationId,
+                                    emailVerified: user.emailVerified,
+                                })
+                            ) {
                                 await ensureDefaultOrganizationForUser(auth as any, user.id, user.email);
                             }
                         },
                     },
                 },
                 session: {
+                    expiresIn: 60 * 60 * 24 * 30, // 30 days
+                    updateAge: 60 * 60 * 24,// 1 day (every 1 day the session expiration is updated)
                     create: {
                         before: async rawSession => {
                             const session = rawSession as SessionWithActiveOrganization;

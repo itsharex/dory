@@ -5,43 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1771057078588,
-      "tag": "0000_past_gorilla_man",
+      "when": 1774064780223,
+      "tag": "0000_old_dark_beast",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1772614612347,
-      "tag": "0001_lush_nuke",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1773060050486,
-      "tag": "0002_dazzling_vector",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1773740032673,
-      "tag": "0003_chilly_earthquake",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1774011208393,
-      "tag": "0004_dapper_snowbird",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1774013589368,
-      "tag": "0005_ambiguous_pride",
+      "when": 1774065386652,
+      "tag": "0001_moaning_pete_wisdom",
       "breakpoints": true
     }
   ]

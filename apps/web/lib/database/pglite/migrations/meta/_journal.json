@@ -5,43 +5,15 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1771057082961,
-      "tag": "0000_opposite_baron_strucker",
+      "when": 1774064729618,
+      "tag": "0000_fantastic_thanos",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1772614617846,
-      "tag": "0001_black_darkhawk",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1773060051273,
-      "tag": "0002_remarkable_adam_warlock",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1773803901672,
-      "tag": "0003_demonic_rhodey",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1774011208433,
-      "tag": "0004_cloudy_lady_mastermind",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1774013589412,
-      "tag": "0005_wooden_nekra",
+      "when": 1774065386733,
+      "tag": "0001_mighty_nomad",
       "breakpoints": true
     }
   ]

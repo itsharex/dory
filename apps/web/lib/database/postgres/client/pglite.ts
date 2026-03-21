@@ -39,6 +39,8 @@ async function resolvePgliteDataDir(): Promise<string> {
     return resolve(process.cwd(), defaultDir);
 }
 
+export { resolvePgliteDataDir };
+
 async function initPglite(): Promise<PostgresDBClient> {
     const dataDir = await resolvePgliteDataDir();
     console.log('[pglite] init start', {
@@ -81,4 +83,15 @@ export function getPgliteClient(): Promise<PostgresDBClient> {
         globalForPglite.__pgliteDbPromise = initPglite();
     }
     return globalForPglite.__pgliteDbPromise;
+}
+
+export async function resetPgliteClient() {
+    const client = globalForPglite.__pgliteClient;
+
+    if (client && typeof (client as PGlite & { close?: () => Promise<void> }).close === 'function') {
+        await (client as PGlite & { close: () => Promise<void> }).close();
+    }
+
+    globalForPglite.__pgliteClient = undefined;
+    globalForPglite.__pgliteDbPromise = undefined;
 }

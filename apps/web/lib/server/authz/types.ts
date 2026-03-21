@@ -1,12 +1,15 @@
-export type TeamAccessRole = 'owner' | 'admin' | 'member' | 'viewer' | null;
+import type { OrganizationPermissionMap, OrganizationRole } from '@/types/organization';
 
-export type TeamAccess = {
+export type OrganizationAccessRole = OrganizationRole | null;
+
+export type OrganizationAccess = {
     source: 'desktop' | 'local';
-    teamId: string;
+    organizationId: string;
     userId: string;
     isMember: boolean;
-    role: TeamAccessRole;
-    team: {
+    role: OrganizationAccessRole;
+    permissions: OrganizationPermissionMap;
+    organization: {
         id: string;
         slug?: string | null;
         name?: string | null;

@@ -2,7 +2,7 @@ import { pgTable, text, timestamp, boolean, index } from 'drizzle-orm/pg-core';
 import { newEntityId } from '@/lib/id';
 
 /**
- * User table: users can join multiple organizations/teams.
+ * User table: users can join multiple organizations/organizations.
  */
 export const user = pgTable('user', {
     id: text('id')
@@ -15,6 +15,7 @@ export const user = pgTable('user', {
         .$defaultFn(() => false)
         .notNull(),
     image: text('image'),
+    lastActiveAt: timestamp('last_active_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -38,7 +39,7 @@ export const session = pgTable('session', {
 });
 
 /**
- * Third-party account binding: userId only, no teamId
+ * Third-party account binding: userId only, no organizationId
  */
 export const account = pgTable('account', {
     id: text('id')
@@ -61,7 +62,7 @@ export const account = pgTable('account', {
 
 /**
  * Verification table (email codes, password reset, etc.)
- * No teamId needed
+ * No organizationId needed
  */
 export const verification = pgTable('verification', {
     id: text('id')
@@ -76,7 +77,7 @@ export const verification = pgTable('verification', {
 
 /**
  * Organization invitations used by better-auth organization plugin.
- * We do not enable nested teams yet, so teamId is intentionally omitted.
+ * We do not enable nested organizations yet, so organizationId is intentionally omitted.
  */
 export const invitation = pgTable(
     'invitation',
