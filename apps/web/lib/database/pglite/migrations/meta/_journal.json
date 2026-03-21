@@ -15,6 +15,13 @@
       "when": 1774065386733,
       "tag": "0001_mighty_nomad",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774112951843,
+      "tag": "0002_yummy_pyro",
+      "breakpoints": true
     }
   ]
 }

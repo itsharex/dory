@@ -9816,7 +9816,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"better-auth@npm:^1.4.18":
+"better-auth@npm:^1.5.5":
   version: 1.5.5
   resolution: "better-auth@npm:1.5.5"
   dependencies:
@@ -23040,7 +23040,7 @@ __metadata:
     ai: "npm:^6.0.59"
     ai-gateway-provider: "npm:^3.1.1"
     ansi-to-react: "npm:^6.2.6"
-    better-auth: "npm:^1.4.18"
+    better-auth: "npm:^1.5.5"
     better-sqlite3: "npm:^12.5.0"
     boring-avatars: "npm:^2.0.4"
     class-variance-authority: "npm:^0.7.1"

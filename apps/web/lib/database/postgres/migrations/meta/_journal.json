@@ -15,6 +15,13 @@
       "when": 1774065386652,
       "tag": "0001_moaning_pete_wisdom",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774112944646,
+      "tag": "0002_silly_thunderbolt",
+      "breakpoints": true
     }
   ]
 }

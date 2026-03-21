@@ -1,6 +1,7 @@
 // db/schema/organizations.ts
 import { pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { newEntityId } from '@/lib/id';
+import { user } from '../auth-schema';
 
 export const organizations = pgTable(
     'organizations',
@@ -11,7 +12,9 @@ export const organizations = pgTable(
         name: text('name').notNull(), // e.g. "Personal space" / "cat's workspace"
 
         // Owner
-        ownerUserId: text('owner_user_id').notNull(),
+        ownerUserId: text('owner_user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'restrict' }),
 
         // URL /organization/:slug
         slug: text('slug'),

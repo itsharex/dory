@@ -1,6 +1,7 @@
 import { pgTable, text, timestamp, index, uniqueIndex } from 'drizzle-orm/pg-core';
 import { newEntityId } from '@/lib/id';
-
+import { user } from '../auth-schema';
+import { organizations } from './organizations';
 
 // Can be exported separately for app use
 export type OrganizationMemberRole = 'owner' | 'admin' | 'member' | 'viewer';
@@ -13,9 +14,13 @@ export const organizationMembers = pgTable(
             .primaryKey()
             .$defaultFn(() => newEntityId()),
 
-        userId: text('user_id').notNull(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => user.id, { onDelete: 'cascade' }),
 
-        organizationId: text('organization_id').notNull(),
+        organizationId: text('organization_id')
+            .notNull()
+            .references(() => organizations.id, { onDelete: 'cascade' }),
 
         // Role: merged definitions, with viewer added
         role: text('role').$type<OrganizationMemberRole>().notNull().default('member'),
@@ -33,5 +38,5 @@ export const organizationMembers = pgTable(
         uniqueIndex('members_organization_id_user_id_unique').on(table.organizationId, table.userId),
         index('idx_members_organization').on(table.organizationId),
         index('idx_members_user').on(table.userId),
-    ]
+    ],
 );
