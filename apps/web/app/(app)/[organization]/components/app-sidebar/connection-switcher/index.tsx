@@ -22,6 +22,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/registry/new-york-v4/
 
 import { cn } from '@/lib/utils';
 import { buildExplorerBasePath, buildExplorerDatabasePath } from '@/lib/explorer/build-path';
+import { useHasMounted } from '@/hooks/use-has-mounted';
 import {
     connectionErrorAtom,
     connectionListLoadingAtom,
@@ -82,6 +83,7 @@ export function ConnectionSwitcher() {
     const organizationId = Array.isArray(teamParam) ? teamParam[0] : teamParam;
     const connectionId = Array.isArray(connectionParam) ? connectionParam[0] : connectionParam;
     const pathname = usePathname();
+    const hasMounted = useHasMounted();
 
     const [currentConnection, setCurrentConnection] = useAtom(currentConnectionAtom);
     const [connectLoadings, setConnectLoadings] = useAtom(connectionLoadingAtom);
@@ -120,7 +122,7 @@ export function ConnectionSwitcher() {
         const lastCheckAt = connection?.lastCheckAt ? new Date(connection.lastCheckAt) : null;
         const tooltipLines = [
             connection?.lastCheckError,
-            lastCheckAt ? t('Last check', { time: lastCheckAt.toLocaleString() }) : null,
+            hasMounted && lastCheckAt ? t('Last check', { time: lastCheckAt.toLocaleString() }) : null,
             typeof connection?.lastCheckLatencyMs === 'number' ? t('Latency', { latency: connection.lastCheckLatencyMs }) : null,
         ].filter(Boolean) as string[];
 
