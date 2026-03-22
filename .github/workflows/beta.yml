@@ -174,17 +174,7 @@ jobs:
           echo "VERCEL_PROJECT_ID=$PROJECT_ID" >> "$GITHUB_ENV"
           echo "VERCEL_ORG_ID=$VERCEL_ORG_ID" >> "$GITHUB_ENV"
 
-      - name: Link beta Vercel project
-        if: ${{ inputs.deploy_web }}
-        working-directory: apps/web
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID_BETA: ${{ steps.vercel_project.outputs.project_id }}
-          VERCEL_PROJECT_ID: ${{ steps.vercel_project.outputs.project_id }}
-        run: vercel link --yes --project "$VERCEL_PROJECT_ID_BETA" --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
-
-      - name: Set beta Vercel build machine to standard
+      - name: Configure beta Vercel project settings
         if: ${{ inputs.deploy_web }}
         shell: bash
         env:
@@ -198,10 +188,21 @@ jobs:
             --header "Authorization: Bearer ${VERCEL_TOKEN}" \
             --header "Content-Type: application/json" \
             --data '{
+              "rootDirectory": "apps/web",
+              "sourceFilesOutsideRootDirectory": true,
               "resourceConfig": {
                 "buildMachineType": "standard"
               }
             }' >/dev/null
+
+      - name: Link beta Vercel project
+        if: ${{ inputs.deploy_web }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID_BETA: ${{ steps.vercel_project.outputs.project_id }}
+          VERCEL_PROJECT_ID: ${{ steps.vercel_project.outputs.project_id }}
+        run: vercel link --yes --project "$VERCEL_PROJECT_ID_BETA" --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
 
       - name: Register beta domain
         if: ${{ inputs.deploy_web }}
@@ -218,7 +219,6 @@ jobs:
       - name: Deploy beta web to Vercel
         if: ${{ inputs.deploy_web }}
         id: deploy_web
-        working-directory: apps/web
         shell: bash
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
