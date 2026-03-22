@@ -3,6 +3,7 @@ import net, { AddressInfo } from 'node:net';
 import path from 'node:path';
 import { fork, type ChildProcess } from 'node:child_process';
 import { parse as parseDotEnv } from 'dotenv';
+import { APP_BASE_URL, isBetaDistribution } from './constants.js';
 import type { LogFn } from './logger.js';
 
 interface CreateStandaloneServerManagerOptions {
@@ -68,32 +69,25 @@ export function createStandaloneServerManager({ isDev, databasePath, log, logWar
         await new Promise<void>((resolve, reject) => {
             const bootstrapProc = fork(bootstrapPath, [], {
                 cwd: standaloneDir,
-                env: {
-                    ...childEnv,
-                    DORY_RUNTIME: 'desktop',
-                    DB_TYPE: 'pglite',
-                    NEXT_PUBLIC_DORY_RUNTIME: 'desktop',
-                    PORT: String(port),
-                    HOSTNAME: hostname,
-                    NODE_ENV: 'production',
-                    PGLITE_DB_PATH: databasePath,
-                    NEXT_TELEMETRY_DISABLED: process.env.NEXT_TELEMETRY_DISABLED || '1',
-                },
+                env: createDesktopServerEnv({
+                    childEnv,
+                    databasePath,
+                    hostname,
+                    port,
+                }),
                 stdio: 'pipe',
             });
 
             console.log('[electron] bootstrapProc PID:', bootstrapProc.pid);
-            console.log('[electron] bootstrapProc env:', {
-                ...childEnv,
-                DORY_RUNTIME: 'desktop',
-                DB_TYPE: 'pglite',
-                NEXT_PUBLIC_DORY_RUNTIME: 'desktop',
-                PORT: String(port),
-                HOSTNAME: hostname,
-                NODE_ENV: 'production',
-                PGLITE_DB_PATH: databasePath,
-                NEXT_TELEMETRY_DISABLED: process.env.NEXT_TELEMETRY_DISABLED || '1',
-            });
+            console.log(
+                '[electron] bootstrapProc env:',
+                createDesktopServerEnv({
+                    childEnv,
+                    databasePath,
+                    hostname,
+                    port,
+                }),
+            );
             console.log('[electron] bootstrapProc databasePath:', databasePath);
 
             bootstrapProc.stdout?.on('data', buf => log('[bootstrap stdout]', String(buf).trimEnd()));
@@ -114,17 +108,12 @@ export function createStandaloneServerManager({ isDev, databasePath, log, logWar
 
         nextProc = fork(serverPath, [], {
             cwd: standaloneDir,
-            env: {
-                ...childEnv,
-                DORY_RUNTIME: 'desktop',
-                DB_TYPE: 'pglite',
-                NEXT_PUBLIC_DORY_RUNTIME: 'desktop',
-                PORT: String(port),
-                HOSTNAME: hostname,
-                PGLITE_DB_PATH: databasePath,
-                NODE_ENV: 'production',
-                NEXT_TELEMETRY_DISABLED: process.env.NEXT_TELEMETRY_DISABLED || '1',
-            },
+            env: createDesktopServerEnv({
+                childEnv,
+                databasePath,
+                hostname,
+                port,
+            }),
             stdio: 'pipe',
         });
 
@@ -161,6 +150,35 @@ export function createStandaloneServerManager({ isDev, databasePath, log, logWar
         getAppUrl,
         stopStandaloneServer,
     };
+}
+
+function ensureApiBaseUrl(value: string): string {
+    return value.endsWith('/api') ? value : `${value}/api`;
+}
+
+function createDesktopServerEnv(options: { childEnv: NodeJS.ProcessEnv; databasePath: string; hostname: string; port: number }): NodeJS.ProcessEnv {
+    const env: NodeJS.ProcessEnv = {
+        ...options.childEnv,
+        DORY_RUNTIME: 'desktop',
+        DB_TYPE: 'pglite',
+        NEXT_PUBLIC_DORY_RUNTIME: 'desktop',
+        PORT: String(options.port),
+        HOSTNAME: options.hostname,
+        NODE_ENV: 'production',
+        PGLITE_DB_PATH: options.databasePath,
+        NEXT_TELEMETRY_DISABLED: process.env.NEXT_TELEMETRY_DISABLED || '1',
+    };
+
+    if (isBetaDistribution && APP_BASE_URL) {
+        const cloudApiBaseUrl = ensureApiBaseUrl(APP_BASE_URL);
+        env.DORY_ELECTRON_ORIGIN = APP_BASE_URL;
+        env.NEXT_PUBLIC_DORY_ELECTRON_ORIGIN = APP_BASE_URL;
+        env.BETTER_AUTH_URL = APP_BASE_URL;
+        env.DORY_CLOUD_API_URL = cloudApiBaseUrl;
+        env.NEXT_PUBLIC_DORY_CLOUD_API_URL = cloudApiBaseUrl;
+    }
+
+    return env;
 }
 
 function loadStandaloneEnv(standaloneDir: string): NodeJS.ProcessEnv {

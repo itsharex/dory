@@ -1,0 +1,322 @@
+name: Beta
+
+on:
+    workflow_dispatch:
+        inputs:
+            git_ref:
+                description: 'Branch or tag to publish to beta.'
+                required: true
+                type: string
+            deploy_web:
+                description: 'Deploy the beta web app to Vercel.'
+                required: false
+                default: true
+                type: boolean
+            run_migrations:
+                description: 'Run Postgres migrations against the beta Neon branch.'
+                required: false
+                default: false
+                type: boolean
+            build_desktop:
+                description: 'Trigger macOS and Windows beta packaging workflows.'
+                required: false
+                default: false
+                type: boolean
+
+permissions:
+    actions: write
+    contents: read
+
+concurrency:
+    group: beta-${{ inputs.git_ref }}
+    cancel-in-progress: false
+
+jobs:
+    beta:
+        runs-on: ubuntu-latest
+
+        env:
+            GH_TOKEN: ${{ github.token }}
+            BETA_APP_DOMAIN: beta-app.getdory.dev
+            BETA_VERCEL_PROJECT_NAME: dory-beta
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+              with:
+                  ref: ${{ inputs.git_ref }}
+                  fetch-depth: 0
+
+            - name: Setup Node
+              uses: actions/setup-node@v4
+              with:
+                  node-version: lts/*
+
+            - name: Enable Corepack
+              run: corepack enable
+
+            - name: Setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            - name: Install dependencies
+              run: yarn install --immutable
+
+            - name: Resolve beta metadata
+              id: beta_meta
+              shell: bash
+              env:
+                  INPUT_CLOUD_API_URL: ${{ secrets.BETA_CLOUD_API_URL }}
+                  INPUT_AUTH_URL: ${{ secrets.BETA_AUTH_URL }}
+                  INPUT_TRUSTED_ORIGINS: ${{ secrets.BETA_TRUSTED_ORIGINS }}
+              run: |
+                  COMMIT_SHA="$(git rev-parse HEAD)"
+                  SHORT_SHA="$(git rev-parse --short=12 HEAD)"
+                  AUTH_URL="${INPUT_AUTH_URL:-https://${BETA_APP_DOMAIN}}"
+                  AUTH_URL="${AUTH_URL%/}"
+                  TRUSTED_ORIGINS="${INPUT_TRUSTED_ORIGINS:-$AUTH_URL}"
+                  CLOUD_API_URL="${INPUT_CLOUD_API_URL:-${AUTH_URL}/api}"
+                  CLOUD_API_URL="${CLOUD_API_URL%/}"
+
+                  echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
+                  echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
+                  echo "auth_url=$AUTH_URL" >> "$GITHUB_OUTPUT"
+                  echo "trusted_origins=$TRUSTED_ORIGINS" >> "$GITHUB_OUTPUT"
+                  echo "cloud_api_url=$CLOUD_API_URL" >> "$GITHUB_OUTPUT"
+                  echo "neon_branch=beta" >> "$GITHUB_OUTPUT"
+
+            - name: Prepare beta web env
+              if: ${{ inputs.deploy_web }}
+              shell: bash
+              env:
+                  AUTH_URL: ${{ steps.beta_meta.outputs.auth_url }}
+                  TRUSTED_ORIGINS: ${{ steps.beta_meta.outputs.trusted_origins }}
+                  CLOUD_API_URL: ${{ steps.beta_meta.outputs.cloud_api_url }}
+                  BETTER_AUTH_SECRET: ${{ secrets.BETA_BETTER_AUTH_SECRET }}
+                  DS_SECRET_KEY: ${{ secrets.BETA_DS_SECRET_KEY }}
+                  DATABASE_URL: ${{ secrets.NEON_BETA_DATABASE_URL }}
+              run: |
+                  cat > apps/web/.env <<EOF
+                  BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
+                  BETTER_AUTH_URL=$AUTH_URL
+
+                  DS_SECRET_KEY=$DS_SECRET_KEY
+
+                  DB_TYPE=postgres
+                  DATABASE_URL=$DATABASE_URL
+                  TRUSTED_ORIGINS=$TRUSTED_ORIGINS
+
+                  DORY_RUNTIME=web
+                  DORY_CLOUD_API_URL=$CLOUD_API_URL
+                  NEXT_PUBLIC_DORY_RUNTIME=web
+                  NEXT_PUBLIC_DORY_CLOUD_API_URL=$CLOUD_API_URL
+                  EOF
+
+            - name: Typecheck web workspace
+              run: yarn workspace web run typecheck
+
+            - name: Build web workspace
+              if: ${{ inputs.deploy_web }}
+              run: yarn workspace web run build
+
+            - name: Check beta Postgres connection
+              if: ${{ inputs.deploy_web || inputs.run_migrations }}
+              env:
+                  DB_TYPE: postgres
+                  DATABASE_URL: ${{ secrets.NEON_BETA_DATABASE_URL }}
+              run: yarn workspace web run postgres:check
+
+            - name: Run beta Postgres migrations
+              if: ${{ inputs.run_migrations }}
+              env:
+                  DB_TYPE: postgres
+                  DATABASE_URL: ${{ secrets.NEON_BETA_DATABASE_URL }}
+              run: yarn workspace web run drizzle:migrate
+
+            - name: Install Vercel CLI
+              if: ${{ inputs.deploy_web }}
+              run: npm install --global vercel@latest
+
+            - name: Resolve or create beta Vercel project
+              if: ${{ inputs.deploy_web }}
+              id: vercel_project
+              shell: bash
+              env:
+                  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+                  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+                  VERCEL_PROJECT_ID_BETA: ${{ vars.VERCEL_PROJECT_ID_BETA }}
+              run: |
+                  PROJECT_NAME="$BETA_VERCEL_PROJECT_NAME"
+                  PROJECT_ID="$VERCEL_PROJECT_ID_BETA"
+
+                  get_project_id() {
+                    vercel project list --format=json --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID" \
+                      | PROJECT_NAME="$PROJECT_NAME" node -e "const fs=require('fs'); const input=JSON.parse(fs.readFileSync(0,'utf8')); const list=Array.isArray(input)?input:(Array.isArray(input.projects)?input.projects:Array.isArray(input.value)?input.value:[]); const project=list.find((item)=>item?.name===process.env.PROJECT_NAME); process.stdout.write(project?.id ?? project?.projectId ?? '');"
+                  }
+
+                  if [ -z "$PROJECT_ID" ]; then
+                    PROJECT_ID="$(get_project_id)"
+                  fi
+
+                  if [ -z "$PROJECT_ID" ]; then
+                    vercel project add "$PROJECT_NAME" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+                    PROJECT_ID="$(get_project_id)"
+                  fi
+
+                  if [ -z "$PROJECT_ID" ]; then
+                    echo "Failed to resolve Vercel project id for $PROJECT_NAME" >&2
+                    exit 1
+                  fi
+
+                  echo "project_name=$PROJECT_NAME" >> "$GITHUB_OUTPUT"
+                  echo "project_id=$PROJECT_ID" >> "$GITHUB_OUTPUT"
+
+            - name: Link beta Vercel project
+              if: ${{ inputs.deploy_web }}
+              working-directory: apps/web
+              env:
+                  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+                  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+                  VERCEL_PROJECT_ID_BETA: ${{ steps.vercel_project.outputs.project_id }}
+              run: vercel link --yes --project "$VERCEL_PROJECT_ID_BETA" --scope "$VERCEL_ORG_ID" --token "$VERCEL_TOKEN"
+
+            - name: Register beta domain
+              if: ${{ inputs.deploy_web }}
+              shell: bash
+              env:
+                  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+                  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+                  VERCEL_PROJECT_NAME_BETA: ${{ steps.vercel_project.outputs.project_name }}
+              run: |
+                  if ! vercel domains add "$BETA_APP_DOMAIN" "$VERCEL_PROJECT_NAME_BETA" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"; then
+                    echo "Domain registration skipped; continuing with alias promotion."
+                  fi
+
+            - name: Deploy beta web to Vercel
+              if: ${{ inputs.deploy_web }}
+              id: deploy_web
+              working-directory: apps/web
+              shell: bash
+              env:
+                  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+                  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+                  DATABASE_URL: ${{ secrets.NEON_BETA_DATABASE_URL }}
+                  BETTER_AUTH_SECRET: ${{ secrets.BETA_BETTER_AUTH_SECRET }}
+                  DS_SECRET_KEY: ${{ secrets.BETA_DS_SECRET_KEY }}
+                  AUTH_URL: ${{ steps.beta_meta.outputs.auth_url }}
+                  TRUSTED_ORIGINS: ${{ steps.beta_meta.outputs.trusted_origins }}
+                  CLOUD_API_URL: ${{ steps.beta_meta.outputs.cloud_api_url }}
+              run: |
+                  DEPLOYMENT_JSON="$(
+                    vercel deploy --prod --yes --force --format=json \
+                      --token "$VERCEL_TOKEN" \
+                      --scope "$VERCEL_ORG_ID" \
+                      --build-env DORY_RUNTIME=web \
+                      --build-env DB_TYPE=postgres \
+                      --build-env DATABASE_URL="$DATABASE_URL" \
+                      --build-env BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
+                      --build-env BETTER_AUTH_URL="$AUTH_URL" \
+                      --build-env TRUSTED_ORIGINS="$TRUSTED_ORIGINS" \
+                      --build-env DS_SECRET_KEY="$DS_SECRET_KEY" \
+                      --build-env DORY_CLOUD_API_URL="$CLOUD_API_URL" \
+                      --build-env NEXT_PUBLIC_DORY_RUNTIME=web \
+                      --build-env NEXT_PUBLIC_DORY_CLOUD_API_URL="$CLOUD_API_URL" \
+                      --env DORY_RUNTIME=web \
+                      --env DB_TYPE=postgres \
+                      --env DATABASE_URL="$DATABASE_URL" \
+                      --env BETTER_AUTH_SECRET="$BETTER_AUTH_SECRET" \
+                      --env BETTER_AUTH_URL="$AUTH_URL" \
+                      --env TRUSTED_ORIGINS="$TRUSTED_ORIGINS" \
+                      --env DS_SECRET_KEY="$DS_SECRET_KEY" \
+                      --env DORY_CLOUD_API_URL="$CLOUD_API_URL" \
+                      --env NEXT_PUBLIC_DORY_RUNTIME=web \
+                      --env NEXT_PUBLIC_DORY_CLOUD_API_URL="$CLOUD_API_URL"
+                  )"
+
+                  DEPLOYMENT_URL="$(printf '%s' "$DEPLOYMENT_JSON" | node -e "const fs=require('fs'); const input=JSON.parse(fs.readFileSync(0,'utf8')); const url=input?.url ?? input?.deployment?.url ?? input?.inspectUrl ?? ''; process.stdout.write(url.startsWith('http') ? url : (url ? 'https://' + url : ''));" )"
+
+                  if [ -z "$DEPLOYMENT_URL" ]; then
+                    echo "Failed to resolve deployment URL from Vercel response" >&2
+                    printf '%s\n' "$DEPLOYMENT_JSON"
+                    exit 1
+                  fi
+
+                  vercel alias set "$DEPLOYMENT_URL" "$BETA_APP_DOMAIN" --token "$VERCEL_TOKEN" --scope "$VERCEL_ORG_ID"
+
+                  echo "deployment_url=$DEPLOYMENT_URL" >> "$GITHUB_OUTPUT"
+                  echo "beta_url=https://${BETA_APP_DOMAIN}" >> "$GITHUB_OUTPUT"
+
+            - name: Trigger beta desktop packaging workflows
+              if: ${{ inputs.build_desktop }}
+              id: desktop_runs
+              shell: bash
+              env:
+                  TARGET_REF: ${{ inputs.git_ref }}
+                  TARGET_SHA: ${{ steps.beta_meta.outputs.commit_sha }}
+                  AUTH_URL: ${{ steps.beta_meta.outputs.auth_url }}
+              run: |
+                  dispatch_workflow() {
+                    local workflow_path="$1"
+                    gh workflow run "$workflow_path" \
+                      --ref "$TARGET_REF" \
+                      -f distribution=beta \
+                      -f app_base_url="$AUTH_URL" \
+                      -f auth_base_url="$AUTH_URL"
+                  }
+
+                  wait_for_run_url() {
+                    local workflow_name="$1"
+                    for _ in $(seq 1 18); do
+                      RUN_URL="$(
+                        gh run list --workflow "$workflow_name" --json event,headSha,url --limit 20 \
+                          | TARGET_SHA="$TARGET_SHA" node -e "const fs=require('fs'); const input=JSON.parse(fs.readFileSync(0,'utf8')); const match=(input || []).find((run)=>run?.event==='workflow_dispatch' && run?.headSha===process.env.TARGET_SHA); process.stdout.write(match?.url ?? '');"
+                      )"
+                      if [ -n "$RUN_URL" ]; then
+                        printf '%s' "$RUN_URL"
+                        return 0
+                      fi
+                      sleep 10
+                    done
+                    return 1
+                  }
+
+                  dispatch_workflow ".github/workflows/macos-package.yml"
+                  dispatch_workflow ".github/workflows/windows-package.yml"
+
+                  MACOS_RUN_URL="$(wait_for_run_url "macos-package.yml" || true)"
+                  WINDOWS_RUN_URL="$(wait_for_run_url "windows-package.yml" || true)"
+
+                  echo "macos_run_url=$MACOS_RUN_URL" >> "$GITHUB_OUTPUT"
+                  echo "windows_run_url=$WINDOWS_RUN_URL" >> "$GITHUB_OUTPUT"
+
+            - name: Summarize beta release
+              shell: bash
+              env:
+                  DEPLOY_WEB: ${{ inputs.deploy_web }}
+                  BUILD_DESKTOP: ${{ inputs.build_desktop }}
+                  COMMIT_SHA: ${{ steps.beta_meta.outputs.commit_sha }}
+                  BETA_URL: ${{ steps.deploy_web.outputs.beta_url }}
+                  VERCEL_PROJECT_ID: ${{ steps.vercel_project.outputs.project_id }}
+                  MACOS_RUN_URL: ${{ steps.desktop_runs.outputs.macos_run_url }}
+                  WINDOWS_RUN_URL: ${{ steps.desktop_runs.outputs.windows_run_url }}
+              run: |
+                  {
+                    echo "## Beta Release"
+                    echo ""
+                    echo "- Git ref: \`${{ inputs.git_ref }}\`"
+                    echo "- Commit SHA: \`$COMMIT_SHA\`"
+                    echo "- Neon branch: \`${{ steps.beta_meta.outputs.neon_branch }}\`"
+                    if [ "$DEPLOY_WEB" = "true" ]; then
+                      echo "- Beta URL: $BETA_URL"
+                      echo "- Vercel project id: \`${VERCEL_PROJECT_ID}\`"
+                    else
+                      echo "- Beta URL: skipped"
+                    fi
+                    if [ "$BUILD_DESKTOP" = "true" ]; then
+                      echo "- macOS packaging run: ${MACOS_RUN_URL:-pending}"
+                      echo "- Windows packaging run: ${WINDOWS_RUN_URL:-pending}"
+                    else
+                      echo "- Desktop packaging: skipped"
+                    fi
+                  } >> "$GITHUB_STEP_SUMMARY"

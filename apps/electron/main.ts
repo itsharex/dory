@@ -1,7 +1,7 @@
 import { app, dialog, ipcMain, shell, Menu, type MenuItemConstructorOptions } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { APP_ID, PROTOCOL, isDev } from './main/constants.js';
+import { APP_ID, DISTRIBUTION, PROTOCOL, isBetaDistribution, isDev } from './main/constants.js';
 import { ensureDirectoryExists } from './main/filesystem.js';
 import { createMainI18n } from './main/i18n.js';
 import { getMainLogFilePath, setupMainLogger } from './main/logger.js';
@@ -25,6 +25,9 @@ const __dirname = path.dirname(__filename);
 
 if (process.platform === 'win32') {
   app.setAppUserModelId(APP_ID);
+}
+
+if (process.platform === 'win32' || isBetaDistribution) {
   app.setPath('userData', path.join(app.getPath('appData'), APP_ID));
 }
 
@@ -47,6 +50,7 @@ const serverManager = createStandaloneServerManager({
 
 registerThemeIpc();
 applyTheme(getStoredTheme());
+log('[electron] distribution:', DISTRIBUTION);
 log('[electron] userData path:', app.getPath('userData'));
 log('[electron] stored theme on boot:', getStoredTheme());
 

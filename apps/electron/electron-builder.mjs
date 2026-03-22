@@ -1,12 +1,29 @@
+function readEnv(name) {
+    const value = process.env[name];
+    if (typeof value !== 'string') return null;
+
+    const trimmed = value.trim();
+    return trimmed || null;
+}
+
+const distribution = readEnv('DORY_DISTRIBUTION') === 'beta' ? 'beta' : 'stable';
 const updateChannel = process.env.DORY_UPDATE_CHANNEL === 'beta' ? 'beta' : 'latest';
+const appId = readEnv('DORY_ELECTRON_APP_ID') ?? (distribution === 'beta' ? 'com.dory.app.beta' : 'com.dory.app');
+const productName = distribution === 'beta' ? 'Dory Beta' : 'Dory';
+const protocolScheme = readEnv('DORY_PROTOCOL_SCHEME') ?? (distribution === 'beta' ? 'dory-beta' : 'dory');
 
 /** @type {import('electron-builder').Configuration} */
 const config = {
-    appId: 'com.dory.app',
-    productName: 'Dory',
+    appId,
+    productName,
     extraMetadata: {
         main: 'dist-electron/main.js',
     },
+    ...(distribution === 'beta'
+        ? {
+              artifactName: '${productName}-${version}-${os}-${arch}-beta.${ext}',
+          }
+        : {}),
     publish: [
         {
             provider: 'github',
@@ -18,8 +35,8 @@ const config = {
     ],
     protocols: [
         {
-            name: 'Dory Protocol',
-            schemes: ['dory'],
+            name: `${productName} Protocol`,
+            schemes: [protocolScheme],
         },
     ],
     files: ['dist-electron/**/*', 'package.json'],
@@ -57,7 +74,7 @@ const config = {
         installerHeaderIcon: '../../public/app.ico',
         createDesktopShortcut: true,
         createStartMenuShortcut: true,
-        shortcutName: 'Dory',
+        shortcutName: productName,
     },
 };
 
