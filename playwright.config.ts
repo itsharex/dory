@@ -1,7 +1,15 @@
+import path from 'node:path';
+
 import { defineConfig, devices } from '@playwright/test';
 
 const defaultPort = '3100';
 const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${defaultPort}`;
+const videoMode = process.env.PLAYWRIGHT_VIDEO_MODE ?? 'retain-on-failure';
+const isDemoRecording = process.env.PLAYWRIGHT_DEMO_RECORDING === '1';
+const demoRecordingViewport = {
+    width: 2560,
+    height: 1600,
+};
 
 export default defineConfig({
     testDir: './tests/e2e',
@@ -16,7 +24,19 @@ export default defineConfig({
         baseURL,
         trace: 'on-first-retry',
         screenshot: 'only-on-failure',
-        video: 'retain-on-failure',
+        viewport: isDemoRecording
+            ? demoRecordingViewport
+            : undefined,
+        video: isDemoRecording ? 'off' : (videoMode as 'off' | 'on' | 'retain-on-failure' | 'on-first-retry'),
+        contextOptions: isDemoRecording
+            ? {
+                  deviceScaleFactor: 2,
+                  recordVideo: {
+                      dir: path.resolve('test-results/demo-flow-video'),
+                      size: demoRecordingViewport,
+                  },
+              }
+            : undefined,
     },
     projects: [
         {
@@ -28,6 +48,8 @@ export default defineConfig({
             dependencies: ['setup'],
             use: {
                 ...devices['Desktop Chrome'],
+                viewport: isDemoRecording ? demoRecordingViewport : devices['Desktop Chrome'].viewport,
+                deviceScaleFactor: isDemoRecording ? 2 : devices['Desktop Chrome'].deviceScaleFactor,
                 storageState: 'playwright/.auth/user.json',
             },
         },

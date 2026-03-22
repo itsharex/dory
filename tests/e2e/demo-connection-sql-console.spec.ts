@@ -1,13 +1,17 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
-import { expect } from '@playwright/test';
+import { expect, type Locator } from '@playwright/test';
 
 import { expectAppHealthy, test } from './fixtures';
 
 const SCREENSHOT_DIR = process.env.E2E_DEMO_SCREENSHOT_DIR
     ? path.resolve(process.env.E2E_DEMO_SCREENSHOT_DIR)
     : path.resolve(process.cwd(), 'apps/web/public/e2e-demo-flow');
+const CINEMATIC_MODE = process.env.E2E_DEMO_CINEMATIC === '1';
+const STEP_PAUSE_MS = Number(process.env.E2E_DEMO_STEP_PAUSE_MS ?? (CINEMATIC_MODE ? '900' : '0'));
+const SHORT_PAUSE_MS = Number(process.env.E2E_DEMO_SHORT_PAUSE_MS ?? (CINEMATIC_MODE ? '350' : '0'));
+const FOCUS_TRANSITION_MS = Number(process.env.E2E_DEMO_FOCUS_TRANSITION_MS ?? (CINEMATIC_MODE ? '1200' : '0'));
 
 const CONNECTION = {
     name: process.env.E2E_DEMO_CONNECTION_NAME ?? 'demo',
@@ -29,6 +33,120 @@ async function saveShot(page: Parameters<typeof test>[0]['page'], fileName: stri
     });
 }
 
+async function beat(page: Parameters<typeof test>[0]['page'], ms = STEP_PAUSE_MS) {
+    if (ms <= 0) return;
+    await page.waitForTimeout(ms);
+}
+
+async function shortBeat(page: Parameters<typeof test>[0]['page']) {
+    if (SHORT_PAUSE_MS <= 0) return;
+    await page.waitForTimeout(SHORT_PAUSE_MS);
+}
+
+async function installCamera(page: Parameters<typeof test>[0]['page']) {
+    if (!CINEMATIC_MODE) return;
+
+    await page.evaluate(() => {
+        if (!document.body) return;
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.margin = '0';
+        document.body.style.overflow = 'hidden';
+        document.body.style.transformOrigin = 'top left';
+        document.body.style.willChange = 'transform';
+        document.body.style.minHeight = '100vh';
+    });
+}
+
+async function focusBox(
+    page: Parameters<typeof test>[0]['page'],
+    rect: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+    },
+    options?: {
+        maxScale?: number;
+        padding?: number;
+        pauseMs?: number;
+    },
+) {
+    if (!CINEMATIC_MODE) return;
+
+    const maxScale = options?.maxScale ?? 3.2;
+    const padding = options?.padding ?? 0.74;
+    const pauseMs = options?.pauseMs ?? FOCUS_TRANSITION_MS;
+    const transitionMs = Math.max(400, Math.min(1600, FOCUS_TRANSITION_MS));
+
+    await page.evaluate(
+        ({ box, focusMaxScale, focusPadding, focusTransitionMs }) => {
+            const viewportWidth = window.innerWidth;
+            const viewportHeight = window.innerHeight;
+
+            const scaleX = (viewportWidth * focusPadding) / Math.max(box.width, 1);
+            const scaleY = (viewportHeight * focusPadding) / Math.max(box.height, 1);
+            const scale = Math.max(1, Math.min(focusMaxScale, scaleX, scaleY));
+
+            const centerX = box.x + box.width / 2;
+            const centerY = box.y + box.height / 2;
+            const translateX = viewportWidth / 2 - centerX * scale;
+            const translateY = viewportHeight / 2 - centerY * scale;
+
+            document.documentElement.style.overflow = 'hidden';
+            document.body.style.overflow = 'hidden';
+            document.body.style.transformOrigin = 'top left';
+            document.body.style.willChange = 'transform';
+            document.body.style.transition = `transform ${focusTransitionMs}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+            document.body.style.transform = `translate3d(${translateX}px, ${translateY}px, 0) scale(${scale})`;
+        },
+        {
+            box: rect,
+            focusMaxScale: maxScale,
+            focusPadding: padding,
+            focusTransitionMs: transitionMs,
+        },
+    );
+
+    if (pauseMs > 0) {
+        await page.waitForTimeout(pauseMs);
+    }
+}
+
+async function focusLocator(
+    page: Parameters<typeof test>[0]['page'],
+    locator: Locator,
+    options?: {
+        maxScale?: number;
+        padding?: number;
+        pauseMs?: number;
+    },
+) {
+    if (!CINEMATIC_MODE) return;
+
+    await expect(locator).toBeVisible();
+    const box = await locator.boundingBox();
+    if (!box) {
+        throw new Error('Focus target has no bounding box');
+    }
+
+    await focusBox(page, box, options);
+}
+
+async function resetFocus(page: Parameters<typeof test>[0]['page'], pauseMs = FOCUS_TRANSITION_MS) {
+    if (!CINEMATIC_MODE) return;
+
+    const transitionMs = Math.max(400, Math.min(1600, FOCUS_TRANSITION_MS));
+    await page.evaluate(focusTransitionMs => {
+        document.body.style.transformOrigin = 'top left';
+        document.body.style.transition = `transform ${focusTransitionMs}ms cubic-bezier(0.22, 1, 0.36, 1)`;
+        document.body.style.transform = 'translate3d(0px, 0px, 0) scale(1)';
+    }, transitionMs);
+
+    if (pauseMs > 0) {
+        await page.waitForTimeout(pauseMs);
+    }
+}
+
 async function getOrganizationSlug(page: Parameters<typeof test>[0]['page']) {
     await page.waitForURL(/\/[^/]+\/connections$/);
 
@@ -42,14 +160,20 @@ async function getOrganizationSlug(page: Parameters<typeof test>[0]['page']) {
 async function loginAsDemo(page: Parameters<typeof test>[0]['page']) {
     console.log('[demo-flow] login:start');
     await page.goto('/sign-in');
+    await installCamera(page);
 
     const demoButton = page.getByRole('button', {
         name: /enter as demo|login as demo/i,
     });
 
+    await focusLocator(page, demoButton, { maxScale: 4, padding: 0.48 });
     await expect(demoButton).toBeVisible();
+    await demoButton.hover();
+    await shortBeat(page);
     await demoButton.click();
     await page.waitForURL(/\/[^/]+\/connections$/);
+    await resetFocus(page);
+    await beat(page);
     console.log('[demo-flow] login:done');
 }
 
@@ -136,6 +260,7 @@ async function ensureSqlTab(page: Parameters<typeof test>[0]['page'], connection
     const runButton = page.locator('[data-testid="run-query"]');
     await expect(runButton).toHaveCount(1);
     await expect(runButton).toBeVisible();
+    await beat(page);
     console.log('[demo-flow] sql-tab:fallback-ready');
 }
 
@@ -149,7 +274,7 @@ async function setEditorSql(page: Parameters<typeof test>[0]['page'], sql: strin
 async function runSql(page: Parameters<typeof test>[0]['page'], sql: string) {
     console.log(`[demo-flow] sql:run ${sql}`);
     await setEditorSql(page, sql);
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(CINEMATIC_MODE ? 900 : 500);
 
     const queryResponse = page.waitForResponse(response => response.url().includes('/api/query') && response.request().method() === 'POST');
     await page.evaluate(() => {
@@ -169,6 +294,7 @@ async function runSql(page: Parameters<typeof test>[0]['page'], sql: string) {
 
     expect(response.ok()).toBeTruthy();
     expect(body?.data?.session?.status).toBe('success');
+    await beat(page, CINEMATIC_MODE ? 1200 : 0);
     console.log('[demo-flow] sql:done');
 
     return body;
@@ -182,7 +308,10 @@ test('demo login, postgres connection, SQL console flow, and screenshots', async
     const organization = await getOrganizationSlug(page);
     console.log(`[demo-flow] organization:${organization}`);
 
-    await expect(page.getByRole('heading', { name: /connections/i })).toBeVisible();
+    const mainHeading = page.getByRole('heading', { name: /connections/i });
+    await expect(mainHeading).toBeVisible();
+    await focusLocator(page, mainHeading, { maxScale: 3, padding: 0.58 });
+    await beat(page);
     await saveShot(page, '01-connections.png');
 
     let connectionCard = await getConnectionCard(page, CONNECTION.name);
@@ -194,6 +323,8 @@ test('demo login, postgres connection, SQL console flow, and screenshots', async
 
         const dialog = page.getByRole('dialog', { name: /create connection/i });
         await expect(dialog).toBeVisible();
+        await focusLocator(page, dialog, { maxScale: 2.4, padding: 0.7 });
+        await beat(page);
 
         await dialog.getByRole('textbox', { name: /connection name/i }).fill(CONNECTION.name);
         await dialog.getByRole('combobox', { name: /type/i }).click();
@@ -209,6 +340,7 @@ test('demo login, postgres connection, SQL console flow, and screenshots', async
             await sshSwitch.click();
         }
 
+        await beat(page);
         await saveShot(page, '02-connection-form.png');
 
         const testResponsePromise = page.waitForResponse(response => response.url().includes('/api/connection/test') && response.request().method() === 'POST');
@@ -219,6 +351,7 @@ test('demo login, postgres connection, SQL console flow, and screenshots', async
         expect(testResponse.ok()).toBeTruthy();
         expect(testBody?.data?.ok).toBeTruthy();
 
+        await beat(page);
         await saveShot(page, '03-connection-tested.png');
 
         const createResponsePromise = page.waitForResponse(response => response.url().endsWith('/api/connection') && response.request().method() === 'POST');
@@ -231,15 +364,22 @@ test('demo login, postgres connection, SQL console flow, and screenshots', async
         connectionId = await getConnectionIdFromCard(connectionCard.first());
         expect(connectionId).toBeTruthy();
 
+        await resetFocus(page);
+        await focusLocator(page, connectionCard.first(), { maxScale: 3.1, padding: 0.58 });
+        await beat(page);
         await saveShot(page, '04-connection-saved.png');
         console.log(`[demo-flow] connection:created ${connectionId}`);
     } else {
+        await focusLocator(page, connectionCard.first(), { maxScale: 3.1, padding: 0.58 });
+        await beat(page);
         await saveShot(page, '04-connection-saved.png');
         console.log(`[demo-flow] connection:reused ${connectionId}`);
     }
 
     console.log('[demo-flow] sql-console:goto');
+    await resetFocus(page);
     await page.goto(`/${organization}/${connectionId}/sql-console`);
+    await installCamera(page);
     await ensureSqlTab(page, connectionId!);
 
     const dbSchemaResult = await runSql(page, 'select current_database() as database_name, current_schema() as schema_name;');
@@ -248,20 +388,24 @@ test('demo login, postgres connection, SQL console flow, and screenshots', async
     await expect(resultTable).toBeVisible();
     expect(dbSchemaResult?.data?.results?.[0]?.[0]?.database_name).toBe(CONNECTION.database);
     expect(dbSchemaResult?.data?.results?.[0]?.[0]?.schema_name).toBe('public');
+    await focusLocator(page, resultTable, { maxScale: 2.8, padding: 0.58 });
     await expect(resultTable.getByText(CONNECTION.database, { exact: true })).toBeVisible();
     await expect(resultTable.getByText('public', { exact: true })).toBeVisible();
     await saveShot(page, '05-sql-db-schema.png');
 
     const actorCountResult = await runSql(page, 'select count(*) as actor_count from actor;');
     expect(Number(actorCountResult?.data?.results?.[0]?.[0]?.actor_count)).toBe(200);
+    await focusLocator(page, resultTable, { maxScale: 3.3, padding: 0.5 });
     await expect(resultTable.getByText('200', { exact: true })).toBeVisible();
     await saveShot(page, '06-sql-actor-count.png');
 
     const filmResult = await runSql(page, 'select film_id, title, release_year from film order by film_id limit 5;');
     expect(filmResult?.data?.queryResultSets?.[0]?.rowCount ?? 0).toBeGreaterThan(0);
-    await expect(resultTable.getByText('ACADEMY DINOSAUR', { exact: true })).toBeVisible();
+    await focusLocator(page, resultTable, { maxScale: 2.4, padding: 0.56 });
+    await expect(resultTable).toBeVisible();
     await saveShot(page, '07-sql-film-sample.png');
 
+    await resetFocus(page);
     const relevantAppErrors = appErrors.filter(error => !error.includes('[PGlite migrate] failed: TypeError: Failed to fetch'));
     await expectAppHealthy(relevantAppErrors);
 });
