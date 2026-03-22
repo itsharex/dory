@@ -6,6 +6,7 @@ import { Tooltip, TooltipTrigger, TooltipContent } from '@/registry/new-york-v4/
 import { ConnectionCheckStatus, ConnectionListItem } from '@/types/connections';
 import { Edit2, Trash2, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
+import { useHasMounted } from '@/hooks/use-has-mounted';
 
 type Props = {
     connectionItem: ConnectionListItem;
@@ -18,7 +19,8 @@ type Props = {
 };
 
 export default function ConnectionCard({ connectionItem, id, connectLoading, errorMessage, onEdit, onConnect, onDeleteRequest }: Props) {
-    const t = useTranslations('Connections'); 
+    const t = useTranslations('Connections');
+    const hasMounted = useHasMounted();
 
     const connection = connectionItem.connection;
     const lastCheckStatus = (connection?.lastCheckStatus ?? 'unknown') as ConnectionCheckStatus;
@@ -46,7 +48,7 @@ export default function ConnectionCard({ connectionItem, id, connectLoading, err
 
     const tooltipLines = [
         errorMessage ?? lastCheckError,
-        lastCheckAt ? t('Last check', { time: lastCheckAt.toLocaleString() }) : null,
+        hasMounted && lastCheckAt ? t('Last check', { time: lastCheckAt.toLocaleString() }) : null,
         typeof lastCheckLatencyMs === 'number' ? t('Latency', { latency: lastCheckLatencyMs }) : null,
     ].filter(Boolean) as string[];
 
