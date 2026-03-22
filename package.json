@@ -47,6 +47,7 @@
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:docker": "PLAYWRIGHT_INCLUDE_DOCKER=1 playwright test --grep @docker",
+    "test:e2e:demo-flow": "playwright test tests/e2e/demo-connection-sql-console.spec.ts --project=chromium --no-deps",
     "release-notes": "yarn workspace web run release-notes"
   },
   "workspaces": [
