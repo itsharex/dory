@@ -32,7 +32,7 @@ export function NavUser({ user }: { user: User | null }) {
                     </div>
                 </div>
             </DropdownMenuLabel>
-            <DropdownMenuItem
+            {/* <DropdownMenuItem
                 onClick={() => {
                     if (!organizationSlug) return;
                     router.push(`/${organizationSlug}/settings/organization`);
@@ -40,7 +40,7 @@ export function NavUser({ user }: { user: User | null }) {
             >
                 <IconFolder />
                 My Project
-            </DropdownMenuItem>
+            </DropdownMenuItem> */}
             <DropdownMenuItem
                 onClick={async e => {
                     e.preventDefault();
