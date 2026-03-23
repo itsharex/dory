@@ -1,4 +1,3 @@
-
 import { createClickhouseConnectionDefaults } from './components/forms/connection/drivers/clickhouse';
 
 export const NEW_CONNECTION_DEFAULT_VALUES = {

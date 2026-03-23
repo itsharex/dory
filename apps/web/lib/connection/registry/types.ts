@@ -16,5 +16,5 @@ export type ConnectionParameterDialect =
 export type ConnectionDriverCtor = new (config: BaseConfig) => BaseConnection;
 
 export function isConnectionDriverType(value: unknown): value is ConnectionDriverType {
-    return value === 'clickhouse' || value === 'postgres';
+    return value === 'clickhouse' || value === 'mysql' || value === 'postgres';
 }

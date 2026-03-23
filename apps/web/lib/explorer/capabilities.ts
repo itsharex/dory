@@ -31,8 +31,8 @@ export const EXPLORER_CAPABILITIES: Record<ExplorerDriver, DriverCapabilities> =
         supportsSchema: false,
         supportsDatabase: true,
         supportsCatalog: false,
-        listKinds: ['tables', 'views', 'functions', 'procedures'],
-        objectKinds: ['database', 'table', 'view', 'function', 'procedure'],
+        listKinds: ['tables', 'views'],
+        objectKinds: ['database', 'table', 'view'],
     },
     doris: {
         driver: 'doris',
@@ -93,18 +93,12 @@ export function driverSupportsSchema(driver?: string | null): boolean {
     return getDriverCapabilities(driver).supportsSchema;
 }
 
-export function isSupportedListKind(
-    driver: string | undefined | null,
-    listKind: string | undefined | null,
-): listKind is ExplorerListKind {
+export function isSupportedListKind(driver: string | undefined | null, listKind: string | undefined | null): listKind is ExplorerListKind {
     if (!listKind) return false;
     return getDriverCapabilities(driver).listKinds.includes(listKind as ExplorerListKind);
 }
 
-export function isSupportedObjectKind(
-    driver: string | undefined | null,
-    objectKind: string | undefined | null,
-): objectKind is ExplorerObjectKind {
+export function isSupportedObjectKind(driver: string | undefined | null, objectKind: string | undefined | null): objectKind is ExplorerObjectKind {
     if (!objectKind) return false;
     return getDriverCapabilities(driver).objectKinds.includes(objectKind as ExplorerObjectKind);
 }

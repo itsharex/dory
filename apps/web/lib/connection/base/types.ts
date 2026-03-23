@@ -1,7 +1,7 @@
 import { QueryInsightsFilters, QueryInsightsSummary, QueryTimelinePoint, QueryInsightsRow } from '@/types/monitoring';
 import { TableIndexInfo, TablePropertiesRow, TableStats } from '@/types/table-info';
 
-export type ConnectionType = 'clickhouse' | 'postgres';
+export type ConnectionType = 'clickhouse' | 'mysql' | 'postgres';
 
 export interface BaseConfig {
     id: string; // datasource_id
