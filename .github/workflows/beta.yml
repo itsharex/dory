@@ -92,16 +92,37 @@ jobs:
         id: release_meta
         shell: bash
         run: |
+          BASE_TAG="$(git describe --tags --abbrev=0 --match 'v*' HEAD 2>/dev/null || true)"
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
-          SHORT_SHA="${{ steps.beta_meta.outputs.short_sha }}"
+          RELEASE_VERSION="$(
+            BASE_TAG="$BASE_TAG" PACKAGE_VERSION="$PACKAGE_VERSION" node <<'NODE'
+            const source = (process.env.BASE_TAG || '').trim() || `v${(process.env.PACKAGE_VERSION || '').trim()}`;
 
-          if [[ "$PACKAGE_VERSION" == *-* ]]; then
-            RELEASE_TAG="v${PACKAGE_VERSION}.${SHORT_SHA}"
-          else
-            RELEASE_TAG="v${PACKAGE_VERSION}-beta.${SHORT_SHA}"
-          fi
+            const match = source.match(/^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?$/);
+            if (!match) {
+                console.error(`Unsupported version source: ${source}`);
+                process.exit(1);
+            }
 
-          echo "package_version=$PACKAGE_VERSION" >> "$GITHUB_OUTPUT"
+            let major = Number(match[1]);
+            let minor = Number(match[2]);
+            let patch = Number(match[3]);
+            const prerelease = match[4] || '';
+
+            const betaMatch = prerelease.match(/^beta\.(\d+)$/);
+            if (betaMatch) {
+                process.stdout.write(`${major}.${minor}.${patch}-beta.${Number(betaMatch[1]) + 1}`);
+                process.exit(0);
+            }
+
+            patch += 1;
+            process.stdout.write(`${major}.${minor}.${patch}-beta.0`);
+            NODE
+          )"
+          RELEASE_TAG="v${RELEASE_VERSION}"
+
+          echo "base_tag=$BASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "release_version=$RELEASE_VERSION" >> "$GITHUB_OUTPUT"
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Generate beta release notes
