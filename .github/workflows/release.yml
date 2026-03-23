@@ -154,5 +154,4 @@ jobs:
 
           gh workflow run ".github/workflows/docker-release.yml" \
             --ref "${{ github.ref_name }}" \
-            -f distribution=stable \
             -f release_tag="$TAG"
