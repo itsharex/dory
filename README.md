@@ -147,9 +147,9 @@ Native ClickHouse user and role management UI.
 |--------------|---------------------|
 | ClickHouse   | ✅ Deeply integrated |
 | PostgreSQL   | ✅ Supported (Beta)  |
-| MySQL        | 🚧 In development    |
+| MySQL        | ✅ In development (Beta)   |
 | DuckDB       | 🚧 Planned          |
-| SQLite       | 🚧 Planned          |
+| SQLite       | 🚧 In development         |
 
 ---
 
