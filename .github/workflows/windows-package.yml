@@ -209,26 +209,6 @@ jobs:
                   path: apps/electron/dist/*
                   if-no-files-found: error
 
-            - name: Delete previous Windows release assets
-              if: needs.resolve_context.outputs.tag != ''
-              shell: bash
-              run: |
-                  TAG="${{ needs.resolve_context.outputs.tag }}"
-                  EXISTING_ASSETS="$(
-                    gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets \
-                      | node -e "const fs=require('fs'); const input=JSON.parse(fs.readFileSync(0,'utf8')); const names=(input.assets || []).map((asset) => asset.name).filter((name) => /\\.exe(?:\\.blockmap)?$|\\.msi$|latest\\.yml$|(?:^|[-.])win(?:[-.][^.]+)*\\.zip(?:\\.blockmap)?$/i.test(name)); process.stdout.write(names.join('\n'));"
-                  )"
-
-                  if [ -z "$EXISTING_ASSETS" ]; then
-                    exit 0
-                  fi
-
-                  while IFS= read -r asset; do
-                    if [ -n "$asset" ]; then
-                      gh release delete-asset "$TAG" "$asset" --repo "$GITHUB_REPOSITORY" --yes
-                    fi
-                  done <<< "$EXISTING_ASSETS"
-
             - name: Upload Windows install assets to Release
               if: needs.resolve_context.outputs.tag != ''
               shell: bash
