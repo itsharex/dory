@@ -11,6 +11,7 @@ const updateChannel = process.env.DORY_UPDATE_CHANNEL === 'beta' ? 'beta' : 'lat
 const appId = readEnv('DORY_ELECTRON_APP_ID') ?? (distribution === 'beta' ? 'com.dory.app.beta' : 'com.dory.app');
 const productName = distribution === 'beta' ? 'Dory Beta' : 'Dory';
 const protocolScheme = readEnv('DORY_PROTOCOL_SCHEME') ?? (distribution === 'beta' ? 'dory-beta' : 'dory');
+const artifactName = '${productName}-${version}-${arch}.${ext}';
 const betaArtifactName = '${productName}-${version}-${os}-${arch}-beta.${ext}';
 const windowsInstallerArtifactName =
     distribution === 'beta'
@@ -28,11 +29,7 @@ const config = {
     extraMetadata: {
         main: 'dist-electron/main.js',
     },
-    ...(distribution === 'beta'
-        ? {
-              artifactName: betaArtifactName,
-          }
-        : {}),
+    artifactName: distribution === 'beta' ? betaArtifactName : artifactName,
     publish: [
         {
             provider: 'github',
