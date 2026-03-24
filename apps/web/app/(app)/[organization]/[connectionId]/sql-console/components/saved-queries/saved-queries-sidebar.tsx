@@ -2,7 +2,18 @@
 
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FolderPlus, GripVertical, MoreHorizontal, RefreshCw } from 'lucide-react';
-import { DndContext, DragOverlay, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
+import {
+    DndContext,
+    DragOverlay,
+    closestCenter,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    type CollisionDetection,
+    type DragEndEvent,
+    type DragOverEvent,
+    type DragStartEvent,
+} from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
@@ -66,6 +77,28 @@ function summarizeSql(sqlText: string) {
     return sqlText.replace(/\s+/g, ' ').trim();
 }
 
+const FOLDER_DND_PREFIX = 'folder:';
+const QUERY_DND_PREFIX = 'query:';
+
+function getFolderDndId(folderId: string) {
+    return `${FOLDER_DND_PREFIX}${folderId}`;
+}
+
+function getQueryDndId(queryId: string) {
+    return `${QUERY_DND_PREFIX}${queryId}`;
+}
+
+function parseDndId(value: string | number) {
+    const id = String(value);
+    if (id.startsWith(FOLDER_DND_PREFIX)) {
+        return { type: 'folder' as const, id: id.slice(FOLDER_DND_PREFIX.length) };
+    }
+    if (id.startsWith(QUERY_DND_PREFIX)) {
+        return { type: 'query' as const, id: id.slice(QUERY_DND_PREFIX.length) };
+    }
+    return null;
+}
+
 // ---------------------------------------------------------------------------
 // Sortable wrappers
 // ---------------------------------------------------------------------------
@@ -86,7 +119,13 @@ function SortableFolderWrapper({
     id: string;
     children: (props: { listeners: Record<string, Function>; attributes: Record<string, any>; isDragging: boolean }) => React.ReactNode;
 }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id: getFolderDndId(id),
+        data: {
+            type: 'folder',
+            folderId: id,
+        },
+    });
     const style = { transform: CSS.Transform.toString(transform), transition };
     return (
         <div ref={setNodeRef} style={style}>
@@ -95,54 +134,23 @@ function SortableFolderWrapper({
     );
 }
 
-function FolderQueryDndWrapper({
-    sensors,
-    folderItems,
-    onDragStart,
-    onDragEnd,
-    activeQueryForOverlay,
-    renderQueryItem,
-}: {
-    sensors: ReturnType<typeof useSensors>;
-    folderItems: SavedQueryItem[];
-    onDragStart: (event: DragStartEvent) => void;
-    onDragEnd: (event: DragEndEvent) => void;
-    activeQueryForOverlay: SavedQueryItem | null | undefined;
-    renderQueryItem: (item: SavedQueryItem, dragProps?: { listeners: Record<string, Function>; attributes: Record<string, any> }) => React.ReactNode;
-}) {
-    const containerRef = useRef<HTMLDivElement | null>(null);
-    const modifiers = useMemo(() => [restrictToVerticalAxis, createRestrictToContainer(containerRef)], []);
-    return (
-        <div ref={containerRef}>
-            <DndContext sensors={sensors} collisionDetection={closestCenter} modifiers={modifiers} onDragStart={onDragStart} onDragEnd={onDragEnd}>
-                <SortableContext items={folderItems.map(q => q.id)} strategy={verticalListSortingStrategy}>
-                    {folderItems.map(item => (
-                        <SortableQueryWrapper key={item.id} id={item.id}>
-                            {({ listeners, attributes }) => renderQueryItem(item, { listeners, attributes })}
-                        </SortableQueryWrapper>
-                    ))}
-                </SortableContext>
-                <DragOverlay dropAnimation={null}>
-                    {activeQueryForOverlay && (
-                        <div className="rounded-md border bg-background px-3 py-1.5 shadow-md">
-                            <div className="text-sm font-medium truncate max-w-[200px]">{activeQueryForOverlay.title}</div>
-                            <div className="text-[11px] text-muted-foreground truncate max-w-[200px]">{summarizeSql(activeQueryForOverlay.sqlText ?? '')}</div>
-                        </div>
-                    )}
-                </DragOverlay>
-            </DndContext>
-        </div>
-    );
-}
-
 function SortableQueryWrapper({
     id,
+    folderId,
     children,
 }: {
     id: string;
+    folderId: string | null;
     children: (props: { listeners: Record<string, Function>; attributes: Record<string, any>; isDragging: boolean }) => React.ReactNode;
 }) {
-    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+        id: getQueryDndId(id),
+        data: {
+            type: 'query',
+            queryId: id,
+            folderId,
+        },
+    });
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : undefined };
     return (
         <div ref={setNodeRef} style={style}>
@@ -203,6 +211,9 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
     const [renameFolderSaving, setRenameFolderSaving] = useState(false);
     const [moveTarget, setMoveTarget] = useState<SavedQueryItem | null>(null);
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+    const [activeDropFolderId, setActiveDropFolderId] = useState<string | null>(null);
+    const [absorbingFolderId, setAbsorbingFolderId] = useState<string | null>(null);
+    const absorbTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const notifySavedQueriesUpdated = useCallback(() => {
         if (typeof window === 'undefined') return;
@@ -291,6 +302,14 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
             window.removeEventListener('saved-queries-updated', handler);
         };
     }, [fetchAll]);
+
+    useEffect(() => {
+        return () => {
+            if (absorbTimeoutRef.current) {
+                clearTimeout(absorbTimeoutRef.current);
+            }
+        };
+    }, []);
 
     // Group items by folder
     const { folderQueryMap, rootItems } = useMemo(() => {
@@ -531,84 +550,212 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
     };
 
     // -----------------------------------------------------------------------
-    // DnD: folder reorder
+    // DnD
     // -----------------------------------------------------------------------
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-    const foldersContainerRef = useRef<HTMLDivElement | null>(null);
-    const foldersModifiers = useMemo(() => [restrictToVerticalAxis, createRestrictToContainer(foldersContainerRef)], []);
-    const rootQueriesContainerRef = useRef<HTMLDivElement | null>(null);
-    const rootQueriesModifiers = useMemo(() => [restrictToVerticalAxis, createRestrictToContainer(rootQueriesContainerRef)], []);
+    const dndContainerRef = useRef<HTMLDivElement | null>(null);
+    const dndModifiers = useMemo(() => [restrictToVerticalAxis, createRestrictToContainer(dndContainerRef)], []);
     const [activeFolderDragId, setActiveFolderDragId] = useState<string | null>(null);
-    const folderIds = useMemo(() => folders.map(f => f.id), [folders]);
+    const folderIds = useMemo(() => folders.map(f => getFolderDndId(f.id)), [folders]);
+    const getScopeItems = useCallback((folderId: string | null) => (folderId ? (folderQueryMap.get(folderId) ?? []) : rootItems), [folderQueryMap, rootItems]);
+    const collisionDetection = useCallback<CollisionDetection>(args => {
+        const active = parseDndId(args.active.id);
+        if (!active) return closestCenter(args);
+        const filtered = args.droppableContainers.filter(container => {
+            const target = parseDndId(container.id);
+            if (!target) return false;
+            if (active.type === 'folder') return target.type === 'folder';
+            return target.type === 'folder' || target.type === 'query';
+        });
+        return closestCenter({
+            ...args,
+            droppableContainers: filtered,
+        });
+    }, []);
 
-    const handleFolderDragStart = useCallback((event: DragStartEvent) => {
-        setActiveFolderDragId(String(event.active.id));
+    const applyQueryOrder = useCallback((orderedIds: string[], destinationFolderId: string | null) => {
+        setItems(prev => {
+            const itemMap = new Map(prev.map(item => [item.id, item]));
+            const movingIds = new Set(orderedIds);
+            const remaining = prev.filter(item => !movingIds.has(item.id));
+            const orderedItems: SavedQueryItem[] = [];
+            for (const id of orderedIds) {
+                const item = itemMap.get(id);
+                if (!item) continue;
+                orderedItems.push({ ...item, folderId: destinationFolderId });
+            }
+            return [...remaining, ...orderedItems];
+        });
+    }, []);
+
+    const persistQueryMove = useCallback(
+        async (params: { activeQuery: SavedQueryItem; destinationFolderId: string | null; orderedIds: string[] }) => {
+            const { activeQuery, destinationFolderId, orderedIds } = params;
+            const currentFolderId = activeQuery.folderId ?? null;
+            const destinationItems = getScopeItems(destinationFolderId).filter(item => item.id !== activeQuery.id);
+
+            if (currentFolderId !== destinationFolderId) {
+                const nextPosition = destinationItems.reduce((max, item) => Math.max(max, item.position ?? 0), 0) + 1000;
+                const patchRes = await authFetch(`/api/sql-console/saved-queries?id=${activeQuery.id}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(connectionId ? { 'X-Connection-ID': connectionId } : {}),
+                    },
+                    body: JSON.stringify({
+                        folderId: destinationFolderId,
+                        position: nextPosition,
+                    }),
+                });
+                const patchData = await patchRes.json().catch(() => null);
+                if (!patchRes.ok || (patchData && patchData.code !== 0)) {
+                    throw new Error(patchData?.message ?? t('SavedQueries.LoadFailed'));
+                }
+            }
+
+            const reorderRes = await authFetch('/api/sql-console/saved-queries/reorder', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ folderId: destinationFolderId, orderedIds }),
+            });
+            const reorderData = await reorderRes.json().catch(() => null);
+            if (!reorderRes.ok || (reorderData && reorderData.code !== 0)) {
+                throw new Error(reorderData?.message ?? t('SavedQueries.LoadFailed'));
+            }
+        },
+        [connectionId, getScopeItems, t],
+    );
+
+    const handleDragStart = useCallback((event: DragStartEvent) => {
+        const active = parseDndId(event.active.id);
+        if (!active) return;
+        if (active.type === 'folder') {
+            setActiveFolderDragId(active.id);
+        } else {
+            setActiveQueryDragId(active.id);
+        }
+        setActiveDropFolderId(null);
         setHoverOpenId(null);
     }, []);
 
-    const handleFolderDragEnd = useCallback(
+    const handleDragOver = useCallback(
+        (event: DragOverEvent) => {
+            const activeMeta = parseDndId(event.active.id);
+            const overMeta = event.over ? parseDndId(event.over.id) : null;
+
+            if (!activeMeta || activeMeta.type !== 'query') {
+                setActiveDropFolderId(null);
+                return;
+            }
+
+            const activeQuery = items.find(item => item.id === activeMeta.id);
+            if (!activeQuery || !overMeta) {
+                setActiveDropFolderId(null);
+                return;
+            }
+
+            if (overMeta.type === 'folder') {
+                setActiveDropFolderId(overMeta.id !== (activeQuery.folderId ?? null) ? overMeta.id : null);
+                return;
+            }
+
+            const overQuery = items.find(item => item.id === overMeta.id);
+            const destinationFolderId = overQuery?.folderId ?? null;
+            setActiveDropFolderId(destinationFolderId && destinationFolderId !== (activeQuery.folderId ?? null) ? destinationFolderId : null);
+        },
+        [items],
+    );
+
+    const handleDragEnd = useCallback(
         async (event: DragEndEvent) => {
-            setActiveFolderDragId(null);
             const { active, over } = event;
-            if (!over || active.id === over.id) return;
-            const oldIndex = folders.findIndex(f => f.id === String(active.id));
-            const newIndex = folders.findIndex(f => f.id === String(over.id));
-            if (oldIndex < 0 || newIndex < 0) return;
-            const reordered = arrayMove(folders, oldIndex, newIndex);
-            setFolders(reordered);
+            const activeMeta = parseDndId(active.id);
+            const overMeta = over ? parseDndId(over.id) : null;
+
+            setActiveFolderDragId(null);
+            setActiveQueryDragId(null);
+            setActiveDropFolderId(null);
+
+            if (!activeMeta || !overMeta || !over || active.id === over.id) return;
+
+            if (activeMeta.type === 'folder') {
+                if (overMeta.type !== 'folder') return;
+                const oldIndex = folders.findIndex(f => f.id === activeMeta.id);
+                const newIndex = folders.findIndex(f => f.id === overMeta.id);
+                if (oldIndex < 0 || newIndex < 0) return;
+                const reordered = arrayMove(folders, oldIndex, newIndex);
+                setFolders(reordered);
+                try {
+                    await authFetch('/api/sql-console/saved-query-folders/reorder', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ orderedIds: reordered.map(f => f.id) }),
+                    });
+                } catch {
+                    /* optimistic update */
+                }
+                return;
+            }
+
+            const activeQuery = items.find(item => item.id === activeMeta.id);
+            if (!activeQuery) return;
+
+            const currentFolderId = activeQuery.folderId ?? null;
+            let destinationFolderId: string | null = currentFolderId;
+            let orderedIds: string[] = [];
+
+            if (overMeta.type === 'folder') {
+                destinationFolderId = overMeta.id;
+                const destinationItems = getScopeItems(destinationFolderId).filter(item => item.id !== activeQuery.id);
+                orderedIds = [...destinationItems.map(item => item.id), activeQuery.id];
+            } else {
+                const overQuery = items.find(item => item.id === overMeta.id);
+                if (!overQuery) return;
+                destinationFolderId = overQuery.folderId ?? null;
+                const destinationItems = getScopeItems(destinationFolderId).filter(item => item.id !== activeQuery.id);
+                const insertIndex = destinationItems.findIndex(item => item.id === overQuery.id);
+                if (insertIndex < 0) return;
+                orderedIds = [...destinationItems.slice(0, insertIndex).map(item => item.id), activeQuery.id, ...destinationItems.slice(insertIndex).map(item => item.id)];
+            }
+
+            if (!orderedIds.length) return;
+
+            applyQueryOrder(orderedIds, destinationFolderId);
+
             try {
-                await authFetch('/api/sql-console/saved-query-folders/reorder', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderedIds: reordered.map(f => f.id) }),
+                await persistQueryMove({
+                    activeQuery,
+                    destinationFolderId,
+                    orderedIds,
                 });
-            } catch {
-                /* optimistic update */
+                if (destinationFolderId && destinationFolderId !== currentFolderId) {
+                    if (absorbTimeoutRef.current) {
+                        clearTimeout(absorbTimeoutRef.current);
+                    }
+                    setAbsorbingFolderId(destinationFolderId);
+                    absorbTimeoutRef.current = setTimeout(() => {
+                        setAbsorbingFolderId(current => (current === destinationFolderId ? null : current));
+                    }, 260);
+                }
+                notifySavedQueriesUpdated();
+                void fetchList(limit, { silent: true });
+            } catch (err) {
+                const message = err instanceof Error ? err.message : t('SavedQueries.LoadFailed');
+                setError(message);
+                void fetchList(limit, { silent: true });
             }
         },
-        [folders],
+        [applyQueryOrder, fetchList, folders, getScopeItems, items, limit, notifySavedQueriesUpdated, persistQueryMove, t],
     );
+
+    const handleDragCancel = useCallback(() => {
+        setActiveFolderDragId(null);
+        setActiveQueryDragId(null);
+        setActiveDropFolderId(null);
+    }, []);
 
     const activeFolderForOverlay = useMemo(() => (activeFolderDragId ? folders.find(f => f.id === activeFolderDragId) : null), [activeFolderDragId, folders]);
-
-    // -----------------------------------------------------------------------
-    // DnD: query reorder within a scope
-    // -----------------------------------------------------------------------
     const [activeQueryDragId, setActiveQueryDragId] = useState<string | null>(null);
-
-    const handleQueryDragStart = useCallback((event: DragStartEvent) => {
-        setActiveQueryDragId(String(event.active.id));
-        setHoverOpenId(null);
-    }, []);
-
-    const makeQueryDragEnd = useCallback(
-        (scopeFolderId: string | null) => async (event: DragEndEvent) => {
-            setActiveQueryDragId(null);
-            const { active, over } = event;
-            if (!over || active.id === over.id) return;
-            const scopeItems = scopeFolderId ? (folderQueryMap.get(scopeFolderId) ?? []) : rootItems;
-            const oldIndex = scopeItems.findIndex(q => q.id === String(active.id));
-            const newIndex = scopeItems.findIndex(q => q.id === String(over.id));
-            if (oldIndex < 0 || newIndex < 0) return;
-            const reordered = arrayMove(scopeItems, oldIndex, newIndex);
-            // Optimistic: update local items order
-            setItems(prev => {
-                const remaining = prev.filter(q => !reordered.some(r => r.id === q.id));
-                return [...remaining, ...reordered];
-            });
-            try {
-                await authFetch('/api/sql-console/saved-queries/reorder', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ folderId: scopeFolderId, orderedIds: reordered.map(q => q.id) }),
-                });
-            } catch {
-                /* optimistic */
-            }
-        },
-        [folderQueryMap, rootItems],
-    );
-
     const activeQueryForOverlay = useMemo(() => (activeQueryDragId ? items.find(q => q.id === activeQueryDragId) : null), [activeQueryDragId, items]);
 
     const hasContent = !isSearching ? folders.length > 0 || rootItems.length > 0 : rootItems.length > 0;
@@ -796,16 +943,18 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
                     ) : isSearching ? (
                         <div className="space-y-1">{rootItems.map(item => renderQueryItem(item))}</div>
                     ) : (
-                        <div className="space-y-1">
-                            {/* Folders with DnD reorder */}
-                            <div ref={foldersContainerRef}>
-                                <DndContext
-                                    sensors={sensors}
-                                    collisionDetection={closestCenter}
-                                    modifiers={foldersModifiers}
-                                    onDragStart={handleFolderDragStart}
-                                    onDragEnd={handleFolderDragEnd}
-                                >
+                        <div ref={dndContainerRef}>
+                            <DndContext
+                                sensors={sensors}
+                                collisionDetection={collisionDetection}
+                                modifiers={dndModifiers}
+                                onDragStart={handleDragStart}
+                                onDragOver={handleDragOver}
+                                onDragEnd={handleDragEnd}
+                                onDragCancel={handleDragCancel}
+                            >
+                                <div className="space-y-1">
+                                    {/* Folders with DnD reorder */}
                                     <SortableContext items={folderIds} strategy={verticalListSortingStrategy}>
                                         {folders.map(folder => {
                                             const folderItems = folderQueryMap.get(folder.id) ?? [];
@@ -816,6 +965,8 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
                                                         <FolderItem
                                                             folder={folder}
                                                             expanded={isExpanded}
+                                                            isDropTarget={activeDropFolderId === folder.id}
+                                                            isAbsorbing={absorbingFolderId === folder.id}
                                                             onToggle={() => toggleFolder(folder.id)}
                                                             onRename={openRenameFolder}
                                                             onDelete={handleDeleteFolder}
@@ -830,14 +981,13 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
                                                                     <span>{t('SavedQueries.Folders.EmptyFolder')}</span>
                                                                 </div>
                                                             ) : (
-                                                                <FolderQueryDndWrapper
-                                                                    sensors={sensors}
-                                                                    folderItems={folderItems}
-                                                                    onDragStart={handleQueryDragStart}
-                                                                    onDragEnd={makeQueryDragEnd(folder.id)}
-                                                                    activeQueryForOverlay={activeQueryForOverlay}
-                                                                    renderQueryItem={renderQueryItem}
-                                                                />
+                                                                <SortableContext items={folderItems.map(item => getQueryDndId(item.id))} strategy={verticalListSortingStrategy}>
+                                                                    {folderItems.map(item => (
+                                                                        <SortableQueryWrapper key={item.id} id={item.id} folderId={folder.id}>
+                                                                            {({ listeners, attributes }) => renderQueryItem(item, { listeners, attributes })}
+                                                                        </SortableQueryWrapper>
+                                                                    ))}
+                                                                </SortableContext>
                                                             )}
                                                         </FolderItem>
                                                     )}
@@ -853,37 +1003,33 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
                                             </div>
                                         )}
                                     </DragOverlay>
-                                </DndContext>
-                            </div>
-                            {/* Separator between folders and root queries */}
-                            {folders.length > 0 && rootItems.length > 0 && <div className="border-t border-border/40 my-1.5" />}
-                            {/* Root-level queries with DnD reorder */}
-                            <div ref={rootQueriesContainerRef}>
-                                <DndContext
-                                    sensors={sensors}
-                                    collisionDetection={closestCenter}
-                                    modifiers={rootQueriesModifiers}
-                                    onDragStart={handleQueryDragStart}
-                                    onDragEnd={makeQueryDragEnd(null)}
-                                >
-                                    <SortableContext items={rootItems.map(q => q.id)} strategy={verticalListSortingStrategy}>
+                                    {/* Separator between folders and root queries */}
+                                    {folders.length > 0 && rootItems.length > 0 && <div className="border-t border-border/40 my-1.5" />}
+                                    {/* Root-level queries with DnD reorder */}
+                                    <SortableContext items={rootItems.map(item => getQueryDndId(item.id))} strategy={verticalListSortingStrategy}>
                                         {rootItems.map(item => (
-                                            <SortableQueryWrapper key={item.id} id={item.id}>
+                                            <SortableQueryWrapper key={item.id} id={item.id} folderId={null}>
                                                 {({ listeners, attributes }) => renderQueryItem(item, { listeners, attributes })}
                                             </SortableQueryWrapper>
                                         ))}
                                     </SortableContext>
-                                    <DragOverlay dropAnimation={null}>
-                                        {activeQueryForOverlay && (
-                                            <div className="rounded-md border bg-background px-3 py-1.5 shadow-md">
-                                                <div className="text-sm font-medium truncate max-w-[200px]">{activeQueryForOverlay.title}</div>
-                                                <div className="text-[11px] text-muted-foreground truncate max-w-[200px]">{summarizeSql(activeQueryForOverlay.sqlText ?? '')}</div>
-                                            </div>
-                                        )}
-                                    </DragOverlay>
-                                </DndContext>
-                            </div>
-                            {loadingMore ? <div className="py-3 text-center text-xs text-muted-foreground">{t('SavedQueries.Loading')}</div> : null}
+                                    {loadingMore ? <div className="py-3 text-center text-xs text-muted-foreground">{t('SavedQueries.Loading')}</div> : null}
+                                </div>
+                                <DragOverlay dropAnimation={null}>
+                                    {activeQueryForOverlay && (
+                                        <div
+                                            className={cn(
+                                                'rounded-md border bg-background px-3 py-1.5 shadow-md',
+                                                'transition-[transform,opacity,box-shadow] duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transform-none motion-reduce:transition-none',
+                                                activeDropFolderId && 'scale-[0.9] opacity-90 shadow-[0_8px_18px_-14px_hsl(var(--foreground)/0.45)]',
+                                            )}
+                                        >
+                                            <div className="text-sm font-medium truncate max-w-[200px]">{activeQueryForOverlay.title}</div>
+                                            <div className="text-[11px] text-muted-foreground truncate max-w-[200px]">{summarizeSql(activeQueryForOverlay.sqlText ?? '')}</div>
+                                        </div>
+                                    )}
+                                </DragOverlay>
+                            </DndContext>
                         </div>
                     )}
                 </ScrollArea>
