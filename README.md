@@ -15,9 +15,11 @@ It combines intelligent SQL editing, context-aware AI assistance, conversational
 
 <p align="center">
   <a href="https://app.getdory.dev"><b>🚀 Try Live Demo</b></a> &nbsp; • &nbsp;
+  <a href="#install-on-macos-with-homebrew"><b>🍺 Install via Homebrew</b></a> &nbsp; • &nbsp;
   <a href="https://github.com/dorylab/dory/releases"><b>🍎 Download for macOS</b></a> &nbsp; • &nbsp;
   <a href="https://github.com/dorylab/dory/releases"><b>Download for Windows</b></a> &nbsp; • &nbsp;
   <a href="#quick-start"><b>📦 Quick Start</b></a> &nbsp; • &nbsp;
+  <a href="./docs/contributing.md"><b>🤝 Contributing</b></a> &nbsp; • &nbsp;
   <a href="https://github.com/dorylab/dory/stargazers"><b>⭐ Star</b></a>
 </p>
 
@@ -28,6 +30,12 @@ It combines intelligent SQL editing, context-aware AI assistance, conversational
 ![Dory Preview](./public/actions.png)
 
 ## 🚀 Quick Start
+### Install on macOS with Homebrew
+
+```bash
+brew install dorylab/dory/dory
+```
+
 ### Run with Docker
 
 Make sure Docker is installed, then run:
@@ -186,7 +194,9 @@ See the latest roadmap here:
 
 > Docker one-click deployment
 
-> Desktop client (macOS): https://github.com/dorylab/dory/releases  
+> Install on macOS with Homebrew: `brew install dorylab/dory/dory`
+
+> Desktop client: https://github.com/dorylab/dory/releases  
 
 ---
 
