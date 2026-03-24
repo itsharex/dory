@@ -99,7 +99,7 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
               with:
-                  ref: ${{ needs.resolve_context.outputs.tag != '' && needs.resolve_context.outputs.tag || github.ref }}
+                  ref: ${{ github.event_name == 'release' && needs.resolve_context.outputs.tag || github.ref }}
                   fetch-depth: 0
 
             - name: Setup Node
