@@ -193,6 +193,7 @@ jobs:
                   DORY_APP_BASE_URL: ${{ steps.build_config.outputs.app_base_url }}
                   DORY_ELECTRON_APP_ID: ${{ steps.build_config.outputs.electron_app_id }}
                   DORY_PROTOCOL_SCHEME: ${{ steps.build_config.outputs.protocol_scheme }}
+                  DORY_BUILD_ARCH: ${{ matrix.arch }}
               run: |
                   yarn run electron:standalone
                   yarn workspace dory run compile

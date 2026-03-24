@@ -11,7 +11,10 @@ const updateChannel = process.env.DORY_UPDATE_CHANNEL === 'beta' ? 'beta' : 'lat
 const appId = readEnv('DORY_ELECTRON_APP_ID') ?? (distribution === 'beta' ? 'com.dory.app.beta' : 'com.dory.app');
 const productName = distribution === 'beta' ? 'Dory Beta' : 'Dory';
 const protocolScheme = readEnv('DORY_PROTOCOL_SCHEME') ?? (distribution === 'beta' ? 'dory-beta' : 'dory');
-const artifactName = '${productName}-${version}-${arch}.${ext}';
+const buildArch = readEnv('DORY_BUILD_ARCH');
+const artifactName = buildArch
+    ? `\${productName}-\${version}-${buildArch}.\${ext}`
+    : '${productName}-${version}-${arch}.${ext}';
 const betaArtifactName = '${productName}-${version}-${os}-${arch}-beta.${ext}';
 const windowsInstallerArtifactName =
     distribution === 'beta'
