@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, max, or } from 'drizzle-orm';
 
-import { savedQueries } from '@/lib/database/postgres/schemas';
+import { savedQueries, savedQueryFolders } from '@/lib/database/postgres/schemas';
 import { getClient } from '@/lib/database/postgres/client';
 import { DatabaseError } from '@/lib/errors/DatabaseError';
 import { newEntityId } from '@/lib/id';
@@ -58,6 +58,30 @@ export class PostgresSavedQueriesRepository {
     private buildConnectionScopeCondition(connectionId: string) {
         const normalized = this.normalizeConnectionId(connectionId);
         return or(eq(savedQueries.connectionId, normalized), isNull(savedQueries.connectionId));
+    }
+
+    private async assertFolderAccess(params: {
+        organizationId: string;
+        userId: string;
+        folderId: string;
+        connectionId: string;
+    }): Promise<void> {
+        const [folder] = await this.db
+            .select({ id: savedQueryFolders.id })
+            .from(savedQueryFolders)
+            .where(
+                and(
+                    eq(savedQueryFolders.id, params.folderId),
+                    eq(savedQueryFolders.organizationId, params.organizationId),
+                    eq(savedQueryFolders.userId, params.userId),
+                    eq(savedQueryFolders.connectionId, this.normalizeConnectionId(params.connectionId)),
+                ),
+            )
+            .limit(1);
+
+        if (!folder) {
+            throw new DatabaseError(translateDatabase('Database.Errors.FolderNotFound'), 404);
+        }
     }
 
     async init() {
@@ -223,7 +247,17 @@ export class PostgresSavedQueriesRepository {
         if (data.archivedAt !== undefined) {
             assign('archivedAt', data.archivedAt ? new Date(data.archivedAt) : null);
         }
-        if (data.folderId !== undefined) assign('folderId', data.folderId);
+        if (data.folderId !== undefined) {
+            if (data.folderId) {
+                await this.assertFolderAccess({
+                    organizationId: params.organizationId,
+                    userId: params.userId,
+                    folderId: data.folderId,
+                    connectionId: params.connectionId,
+                });
+            }
+            assign('folderId', data.folderId);
+        }
         if (data.position !== undefined) assign('position', data.position ?? 0);
 
         if (hasChanges) {
@@ -278,8 +312,18 @@ export class PostgresSavedQueriesRepository {
         userId: string;
         folderId: string | null;
         orderedIds: string[];
+        connectionId: string;
     }): Promise<void> {
         this.assertInited();
+
+        if (params.folderId) {
+            await this.assertFolderAccess({
+                organizationId: params.organizationId,
+                userId: params.userId,
+                folderId: params.folderId,
+                connectionId: params.connectionId,
+            });
+        }
 
         for (let i = 0; i < params.orderedIds.length; i++) {
             await this.db
@@ -290,6 +334,8 @@ export class PostgresSavedQueriesRepository {
                         eq(savedQueries.id, params.orderedIds[i]),
                         eq(savedQueries.organizationId, params.organizationId),
                         eq(savedQueries.userId, params.userId),
+                        this.buildConnectionScopeCondition(params.connectionId),
+                        params.folderId === null ? isNull(savedQueries.folderId) : eq(savedQueries.folderId, params.folderId),
                     ),
                 );
         }

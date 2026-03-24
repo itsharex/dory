@@ -43,6 +43,7 @@ const connectionSchema = z.object({
 const folderSchema = z.object({
     _exportId: z.string(),
     name: z.string().min(1),
+    connectionName: z.string().nullable().optional(),
     position: z.number().int().optional(),
 });
 
@@ -84,6 +85,10 @@ async function resolveUniqueConnectionName(
         counter++;
     }
     return candidate;
+}
+
+function buildFolderScopeKey(folderExportId: string, connectionId: string) {
+    return `${folderExportId}:${connectionId}`;
 }
 
 export const POST = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId }) => {
@@ -131,15 +136,28 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, organizatio
 
         // 3. Import folders
         const folderExportIdToNewIdMap = new Map<string, string>();
+        const folderExportIdToDefinitionMap = new Map(
+            (payload.savedQueryFolders ?? []).map(folder => [folder._exportId, folder] as const),
+        );
 
         if (payload.savedQueryFolders) {
             for (const folder of payload.savedQueryFolders) {
+                const connectionId = folder.connectionName
+                    ? connectionNameToIdMap.get(folder.connectionName)
+                    : null;
+
+                if (!connectionId) {
+                    continue;
+                }
+
                 const created = await db.savedQueryFolders.create({
                     organizationId,
                     userId,
+                    connectionId,
                     name: folder.name,
                 });
                 folderExportIdToNewIdMap.set(folder._exportId, created.id);
+                folderExportIdToNewIdMap.set(buildFolderScopeKey(folder._exportId, connectionId), created.id);
                 result.savedQueryFolders.created++;
             }
         }
@@ -158,9 +176,27 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, organizatio
                 }
 
                 // Resolve folderId
-                const folderId = query.folderExportId
-                    ? (folderExportIdToNewIdMap.get(query.folderExportId) ?? null)
+                let folderId = query.folderExportId
+                    ? (folderExportIdToNewIdMap.get(buildFolderScopeKey(query.folderExportId, connectionId))
+                        ?? folderExportIdToNewIdMap.get(query.folderExportId)
+                        ?? null)
                     : null;
+
+                if (!folderId && query.folderExportId) {
+                    const folder = folderExportIdToDefinitionMap.get(query.folderExportId);
+                    if (folder) {
+                        const createdFolder = await db.savedQueryFolders.create({
+                            organizationId,
+                            userId,
+                            connectionId,
+                            name: folder.name,
+                        });
+                        folderId = createdFolder.id;
+                        folderExportIdToNewIdMap.set(query.folderExportId, createdFolder.id);
+                        folderExportIdToNewIdMap.set(buildFolderScopeKey(query.folderExportId, connectionId), createdFolder.id);
+                        result.savedQueryFolders.created++;
+                    }
+                }
 
                 const created = await db.savedQueries.create({
                     organizationId,

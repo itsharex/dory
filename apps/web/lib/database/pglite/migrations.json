@@ -119,5 +119,18 @@
     "bps": true,
     "folderMillis": 1774155701241,
     "hash": "d5413333c9f8ca8a0c05a95db4e1361d026eb06f17ec7269919e047fbcfc30ee"
+  },
+  {
+    "sql": [
+      "ALTER TABLE \"saved_query_folders\" ADD COLUMN \"connection_id\" text;",
+      "\nUPDATE \"saved_query_folders\" AS \"folders\"\nSET \"connection_id\" = \"folder_connections\".\"connection_id\"\nFROM (\n    SELECT\n        \"folder_id\",\n        min(\"connection_id\") AS \"connection_id\"\n    FROM \"saved_queries\"\n    WHERE \"folder_id\" IS NOT NULL\n    GROUP BY \"folder_id\"\n) AS \"folder_connections\"\nWHERE \"folders\".\"id\" = \"folder_connections\".\"folder_id\";",
+      "\nUPDATE \"saved_query_folders\" AS \"folders\"\nSET \"connection_id\" = COALESCE(\n    (\n        SELECT \"saved_queries\".\"connection_id\"\n        FROM \"saved_queries\"\n        WHERE \"saved_queries\".\"organization_id\" = \"folders\".\"organization_id\"\n          AND \"saved_queries\".\"user_id\" = \"folders\".\"user_id\"\n        ORDER BY \"saved_queries\".\"updated_at\" DESC NULLS LAST, \"saved_queries\".\"created_at\" DESC NULLS LAST\n        LIMIT 1\n    ),\n    (\n        SELECT \"connections\".\"id\"\n        FROM \"connections\"\n        WHERE \"connections\".\"organization_id\" = \"folders\".\"organization_id\"\n          AND \"connections\".\"deleted_at\" IS NULL\n        ORDER BY \"connections\".\"updated_at\" DESC NULLS LAST, \"connections\".\"created_at\" DESC NULLS LAST, \"connections\".\"id\" ASC\n        LIMIT 1\n    ),\n    \"folders\".\"id\"\n)\nWHERE \"folders\".\"connection_id\" IS NULL;",
+      "\nUPDATE \"saved_queries\" AS \"queries\"\nSET \"folder_id\" = NULL,\n    \"updated_at\" = NOW()\nFROM \"saved_query_folders\" AS \"folders\"\nWHERE \"queries\".\"folder_id\" = \"folders\".\"id\"\n  AND \"queries\".\"connection_id\" <> \"folders\".\"connection_id\";",
+      "\nALTER TABLE \"saved_query_folders\" ALTER COLUMN \"connection_id\" SET NOT NULL;",
+      "\nCREATE INDEX \"idx_saved_query_folders_connection_id\" ON \"saved_query_folders\" USING btree (\"connection_id\");\n"
+    ],
+    "bps": true,
+    "folderMillis": 1774367010423,
+    "hash": "9a2a9241dd708fa08461678f152ff3f1f62efc0331b467ff8eafb45bc3712a92"
   }
 ]

@@ -8,8 +8,8 @@ export const GET = withUserAndOrganizationHandler(async ({ db, organizationId, u
         // Fetch connections (organization-level)
         const connectionList = await db.connections.list(organizationId);
 
-        // Fetch saved query folders (user-level)
-        const folders = await db.savedQueryFolders.list({ organizationId, userId });
+        // Fetch saved query folders across all connections (user-level)
+        const folders = await db.savedQueryFolders.listAll({ organizationId, userId });
 
         // Fetch all saved queries across all connections (user-level)
         const queries = await db.savedQueries.listAll({ organizationId, userId });
@@ -63,6 +63,7 @@ export const GET = withUserAndOrganizationHandler(async ({ db, organizationId, u
         const exportedFolders = folders.map(f => ({
             _exportId: folderExportIdMap.get(f.id)!,
             name: f.name,
+            connectionName: connectionNameMap.get(f.connectionId) ?? null,
             position: f.position,
         }));
 

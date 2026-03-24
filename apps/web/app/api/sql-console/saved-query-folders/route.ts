@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { ResponseUtil } from '@/lib/result';
@@ -7,6 +7,7 @@ import { withUserAndOrganizationHandler } from '../../utils/with-organization-ha
 import { handleApiError } from '../../utils/handle-error';
 import { parseJsonBody } from '../../utils/parse-json';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
+import { requireConnectionId } from '../../utils/require-connection-id';
 
 const createSchema = z.object({
     name: z.string().min(1).max(100),
@@ -17,9 +18,12 @@ const updateSchema = z.object({
 }).refine((data) => data.name !== undefined);
 
 // GET /api/sql-console/saved-query-folders
-export const GET = withUserAndOrganizationHandler(async ({ db, organizationId, userId }) => {
+export const GET = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId }) => {
+    const locale = await getApiLocale();
+    const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
     try {
-        const list = await db.savedQueryFolders.list({ organizationId, userId });
+        const connectionId = requireConnectionId(req, t);
+        const list = await db.savedQueryFolders.list({ organizationId, userId, connectionId });
         return NextResponse.json(ResponseUtil.success(list));
     } catch (err: any) {
         return handleApiError(err);
@@ -28,11 +32,15 @@ export const GET = withUserAndOrganizationHandler(async ({ db, organizationId, u
 
 // POST /api/sql-console/saved-query-folders
 export const POST = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId }) => {
+    const locale = await getApiLocale();
+    const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
     try {
         const payload = await parseJsonBody(req, createSchema);
+        const connectionId = requireConnectionId(req, t);
         const created = await db.savedQueryFolders.create({
             organizationId,
             userId,
+            connectionId,
             name: payload.name,
         });
         return NextResponse.json(ResponseUtil.success(created), { status: 201 });
@@ -58,10 +66,12 @@ export const PATCH = withUserAndOrganizationHandler(async ({ req, db, organizati
         }
 
         const payload = await parseJsonBody(req, updateSchema);
+        const connectionId = requireConnectionId(req, t);
         const updated = await db.savedQueryFolders.update({
             id,
             organizationId,
             userId,
+            connectionId,
             patch: payload,
         });
         return NextResponse.json(ResponseUtil.success(updated));
@@ -86,7 +96,8 @@ export const DELETE = withUserAndOrganizationHandler(async ({ req, db, organizat
             );
         }
 
-        await db.savedQueryFolders.delete({ id, organizationId, userId });
+        const connectionId = requireConnectionId(req, t);
+        await db.savedQueryFolders.delete({ id, organizationId, userId, connectionId });
         return NextResponse.json(ResponseUtil.success({ deleted: [id] }));
     } catch (err: any) {
         return handleApiError(err);

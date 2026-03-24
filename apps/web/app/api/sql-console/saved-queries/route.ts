@@ -1,13 +1,13 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
 import { withUserAndOrganizationHandler } from '../../utils/with-organization-handler';
 import { handleApiError } from '../../utils/handle-error';
-import { parseJsonBody, BadRequestError } from '../../utils/parse-json';
-import { getConnectionIdFromRequest } from '@/lib/utils/request';
+import { parseJsonBody } from '../../utils/parse-json';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
+import { requireConnectionId } from '../../utils/require-connection-id';
 
 const createSchema = z.object({
     id: z.string().optional(),
@@ -44,20 +44,6 @@ const updateSchema = z
             data.folderId !== undefined ||
             data.position !== undefined,
     );
-
-const normalizeConnectionId = (value?: string | null) => {
-    if (!value) return null;
-    const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : null;
-};
-
-const requireConnectionId = (req: NextRequest, t: (key: string, values?: Record<string, unknown>) => string) => {
-    const connectionId = normalizeConnectionId(getConnectionIdFromRequest(req));
-    if (!connectionId) {
-        throw new BadRequestError(t('Api.SqlConsole.Tabs.MissingConnectionContext'));
-    }
-    return connectionId;
-};
 
 // GET /api/sql-console/saved-queries?id=xxx&includeArchived=1&limit=50
 export const GET = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId }) => {

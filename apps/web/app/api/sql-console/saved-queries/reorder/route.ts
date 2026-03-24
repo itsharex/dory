@@ -5,6 +5,8 @@ import { ResponseUtil } from '@/lib/result';
 import { withUserAndOrganizationHandler } from '../../../utils/with-organization-handler';
 import { handleApiError } from '../../../utils/handle-error';
 import { parseJsonBody } from '../../../utils/parse-json';
+import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
+import { requireConnectionId } from '../../../utils/require-connection-id';
 
 const reorderSchema = z.object({
     folderId: z.string().nullable().optional().default(null),
@@ -13,13 +15,17 @@ const reorderSchema = z.object({
 
 // POST /api/sql-console/saved-queries/reorder
 export const POST = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId }) => {
+    const locale = await getApiLocale();
+    const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
     try {
         const payload = await parseJsonBody(req, reorderSchema);
+        const connectionId = requireConnectionId(req, t);
         await db.savedQueries.reorder({
             organizationId,
             userId,
             folderId: payload.folderId ?? null,
             orderedIds: payload.orderedIds,
+            connectionId,
         });
         return NextResponse.json(ResponseUtil.success({ reordered: true }));
     } catch (err: any) {

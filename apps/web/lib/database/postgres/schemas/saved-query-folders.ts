@@ -7,6 +7,7 @@ export const savedQueryFolders = pgTable(
         id: text('id').primaryKey().$defaultFn(() => newEntityId()),
         organizationId: text('organization_id').notNull(),
         userId: text('user_id').notNull(),
+        connectionId: text('connection_id').notNull(),
         name: text('name').notNull(),
         position: integer('position').notNull().default(0),
         createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -14,6 +15,7 @@ export const savedQueryFolders = pgTable(
     },
     (t) => ([
         index('idx_saved_query_folders_organization_user').on(t.organizationId, t.userId),
+        index('idx_saved_query_folders_connection_id').on(t.connectionId),
     ]),
 );
 

@@ -282,6 +282,7 @@ const RECOVERY_TABLES: RecoveryTableSpec[] = [
             { target: 'id', required: true },
             { target: 'organizationId', sources: ['organization_id', 'team_id'], required: true },
             { target: 'userId', sources: ['user_id'], required: true },
+            { target: 'connectionId', sources: ['connection_id'], required: true },
             { target: 'name', required: true },
             { target: 'position', required: true },
             { target: 'createdAt', sources: ['created_at'], required: true },
