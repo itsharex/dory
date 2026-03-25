@@ -312,7 +312,11 @@ export default function SQLConsoleClient({
                             </TabsList>
                             {/* <Separator /> */}
                             <TabsContent value="tables" className="flex-1 min-h-0">
-                                <SQLConsoleSidebar onOpenTableTab={handleOpenTableTab} />
+                                <SQLConsoleSidebar
+                                    onOpenTableTab={handleOpenTableTab}
+                                    selectedTable={activeTab?.tabType === 'table' ? activeTab.tableName : undefined}
+                                    selectedDatabase={activeTab?.tabType === 'table' ? activeTab.databaseName : undefined}
+                                />
                             </TabsContent>
                             <TabsContent value="saved" className="flex-1 min-h-0">
                                 <SavedQueriesSidebar onSelect={handleSavedQuerySelect} />

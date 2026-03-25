@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/reg
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { Skeleton } from '@/registry/new-york-v4/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/registry/new-york-v4/ui/alert';
-import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { TooltipProvider, Tooltip, TooltipContent, TooltipTrigger } from '@/registry/new-york-v4/ui/tooltip';
 import { authFetch } from '@/lib/client/auth-fetch';
 import { isSuccess } from '@/lib/result';
@@ -85,12 +84,45 @@ function renderNullableNumber(value: number | null | undefined, formatter: (valu
     return <span className={className}>{formatter(value)}</span>;
 }
 
-function SummaryField({ label, value }: { label: string; value: ReactNode }) {
+function OverviewStat({ label, value }: { label: string; value: string }) {
     return (
-        <div className="min-w-0 rounded-lg border bg-background/60 p-3">
+        <div className="space-y-1">
+            <div className="text-2xl font-semibold tracking-tight sm:text-3xl">{value}</div>
             <div className="text-xs text-muted-foreground">{label}</div>
-            <div className="mt-1 min-w-0 text-sm font-medium leading-tight">{value}</div>
         </div>
+    );
+}
+
+function InsightPanel({ title, headline, children }: { title: string; headline: string; children: ReactNode }) {
+    return (
+        <div className="rounded-2xl bg-muted/40 p-5">
+            <div className="space-y-2">
+                <div className="text-sm font-medium">{title}</div>
+                <div className="text-xl font-semibold tracking-tight">{headline}</div>
+            </div>
+            <div className="mt-4 space-y-2 text-sm text-muted-foreground">{children}</div>
+        </div>
+    );
+}
+
+function CompactLine({ label, value }: { label: string; value: ReactNode }) {
+    return (
+        <div className="flex min-w-0 items-baseline gap-2 text-sm">
+            <span className="shrink-0 text-muted-foreground">{label}</span>
+            <span className="min-w-0 font-medium text-foreground">{value}</span>
+        </div>
+    );
+}
+
+function QuickActionTile({ href, label }: { href: string; label: string }) {
+    return (
+        <Link
+            href={href}
+            className="group rounded-xl border border-border/70 bg-background/70 p-4 transition-colors hover:bg-background"
+        >
+            <div className="text-sm font-medium leading-snug">{label}</div>
+            <div className="mt-3 text-xs text-muted-foreground transition-colors group-hover:text-foreground/80">Open</div>
+        </Link>
     );
 }
 
@@ -206,6 +238,110 @@ export default function DatabaseSummary({ baseParams, catalog, database, schema 
 
     const emptyTables = useMemo(() => summary?.tablesCount === 0, [summary]);
 
+    const formatMetricValue = (value: number | null | undefined, formatter: (value: number | null | undefined) => string) => {
+        if (value === null || value === undefined) return '—';
+        return formatter(value);
+    };
+
+    const scaleHeadline = useMemo(() => {
+        const distribution = summary?.tableSizeDistribution;
+        const tablesCount = summary?.tablesCount ?? 0;
+
+        if (!distribution || tablesCount === 0) {
+            return t('No table size signal');
+        }
+
+        const smallTablesCount = distribution.smallTablesCount ?? 0;
+        const mediumTablesCount = distribution.mediumTablesCount ?? 0;
+        const largeTablesCount = distribution.largeTablesCount ?? 0;
+
+        if (smallTablesCount === tablesCount && mediumTablesCount === 0 && largeTablesCount === 0) {
+            return t('All tables are small');
+        }
+
+        if (smallTablesCount >= Math.max(1, Math.ceil(tablesCount / 2))) {
+            return t('Mostly small tables');
+        }
+
+        return t('Mixed table sizes');
+    }, [summary, t]);
+
+    const scaleSupport = useMemo(() => {
+        const distribution = summary?.tableSizeDistribution;
+
+        if (!distribution) {
+            return {
+                counts: '—',
+                note: t('No table size note'),
+            };
+        }
+
+        const mediumTablesCount = formatMetricValue(distribution.mediumTablesCount, formatNumber);
+        const largeTablesCount = formatMetricValue(distribution.largeTablesCount, formatNumber);
+        const hasOnlySmallTables = (distribution.mediumTablesCount ?? 0) === 0 && (distribution.largeTablesCount ?? 0) === 0;
+
+        return {
+            counts: t('Medium large counts', {
+                medium: mediumTablesCount,
+                large: largeTablesCount,
+            }),
+            note: hasOnlySmallTables ? t('Good for quick exploration') : t('Start with the largest tables'),
+        };
+    }, [summary, t]);
+
+    const objectMixHeadline = useMemo(() => {
+        return t('Object mix headline', {
+            tables: formatMetricValue(summary?.tablesCount, formatNumber),
+            views: formatMetricValue(summary?.viewsCount, formatNumber),
+        });
+    }, [summary, t]);
+
+    const objectMixSupport = useMemo(() => {
+        return t('Object mix support', {
+            materializedViews: formatMetricValue(summary?.materializedViewsCount, formatNumber),
+            functions: formatMetricValue(summary?.functionsCount, formatNumber),
+        });
+    }, [summary, t]);
+
+    const columnHeadline = useMemo(() => {
+        return t('Avg columns insight', {
+            value: formatMetricValue(summary?.columnComplexity.averageColumnsPerTable, formatDecimal),
+        });
+    }, [summary, t]);
+
+    const overviewMetaItems = useMemo(() => {
+        if (!summary) {
+            return [] as Array<{ key: string; label: string; value: ReactNode }>;
+        }
+
+        const items: Array<{ key: string; label: string; value: ReactNode }> = [];
+
+        if (summary.engine === 'postgres' && summary.owner?.trim()) {
+            items.push({
+                key: 'owner',
+                label: t('Owner'),
+                value: renderNullableOverflowText(summary.owner, nullTooltip),
+            });
+        }
+
+        if (summary.engine === 'postgres' && summary.materializedViewsCount !== null && summary.materializedViewsCount !== undefined) {
+            items.push({
+                key: 'materializedViewsCount',
+                label: t('Materialized Views'),
+                value: renderNullableNumber(summary.materializedViewsCount, formatNumber, nullTooltip),
+            });
+        }
+
+        return items;
+    }, [nullTooltip, summary, t]);
+
+    const primaryTitle = summary?.schemaName ?? schema ?? summary?.databaseName ?? databaseName;
+    const primaryCaption = schema
+                ? t('Schema in database', { database: (summary?.databaseName ?? databaseName) || '—' })
+        : catalogName
+          ? t('Database in catalog', { catalog: catalogName })
+          : summaryDescription;
+
     const reasonLabel = (reason: DatabaseSummaryRecommendation['reason']) => t(`RecommendationReasons.${reason}`);
 
     const renderTableLink = (tableName: string, className?: string) => {
@@ -229,25 +365,25 @@ export default function DatabaseSummary({ baseParams, catalog, database, schema 
         return (
             <div className="space-y-3">
                 {items.map(item => (
-                    <div key={item.name} className="rounded-lg border bg-background/50 p-3">
+                    <div key={item.name} className="rounded-xl bg-background/70 p-3">
                         <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0 space-y-1">
-                                <div className="max-w-full text-sm font-medium">{renderTableLink(item.name)}</div>
-                                <div className="text-xs text-muted-foreground">{reasonLabel(item.reason)}</div>
-                                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                                    <span>
-                                        {t('Size')} {renderNullableNumber(item.bytes, formatBytes, nullTooltip)}
-                                    </span>
-                                    <span>
-                                        {t('Rows')} {renderNullableNumber(item.rowsEstimate, formatNumber, nullTooltip)}
-                                    </span>
-                                </div>
-                            </div>
+                            <div className="min-w-0 max-w-full text-sm font-medium">{renderTableLink(item.name)}</div>
                             {buildObjectHref(item.name) ? (
                                 <Button size="sm" variant="outline" asChild className="shrink-0">
                                     <Link href={buildObjectHref(item.name) ?? '#'}>{tCatalog('Open')}</Link>
                                 </Button>
                             ) : null}
+                        </div>
+                        <div className="mt-2 space-y-1 text-xs text-muted-foreground">
+                            <div className="max-w-full">{reasonLabel(item.reason)}</div>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1">
+                                <span>
+                                    {t('Size')} {renderNullableNumber(item.bytes, formatBytes, nullTooltip)}
+                                </span>
+                                <span>
+                                    {t('Rows')} {renderNullableNumber(item.rowsEstimate, formatNumber, nullTooltip)}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -263,7 +399,7 @@ export default function DatabaseSummary({ baseParams, catalog, database, schema 
         return (
             <div className="space-y-3">
                 {items.map(item => (
-                    <div key={item.name} className="rounded-lg border bg-background/50 p-3">
+                    <div key={item.name} className="rounded-xl bg-background/70 p-3">
                         <div className="max-w-full text-sm font-medium">{renderTableLink(item.name)}</div>
                         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
                             <span>
@@ -282,20 +418,20 @@ export default function DatabaseSummary({ baseParams, catalog, database, schema 
 
     const quickActions = [
         {
-            label: t('Quick Action Explore largest table'),
-            href: summary?.topTablesByBytes[0] ? buildObjectHref(summary.topTablesByBytes[0].name) : null,
-        },
-        {
-            label: t('Quick Action Show recent changes'),
-            href: '#recently-updated',
-        },
-        {
-            label: t('Quick Action Analyze relationships'),
-            href: '#relationships',
-        },
-        {
             label: t('Quick Action Browse tables'),
             href: buildListHref('tables'),
+        },
+        {
+            label: t('Quick Action Browse views'),
+            href: buildListHref('views'),
+        },
+        {
+            label: t('Quick Action Browse functions'),
+            href: buildListHref('functions'),
+        },
+        {
+            label: t('Quick Action Browse sequences'),
+            href: buildListHref('sequences'),
         },
     ];
 
@@ -319,229 +455,154 @@ export default function DatabaseSummary({ baseParams, catalog, database, schema 
     return (
         <TooltipProvider delayDuration={200}>
             <div className="space-y-6">
-                <div className="space-y-1.5 px-1">
+                {/* <div className="space-y-1.5 px-1">
                     <h1 className="text-3xl font-semibold tracking-tight">{summaryTitle}</h1>
                     <p className="text-base text-muted-foreground">{summaryDescription}</p>
-                </div>
+                </div> */}
 
-                <SectionCard title={t('Identity')} description={t('Identity description')}>
-                            {loading ? (
-                                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                    {Array.from({ length: 7 }).map((_, index) => (
-                                        <Skeleton key={index} className="h-16" />
+                <SectionCard title={t('Overview')} description={t('Overview description')}>
+                    {loading ? (
+                        <div className="space-y-5 rounded-2xl bg-muted/35 p-6">
+                            <div className="space-y-2">
+                                <Skeleton className="h-9 w-48" />
+                                <Skeleton className="h-5 w-36" />
+                            </div>
+                            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+                                {Array.from({ length: 4 }).map((_, index) => (
+                                    <div key={index} className="space-y-2">
+                                        <Skeleton className="h-9 w-20" />
+                                        <Skeleton className="h-4 w-24" />
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                {Array.from({ length: 4 }).map((_, index) => (
+                                    <Skeleton key={index} className="h-5 w-full" />
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="rounded-2xl bg-muted/35 p-6">
+                            <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+                                <div className="space-y-2">
+                                    <div className="max-w-full text-3xl font-semibold tracking-tight sm:text-4xl">{renderNullableOverflowText(primaryTitle, nullTooltip)}</div>
+                                    <p className="text-sm text-muted-foreground">{primaryCaption}</p>
+                                </div>
+                                <div className="grid w-full gap-6 sm:grid-cols-2 xl:max-w-3xl xl:grid-cols-4">
+                                    <OverviewStat label={t('Tables')} value={formatMetricValue(summary?.tablesCount, formatNumber)} />
+                                    <OverviewStat label={t('Views')} value={formatMetricValue(summary?.viewsCount, formatNumber)} />
+                                    <OverviewStat label={t('Functions')} value={formatMetricValue(summary?.functionsCount, formatNumber)} />
+                                    <OverviewStat label={t('Total Size')} value={formatMetricValue(summary?.totalBytes, formatBytes)} />
+                                </div>
+                            </div>
+
+                            {overviewMetaItems.length ? (
+                                <div className="mt-6 flex flex-wrap gap-x-8 gap-y-3 border-t border-border/60 pt-4">
+                                    {overviewMetaItems.map(item => (
+                                        <CompactLine key={item.key} label={item.label} value={item.value} />
                                     ))}
                                 </div>
-                            ) : (
-                                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                                    <SummaryField label={t('Schema')} value={renderNullableOverflowText(summary?.schemaName ?? schema ?? null, nullTooltip)} />
-                                    <SummaryField label={t('Database')} value={renderNullableOverflowText(summary?.databaseName ?? databaseName, nullTooltip)} />
-                                    <SummaryField label={t('Tables')} value={renderNullableNumber(summary?.tablesCount, formatNumber, nullTooltip)} />
-                                    <SummaryField label={t('Views')} value={renderNullableNumber(summary?.viewsCount, formatNumber, nullTooltip)} />
-                                    <SummaryField label={t('Functions')} value={renderNullableNumber(summary?.functionsCount, formatNumber, nullTooltip)} />
-                                    <SummaryField label={t('Total Size')} value={renderNullableNumber(summary?.totalBytes, formatBytes, nullTooltip)} />
-                                    <SummaryField label={t('Owner')} value={renderNullableOverflowText(summary?.owner ?? null, nullTooltip)} />
-                                </div>
-                            )}
+                            ) : null}
+                        </div>
+                    )}
                 </SectionCard>
 
-                <SectionCard title={t('Structure')} description={t('Structure description')}>
-                            {loading ? (
-                                <div className="grid gap-4 xl:grid-cols-3">
-                                    <Skeleton className="h-36" />
-                                    <Skeleton className="h-36" />
-                                    <Skeleton className="h-36" />
-                                </div>
-                            ) : (
-                                <div className="grid gap-4 xl:grid-cols-3">
-                                    <Card>
-                                        <CardHeader className="pb-3">
-                                            <CardTitle className="text-sm">{t('Object Type Distribution')}</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="grid gap-3">
-                                            <SummaryField label={t('Tables')} value={renderNullableNumber(summary?.tablesCount, formatNumber, nullTooltip)} />
-                                            <SummaryField label={t('Views')} value={renderNullableNumber(summary?.viewsCount, formatNumber, nullTooltip)} />
-                                            <SummaryField
-                                                label={t('Materialized Views')}
-                                                value={renderNullableNumber(summary?.materializedViewsCount, formatNumber, nullTooltip)}
-                                            />
-                                        </CardContent>
-                                    </Card>
+                <SectionCard title={t('Insights')} description={t('Insights description')}>
+                    {loading ? (
+                        <div className="grid gap-4 xl:grid-cols-3">
+                            <Skeleton className="h-44 rounded-2xl" />
+                            <Skeleton className="h-44 rounded-2xl" />
+                            <Skeleton className="h-44 rounded-2xl" />
+                        </div>
+                    ) : (
+                        <div className="grid gap-4 xl:grid-cols-3">
+                            <InsightPanel title={t('Object mix')} headline={objectMixHeadline}>
+                                <div>{objectMixSupport}</div>
+                                <div>{summary?.oneLineSummary ?? t('Object mix note')}</div>
+                            </InsightPanel>
 
-                                    <Card>
-                                        <CardHeader className="pb-3">
-                                            <CardTitle className="text-sm">{t('Table Size Distribution')}</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="grid gap-3">
-                                            <SummaryField
-                                                label={t('Small tables')}
-                                                value={renderNullableNumber(summary?.tableSizeDistribution.smallTablesCount, formatNumber, nullTooltip)}
-                                            />
-                                            <SummaryField
-                                                label={t('Medium tables')}
-                                                value={renderNullableNumber(summary?.tableSizeDistribution.mediumTablesCount, formatNumber, nullTooltip)}
-                                            />
-                                            <SummaryField
-                                                label={t('Large tables')}
-                                                value={renderNullableNumber(summary?.tableSizeDistribution.largeTablesCount, formatNumber, nullTooltip)}
-                                            />
-                                        </CardContent>
-                                    </Card>
+                            <InsightPanel title={t('Table scale')} headline={scaleHeadline}>
+                                <div>{scaleSupport.counts}</div>
+                                <div>{scaleSupport.note}</div>
+                            </InsightPanel>
 
-                                    <Card>
-                                        <CardHeader className="pb-3">
-                                            <CardTitle className="text-sm">{t('Column Complexity')}</CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="grid gap-3">
-                                            <SummaryField
-                                                label={t('Avg columns per table')}
-                                                value={renderNullableNumber(summary?.columnComplexity.averageColumnsPerTable, formatDecimal, nullTooltip)}
-                                            />
-                                            <SummaryField label={t('Max columns')} value={renderNullableNumber(summary?.columnComplexity.maxColumns, formatNumber, nullTooltip)} />
-                                            <SummaryField
-                                                label={t('Widest table')}
-                                                value={renderNullableOverflowText(summary?.columnComplexity.maxColumnsTable ?? null, nullTooltip)}
-                                            />
-                                        </CardContent>
-                                    </Card>
+                            <InsightPanel title={t('Column shape')} headline={columnHeadline}>
+                                <div>
+                                    {t('Max columns insight', {
+                                        value: formatMetricValue(summary?.columnComplexity.maxColumns, formatNumber),
+                                    })}
                                 </div>
-                            )}
+                                <div>
+                                    {t('Widest insight', {
+                                        table: summary?.columnComplexity.maxColumnsTable ?? '—',
+                                    })}
+                                </div>
+                            </InsightPanel>
+                        </div>
+                    )}
                 </SectionCard>
 
-                <SectionCard title={t('Highlights')} description={t('Highlights description')}>
+                <SectionCard title={t('Quick access')} description={t('Quick access description')}>
                             {loading ? (
-                                <div className="grid gap-4 xl:grid-cols-2">
-                                    <Skeleton className="h-48" />
-                                    <Skeleton className="h-48" />
-                                    <Skeleton className="h-48" />
-                                    <Skeleton className="h-48" />
+                                <div className="grid gap-4 xl:items-start xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
+                                    <Skeleton className="h-56 rounded-2xl" />
+                                    <Skeleton className="h-56 rounded-2xl" />
                                 </div>
                             ) : (
-                                <div className="grid gap-4 xl:grid-cols-2">
-                                    <Card>
-                                        <CardHeader className="pb-3">
-                                            <CardTitle className="text-sm">{t('Core Tables')}</CardTitle>
-                                            <CardDescription>{t('Core Tables description')}</CardDescription>
-                                        </CardHeader>
-                                        <CardContent>{renderRecommendationList(summary?.coreTables ?? [], t('No tables found'))}</CardContent>
-                                    </Card>
-
-                                    <Card>
-                                        <CardHeader className="pb-3">
-                                            <CardTitle className="text-sm">{t('Largest Tables')}</CardTitle>
-                                            <CardDescription>{t('Largest Tables description')}</CardDescription>
-                                        </CardHeader>
-                                        <CardContent>{renderTableStatsList(summary?.topTablesByBytes ?? [], t('No tables found'))}</CardContent>
-                                    </Card>
-
-                                    <Card id="recently-updated">
-                                        <CardHeader className="pb-3">
-                                            <CardTitle className="text-sm">{t('Recently Updated')}</CardTitle>
-                                            <CardDescription>{t('Recently Updated description')}</CardDescription>
-                                        </CardHeader>
-                                        <CardContent>
-                                            {summary?.recentTables?.length ? (
-                                                <div className="space-y-3">
-                                                    {summary.recentTables.map(item => (
-                                                        <div key={item.name} className="rounded-lg border bg-background/50 p-3">
-                                                            <div className="max-w-full text-sm font-medium">{renderTableLink(item.name)}</div>
-                                                            <div className="mt-1 text-xs text-muted-foreground">
-                                                                {t('Updated')} {renderNullableText(formatTimestamp(item.lastUpdatedAt, locale), nullTooltip)}
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <p className="text-sm text-muted-foreground">{t('No recent updates found')}</p>
-                                            )}
-                                        </CardContent>
-                                    </Card>
-
-                                    <div className="space-y-4" id="relationships">
-                                        <Card>
-                                            <CardHeader className="pb-3">
-                                                <CardTitle className="text-sm">{t('Relationships')}</CardTitle>
-                                                <CardDescription>{t('Relationships description')}</CardDescription>
-                                            </CardHeader>
-                                            <CardContent className="space-y-3">
-                                                <SummaryField
-                                                    label={t('Foreign key links')}
-                                                    value={renderNullableNumber(summary?.foreignKeyLinksCount, formatNumber, nullTooltip)}
-                                                />
-                                                {summary?.relationshipPaths?.length ? (
-                                                    <div className="space-y-2">
-                                                        {summary.relationshipPaths.map(item => (
-                                                            <div key={item.path} className="rounded-lg border bg-background/50 px-3 py-2 text-sm">
-                                                                {item.path}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-sm text-muted-foreground">{t('No relationships found')}</p>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-
-                                        <Card>
-                                            <CardHeader className="pb-3">
-                                                <CardTitle className="text-sm">{t('Detected Patterns')}</CardTitle>
-                                                <CardDescription>{t('Detected Patterns description')}</CardDescription>
-                                            </CardHeader>
-                                            <CardContent>
-                                                {summary?.detectedPatterns?.length ? (
-                                                    <div className="flex flex-wrap gap-2">
-                                                        {summary.detectedPatterns.map(item => (
-                                                            <Badge key={`${item.kind}-${item.label}`} variant="secondary">
-                                                                {item.label}
-                                                            </Badge>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-sm text-muted-foreground">{t('No patterns detected')}</p>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-                                    </div>
-                                </div>
-                            )}
-                </SectionCard>
-
-                <SectionCard title={t('Entry Points')} description={t('Entry Points description')}>
-                            {loading ? (
-                                <div className="grid gap-4 xl:grid-cols-2">
-                                    <Skeleton className="h-40" />
-                                    <Skeleton className="h-40" />
-                                </div>
-                            ) : (
-                                <div className="grid gap-4 xl:grid-cols-2">
-                                    <Card>
-                                        <CardHeader className="pb-3">
-                                            <CardTitle className="text-sm">{t('Quick Actions')}</CardTitle>
-                                            <CardDescription>{t('Quick Actions description')}</CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="grid gap-3">
+                                <div className="grid gap-4 xl:items-start xl:grid-cols-[minmax(0,0.82fr)_minmax(0,1.18fr)]">
+                                    <div className="rounded-2xl bg-muted/35 p-5 xl:max-w-sm xl:self-start">
+                                        <div className="space-y-1">
+                                            <div className="text-sm font-medium">{t('Quick Actions')}</div>
+                                            <p className="text-sm text-muted-foreground">{t('Quick Actions description')}</p>
+                                        </div>
+                                        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
                                             {quickActions.map(action =>
                                                 action.href ? (
-                                                    <Button key={action.label} variant="outline" asChild className="justify-start">
-                                                        <Link href={action.href}>{action.label}</Link>
-                                                    </Button>
+                                                    <QuickActionTile key={action.label} href={action.href} label={action.label} />
                                                 ) : (
-                                                    <Button key={action.label} variant="outline" disabled className="justify-start">
+                                                    <div key={action.label} className="rounded-xl border border-border/60 bg-background/40 p-4 text-sm text-muted-foreground">
                                                         {action.label}
-                                                    </Button>
+                                                    </div>
                                                 ),
                                             )}
-                                        </CardContent>
-                                    </Card>
+                                        </div>
+                                    </div>
 
-                                    <Card>
-                                        <CardHeader className="pb-3">
-                                            <CardTitle className="text-sm">{t('Start Here')}</CardTitle>
-                                            <CardDescription>{t('Start Here description')}</CardDescription>
-                                        </CardHeader>
-                                        <CardContent>
-                                            {renderRecommendationList(summary?.startHere ?? [], emptyTables ? t('No tables found') : t('No recommendations'))}
-                                        </CardContent>
-                                    </Card>
+                                    <div className="grid gap-4 xl:grid-cols-2">
+                                        <div className="rounded-2xl bg-muted/35 p-5">
+                                            <div className="space-y-1">
+                                                <div className="text-sm font-medium">{t('Start Here')}</div>
+                                                <p className="text-sm text-muted-foreground">{t('Start Here description')}</p>
+                                            </div>
+                                            <div className="mt-4">
+                                                {renderRecommendationList(summary?.startHere ?? [], emptyTables ? t('No tables found') : t('No recommendations'))}
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-2xl bg-muted/35 p-5">
+                                            <div className="space-y-1">
+                                                <div className="text-sm font-medium">{t('Largest Tables')}</div>
+                                                <p className="text-sm text-muted-foreground">{t('Largest Tables description')}</p>
+                                            </div>
+                                            <div className="mt-4 space-y-4">
+                                                {renderTableStatsList(summary?.topTablesByBytes ?? [], t('No tables found'))}
+
+                                                {summary?.recentTables?.length ? (
+                                                    <div className="space-y-3 border-t border-border/60 pt-4">
+                                                        <div className="text-sm font-medium">{t('Recently Updated')}</div>
+                                                        {summary.recentTables.slice(0, 3).map(item => (
+                                                            <div key={item.name} className="rounded-xl bg-background/70 p-3">
+                                                                <div className="max-w-full text-sm font-medium">{renderTableLink(item.name)}</div>
+                                                                <div className="mt-1 text-xs text-muted-foreground">
+                                                                    {t('Updated')} {renderNullableText(formatTimestamp(item.lastUpdatedAt, locale), nullTooltip)}
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
                 </SectionCard>

@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Alert, AlertDescription, AlertTitle } from '@/registry/new-york-v4/ui/alert';
 import { Button } from '@/registry/new-york-v4/ui/button';
-import { Card, CardContent, CardDescription, CardHeader } from '@/registry/new-york-v4/ui/card';
+import { Card, CardContent } from '@/registry/new-york-v4/ui/card';
 import { Skeleton } from '@/registry/new-york-v4/ui/skeleton';
 import { CheckCircle2, Loader2, RotateCw } from 'lucide-react';
 import type { TableStats } from '@/types/table-info';
@@ -71,33 +71,26 @@ export function TableHealthReportCard({ tableStats, databaseName, tableName, con
     const error = insightsQuery.error ? (insightsQuery.error as Error).message : null;
 
     return (
-        <Card>
-            <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-3 text-sm font-semibold leading-tight">
-                        <span className='card-title flex items-center gap-1'>
-                            {/* <AISparkIcon loading={loading} /> */}
-                            {t('Stats insights')}
-                        </span>
-                        <span className="text-xs font-normal text-muted-foreground">
-                            {lastUpdated ? t('Last updated', { time: lastUpdated.toLocaleTimeString() }) : ''}
-                        </span>
-                    </div>
-                    <CardDescription>{t('Stats insights description')}</CardDescription>
+        <div className="space-y-3">
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <h3 className="text-sm font-medium">{t('Stats insights')}</h3>
+                    <span className="text-xs text-muted-foreground">
+                        {lastUpdated ? t('Last updated', { time: lastUpdated.toLocaleTimeString() }) : ''}
+                    </span>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground"
-                        onClick={() => insightsQuery.refetch()}
-                        disabled={!hasStats || loading}
-                        title={t('Reanalyze')}
-                    >
-                        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
-                    </Button>
-                </div>
-            </CardHeader>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-muted-foreground"
+                    onClick={() => insightsQuery.refetch()}
+                    disabled={!hasStats || loading}
+                    title={t('Reanalyze')}
+                >
+                    {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCw className="h-4 w-4" />}
+                </Button>
+            </div>
+            <Card>
             <CardContent className="space-y-3">
                 {error ? (
                     <Alert variant="destructive">
@@ -128,6 +121,7 @@ export function TableHealthReportCard({ tableStats, databaseName, tableName, con
                     {loading ? <Skeleton className="h-4 w-9/12" /> : suggestion}
                 </div>
             </CardContent>
-        </Card>
+            </Card>
+        </div>
     );
 }

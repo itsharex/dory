@@ -16,7 +16,7 @@ type UrlTableBrowserProps = {
     initialTab?: TableSubTab;
 };
 
-export default function UrlTableBrowser({ catalog, driver, connectionId, databaseName, tableName, initialTab = 'overview' }: UrlTableBrowserProps) {
+export default function UrlTableBrowser({ catalog, driver, connectionId, databaseName, tableName, initialTab = 'data' }: UrlTableBrowserProps) {
     const [currentTab, setCurrentTab] = useState<TableSubTab>(initialTab);
     const t = useTranslations('TableBrowser');
 

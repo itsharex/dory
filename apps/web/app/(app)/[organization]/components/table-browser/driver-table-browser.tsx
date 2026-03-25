@@ -24,7 +24,7 @@ type DriverTableBrowserProps = {
     onSubTabChange?: (tab: TableSubTab) => void;
 };
 
-const DEFAULT_TAB: TableSubTab = 'overview';
+const DEFAULT_TAB: TableSubTab = 'data';
 const POSTGRES_SUB_TABS: TableSubTab[] = ['overview', 'data', 'structure', 'stats', 'indexes'];
 
 function normalizeTab(driver: ExplorerDriver | undefined, tab?: TableSubTab): TableSubTab {

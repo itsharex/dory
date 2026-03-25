@@ -28,7 +28,7 @@ export default function TableBrowser({ activeTab, updateTab }: TableBrowserProps
         if (activeTab?.tabType === 'table' && activeTab.activeSubTab) {
             return activeTab.activeSubTab as TableSubTab;
         }
-        return 'overview';
+        return 'data';
     }, [activeTab?.tabType, activeTab?.activeSubTab]);
 
     const [currentTab, setCurrentTab] = useState<TableSubTab>(initialTab);

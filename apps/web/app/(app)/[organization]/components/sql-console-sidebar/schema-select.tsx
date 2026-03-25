@@ -28,10 +28,6 @@ export function SchemaSelect({ value, schemas, onChange }: SchemaSelectProps) {
         return schemas.filter(schema => schema.label.toLowerCase().includes(normalizedQuery) || schema.value.toLowerCase().includes(normalizedQuery));
     }, [query, schemas]);
 
-    if (schemas.length === 0) {
-        return null;
-    }
-
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>

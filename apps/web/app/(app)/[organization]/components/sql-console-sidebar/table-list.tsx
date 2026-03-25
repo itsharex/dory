@@ -72,20 +72,15 @@ export function TableList({
 
                                             <button
                                                 className="w-full cursor-pointer overflow-hidden truncate whitespace-nowrap text-left text-sm"
-                                                onClick={() =>
-                                                    onSelectTable?.({
+                                                onClick={() => {
+                                                    const payload = {
                                                         database: activeDatabase,
                                                         tableName: table.value,
                                                         tabLabel: table.label,
-                                                    })
-                                                }
-                                                onDoubleClick={() =>
-                                                    onOpenTableTab?.({
-                                                        database: activeDatabase,
-                                                        tableName: table.value,
-                                                        tabLabel: table.label,
-                                                    })
-                                                }
+                                                    };
+                                                    onSelectTable?.(payload);
+                                                    onOpenTableTab?.(payload);
+                                                }}
                                                 aria-label={t('Insert select for', { table: table.value })}
                                                 title={table.label}
                                             >

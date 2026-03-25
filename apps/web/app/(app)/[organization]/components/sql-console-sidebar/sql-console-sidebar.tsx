@@ -153,7 +153,7 @@ export function SQLConsoleSidebar({ onOpenTableTab, onSelectTable, selectedTable
         <div className="flex h-full min-h-0 w-full min-w-0 flex-col gap-2 p-3">
             <DatabaseSelect value={activeDatabase} databases={databaseOptions} onChange={handleDatabaseChange} />
 
-            <SchemaSelect value={activeSchema} schemas={schemaOptions} onChange={setActiveSchema} />
+            {sidebarConfig.supportsSchemas && <SchemaSelect value={activeSchema} schemas={schemaOptions} onChange={setActiveSchema} />}
 
             <div className="relative">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
