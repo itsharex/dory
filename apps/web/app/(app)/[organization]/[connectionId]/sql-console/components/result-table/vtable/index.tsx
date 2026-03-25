@@ -126,7 +126,46 @@ export default function VTable({
     const draggingRef = useRef(false);
     const lastMouseDownWasOnCell = useRef(false);
 
+    const gridContainerRef = useRef<HTMLDivElement | null>(null);
     const gridRef = useRef<MultiGrid | null>(null);
+    const syncHeaderHorizontalScroll = useCallback((deltaX: number) => {
+        const grid = gridRef.current as
+            | (MultiGrid & {
+                  _topRightGrid?: {
+                      _scrollingContainer?: HTMLElement;
+                      handleScrollEvent?: (position: { scrollLeft: number; scrollTop: number }) => void;
+                  };
+                  _bottomRightGrid?: {
+                      _scrollingContainer?: HTMLElement;
+                      handleScrollEvent?: (position: { scrollLeft: number; scrollTop: number }) => void;
+                  };
+              })
+            | null;
+
+        const topRightGrid = grid?._topRightGrid;
+        const bottomRightGrid = grid?._bottomRightGrid;
+        const topRightContainer = topRightGrid?._scrollingContainer;
+        const bottomRightContainer = bottomRightGrid?._scrollingContainer;
+        const currentScrollLeft = bottomRightContainer?.scrollLeft ?? topRightContainer?.scrollLeft ?? 0;
+        const maxScrollLeft = Math.max(0, (bottomRightContainer?.scrollWidth ?? topRightContainer?.scrollWidth ?? 0) - (bottomRightContainer?.clientWidth ?? topRightContainer?.clientWidth ?? 0));
+        const nextScrollLeft = Math.min(Math.max(0, currentScrollLeft + deltaX), maxScrollLeft);
+
+        if (bottomRightContainer) {
+            bottomRightContainer.scrollLeft = nextScrollLeft;
+            bottomRightGrid?.handleScrollEvent?.({
+                scrollLeft: nextScrollLeft,
+                scrollTop: bottomRightContainer.scrollTop,
+            });
+        }
+
+        if (topRightContainer) {
+            topRightContainer.scrollLeft = nextScrollLeft;
+            topRightGrid?.handleScrollEvent?.({
+                scrollLeft: nextScrollLeft,
+                scrollTop: topRightContainer.scrollTop,
+            });
+        }
+    }, []);
     const totalWidth = useMemo(() => {
         let sum = indexColWidth;
         for (const c of columns) sum += Math.max((colWidths[c] ?? defaultColMinWidth) + HEADER_PAD, 60);
@@ -605,6 +644,38 @@ export default function VTable({
         g?.forceUpdateGrids?.();
     }, [colWidths, totalWidth]);
 
+    useEffect(() => {
+        const container = gridContainerRef.current;
+        if (!container) {
+            return;
+        }
+
+        const handleWheel = (event: WheelEvent) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) {
+                return;
+            }
+
+            if (!target.closest('.TopRightGrid_ScrollWrapper')) {
+                return;
+            }
+
+            const horizontalDelta = Math.abs(event.deltaX) > 0 ? event.deltaX : event.shiftKey ? event.deltaY : 0;
+            if (horizontalDelta === 0) {
+                return;
+            }
+
+            event.preventDefault();
+            syncHeaderHorizontalScroll(horizontalDelta);
+        };
+
+        container.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+
+        return () => {
+            container.removeEventListener('wheel', handleWheel, true);
+        };
+    }, [syncHeaderHorizontalScroll, columns.length, sortedResults.length]);
+
     // const clearQuery = () => setGlobalQuery('');
 
     return (
@@ -622,7 +693,7 @@ export default function VTable({
                     )}
 
                     {/* Grid */}
-                    <div className="flex-1 min-h-0">
+                    <div ref={gridContainerRef} className="flex-1 min-h-0">
                         <AutoSizer>
                             {({ width, height }) => (
                                 <MultiGrid
