@@ -19,6 +19,10 @@ const INITIAL_VISIBLE_ROW_COUNT = 24;
 const HEADER_TEXT_PAD = 44;
 const CELL_TEXT_PAD = 18;
 const FALLBACK_CHAR_WIDTH = 8;
+const PRIMARY_SELECTION_CLASS = 'bg-primary/10 text-foreground';
+const PRIMARY_SELECTION_SUBTLE_CLASS = 'bg-primary/6 text-foreground';
+const PRIMARY_SELECTION_SOFT_CLASS = 'bg-primary/8 text-foreground';
+const PRIMARY_SELECTION_RING_CLASS = 'ring-1 ring-inset ring-primary/40';
 
 function getSampleRowIndices(start: number, stop: number, limit: number) {
     if (stop < start) return [];
@@ -475,6 +479,7 @@ export default function VTable({
         }
         return null;
     };
+    const selectedRectBounds = useMemo(() => getSelectedRectBounds(selectedCells), [columns, selectedCells]);
     const copyTSV = async (withHeader = false) => {
         const sel = getSelectionAsRowsCols();
         if (!sel) return;
@@ -687,7 +692,10 @@ export default function VTable({
                 <div
                     key={key}
                     style={{ ...style, display: 'flex', alignItems: 'center' }}
-                    className={cn('relative px-2 py-1 border-b border-r bg-muted text-sm font-bold select-none whitespace-nowrap', existing && 'bg-[--sidebar-accent]/30')}
+                    className={cn(
+                        'relative px-2 py-1 border-b border-r bg-muted text-sm font-bold select-none whitespace-nowrap',
+                        existing && PRIMARY_SELECTION_SOFT_CLASS,
+                    )}
                 >
                     <button type="button" className="flex flex-1 text-left cursor-pointer min-w-0 overflow-hidden whitespace-nowrap" onClick={() => handleSort(col)}>
                         <span className="truncate block min-w-0">{col}</span>
@@ -717,7 +725,7 @@ export default function VTable({
                     style={{ ...style, display: 'flex', alignItems: 'center' }}
                     className={cn(
                         'px-2 text-sm border-b border-r select-none cursor-pointer font-medium text-muted-foreground outline-none',
-                        isRowSelected && 'bg-muted',
+                        isRowSelected && PRIMARY_SELECTION_CLASS,
                         'focus:ring-2 focus:ring-primary/40',
                     )}
                     role="button"
@@ -759,6 +767,21 @@ export default function VTable({
         const isCellSelected = selectedCells.has(keyCell);
         const isFocused = focusedCell?.row === r && focusedCell?.col === colKeyName;
         const cellValue = sortedResults[r]?.rowData?.[colKeyName];
+        const isRectSelectedCell = Boolean(selectedRectBounds && isCellSelected);
+        const rectTopRow = selectedRectBounds?.rows[0];
+        const rectBottomRow = selectedRectBounds?.rows[selectedRectBounds.rows.length - 1];
+        const rectLeftCol = selectedRectBounds?.cols[0];
+        const rectRightCol = selectedRectBounds?.cols[selectedRectBounds.cols.length - 1];
+        const selectionEdgeShadow = isRectSelectedCell
+            ? [
+                  r === rectTopRow ? 'inset 0 1px 0 var(--primary)' : '',
+                  r === rectBottomRow ? 'inset 0 -1px 0 var(--primary)' : '',
+                  colKeyName === rectLeftCol ? 'inset 1px 0 0 var(--primary)' : '',
+                  colKeyName === rectRightCol ? 'inset -1px 0 0 var(--primary)' : '',
+              ]
+                  .filter(Boolean)
+                  .join(', ')
+            : undefined;
 
         return (
             <div
@@ -766,14 +789,14 @@ export default function VTable({
                 role="button"
                 tabIndex={0}
                 data-cell={`${r}-${colKeyName}`}
-                style={{ ...style, display: 'flex', alignItems: 'center' }}
+                style={{ ...style, display: 'flex', alignItems: 'center', boxShadow: selectionEdgeShadow }}
                 className={cn(
                     'px-2 text-sm border-b border-r last:border-r-0 cursor-pointer outline-none select-none',
                     'min-w-0 overflow-hidden',
-                    isRowSelected && 'bg-muted',
-                    isCellSelected && 'bg-accent/40',
-                    isFocused && 'ring-2 ring-primary/40',
-                    'focus:ring-2 focus:ring-primary/40',
+                    isRowSelected && PRIMARY_SELECTION_SUBTLE_CLASS,
+                    isCellSelected && PRIMARY_SELECTION_CLASS,
+                    isFocused && !isRectSelectedCell && PRIMARY_SELECTION_RING_CLASS,
+                    !isCellSelected && 'focus:ring-1 focus:ring-inset focus:ring-primary/40',
                 )}
                 onMouseDown={e => onCellMouseDown(e, r, colKeyName)}
                 onMouseEnter={e => onCellMouseEnter(e, r, colKeyName)}
