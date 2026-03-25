@@ -1,7 +1,7 @@
 'use client';
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/registry/new-york-v4/ui/accordion';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/registry/new-york-v4/ui/card';
+import { Card, CardContent } from '@/registry/new-york-v4/ui/card';
 import { Skeleton } from '@/registry/new-york-v4/ui/skeleton';
 import { TablePartitionStat, TableStats } from '@/types/table-info';
 import MetricItem from './metric-item';
@@ -31,11 +31,9 @@ export default function PartitionsCard({ stats, loading }: PartitionsCardProps) 
     const t = useTranslations('TableStats');
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{t('Partitions')}</CardTitle>
-                <CardDescription>{t('Partitions description')}</CardDescription>
-            </CardHeader>
+        <div className="space-y-3">
+            <h3 className="text-sm font-medium">{t('Partitions')}</h3>
+            <Card>
             <CardContent className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <MetricItem label={t('Partition count')} value={formatNumber(stats?.partitionCount ?? 0)} />
@@ -69,6 +67,7 @@ export default function PartitionsCard({ stats, loading }: PartitionsCardProps) 
                     </Accordion>
                 )}
             </CardContent>
-        </Card>
+            </Card>
+        </div>
     );
 }

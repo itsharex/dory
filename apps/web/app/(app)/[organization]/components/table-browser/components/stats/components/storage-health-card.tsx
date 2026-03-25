@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/registry/new-york-v4/ui/card';
+import { Card, CardContent } from '@/registry/new-york-v4/ui/card';
 import { Skeleton } from '@/registry/new-york-v4/ui/skeleton';
 import { TableMutationInfo, TableStats } from '@/types/table-info';
 import MetricItem from './metric-item';
@@ -17,11 +17,9 @@ export default function StorageHealthCard({ stats, loading }: StorageHealthCardP
     const t = useTranslations('TableStats');
 
     return (
-        <Card>
-            <CardHeader>
-                <CardTitle>{t('Storage health')}</CardTitle>
-                <CardDescription>{t('Storage health description')}</CardDescription>
-            </CardHeader>
+        <div className="space-y-3">
+            <h3 className="text-sm font-medium">{t('Storage health')}</h3>
+            <Card>
             <CardContent className="space-y-4">
                 {loading ? (
                     <div className="grid gap-4 sm:grid-cols-3">
@@ -76,6 +74,7 @@ export default function StorageHealthCard({ stats, loading }: StorageHealthCardP
                     )}
                 </div>
             </CardContent>
-        </Card>
+            </Card>
+        </div>
     );
 }

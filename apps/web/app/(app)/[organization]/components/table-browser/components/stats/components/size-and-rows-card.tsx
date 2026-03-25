@@ -1,6 +1,6 @@
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/registry/new-york-v4/ui/card';
+import { Card, CardContent } from '@/registry/new-york-v4/ui/card';
 import { Skeleton } from '@/registry/new-york-v4/ui/skeleton';
 import { TableStats } from '@/types/table-info';
 import MetricItem from './metric-item';
@@ -15,11 +15,9 @@ type SizeAndRowsCardProps = {
 export default function SizeAndRowsCard({ stats, loading }: SizeAndRowsCardProps) {
     const t = useTranslations('TableStats');
     return (
+        <div className="space-y-3">
+            <h3 className="text-sm font-medium">{t('Size and rows')}</h3>
         <Card>
-            <CardHeader>
-                <CardTitle>{t('Size and rows')}</CardTitle>
-                <CardDescription>{t('Size and rows description')}</CardDescription>
-            </CardHeader>
             <CardContent>
                 {loading ? (
                     <div className="grid gap-4 sm:grid-cols-3">
@@ -40,5 +38,6 @@ export default function SizeAndRowsCard({ stats, loading }: SizeAndRowsCardProps
                 )}
             </CardContent>
         </Card>
+        </div>
     );
 }
