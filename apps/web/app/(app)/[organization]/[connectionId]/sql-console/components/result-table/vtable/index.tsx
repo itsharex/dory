@@ -12,7 +12,32 @@ import { buildEqualsFilterFromCell } from './filter';
 import { useTranslations } from 'next-intl';
 import { useVTableFilterUi, useVTableFilters, VTableFilters } from './VTableFilters';
 
-const HEADER_PAD = 24; 
+const HEADER_PAD = 24;
+const VISIBLE_AUTO_FIT_SAMPLE_LIMIT = 48;
+const VISIBLE_AUTO_FIT_ROW_BUFFER = 20;
+const INITIAL_VISIBLE_ROW_COUNT = 24;
+const HEADER_TEXT_PAD = 44;
+const CELL_TEXT_PAD = 18;
+const FALLBACK_CHAR_WIDTH = 8;
+const PRIMARY_SELECTION_CLASS = 'bg-primary/10 text-foreground';
+const PRIMARY_SELECTION_SUBTLE_CLASS = 'bg-primary/6 text-foreground';
+const PRIMARY_SELECTION_SOFT_CLASS = 'bg-primary/8 text-foreground';
+const PRIMARY_SELECTION_RING_CLASS = 'ring-1 ring-inset ring-primary/40';
+
+function getSampleRowIndices(start: number, stop: number, limit: number) {
+    if (stop < start) return [];
+
+    const total = stop - start + 1;
+    if (total <= limit) return Array.from({ length: total }, (_, index) => start + index);
+
+    const lastIndex = total - 1;
+    const sampled = new Set<number>();
+    for (let step = 0; step < limit; step++) {
+        sampled.add(start + Math.floor((step * lastIndex) / Math.max(limit - 1, 1)));
+    }
+
+    return [...sampled].sort((left, right) => left - right);
+}
 
 export default function VTable({
     results,
@@ -38,30 +63,111 @@ export default function VTable({
     const columnsRaw: any = metas?.columns;
     const columns = useMemo(() => (columnsRaw ?? []).map((c: any) => c?.name), [columnsRaw]);
 
-    const [colWidths, setColWidths] = useState<ColWidths>(() => {
+    const clampColumnWidth = useCallback(
+        (col: string, width: number) => {
+            const minW = Math.max(colMinWidthMap?.[col] ?? defaultColMinWidth, 60);
+            const maxW = Math.max(colMaxWidthMap?.[col] ?? 1200, minW);
+            return Math.min(Math.max(width, minW), maxW);
+        },
+        [colMaxWidthMap, colMinWidthMap, defaultColMinWidth],
+    );
+
+    const [manualColWidths, setManualColWidths] = useState<ColWidths>(() => {
         if (typeof window !== 'undefined' && storageKey) {
             try {
                 const raw = localStorage.getItem(`${storageKey}:colWidths`);
                 if (raw) return JSON.parse(raw) as ColWidths;
             } catch {}
         }
+
+        return {};
+    });
+
+    const [autoColWidths, setAutoColWidths] = useState<ColWidths>(() => {
         const init: ColWidths = {};
-        for (const c of columns) init[c] = Math.max(defaultColMinWidth, 60);
+        for (const c of columns) init[c] = clampColumnWidth(c, defaultColMinWidth);
         return init;
     });
+    const measureCanvasRef = useRef<CanvasRenderingContext2D | null>(null);
+    const visibleRowRangeRef = useRef<{ start: number; stop: number }>({
+        start: 0,
+        stop: Math.max(0, INITIAL_VISIBLE_ROW_COUNT - 1),
+    });
+
     useEffect(() => {
-        setColWidths(prev => {
+        setManualColWidths(prev => {
             const next: ColWidths = {};
-            for (const c of columns) next[c] = prev[c] ?? Math.max(defaultColMinWidth, 60);
+            for (const c of columns) {
+                if (prev[c] != null) next[c] = prev[c];
+            }
+
+            const prevKeys = Object.keys(prev);
+            const nextKeys = Object.keys(next);
+            if (prevKeys.length === nextKeys.length && nextKeys.every(key => prev[key] === next[key])) {
+                return prev;
+            }
+
             return next;
         });
-    }, [columns, defaultColMinWidth]);
+        setAutoColWidths(prev => {
+            const next: ColWidths = {};
+            for (const c of columns) {
+                next[c] = clampColumnWidth(c, prev[c] ?? defaultColMinWidth);
+            }
+
+            const prevKeys = Object.keys(prev);
+            const nextKeys = Object.keys(next);
+            if (prevKeys.length === nextKeys.length && nextKeys.every(key => prev[key] === next[key])) {
+                return prev;
+            }
+
+            return next;
+        });
+    }, [clampColumnWidth, columns, defaultColMinWidth]);
+
     useEffect(() => {
         if (!storageKey) return;
         try {
-            localStorage.setItem(`${storageKey}:colWidths`, JSON.stringify(colWidths));
+            localStorage.setItem(`${storageKey}:colWidths`, JSON.stringify(manualColWidths));
         } catch {}
-    }, [colWidths, storageKey]);
+    }, [manualColWidths, storageKey]);
+
+    const measureTextWidth = useCallback((text: string, font: string) => {
+        if (typeof document === 'undefined') {
+            return text.length * FALLBACK_CHAR_WIDTH;
+        }
+
+        if (!measureCanvasRef.current) {
+            const canvas = document.createElement('canvas');
+            measureCanvasRef.current = canvas.getContext('2d');
+        }
+
+        const context = measureCanvasRef.current;
+        if (!context) {
+            return text.length * FALLBACK_CHAR_WIDTH;
+        }
+
+        context.font = font;
+        return Math.ceil(context.measureText(text).width);
+    }, []);
+
+    const measureColumnWidth = useCallback(
+        (col: string, rows: VTableProps['results'], rowIndices: number[]) => {
+            const fontFamily = typeof document === 'undefined' ? 'system-ui, sans-serif' : getComputedStyle(document.body).fontFamily || 'system-ui, sans-serif';
+            const headerWidth = measureTextWidth(col, `700 14px ${fontFamily}`) + HEADER_TEXT_PAD;
+
+            let maxCellWidth = 0;
+            for (const rowIndex of rowIndices) {
+                const cellValue = rows[rowIndex]?.rowData?.[col];
+                const text = formatTooltip(cellValue);
+                maxCellWidth = Math.max(maxCellWidth, measureTextWidth(text, `400 14px ${fontFamily}`) + CELL_TEXT_PAD);
+            }
+
+            return clampColumnWidth(col, Math.max(headerWidth, maxCellWidth, defaultColMinWidth));
+        },
+        [clampColumnWidth, defaultColMinWidth, measureTextWidth],
+    );
+
     const internalFilters = useVTableFilters({ results, storageKey });
     const usesExternalFilters = !!(externalActiveFilters && onUpsertExternalFilter && onRemoveExternalFilter && onClearAllExternalFilters);
     const activeFilters = usesExternalFilters ? externalActiveFilters : internalFilters.activeFilters;
@@ -97,6 +203,74 @@ export default function VTable({
         return sorted;
     }, [filteredResults, sortBy, sortDirection]);
 
+    const getVisibleSampleRowIndices = useCallback(
+        (range?: { start: number; stop: number }) => {
+            if (sortedResults.length === 0) return [];
+
+            const sourceRange = range ?? {
+                start: 0,
+                stop: Math.max(0, Math.min(sortedResults.length - 1, INITIAL_VISIBLE_ROW_COUNT - 1)),
+            };
+
+            const start = Math.max(0, sourceRange.start - VISIBLE_AUTO_FIT_ROW_BUFFER);
+            const stop = Math.min(sortedResults.length - 1, sourceRange.stop + VISIBLE_AUTO_FIT_ROW_BUFFER);
+            return getSampleRowIndices(start, stop, VISIBLE_AUTO_FIT_SAMPLE_LIMIT);
+        },
+        [sortedResults.length],
+    );
+
+    const initialVisibleSampleRowIndices = useMemo(() => getVisibleSampleRowIndices(), [getVisibleSampleRowIndices]);
+
+    useEffect(() => {
+        let disposed = false;
+
+        const updateAutoWidths = () => {
+            if (disposed) return;
+
+            setAutoColWidths(prev => {
+                const next: ColWidths = {};
+                for (const col of columns) {
+                    next[col] = measureColumnWidth(col, sortedResults, initialVisibleSampleRowIndices);
+                }
+
+                const prevKeys = Object.keys(prev);
+                const nextKeys = Object.keys(next);
+                if (prevKeys.length === nextKeys.length && nextKeys.every(key => prev[key] === next[key])) {
+                    return prev;
+                }
+
+                return next;
+            });
+        };
+
+        updateAutoWidths();
+
+        if (typeof document !== 'undefined' && 'fonts' in document) {
+            document.fonts.ready.then(() => {
+                updateAutoWidths();
+            });
+        }
+
+        return () => {
+            disposed = true;
+        };
+    }, [columns, initialVisibleSampleRowIndices, measureColumnWidth, sortedResults]);
+
+    useEffect(() => {
+        visibleRowRangeRef.current = {
+            start: 0,
+            stop: Math.min(Math.max(0, sortedResults.length - 1), Math.max(0, INITIAL_VISIBLE_ROW_COUNT - 1)),
+        };
+    }, [sortedResults]);
+
+    const colWidths = useMemo(() => {
+        const next: ColWidths = {};
+        for (const col of columns) {
+            next[col] = clampColumnWidth(col, manualColWidths[col] ?? autoColWidths[col] ?? defaultColMinWidth);
+        }
+        return next;
+    }, [autoColWidths, clampColumnWidth, columns, defaultColMinWidth, manualColWidths]);
+
     useEffect(() => {
         onStatsChange?.({
             filteredCount: sortedResults.length,
@@ -126,7 +300,46 @@ export default function VTable({
     const draggingRef = useRef(false);
     const lastMouseDownWasOnCell = useRef(false);
 
+    const gridContainerRef = useRef<HTMLDivElement | null>(null);
     const gridRef = useRef<MultiGrid | null>(null);
+    const syncHeaderHorizontalScroll = useCallback((deltaX: number) => {
+        const grid = gridRef.current as
+            | (MultiGrid & {
+                  _topRightGrid?: {
+                      _scrollingContainer?: HTMLElement;
+                      handleScrollEvent?: (position: { scrollLeft: number; scrollTop: number }) => void;
+                  };
+                  _bottomRightGrid?: {
+                      _scrollingContainer?: HTMLElement;
+                      handleScrollEvent?: (position: { scrollLeft: number; scrollTop: number }) => void;
+                  };
+              })
+            | null;
+
+        const topRightGrid = grid?._topRightGrid;
+        const bottomRightGrid = grid?._bottomRightGrid;
+        const topRightContainer = topRightGrid?._scrollingContainer;
+        const bottomRightContainer = bottomRightGrid?._scrollingContainer;
+        const currentScrollLeft = bottomRightContainer?.scrollLeft ?? topRightContainer?.scrollLeft ?? 0;
+        const maxScrollLeft = Math.max(0, (bottomRightContainer?.scrollWidth ?? topRightContainer?.scrollWidth ?? 0) - (bottomRightContainer?.clientWidth ?? topRightContainer?.clientWidth ?? 0));
+        const nextScrollLeft = Math.min(Math.max(0, currentScrollLeft + deltaX), maxScrollLeft);
+
+        if (bottomRightContainer) {
+            bottomRightContainer.scrollLeft = nextScrollLeft;
+            bottomRightGrid?.handleScrollEvent?.({
+                scrollLeft: nextScrollLeft,
+                scrollTop: bottomRightContainer.scrollTop,
+            });
+        }
+
+        if (topRightContainer) {
+            topRightContainer.scrollLeft = nextScrollLeft;
+            topRightGrid?.handleScrollEvent?.({
+                scrollLeft: nextScrollLeft,
+                scrollTop: topRightContainer.scrollTop,
+            });
+        }
+    }, []);
     const totalWidth = useMemo(() => {
         let sum = indexColWidth;
         for (const c of columns) sum += Math.max((colWidths[c] ?? defaultColMinWidth) + HEADER_PAD, 60);
@@ -152,10 +365,8 @@ export default function VTable({
             const ds = dragState.current;
             if (!ds) return;
             const delta = ev.clientX - ds.startX;
-            const minW = colMinWidthMap?.[col] ?? defaultColMinWidth;
-            const maxW = colMaxWidthMap?.[col] ?? 1200;
-            const nextW = Math.max(Math.min(ds.startW + delta, maxW), Math.max(minW, 60));
-            setColWidths(prev => ({ ...prev, [col]: nextW }));
+            const nextW = clampColumnWidth(col, ds.startW + delta);
+            setManualColWidths(prev => ({ ...prev, [col]: nextW }));
             recomputeAll();
         };
         const onUp = () => {
@@ -169,19 +380,9 @@ export default function VTable({
         document.addEventListener('mouseup', onUp);
     };
     const autoFitVisible = (col: string) => {
-        const header = String(col).length;
-        const probeCount = 50;
-        let maxChars = header;
-        for (let i = 0; i < Math.min(sortedResults.length, probeCount); i++) {
-            const v = sortedResults[i]?.rowData?.[col];
-            const s = typeof v === 'object' ? JSON.stringify(v) : v == null ? '' : String(v);
-            maxChars = Math.max(maxChars, s.length);
-        }
-        const estimated = Math.round(maxChars * 7.5) + 24;
-        const minW = colMinWidthMap?.[col] ?? defaultColMinWidth;
-        const maxW = colMaxWidthMap?.[col] ?? 1200;
-        const finalW = Math.max(Math.min(estimated, maxW), Math.max(minW, 60));
-        setColWidths(prev => ({ ...prev, [col]: finalW }));
+        const rowIndices = getVisibleSampleRowIndices(visibleRowRangeRef.current);
+        const finalW = measureColumnWidth(col, sortedResults, rowIndices);
+        setManualColWidths(prev => ({ ...prev, [col]: finalW }));
         recomputeAll();
     };
 
@@ -278,6 +479,7 @@ export default function VTable({
         }
         return null;
     };
+    const selectedRectBounds = useMemo(() => getSelectedRectBounds(selectedCells), [columns, selectedCells]);
     const copyTSV = async (withHeader = false) => {
         const sel = getSelectionAsRowsCols();
         if (!sel) return;
@@ -490,7 +692,10 @@ export default function VTable({
                 <div
                     key={key}
                     style={{ ...style, display: 'flex', alignItems: 'center' }}
-                    className={cn('relative px-2 py-1 border-b border-r bg-muted text-sm font-bold select-none whitespace-nowrap', existing && 'bg-[--sidebar-accent]/30')}
+                    className={cn(
+                        'relative px-2 py-1 border-b border-r bg-muted text-sm font-bold select-none whitespace-nowrap',
+                        existing && PRIMARY_SELECTION_SOFT_CLASS,
+                    )}
                 >
                     <button type="button" className="flex flex-1 text-left cursor-pointer min-w-0 overflow-hidden whitespace-nowrap" onClick={() => handleSort(col)}>
                         <span className="truncate block min-w-0">{col}</span>
@@ -520,7 +725,7 @@ export default function VTable({
                     style={{ ...style, display: 'flex', alignItems: 'center' }}
                     className={cn(
                         'px-2 text-sm border-b border-r select-none cursor-pointer font-medium text-muted-foreground outline-none',
-                        isRowSelected && 'bg-muted',
+                        isRowSelected && PRIMARY_SELECTION_CLASS,
                         'focus:ring-2 focus:ring-primary/40',
                     )}
                     role="button"
@@ -562,6 +767,21 @@ export default function VTable({
         const isCellSelected = selectedCells.has(keyCell);
         const isFocused = focusedCell?.row === r && focusedCell?.col === colKeyName;
         const cellValue = sortedResults[r]?.rowData?.[colKeyName];
+        const isRectSelectedCell = Boolean(selectedRectBounds && isCellSelected);
+        const rectTopRow = selectedRectBounds?.rows[0];
+        const rectBottomRow = selectedRectBounds?.rows[selectedRectBounds.rows.length - 1];
+        const rectLeftCol = selectedRectBounds?.cols[0];
+        const rectRightCol = selectedRectBounds?.cols[selectedRectBounds.cols.length - 1];
+        const selectionEdgeShadow = isRectSelectedCell
+            ? [
+                  r === rectTopRow ? 'inset 0 1px 0 var(--primary)' : '',
+                  r === rectBottomRow ? 'inset 0 -1px 0 var(--primary)' : '',
+                  colKeyName === rectLeftCol ? 'inset 1px 0 0 var(--primary)' : '',
+                  colKeyName === rectRightCol ? 'inset -1px 0 0 var(--primary)' : '',
+              ]
+                  .filter(Boolean)
+                  .join(', ')
+            : undefined;
 
         return (
             <div
@@ -569,14 +789,14 @@ export default function VTable({
                 role="button"
                 tabIndex={0}
                 data-cell={`${r}-${colKeyName}`}
-                style={{ ...style, display: 'flex', alignItems: 'center' }}
+                style={{ ...style, display: 'flex', alignItems: 'center', boxShadow: selectionEdgeShadow }}
                 className={cn(
                     'px-2 text-sm border-b border-r last:border-r-0 cursor-pointer outline-none select-none',
                     'min-w-0 overflow-hidden',
-                    isRowSelected && 'bg-muted',
-                    isCellSelected && 'bg-accent/40',
-                    isFocused && 'ring-2 ring-primary/40',
-                    'focus:ring-2 focus:ring-primary/40',
+                    isRowSelected && PRIMARY_SELECTION_SUBTLE_CLASS,
+                    isCellSelected && PRIMARY_SELECTION_CLASS,
+                    isFocused && !isRectSelectedCell && PRIMARY_SELECTION_RING_CLASS,
+                    !isCellSelected && 'focus:ring-1 focus:ring-inset focus:ring-primary/40',
                 )}
                 onMouseDown={e => onCellMouseDown(e, r, colKeyName)}
                 onMouseEnter={e => onCellMouseEnter(e, r, colKeyName)}
@@ -605,6 +825,38 @@ export default function VTable({
         g?.forceUpdateGrids?.();
     }, [colWidths, totalWidth]);
 
+    useEffect(() => {
+        const container = gridContainerRef.current;
+        if (!container) {
+            return;
+        }
+
+        const handleWheel = (event: WheelEvent) => {
+            const target = event.target;
+            if (!(target instanceof HTMLElement)) {
+                return;
+            }
+
+            if (!target.closest('.TopRightGrid_ScrollWrapper')) {
+                return;
+            }
+
+            const horizontalDelta = Math.abs(event.deltaX) > 0 ? event.deltaX : event.shiftKey ? event.deltaY : 0;
+            if (horizontalDelta === 0) {
+                return;
+            }
+
+            event.preventDefault();
+            syncHeaderHorizontalScroll(horizontalDelta);
+        };
+
+        container.addEventListener('wheel', handleWheel, { passive: false, capture: true });
+
+        return () => {
+            container.removeEventListener('wheel', handleWheel, true);
+        };
+    }, [syncHeaderHorizontalScroll, columns.length, sortedResults.length]);
+
     // const clearQuery = () => setGlobalQuery('');
 
     return (
@@ -622,12 +874,17 @@ export default function VTable({
                     )}
 
                     {/* Grid */}
-                    <div className="flex-1 min-h-0">
+                    <div ref={gridContainerRef} className="flex-1 min-h-0">
                         <AutoSizer>
                             {({ width, height }) => (
                                 <MultiGrid
                                     ref={ref => {
                                         gridRef.current = (ref as any) || null;
+                                    }}
+                                    onSectionRendered={({ rowStartIndex, rowStopIndex }) => {
+                                        const nextStart = Math.max(0, rowStartIndex - 1);
+                                        const nextStop = Math.max(nextStart, rowStopIndex - 1);
+                                        visibleRowRangeRef.current = { start: nextStart, stop: nextStop };
                                     }}
                                     width={width}
                                     height={height}
