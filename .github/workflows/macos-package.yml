@@ -226,28 +226,55 @@ jobs:
                   path: apps/electron/dist/*
                   if-no-files-found: error
 
-            - name: Upload macOS install assets to Release
-              if: needs.resolve_context.outputs.tag != ''
-              shell: bash
-              run: |
-                  TAG="${{ needs.resolve_context.outputs.tag }}"
-                  find apps/electron/dist -maxdepth 1 -type f \
-                    \( -name "*.dmg" -o -name "*.zip" \) \
-                    -print0 | xargs -0 -I {} gh release upload "$TAG" "{}" --clobber
+    publish_release_assets:
+        needs: [resolve_context, package]
+        if: needs.resolve_context.outputs.tag != ''
+        runs-on: ubuntu-latest
+        env:
+            GH_TOKEN: ${{ github.token }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+              with:
+                  ref: ${{ needs.resolve_context.outputs.tag != '' && needs.resolve_context.outputs.tag || github.ref }}
+                  fetch-depth: 0
 
-            - name: Upload macOS updater metadata to Release
-              if: needs.resolve_context.outputs.tag != ''
+            - name: Setup Node
+              uses: actions/setup-node@v6
+              with:
+                  node-version: lts/*
+
+            - name: Enable Corepack
+              run: corepack enable
+
+            - name: Install dependencies
+              run: yarn install --immutable
+
+            - name: Download arm64 artifact
+              uses: actions/download-artifact@v5
+              with:
+                  name: ${{ needs.resolve_context.outputs.distribution == 'beta' && 'electron-macos-beta-arm64-dist' || 'electron-macos-arm64-dist' }}
+                  path: .tmp/macos-release-assets/arm64
+
+            - name: Download x64 artifact
+              uses: actions/download-artifact@v5
+              with:
+                  name: ${{ needs.resolve_context.outputs.distribution == 'beta' && 'electron-macos-beta-x64-dist' || 'electron-macos-x64-dist' }}
+                  path: .tmp/macos-release-assets/x64
+
+            - name: Prepare macOS release assets
+              run: node ./scripts/prepare-macos-update-assets.mjs .tmp/macos-release-assets/arm64 .tmp/macos-release-assets/x64 .tmp/macos-release-assets/out
+
+            - name: Upload macOS release assets
               shell: bash
               run: |
                   TAG="${{ needs.resolve_context.outputs.tag }}"
-                  CHANNEL="${{ steps.build_config.outputs.update_channel }}"
-                  find apps/electron/dist -maxdepth 1 -type f -name "*.blockmap" \
-                    -print0 | xargs -0 -I {} gh release upload "$TAG" "{}" --clobber
-                  find apps/electron/dist -maxdepth 1 -type f -name "${CHANNEL}*.yml" \
+                  find .tmp/macos-release-assets/out -maxdepth 1 -type f \
+                    \( -name "*.dmg" -o -name "*.zip" -o -name "*.blockmap" -o -name "*.yml" \) \
                     -print0 | xargs -0 -I {} gh release upload "$TAG" "{}" --clobber
 
     update-homebrew:
-        needs: [resolve_context, package]
+        needs: [resolve_context, package, publish_release_assets]
         if: needs.resolve_context.outputs.tag != '' && needs.resolve_context.outputs.distribution == 'stable'
         runs-on: ubuntu-latest
         env:
