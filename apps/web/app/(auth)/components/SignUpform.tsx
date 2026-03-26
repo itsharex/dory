@@ -16,7 +16,12 @@ import { IconBrandGithub } from '@tabler/icons-react';
 
 type Stage = 'form' | 'verify';
 
-export function SignUpForm({ className, ...props }: React.ComponentProps<'div'>) {
+type SignUpFormProps = React.ComponentProps<'div'> & {
+    callbackURL?: string;
+    onRequestSignIn?: () => void;
+};
+
+export function SignUpForm({ className, callbackURL: callbackURLOverride, onRequestSignIn, ...props }: SignUpFormProps) {
     const t = useTranslations('Auth');
     const [loading, setLoading] = useState(false);
     const [err, setErr] = useState<string | null>(null);
@@ -34,7 +39,7 @@ export function SignUpForm({ className, ...props }: React.ComponentProps<'div'>)
             const email = String(fd.get('email') ?? '').trim();
             const password = String(fd.get('password') ?? '');
             const name = String(fd.get('name') ?? (email.split('@')[0] || ''));
-            const callbackURL = window.authBridge?.openExternal ? 'dory://auth-complete' : '/';
+            const callbackURL = callbackURLOverride || (window.authBridge?.openExternal ? 'dory://auth-complete' : '/');
 
             const { error } = await authClient.signUp.email(
                 { name, email, password, callbackURL },
@@ -85,9 +90,15 @@ export function SignUpForm({ className, ...props }: React.ComponentProps<'div'>)
                 />
                 <div className="text-center text-sm">
                     {t('SignUp.HasAccount')}{' '}
-                    <Link href="/sign-in" className="underline underline-offset-4">
-                        {t('SignUp.GoToSignIn')}
-                    </Link>
+                    {onRequestSignIn ? (
+                        <button type="button" className="underline underline-offset-4" onClick={onRequestSignIn}>
+                            {t('SignUp.GoToSignIn')}
+                        </button>
+                    ) : (
+                        <Link href={`/sign-in?callbackURL=${encodeURIComponent(callbackURLOverride || '/')}`} className="underline underline-offset-4">
+                            {t('SignUp.GoToSignIn')}
+                        </Link>
+                    )}
                 </div>
             </div>
         );
@@ -110,9 +121,15 @@ export function SignUpForm({ className, ...props }: React.ComponentProps<'div'>)
                                 <h1 className="text-xl font-bold">{t('SignUp.Title')}</h1>
                                 <div className="text-center text-sm">
                                     {t('SignUp.AlreadyHaveAccount')}{' '}
-                                    <Link href="/sign-in" className="underline underline-offset-4">
-                                        {t('SignUp.SignIn')}
-                                    </Link>
+                                    {onRequestSignIn ? (
+                                        <button type="button" className="underline underline-offset-4" onClick={onRequestSignIn}>
+                                            {t('SignUp.SignIn')}
+                                        </button>
+                                    ) : (
+                                        <Link href={`/sign-in?callbackURL=${encodeURIComponent(callbackURLOverride || '/')}`} className="underline underline-offset-4">
+                                            {t('SignUp.SignIn')}
+                                        </Link>
+                                    )}
                                 </div>
                             </div>
 
@@ -163,7 +180,7 @@ export function SignUpForm({ className, ...props }: React.ComponentProps<'div'>)
                                         if (window.authBridge?.openExternal) {
                                             // void signInViaGithubElectron();
                                         } else {
-                                            signInViaGithub();
+                                            signInViaGithub(callbackURLOverride || '/');
                                         }
                                     }}
                                 >
@@ -180,7 +197,7 @@ export function SignUpForm({ className, ...props }: React.ComponentProps<'div'>)
                                             // TODO: add Electron Google OAuth when needed
                                             return;
                                         }
-                                        signInViaGoogle();
+                                        signInViaGoogle(callbackURLOverride || '/');
                                     }}
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -198,9 +215,7 @@ export function SignUpForm({ className, ...props }: React.ComponentProps<'div'>)
             </Card>
 
             <div className="text-muted-foreground *:[a]:hover:text-primary text-center text-xs text-balance *:[a]:underline *:[a]:underline-offset-4">
-                {t('SignUp.ContinueAgreement')}{' '}
-                <a href="#">{t('SignUp.Terms')}</a> {t('SignUp.And')}{' '}
-                <a href="#">{t('SignUp.Privacy')}</a>.
+                {t('SignUp.ContinueAgreement')} <a href="#">{t('SignUp.Terms')}</a> {t('SignUp.And')} <a href="#">{t('SignUp.Privacy')}</a>.
             </div>
         </div>
     );

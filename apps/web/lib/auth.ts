@@ -1,6 +1,6 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { jwt, organization } from 'better-auth/plugins';
+import { anonymous, jwt, organization } from 'better-auth/plugins';
 import { stripe as stripePlugin } from '@better-auth/stripe';
 import { dash, sentinel } from '@better-auth/infra';
 import Stripe from 'stripe';
@@ -18,27 +18,20 @@ import { getServerLocale } from './i18n/server-locale';
 import { isBillingEnabledForServer, isDesktopRuntime } from './runtime/runtime';
 import { organizationAc, organizationRoles } from './auth/organization-ac';
 import { canManageOrganizationBilling } from './billing/authz';
+import { buildDefaultOrganizationValues, linkAnonymousOrganizationToUser } from './auth/anonymous';
+import { isAnonymousUser } from './auth/anonymous-user';
 
 type AuthUser = {
     id: string;
     email: string | null;
     emailVerified: boolean;
+    isAnonymous?: boolean;
 };
 
 type SessionWithActiveOrganization = {
     userId: string;
     activeOrganizationId?: string | null;
 };
-
-function slugifyOrganizationName(name: string) {
-    const normalized = name
-        .toLowerCase()
-        .trim()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-
-    return normalized || 'workspace';
-}
 
 function createAuth() {
     return (async () => {
@@ -166,14 +159,12 @@ function createAuth() {
                 return;
             }
 
-            const locale = await getServerLocale();
-            const t = (key: string, values?: Record<string, unknown>) => translate(locale, key, values);
-            const name = t('Auth.TeamName', { name: email ?? t('Auth.TeamDefaultName') });
+            const defaults = await buildDefaultOrganizationValues(userId, email);
 
             const created = await auth.api.createOrganization({
                 body: {
-                    name,
-                    slug: `${slugifyOrganizationName(name)}-${userId.slice(0, 8)}`,
+                    name: defaults.name,
+                    slug: defaults.slug,
                     userId,
                     keepCurrentActiveOrganization: false,
                 },
@@ -195,6 +186,18 @@ function createAuth() {
             database: drizzleAdapter(db, { provider, schema }),
             plugins: [
                 ...authPlugins,
+                anonymous({
+                    emailDomainName: 'anon.getdory.dev',
+                    generateName: () => 'Guest',
+                    onLinkAccount: async ({ anonymousUser, newUser }) => {
+                        await linkAnonymousOrganizationToUser({
+                            anonymousUserId: anonymousUser.user.id,
+                            anonymousActiveOrganizationId: anonymousUser.session.activeOrganizationId ?? null,
+                            newUserId: newUser.user.id,
+                            newSessionToken: newUser.session.token,
+                        });
+                    },
+                }),
                 organization({
                     ac: organizationAc,
                     roles: organizationRoles,
@@ -319,7 +322,7 @@ function createAuth() {
                 }),
                 ...(stripeBillingEnabled
                     ? [
-                      stripePlugin({
+                          stripePlugin({
                               stripeClient: stripeClient!,
                               stripeWebhookSecret,
                               createCustomerOnSignUp: false,
@@ -439,6 +442,10 @@ function createAuth() {
                     create: {
                         after: async rawUser => {
                             const user = rawUser as AuthUser;
+
+                            if (isAnonymousUser(user)) {
+                                return;
+                            }
 
                             // Skip if the user is already attached to an organization.
                             const existingOrganizationId = await findInitialOrganizationId(user.id);
@@ -575,6 +582,17 @@ function createAuth() {
                         // Possibly created via databaseHooks during social login,
                         // or backfilled from an existing membership.
                         return;
+                    }
+
+                    if (request?.headers) {
+                        const anonymousSession = await auth.api
+                            .getSession({
+                                headers: request.headers,
+                            })
+                            .catch(() => null);
+                        if (isAnonymousUser(anonymousSession?.user)) {
+                            return;
+                        }
                     }
 
                     await ensureDefaultOrganizationForUser(auth as any, user.id, user.email);

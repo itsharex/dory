@@ -105,6 +105,15 @@
             "LoginWithMeta": "Login with Meta",
             "NoAccount": "Don't have an account?",
             "SignUp": "Sign up",
+            "Guest": {
+                "Action": "Continue as guest",
+                "Tooltip": "Best for first-time visitors. If you later sign in with an existing account, this guest workspace will remain as a separate workspace.",
+                "ConfirmTitle": "Create a temporary workspace?",
+                "ConfirmDescription": "We will create a guest workspace for you right away. If you later sign in with an existing account, this guest workspace will stay as a separate workspace.",
+                "Confirm": "Create guest workspace",
+                "Cancel": "Back",
+                "StartFailed": "Failed to start guest workspace"
+            },
             "ContinueAgreement": "By clicking continue, you agree to our",
             "Terms": "Terms of Service",
             "And": "and",
@@ -126,6 +135,10 @@
         },
         "TeamName": "{name}'s organization",
         "TeamDefaultName": "Default",
+        "AnonymousWorkspace": {
+            "Name": "Guest workspace",
+            "LinkedName": "Imported guest workspace"
+        },
         "Emails": {
             "ResetPassword": {
                 "Subject": "Reset your password",
@@ -759,6 +772,17 @@
                 "TableSummary": "Summary of all tables with row counts"
             }
         },
+        "AuthRequired": {
+            "Title": "Sign in to use Chatbot",
+            "Description": "Guest workspaces can browse the app, but Chatbot requires a full account.",
+            "Hint": "After sign-in, your current workspace and organization stay with you.",
+            "WorkspaceNotice": "If you sign in with an existing account, this guest workspace will stay as a separate workspace. You can switch between workspaces later.",
+            "SignIn": "Sign in to continue",
+            "SheetTitle": "Continue with an account",
+            "SheetDescription": "Link this guest workspace to a full Dory account.",
+            "SignInTab": "Sign in",
+            "SignUpTab": "Create account"
+        },
         "Typing": "Generating",
         "Input": {
             "GlobalPlaceholder": "@ mention tables to ask about the database, Shift + Enter for a new line",
@@ -828,6 +852,27 @@
         },
         "TableMention": {
             "Heading": "Tables"
+        }
+    },
+    "Welcome": {
+        "Badge": "Anonymous mode",
+        "Title": "Start with an anonymous workspace, upgrade only when you need Chatbot.",
+        "Description": "Explore Dory immediately without creating an account. We will create a temporary workspace for you and keep your organization data when you later sign in.",
+        "CardTitle": "Enter Dory instantly",
+        "CardDescription": "Create an anonymous account and a personal workspace with one click.",
+        "Start": "Start with anonymous account",
+        "Resume": "Continue anonymous workspace",
+        "Starting": "Preparing workspace…",
+        "Hint": "You can keep browsing anonymously. When you need Chatbot, sign in and we will link this workspace to your real account.",
+        "HaveAccount": "Already have an account?",
+        "SignIn": "Sign in",
+        "Highlights": {
+            "Instant": "No signup wall before first use.",
+            "Private": "Temporary workspace scoped to your session.",
+            "Upgrade": "Sign in later without losing your organization."
+        },
+        "Errors": {
+            "StartFailed": "Failed to start anonymous workspace. Please try again."
         }
     },
     "Monitoring": {
@@ -1740,7 +1785,8 @@
                 "ConnectionIdRequired": "Connection ID is required",
                 "ListSessionsFailed": "Failed to fetch sessions",
                 "CopilotCreationNotAllowed": "Copilot sessions cannot be created via this endpoint",
-                "CreateSessionFailed": "Failed to create session"
+                "CreateSessionFailed": "Failed to create session",
+                "FullAccountRequired": "Please sign in to use Chatbot."
             },
             "Tools": {
                 "Rag": {
@@ -2356,11 +2402,22 @@
         "StarNotificationDescription": "Give the project a GitHub star to help more people discover it.",
         "StarNotificationAction": "Star on GitHub",
         "DismissStarNotification": "Dismiss GitHub star prompt",
+        "LogOut": "Log out",
         "Update": "Update",
         "Updating": "Updating...",
         "UpdateVersion": "Version {version}",
         "UpdateTooltip": "Click to restart the app and upgrade to {version}",
-        "UpdateTooltipUnknown": "Click to restart the app and upgrade to the latest version"
+        "UpdateTooltipUnknown": "Click to restart the app and upgrade to the latest version",
+        "GuestSession": {
+            "Name": "Guest",
+            "Subtitle": "Temporary workspace",
+            "Title": "Abandon guest session?",
+            "Description": "If you leave this guest session now, the next time you start you will get a new guest account. Data that is not linked to a real account may not be recoverable.",
+            "SignIn": "Sign in",
+            "AbandonAction": "Abandon guest session",
+            "Confirm": "Abandon session",
+            "Cancel": "Keep session"
+        }
     },
     "OrganizationSettings": {
         "Title": "Organization settings",

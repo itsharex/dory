@@ -3,7 +3,7 @@
 import { dashClient, sentinelClient } from '@better-auth/infra/client';
 import { stripeClient } from '@better-auth/stripe/client';
 import { createAuthClient } from 'better-auth/react';
-import { inferOrgAdditionalFields, organizationClient } from 'better-auth/client/plugins';
+import { anonymousClient, inferOrgAdditionalFields, organizationClient } from 'better-auth/client/plugins';
 import { translate } from '@/lib/i18n/i18n';
 import { getClientLocale } from '@/lib/i18n/client-locale';
 import { getAuthBaseUrl } from '@/lib/client/auth-runtime';
@@ -21,6 +21,7 @@ export const authClient = createAuthClient({
         sentinelClient({
             autoSolveChallenge: true,
         }),
+        anonymousClient(),
         organizationClient({
             ac: organizationAc,
             roles: organizationRoles,

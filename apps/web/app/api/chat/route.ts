@@ -1,14 +1,6 @@
 import 'server-only';
 import { NextRequest } from 'next/server';
-import {
-    convertToModelMessages,
-    createUIMessageStream,
-    createUIMessageStreamResponse,
-    readUIMessageStream,
-    type ModelMessage,
-    type UIMessage,
-    type UIMessageChunk,
-} from 'ai';
+import { convertToModelMessages, createUIMessageStream, createUIMessageStreamResponse, readUIMessageStream, type ModelMessage, type UIMessage, type UIMessageChunk } from 'ai';
 import { getModelPresetOnly } from '@/lib/ai/model';
 import { compileSystemPrompt } from '@/lib/ai/model/compile-system';
 import { isMissingAiEnvError } from '@/lib/ai/errors';
@@ -31,6 +23,7 @@ import { resolveCurrentOrganizationId } from '@/lib/auth/current-organization';
 import { USE_CLOUD_AI } from '@/app/config/app';
 import { buildCloudForwardHeaders } from '@/app/api/utils/cloud-ai-proxy';
 import { getCloudApiBaseUrl } from '@/lib/cloud/url';
+import { requireFullAccount } from '@/app/api/utils/full-account';
 
 export const runtime = 'nodejs';
 
@@ -86,24 +79,22 @@ async function handleChatRequest(req: NextRequest) {
     /* 1) normalize + history                                             */
     /* ------------------------------------------------------------------ */
 
-    const uiMessages: UIMessage[] = Array.isArray(rawMessages)
-        ? rawMessages.map(normalizeMessage)
-        : [];
+    const uiMessages: UIMessage[] = Array.isArray(rawMessages) ? rawMessages.map(normalizeMessage) : [];
 
-    const historyMessagesForModel =
-        uiMessages.length > MAX_HISTORY_MESSAGES
-            ? uiMessages.slice(-MAX_HISTORY_MESSAGES)
-            : uiMessages;
+    const historyMessagesForModel = uiMessages.length > MAX_HISTORY_MESSAGES ? uiMessages.slice(-MAX_HISTORY_MESSAGES) : uiMessages;
 
     /* ------------------------------------------------------------------ */
     /* 2) auth / context                                                   */
     /* ------------------------------------------------------------------ */
 
     const session = await getSessionFromRequest(req);
+    const gateResponse = requireFullAccount(session, locale);
+    if (gateResponse) {
+        return gateResponse;
+    }
     const userId = session?.user?.id ?? null;
     const organizationId = resolveCurrentOrganizationId(session);
-    const connectionId =
-        connectionIdFromBody ?? req.headers.get('x-connection-id') ?? null;
+    const connectionId = connectionIdFromBody ?? req.headers.get('x-connection-id') ?? null;
 
     const preset = getModelPresetOnly('chat');
     const providerModelName = requestedModel || preset.model;
@@ -125,15 +116,15 @@ async function handleChatRequest(req: NextRequest) {
     const sessionMetadata =
         userId && (chatId || tabId)
             ? {
-                requestedModel: requestedModel ?? null,
-                providerModel: providerModelName,
-                webSearch: Boolean(webSearch),
-                database: database ?? null,
-                table: table ?? null,
-                connectionId: connectionId ?? null,
-                tabId: tabId ?? null,
-                copilotContext: copilotEnvelope ? toPromptContext(copilotEnvelope) : null,
-            }
+                  requestedModel: requestedModel ?? null,
+                  providerModel: providerModelName,
+                  webSearch: Boolean(webSearch),
+                  database: database ?? null,
+                  table: table ?? null,
+                  connectionId: connectionId ?? null,
+                  tabId: tabId ?? null,
+                  copilotContext: copilotEnvelope ? toPromptContext(copilotEnvelope) : null,
+              }
             : null;
 
     /* ------------------------------------------------------------------ */
@@ -239,68 +230,33 @@ async function handleChatRequest(req: NextRequest) {
     const schemaSection = schemaContext
         ? `Schema Context\n${schemaContext}`
         : typeof tableSchema === 'string' && tableSchema.trim()
-            ? `Database Context\n${tableSchema.trim()}`
-            : '';
+          ? `Database Context\n${tableSchema.trim()}`
+          : '';
 
-    const copilotContextSection =
-        copilotEnvelope
-            ? `Copilot Context\n${JSON.stringify(toPromptContext(copilotEnvelope), null, 2)}`
-            : '';
+    const copilotContextSection = copilotEnvelope ? `Copilot Context\n${JSON.stringify(toPromptContext(copilotEnvelope), null, 2)}` : '';
 
-    const systemPrompt = [
-        compiledSystem,
-        SYSTEM_PROMPT,
-        copilotContextSection,
-        schemaSection,
-    ]
-        .filter(Boolean)
-        .join('\n\n');
+    const systemPrompt = [compiledSystem, SYSTEM_PROMPT, copilotContextSection, schemaSection].filter(Boolean).join('\n\n');
 
-    const modelMessages = await convertToModelMessages(
-        historyMessagesForModel,
-        { tools },
-    );
+    const modelMessages = await convertToModelMessages(historyMessagesForModel, { tools });
 
-    const currentUserMessage =
-        uiMessages.find(
-            m => (m as any)?.id === requestMessageId && m.role === 'user',
-        ) ??
-        [...uiMessages].reverse().find(m => m.role === 'user');
+    const currentUserMessage = uiMessages.find(m => (m as any)?.id === requestMessageId && m.role === 'user') ?? [...uiMessages].reverse().find(m => m.role === 'user');
 
-    const currentUserMessageId =
-        typeof (currentUserMessage as any)?.id === 'string' &&
-            (currentUserMessage as any).id
-            ? (currentUserMessage as any).id
-            : requestMessageId || null;
+    const currentUserMessageId = typeof (currentUserMessage as any)?.id === 'string' && (currentUserMessage as any).id ? (currentUserMessage as any).id : requestMessageId || null;
 
     const existedMessageIds = new Set<string>();
 
     for (const m of uiMessages) {
-        const id =
-            typeof (m as any)?.id === 'string' && (m as any).id
-                ? (m as any).id
-                : null;
+        const id = typeof (m as any)?.id === 'string' && (m as any).id ? (m as any).id : null;
         if (!id) continue;
 
-        if (
-            currentUserMessageId &&
-            m.role === 'user' &&
-            id === currentUserMessageId
-        ) {
-            continue; 
+        if (currentUserMessageId && m.role === 'user' && id === currentUserMessageId) {
+            continue;
         }
 
         existedMessageIds.add(id);
     }
 
-    if (
-        db &&
-        userId &&
-        organizationId &&
-        chatId &&
-        currentUserMessage &&
-        currentUserMessageId
-    ) {
+    if (db && userId && organizationId && chatId && currentUserMessage && currentUserMessageId) {
         try {
             await db.chat.appendMessage({
                 organizationId,
@@ -348,9 +304,7 @@ async function handleChatRequest(req: NextRequest) {
     };
     const forwardedModel = baseCloudPayload.model ?? null;
 
-    let initialCloudResponse: Awaited<
-        ReturnType<typeof fetchCloudUiMessageStream>
-    > | null = null;
+    let initialCloudResponse: Awaited<ReturnType<typeof fetchCloudUiMessageStream>> | null = null;
 
     try {
         console.info(useCloud ? '[chat] cloud request start' : '[chat] local request start', {
@@ -409,24 +363,15 @@ async function handleChatRequest(req: NextRequest) {
                     return;
                 }
 
-                const [streamForClient, streamForProcessing] =
-                    cloudStream.tee();
-                const [streamForMessages, streamForTools] =
-                    streamForProcessing.tee();
+                const [streamForClient, streamForProcessing] = cloudStream.tee();
+                const [streamForMessages, streamForTools] = streamForProcessing.tee();
 
                 writer.merge(streamForClient);
 
-                const [assistantMessage, toolCalls] = await Promise.all([
-                    readFinalAssistantMessage(streamForMessages),
-                    collectToolCalls(streamForTools),
-                ]);
+                const [assistantMessage, toolCalls] = await Promise.all([readFinalAssistantMessage(streamForMessages), collectToolCalls(streamForTools)]);
 
                 if (assistantMessage && db && userId && organizationId && chatId) {
-                    const messageId =
-                        typeof (assistantMessage as any)?.id === 'string' &&
-                        (assistantMessage as any).id
-                            ? (assistantMessage as any).id
-                            : newEntityId();
+                    const messageId = typeof (assistantMessage as any)?.id === 'string' && (assistantMessage as any).id ? (assistantMessage as any).id : newEntityId();
 
                     if (!existedMessageIds.has(messageId)) {
                         try {
@@ -442,8 +387,7 @@ async function handleChatRequest(req: NextRequest) {
                                     connectionId: connectionId ?? null,
                                     role: assistantMessage.role as any,
                                     parts: ((assistantMessage as any).parts ?? []) as any,
-                                    metadata:
-                                        (assistantMessage as any).metadata ?? null,
+                                    metadata: (assistantMessage as any).metadata ?? null,
                                     createdAt: new Date(),
                                 },
                             });
@@ -468,9 +412,7 @@ async function handleChatRequest(req: NextRequest) {
                     }
 
                     executedToolCallIds.add(toolCall.toolCallId);
-                    toolResultMessages.push(
-                        buildToolCallModelMessage(toolCall),
-                    );
+                    toolResultMessages.push(buildToolCallModelMessage(toolCall));
 
                     if (!tools[toolCall.toolName]?.execute) {
                         const errorText = `Tool not available: ${toolCall.toolName}`;
@@ -501,12 +443,9 @@ async function handleChatRequest(req: NextRequest) {
                     let toolErrorText: string | null = null;
 
                     try {
-                        toolOutput = await tools[toolCall.toolName].execute(
-                            toolCall.input,
-                        );
+                        toolOutput = await tools[toolCall.toolName].execute(toolCall.input);
                     } catch (err) {
-                        toolErrorText =
-                            err instanceof Error ? err.message : String(err);
+                        toolErrorText = err instanceof Error ? err.message : String(err);
                     }
 
                     if (toolErrorText) {
@@ -536,9 +475,7 @@ async function handleChatRequest(req: NextRequest) {
                             toolCallId: toolCall.toolCallId,
                             output: toolOutput,
                         } as UIMessageChunk);
-                        toolResultMessages.push(
-                            buildToolResultModelMessage(toolCall, toolOutput),
-                        );
+                        toolResultMessages.push(buildToolResultModelMessage(toolCall, toolOutput));
                         if (isManualExecutionRequiredSqlResult(toolOutput)) {
                             shouldStopAfterToolResults = true;
                         }
@@ -548,13 +485,8 @@ async function handleChatRequest(req: NextRequest) {
                         const toolMessageId = newEntityId();
                         try {
                             const ok =
-                                toolOutput &&
-                                typeof toolOutput === 'object' &&
-                                'ok' in (toolOutput as Record<string, unknown>)
-                                    ? Boolean(
-                                          (toolOutput as Record<string, unknown>)
-                                              .ok,
-                                      )
+                                toolOutput && typeof toolOutput === 'object' && 'ok' in (toolOutput as Record<string, unknown>)
+                                    ? Boolean((toolOutput as Record<string, unknown>).ok)
                                     : toolErrorText === null;
 
                             await db.chat.appendMessage({
@@ -631,9 +563,7 @@ type CollectedToolCall = {
     input: unknown;
 };
 
-async function collectToolCalls(
-    stream: ReadableStream<UIMessageChunk>,
-): Promise<CollectedToolCall[]> {
+async function collectToolCalls(stream: ReadableStream<UIMessageChunk>): Promise<CollectedToolCall[]> {
     const reader = stream.getReader();
     const toolCalls: CollectedToolCall[] = [];
 
@@ -641,11 +571,7 @@ async function collectToolCalls(
         const { value, done } = await reader.read();
         if (done) break;
 
-        if (
-            value.type === 'tool-input-available' &&
-            !value.providerExecuted &&
-            typeof value.toolName === 'string'
-        ) {
+        if (value.type === 'tool-input-available' && !value.providerExecuted && typeof value.toolName === 'string') {
             toolCalls.push({
                 toolCallId: value.toolCallId,
                 toolName: value.toolName,
@@ -657,9 +583,7 @@ async function collectToolCalls(
     return toolCalls;
 }
 
-async function readFinalAssistantMessage(
-    stream: ReadableStream<UIMessageChunk>,
-): Promise<UIMessage | null> {
+async function readFinalAssistantMessage(stream: ReadableStream<UIMessageChunk>): Promise<UIMessage | null> {
     let lastMessage: UIMessage | null = null;
     const iterable = readUIMessageStream<UIMessage>({ stream });
     for await (const message of iterable) {
@@ -669,9 +593,7 @@ async function readFinalAssistantMessage(
     return lastMessage;
 }
 
-function buildToolCallModelMessage(
-    toolCall: CollectedToolCall,
-): ModelMessage {
+function buildToolCallModelMessage(toolCall: CollectedToolCall): ModelMessage {
     return {
         role: 'assistant',
         content: [
@@ -685,10 +607,7 @@ function buildToolCallModelMessage(
     } as ModelMessage;
 }
 
-function buildToolResultModelMessage(
-    toolCall: CollectedToolCall,
-    output: unknown,
-): ModelMessage {
+function buildToolResultModelMessage(toolCall: CollectedToolCall, output: unknown): ModelMessage {
     return {
         role: 'tool',
         content: [

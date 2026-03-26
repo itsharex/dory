@@ -9,6 +9,7 @@ type TicketUserInput = {
     name: string | null;
     image: string | null;
     emailVerified: boolean;
+    isAnonymous?: boolean;
     activeOrganizationId?: string | null;
 };
 
@@ -16,11 +17,7 @@ export function resolveOrganizationIdForSession(input: OrganizationResolutionInp
     return input.activeOrganizationId ?? input.membershipOrganizationId ?? null;
 }
 
-export function shouldCreateDefaultOrganization(input: {
-    isDesktop: boolean;
-    existingOrganizationId?: string | null;
-    emailVerified: boolean;
-}): boolean {
+export function shouldCreateDefaultOrganization(input: { isDesktop: boolean; existingOrganizationId?: string | null; emailVerified: boolean }): boolean {
     if (input.isDesktop) {
         return false;
     }
@@ -32,9 +29,7 @@ export function shouldCreateDefaultOrganization(input: {
     return input.emailVerified;
 }
 
-export function resolveOrganizationIdFromTicket(input: {
-    activeOrganizationId?: string | null;
-}): string | null {
+export function resolveOrganizationIdFromTicket(input: { activeOrganizationId?: string | null }): string | null {
     return input.activeOrganizationId ?? null;
 }
 
@@ -47,13 +42,12 @@ export function buildElectronTicketUser(input: TicketUserInput) {
         name: input.name,
         image: input.image,
         emailVerified: input.emailVerified,
+        isAnonymous: input.isAnonymous ?? false,
         activeOrganizationId,
     };
 }
 
-export function buildSessionOrganizationPatch(input: {
-    activeOrganizationId?: string | null;
-}) {
+export function buildSessionOrganizationPatch(input: { activeOrganizationId?: string | null }) {
     const activeOrganizationId = resolveOrganizationIdFromTicket(input);
     return activeOrganizationId ? { activeOrganizationId } : null;
 }

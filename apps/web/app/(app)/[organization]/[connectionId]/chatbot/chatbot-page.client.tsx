@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { Loader2, X } from 'lucide-react';
+import { authClient } from '@/lib/auth-client';
+import { AccountRequiredSheet } from '@/components/auth/account-required-sheet';
 
 import ChatBotComp from './thread/chatbox';
 import ChatWelcome from './components/empty';
@@ -18,25 +20,22 @@ import { CopilotActionExecutor } from './copilot/action-bridge';
 
 type ChatBotPageContentProps = {
     variant?: 'sidebar' | 'compact';
-    mode?: ChatMode; 
-    copilotEnvelope?: CopilotEnvelopeV1 | null; 
+    mode?: ChatMode;
+    copilotEnvelope?: CopilotEnvelopeV1 | null;
     onClose?: () => void;
 };
 
-export default function ChatBotPageContent({
-    variant = 'sidebar',
-    mode = 'global',
-    copilotEnvelope = null,
-    onClose,
-}: ChatBotPageContentProps) {
-    
+export default function ChatBotPageContent({ variant = 'sidebar', mode = 'global', copilotEnvelope = null, onClose }: ChatBotPageContentProps) {
     const [compactMode, setCompactMode] = useState<boolean>(variant === 'compact');
     useEffect(() => setCompactMode(variant === 'compact'), [variant]);
     const t = useTranslations('Chatbot');
+    const { data: session } = authClient.useSession();
+    const requiresFullAccount = !session?.user || session.user.isAnonymous;
 
     const chat = useChatSessions({
         mode,
         copilotEnvelope,
+        enabled: !requiresFullAccount,
     });
 
     const sessionSelector = useMemo(
@@ -87,7 +86,7 @@ export default function ChatBotPageContent({
         await chat.handleCreateSession();
     };
 
-    const onExecuteAction: CopilotActionExecutor = async (action) => {
+    const onExecuteAction: CopilotActionExecutor = async action => {
         if (action.type === 'sql.replace') {
             console.log('replace sql', action.sql);
         }
@@ -104,13 +103,7 @@ export default function ChatBotPageContent({
             {compactMode ? (
                 <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
                     {hasSessions && sessionSelector}
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        title={t('Close')}
-                        onClick={() => onClose?.()}
-                        className="h-8 w-8"
-                    >
+                    <Button variant="outline" size="icon" title={t('Close')} onClick={() => onClose?.()} className="h-8 w-8">
                         <X className="h-4 w-4" />
                     </Button>
                 </div>
@@ -119,7 +112,9 @@ export default function ChatBotPageContent({
             )}
 
             <main className="flex-1 min-w-0 flex relative mt-10">
-                {mode === 'copilot' || chat.selectedSessionId ? (
+                {requiresFullAccount ? (
+                    <AccountRequiredSheet compact={compactMode} />
+                ) : mode === 'copilot' || chat.selectedSessionId ? (
                     chat.loadingMessages ? (
                         <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                             <Loader2 className="h-6 w-6 animate-spin" />
@@ -132,7 +127,7 @@ export default function ChatBotPageContent({
                             initialPrompt={pendingPromptRef.current}
                             onConversationActivity={chat.handleConversationActivity}
                             onExecuteAction={onExecuteAction}
-                            onSessionCreated={(sessionId) => chat.setSelectedSessionId(sessionId)}
+                            onSessionCreated={sessionId => chat.setSelectedSessionId(sessionId)}
                             mode={mode}
                             copilotEnvelope={copilotEnvelope}
                         />
