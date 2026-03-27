@@ -6,7 +6,8 @@ This repository is a Yarn workspace monorepo. Most product work happens in `apps
 
 ## Before You Start
 
-- Use Node and Yarn versions compatible with the repository's `packageManager` setting.
+- Use Node 24.x and the Yarn version compatible with the repository's `packageManager` setting.
+- `better-sqlite3` is installed from prebuilt binaries for Node 24 in this repo. If you switch Node majors, reinstall dependencies under Node 24 instead of trying to rebuild the module manually.
 - Install dependencies from the repository root:
 
 ```bash

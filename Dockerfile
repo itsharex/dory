@@ -1,4 +1,4 @@
-FROM node:lts AS installer
+FROM node:24-bookworm AS installer
 WORKDIR /app
 
 # Install bun and enable corepack for yarn
@@ -29,7 +29,7 @@ RUN yarn run build \
  && cp -rn node_modules/@electric-sql/pglite/dist/. apps/web/dist-scripts/ \
  && rm -f apps/web/.next/standalone/.env apps/web/.next/standalone/.env.local
 
-FROM node:lts-slim AS runner
+FROM node:24-bookworm-slim AS runner
 
 ENV NODE_ENV=production \
     HOSTNAME=0.0.0.0 \
