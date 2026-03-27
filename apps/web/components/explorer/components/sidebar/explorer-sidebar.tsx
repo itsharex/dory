@@ -13,6 +13,7 @@ import { useDatabases } from '@/hooks/use-databases';
 import type { ResponseObject } from '@/types';
 import { getSidebarConfig } from '@/app/(app)/[organization]/components/sql-console-sidebar/sidebar-config';
 import { authFetch } from '@/lib/client/auth-fetch';
+import { getDriverCapabilities } from '@/lib/explorer/capabilities';
 import { isSuccess } from '@/lib/result';
 import { activeDatabaseAtom, currentConnectionAtom } from '@/shared/stores/app.store';
 import { ExplorerSidebarTree } from './explorer-sidebar-tree';
@@ -104,6 +105,10 @@ export function ExplorerSidebar({
     const connectionId = resolveParam(params?.connectionId) ?? currentConnection?.connection?.id;
     const connectionType = currentConnection?.connection?.type;
     const sidebarConfig = useMemo(() => getSidebarConfig(connectionType), [connectionType]);
+    const supportedGroupKeys = useMemo(
+        () => GROUP_KEYS.filter(group => getDriverCapabilities(connectionType).listKinds.includes(group)),
+        [connectionType],
+    );
     const supportsSchemas = sidebarConfig.supportsSchemas;
     const defaultSchemaName = sidebarConfig.defaultSchemaName ?? 'public';
     const showCatalog = false; // For now, we are hiding the catalog level as it's not commonly used and adds extra complexity to the UI. We can revisit this decision in the future if needed.
@@ -174,7 +179,7 @@ export function ExplorerSidebar({
 
     const groupQueries = useQueries({
         queries: databaseEntries.flatMap(entry =>
-            GROUP_KEYS.map(group => ({
+            supportedGroupKeys.map(group => ({
                 queryKey: ['catalog-db-group', connectionId, entry.value, group] as const,
                 queryFn: async ({ signal }: { signal?: AbortSignal }): Promise<TargetOption[]> => {
                     if (!connectionId) return [];
@@ -218,7 +223,7 @@ export function ExplorerSidebar({
         databaseEntries.forEach(entry => {
             const objects: DatabaseObjects = { ...EMPTY_DATABASE_OBJECTS };
 
-            GROUP_KEYS.forEach(group => {
+            supportedGroupKeys.forEach(group => {
                 const data = groupQueries[index]?.data;
                 if (Array.isArray(data)) {
                     objects[group] = data;
@@ -230,7 +235,7 @@ export function ExplorerSidebar({
         });
 
         return next;
-    }, [databaseEntries, groupQueries]);
+    }, [databaseEntries, groupQueries, supportedGroupKeys]);
 
     const loadingGroups = useMemo(() => {
         const next: Record<string, GroupState> = {};
@@ -239,7 +244,7 @@ export function ExplorerSidebar({
         databaseEntries.forEach(entry => {
             const databaseLoading: GroupState = { ...DEFAULT_GROUP_STATE };
 
-            GROUP_KEYS.forEach(group => {
+            supportedGroupKeys.forEach(group => {
                 databaseLoading[group] = Boolean(groupQueries[index]?.isFetching);
                 index += 1;
             });
@@ -253,7 +258,7 @@ export function ExplorerSidebar({
         });
 
         return next;
-    }, [databaseEntries, expandedSchemas, groupQueries]);
+    }, [databaseEntries, expandedSchemas, groupQueries, supportedGroupKeys]);
 
     const databaseSchemas = useMemo(() => {
         const next: Record<string, SchemaNode[]> = {};
@@ -296,7 +301,7 @@ export function ExplorerSidebar({
             const perSchema: Record<string, DatabaseObjects> = {};
             const objects = databaseObjects[entry.value] ?? EMPTY_DATABASE_OBJECTS;
 
-            GROUP_KEYS.forEach(group => {
+            supportedGroupKeys.forEach(group => {
                 objects[group].forEach(item => {
                     const schemaName = resolveSchemaName(item, defaultSchemaName);
                     if (!schemaName) return;
@@ -318,7 +323,7 @@ export function ExplorerSidebar({
         });
 
         return next;
-    }, [databaseEntries, databaseObjects, defaultSchemaName, supportsSchemas]);
+    }, [databaseEntries, databaseObjects, defaultSchemaName, supportedGroupKeys, supportsSchemas]);
 
     useEffect(() => {
         if (!selectedDatabase) return;
@@ -451,9 +456,9 @@ export function ExplorerSidebar({
             const objects = databaseObjects[db.value];
             if (!objects) return false;
 
-            return GROUP_KEYS.some(group => filterEntries(objects[group]).length > 0);
+            return supportedGroupKeys.some(group => filterEntries(objects[group]).length > 0);
         });
-    }, [databaseEntries, databaseObjects, databaseSchemas, filterEntries, normalized]);
+    }, [databaseEntries, databaseObjects, databaseSchemas, filterEntries, normalized, supportedGroupKeys]);
 
     const hasAnyResults = useMemo(() => {
         if (!normalized) return true;
@@ -484,6 +489,7 @@ export function ExplorerSidebar({
                 <div className="pr-3">
                     <ExplorerSidebarTree
                         catalogName={catalogName}
+                        groupKeys={supportedGroupKeys}
                         showCatalog={showCatalog}
                         expandedCatalog={expandedCatalog}
                         filteredDatabases={filteredDatabases}

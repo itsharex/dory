@@ -9,7 +9,6 @@ import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { StickyDataTable } from '@/components/@dory/ui/sticky-data-table';
 import { Input } from '@/registry/new-york-v4/ui/input';
-import { Button } from '@/registry/new-york-v4/ui/button';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/registry/new-york-v4/ui/tooltip';
 import { OverflowTooltip } from '@/components/overflow-tooltip';
 import { buildExplorerObjectPath } from '@/lib/explorer/build-path';
@@ -58,7 +57,12 @@ const formatTimestampWithLocale = (value: string | null | undefined, locale: str
     }).format(date);
 };
 
-export default function DatabaseTables() {
+type DatabaseTablesProps = {
+    catalog?: string | null;
+    database?: string | null;
+};
+
+export default function DatabaseTables({ catalog, database }: DatabaseTablesProps) {
     const [searchValue, setSearchValue] = React.useState('');
     const [rows, setRows] = React.useState<DatabaseTableRow[]>([]);
     const [loading, setLoading] = React.useState(false);
@@ -74,15 +78,16 @@ export default function DatabaseTables() {
     const organizationId = resolveParam(params?.organization);
     const connectionId = resolveParam(params?.connectionId) ?? currentConnection?.connection.id;
     const catalogParam = resolveParam(params?.catalog);
-    const databaseParam = resolveParam(params?.database);
+    const databaseParam = database ?? resolveParam(params?.database);
     const catalogName = React.useMemo(() => {
+        if (catalog) return catalog;
         if (!catalogParam) return DEFAULT_CATALOG;
         try {
             return decodeURIComponent(catalogParam);
         } catch {
             return catalogParam;
         }
-    }, [catalogParam]);
+    }, [catalog, catalogParam]);
     const databaseName = React.useMemo(() => {
         if (!databaseParam) return '';
         try {

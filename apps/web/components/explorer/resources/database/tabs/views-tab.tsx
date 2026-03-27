@@ -56,7 +56,11 @@ const formatTimestampWithLocale = (value: string | null | undefined, locale: str
 };
 
 
-export default function DatabaseViews() {
+type DatabaseViewsProps = {
+    database?: string | null;
+};
+
+export default function DatabaseViews({ database }: DatabaseViewsProps) {
     const [searchValue, setSearchValue] = React.useState('');
     const [rows, setRows] = React.useState<DatabaseViewRow[]>([]);
     const [loading, setLoading] = React.useState(false);
@@ -64,7 +68,7 @@ export default function DatabaseViews() {
     const t = useTranslations('Catalog');
     const locale = useLocale();
     const params = useParams<{ database?: string | string[] }>();
-    const databaseParam = resolveParam(params?.database);
+    const databaseParam = database ?? resolveParam(params?.database);
     const databaseName = React.useMemo(() => {
         if (!databaseParam) return '';
         try {

@@ -85,6 +85,7 @@ function DataPreview({
     const [query, setQuery] = useState('');
     const [rows, setRows] = useState<ResultRow[]>([]);
     const [loading, setLoading] = useState(false);
+    const [hasLoaded, setHasLoaded] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [stats, setStats] = useState({ filteredCount: 0, totalCount: 0 });
     const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -95,6 +96,8 @@ function DataPreview({
 
     useEffect(() => {
         setRows([]);
+        setLoading(Boolean(connectionId && databaseName && tableName));
+        setHasLoaded(false);
         setSessionMeta({});
         setQuery('');
         setStats({ filteredCount: 0, totalCount: 0 });
@@ -142,7 +145,10 @@ function DataPreview({
                 if (e?.name === 'AbortError') return;
                 setError(e?.message ?? t('Failed to load data preview'));
             } finally {
-                setLoading(false);
+                if (!signal?.aborted) {
+                    setLoading(false);
+                    setHasLoaded(true);
+                }
             }
         },
         [connectionId, databaseName, source, storageKey, tableName, setSessionMeta, t],
@@ -230,7 +236,7 @@ function DataPreview({
         );
     }
 
-    if (loading && rows.length === 0) {
+    if (!hasLoaded || (loading && rows.length === 0)) {
         return (
             <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
                 {t('Loading preview')}

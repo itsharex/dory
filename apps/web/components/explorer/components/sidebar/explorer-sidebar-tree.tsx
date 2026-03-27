@@ -13,6 +13,7 @@ import type { DatabaseObjects, GroupState, SchemaNode, SidebarListKind, SidebarL
 
 type ExplorerSidebarTreeProps = {
     catalogName: string;
+    groupKeys: (keyof GroupState)[];
     showCatalog: boolean;
     expandedCatalog: boolean;
     filteredDatabases: { label: string; value: string }[];
@@ -54,6 +55,7 @@ function isAnyGroupLoading(groupState?: GroupState) {
 
 export function ExplorerSidebarTree({
     catalogName,
+    groupKeys,
     showCatalog,
     expandedCatalog,
     filteredDatabases,
@@ -84,12 +86,22 @@ export function ExplorerSidebarTree({
     getSchemaObjects,
 }: ExplorerSidebarTreeProps) {
     const t = useTranslations('CatalogSchemaSidebar');
-    const groupConfigs: GroupConfig[] = [
-        { key: 'tables', label: t('Tables'), icon: Table, emptyLabel: t('No tables') },
-        { key: 'views', label: t('Views'), icon: Eye, emptyLabel: t('No views') },
-        { key: 'materializedViews', label: t('Materialized views'), icon: Boxes, emptyLabel: t('No materialized views') },
-        { key: 'functions', label: t('Functions'), icon: Sigma, emptyLabel: t('No functions') },
-    ];
+    const groupConfigs: GroupConfig[] = groupKeys
+        .map(groupKey => {
+            switch (groupKey) {
+                case 'tables':
+                    return { key: 'tables', label: t('Tables'), icon: Table, emptyLabel: t('No tables') };
+                case 'views':
+                    return { key: 'views', label: t('Views'), icon: Eye, emptyLabel: t('No views') };
+                case 'materializedViews':
+                    return { key: 'materializedViews', label: t('Materialized views'), icon: Boxes, emptyLabel: t('No materialized views') };
+                case 'functions':
+                    return { key: 'functions', label: t('Functions'), icon: Sigma, emptyLabel: t('No functions') };
+                default:
+                    return null;
+            }
+        })
+        .filter((config): config is GroupConfig => Boolean(config));
     const showList = showCatalog ? expandedCatalog : true;
 
     return (

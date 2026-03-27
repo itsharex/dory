@@ -17,6 +17,7 @@ export function ExplorerRouter({ baseParams, route }: ExplorerRouterProps) {
         ...baseParams,
         catalog: route.catalog,
     };
+    const routeKey = `${route.pageType}:${route.normalizedSlug.join('/')}`;
     const breadcrumbs = buildExplorerBreadcrumbs(paramsWithCatalog, route.resource);
     const badgeLabel = getExplorerHeaderBadgeLabel(route.resource);
     const views = getExplorerViewRegistry(route);
@@ -31,6 +32,7 @@ export function ExplorerRouter({ baseParams, route }: ExplorerRouterProps) {
                 {route.pageType === 'root' ? <RootView organization={baseParams.organization} connectionId={baseParams.connectionId} catalog={route.catalog} /> : null}
                 {route.pageType === 'namespace' && route.resource ? (
                     <NamespaceComponent
+                        key={routeKey}
                         baseParams={paramsWithCatalog}
                         catalog={route.catalog}
                         resource={route.resource as Extract<typeof route.resource, { kind: 'database' | 'list' }>}
@@ -38,13 +40,18 @@ export function ExplorerRouter({ baseParams, route }: ExplorerRouterProps) {
                 ) : null}
                 {route.pageType === 'schemaSummary' && route.resource ? (
                     <SchemaComponent
+                        key={routeKey}
                         baseParams={paramsWithCatalog}
                         catalog={route.catalog}
                         resource={route.resource as Extract<typeof route.resource, { kind: 'schema' | 'list' }>}
                     />
                 ) : null}
                 {route.pageType === 'object' && route.resource ? (
-                    <ObjectComponent catalog={route.catalog} resource={route.resource as Extract<typeof route.resource, { kind: 'object' }>} />
+                    <ObjectComponent
+                        key={routeKey}
+                        catalog={route.catalog}
+                        resource={route.resource as Extract<typeof route.resource, { kind: 'object' }>}
+                    />
                 ) : null}
                 {route.pageType === 'notFound' ? <ObjectNotFound /> : null}
             </div>

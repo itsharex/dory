@@ -8,7 +8,6 @@ import { useParams } from 'next/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { StickyDataTable } from '@/components/@dory/ui/sticky-data-table';
 import { Input } from '@/registry/new-york-v4/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/registry/new-york-v4/ui/select';
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/registry/new-york-v4/ui/tooltip';
 import { OverflowTooltip } from '@/components/overflow-tooltip';
 import type { ResponseObject } from '@/types';
@@ -55,9 +54,11 @@ const formatTimestampWithLocale = (value: string | null | undefined, locale: str
         timeStyle: 'short',
     }).format(date);
 };
+type DatabaseMaterializedViewsProps = {
+    database?: string | null;
+};
 
-
-export default function DatabaseMaterializedViews() {
+export default function DatabaseMaterializedViews({ database }: DatabaseMaterializedViewsProps) {
     const [searchValue, setSearchValue] = React.useState('');
     const [rows, setRows] = React.useState<DatabaseMaterializedViewRow[]>([]);
     const [loading, setLoading] = React.useState(false);
@@ -65,7 +66,7 @@ export default function DatabaseMaterializedViews() {
     const t = useTranslations('Catalog');
     const locale = useLocale();
     const params = useParams<{ database?: string | string[] }>();
-    const databaseParam = resolveParam(params?.database);
+    const databaseParam = database ?? resolveParam(params?.database);
     const databaseName = React.useMemo(() => {
         if (!databaseParam) return '';
         try {
