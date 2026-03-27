@@ -53,6 +53,8 @@ docker run -d --name dory \
   dorylab/dory:latest
 
 ```
+
+  
 ### 🧠 Supported AI Providers
 
 Dory is built with a pluggable AI provider architecture.
@@ -199,6 +201,12 @@ See the latest roadmap here:
 > Desktop client: https://github.com/dorylab/dory/releases  
 
 ---
+
+<h3>
+Your data stays yours.
+Except for AI requests sent through Cloudflare Gateway,
+everything — connections, tabs, and saved queries — is stored locally on your device.
+<h3>
 
 ## 📄 License
 
