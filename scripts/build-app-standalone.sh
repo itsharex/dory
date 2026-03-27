@@ -76,6 +76,7 @@ if [[ -d "${BETTER_SQLITE3_DIR}" ]]; then
   ROOT_BETTER_SQLITE3_DIR="${ROOT_DIR}/node_modules/better-sqlite3"
   ELECTRON_VERSION="$(node -e "const fs=require('node:fs'); const pkg=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); const version=pkg.devDependencies?.electron || pkg.dependencies?.electron || ''; process.stdout.write(String(version).replace(/^[^0-9]*/, ''));" "${ELECTRON_DIR}/package.json")"
   TARGET_ARCH="${DORY_BUILD_ARCH:-}"
+  PREBUILD_INSTALL_BIN="${ROOT_DIR}/node_modules/.bin/prebuild-install"
 
   # Next standalone keeps only runtime files for externals, but rebuilding the native
   # addon for Electron requires the package sources and binding.gyp from the full install.
@@ -86,6 +87,12 @@ if [[ -d "${BETTER_SQLITE3_DIR}" ]]; then
   fi
 
   if [[ -n "${ELECTRON_VERSION}" ]]; then
+    PREBUILD_ARGS=(
+      --runtime=electron
+      --target="${ELECTRON_VERSION}"
+      --dist-url=https://electronjs.org/headers
+      --verbose
+    )
     REBUILD_ARGS=(
       better-sqlite3
       --build-from-source
@@ -94,11 +101,23 @@ if [[ -d "${BETTER_SQLITE3_DIR}" ]]; then
       --dist-url=https://electronjs.org/headers
     )
     if [[ -n "${TARGET_ARCH}" ]]; then
+      PREBUILD_ARGS+=(--arch="${TARGET_ARCH}")
       REBUILD_ARGS+=(--arch="${TARGET_ARCH}")
     fi
 
-    echo "Rebuilding better-sqlite3 for Electron ${ELECTRON_VERSION}${TARGET_ARCH:+ (${TARGET_ARCH})}..."
+    echo "Resolving better-sqlite3 for Electron ${ELECTRON_VERSION}${TARGET_ARCH:+ (${TARGET_ARCH})}..."
     (
+      cd "${BETTER_SQLITE3_DIR}"
+
+      if [[ -x "${PREBUILD_INSTALL_BIN}" ]]; then
+        echo "Trying prebuilt better-sqlite3 binary..."
+        if "${PREBUILD_INSTALL_BIN}" "${PREBUILD_ARGS[@]}"; then
+          echo "Using prebuilt better-sqlite3 binary."
+          exit 0
+        fi
+      fi
+
+      echo "No prebuilt better-sqlite3 binary available, falling back to rebuild..."
       cd "${OUT_DIR}"
       npm rebuild "${REBUILD_ARGS[@]}"
     )
