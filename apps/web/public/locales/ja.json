@@ -98,13 +98,22 @@
             "ForgotPassword": "パスワードをお忘れですか？",
             "Submitting": "ログイン中…",
             "Submit": "ログイン",
-            "DemoEnter": "デモとして入る",
+            "DemoEnter": "ゲストとして続行",
             "OrContinueWith": "または次で続行",
             "LoginWithGithub": "GitHub でログイン",
             "LoginWithGoogle": "Google でログイン",
             "LoginWithMeta": "Meta でログイン",
             "NoAccount": "アカウントをお持ちでないですか？",
             "SignUp": "新規登録",
+            "Guest": {
+                "Action": "ゲストとして続行",
+                "Tooltip": "初めて利用する方に最適です。後で既存アカウントでサインインしても、このゲストワークスペースは別のワークスペースとして残ります。",
+                "ConfirmTitle": "一時的なワークスペースを作成しますか？",
+                "ConfirmDescription": "すぐにゲストワークスペースを作成します。後で既存アカウントでサインインしても、このゲストワークスペースは独立したワークスペースとして残ります。",
+                "Confirm": "ゲストワークスペースを作成",
+                "Cancel": "戻る",
+                "StartFailed": "ゲストワークスペースの開始に失敗しました"
+            },
             "ContinueAgreement": "続行をクリックすると、次に同意したものとみなされます：",
             "Terms": "利用規約",
             "And": "および",
@@ -126,6 +135,10 @@
         },
         "TeamName": "{name} の組織",
         "TeamDefaultName": "デフォルト",
+        "AnonymousWorkspace": {
+            "Name": "ゲストワークスペース",
+            "LinkedName": "インポートされたゲストワークスペース"
+        },
         "Emails": {
             "ResetPassword": {
                 "Subject": "パスワードをリセット",
@@ -749,6 +762,17 @@
     "Chatbot": {
         "Close": "閉じる",
         "EmptyState": "セッションを選択するか、新しく作成してください。",
+        "AuthRequired": {
+            "Title": "Chatbot を使うにはサインインしてください",
+            "Description": "ゲストワークスペースでもアプリは閲覧できますが、Chatbot を使うには通常アカウントが必要です。",
+            "Hint": "サインイン後も、現在のワークスペースと組織はそのまま引き継がれます。",
+            "WorkspaceNotice": "既存アカウントでサインインした場合、このゲストワークスペースは独立したワークスペースとして残ります。後からワークスペースを切り替えられます。",
+            "SignIn": "続行するにはサインイン",
+            "SheetTitle": "アカウントで続行",
+            "SheetDescription": "このゲストワークスペースを通常の Dory アカウントに紐付けます。",
+            "SignInTab": "サインイン",
+            "SignUpTab": "アカウント作成"
+        },
         "Typing": "生成中",
         "Input": {
             "GlobalPlaceholder": "@ でテーブルに言及してデータベースについて質問できます。改行は Shift + Enter",
@@ -817,6 +841,27 @@
         },
         "TableMention": {
             "Heading": "テーブル"
+        }
+    },
+    "Welcome": {
+        "Badge": "匿名モード",
+        "Title": "匿名ワークスペースですぐ始めて、Chatbot が必要になったらアップグレード。",
+        "Description": "アカウントを作成せずにすぐ Dory を試せます。一時的なワークスペースを作成し、後でサインインしたときにも組織データを引き継ぎます。",
+        "CardTitle": "すぐに Dory を始める",
+        "CardDescription": "ワンクリックで匿名アカウントと個人用ワークスペースを作成します。",
+        "Start": "匿名アカウントで始める",
+        "Resume": "匿名ワークスペースを続ける",
+        "Starting": "ワークスペースを準備中…",
+        "Hint": "匿名のまま閲覧を続けられます。Chatbot が必要になったらサインインすれば、このワークスペースを実アカウントに紐付けます。",
+        "HaveAccount": "すでにアカウントをお持ちですか？",
+        "SignIn": "サインイン",
+        "Highlights": {
+            "Instant": "初回利用前に登録は不要です。",
+            "Private": "現在のセッションに限定された一時ワークスペースです。",
+            "Upgrade": "後でサインインしても組織を失いません。"
+        },
+        "Errors": {
+            "StartFailed": "匿名ワークスペースの開始に失敗しました。もう一度お試しください。"
         }
     },
     "Monitoring": {
@@ -1727,7 +1772,8 @@
                 "ConnectionIdRequired": "接続IDが必要です",
                 "ListSessionsFailed": "セッションの取得に失敗しました",
                 "CopilotCreationNotAllowed": "このエンドポイントでは Copilot セッションを作成できません",
-                "CreateSessionFailed": "セッションの作成に失敗しました"
+                "CreateSessionFailed": "セッションの作成に失敗しました",
+                "FullAccountRequired": "Chatbot を使うにはサインインしてください。"
             },
             "Tools": {
                 "Rag": {
@@ -2343,11 +2389,22 @@
         "StarNotificationDescription": "GitHub でスターを付けて、このプロジェクトを広めてください。",
         "StarNotificationAction": "GitHub でスター",
         "DismissStarNotification": "GitHub スター案内を閉じる",
+        "LogOut": "ログアウト",
         "Update": "更新",
         "Updating": "更新中...",
         "UpdateVersion": "バージョン {version}",
         "UpdateTooltip": "クリックして再起動し、{version} に更新します",
-        "UpdateTooltipUnknown": "クリックして再起動し、最新バージョンに更新します"
+        "UpdateTooltipUnknown": "クリックして再起動し、最新バージョンに更新します",
+        "GuestSession": {
+            "Name": "ゲスト",
+            "Subtitle": "一時ワークスペース",
+            "Title": "ゲストセッションを破棄しますか？",
+            "Description": "今このゲストセッションを離れると、次回開始時には新しいゲストアカウントが作成されます。実アカウントに紐付いていないデータは復元できない場合があります。",
+            "SignIn": "サインイン",
+            "AbandonAction": "ゲストセッションを破棄",
+            "Confirm": "セッションを破棄",
+            "Cancel": "セッションを保持"
+        }
     },
     "OrganizationSettings": {
         "Title": "組織設定",

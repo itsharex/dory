@@ -1,5 +1,5 @@
 'use client';
-import { GalleryVerticalEnd, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import posthog from 'posthog-js';
 import { cn } from '@/lib/utils';
 import { Label } from '@/registry/new-york-v4/ui/label';
@@ -106,66 +106,42 @@ export function SignUpForm({ className, callbackURL: callbackURLOverride, onRequ
 
     //--Original registration form
     return (
-        <div className={cn('flex flex-col gap-6', className)} {...props}>
-            <Card className="overflow-hidden">
-                <CardContent className="flex md:grid-cols-2 justify-center">
-                    <form onSubmit={onSubmit} noValidate>
+        <div className={cn('flex min-w-0 flex-col gap-6', className)} {...props}>
+            <Card className="overflow-hidden p-0">
+                <CardContent className="grid p-0 md:grid-cols-1">
+                    <form className="p-6 md:p-8" onSubmit={onSubmit} noValidate data-testid="sign-up-form">
                         <div className="flex flex-col gap-6">
-                            <div className="flex flex-col items-center gap-2">
-                                <a href="#" className="flex flex-col items-center gap-2 font-medium">
-                                    <div className="flex size-8 items-center justify-center rounded-md">
-                                        <GalleryVerticalEnd className="size-6" />
-                                    </div>
-                                    <span className="sr-only">{t('SignUp.BrandName')}</span>
-                                </a>
-                                <h1 className="text-xl font-bold">{t('SignUp.Title')}</h1>
-                                <div className="text-center text-sm">
-                                    {t('SignUp.AlreadyHaveAccount')}{' '}
-                                    {onRequestSignIn ? (
-                                        <button type="button" className="underline underline-offset-4" onClick={onRequestSignIn}>
-                                            {t('SignUp.SignIn')}
-                                        </button>
-                                    ) : (
-                                        <Link href={`/sign-in?callbackURL=${encodeURIComponent(callbackURLOverride || '/')}`} className="underline underline-offset-4">
-                                            {t('SignUp.SignIn')}
-                                        </Link>
-                                    )}
-                                </div>
+                            <div className="flex flex-col items-center text-center">
+                                <h1 className="text-2xl font-bold">{t('SignUp.Title')}</h1>
                             </div>
 
-                            <div className="flex flex-col gap-6">
-                                <div className="grid gap-3">
-                                    <Label htmlFor="name">{t('SignUp.Name')}</Label>
-                                    <Input id="name" name="name" type="text" placeholder={t('SignUp.NamePlaceholder')} autoComplete="name" />
-                                </div>
+                            <div className="grid gap-3">
+                                <Label htmlFor="name">{t('SignUp.Name')}</Label>
+                                <Input id="name" name="name" type="text" placeholder={t('SignUp.NamePlaceholder')} autoComplete="name" />
+                            </div>
 
-                                <div className="grid gap-3">
-                                    <Label htmlFor="email">{t('SignUp.Email')}</Label>
-                                    <Input id="email" name="email" type="email" placeholder={t('SignUp.EmailPlaceholder')} autoComplete="email" required />
-                                </div>
+                            <div className="grid gap-3">
+                                <Label htmlFor="email">{t('SignUp.Email')}</Label>
+                                <Input id="email" name="email" type="email" placeholder={t('SignUp.EmailPlaceholder')} autoComplete="email" required />
+                            </div>
 
-                                <div className="grid gap-3">
-                                    <Label htmlFor="password">{t('SignUp.Password')}</Label>
-                                    <InputPassword id="password" name="password" placeholder="" autoComplete="new-password" minLength={8} required />
-                                </div>
+                            <div className="grid gap-3">
+                                <Label htmlFor="password">{t('SignUp.Password')}</Label>
+                                <InputPassword id="password" name="password" placeholder="" autoComplete="new-password" minLength={8} required />
+                            </div>
 
-                                {err && (
-                                    <p className="text-sm text-red-500" aria-live="polite">
-                                        {err}
-                                    </p>
+                            {err ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{err}</div> : null}
+
+                            <Button type="submit" className="w-full" disabled={loading}>
+                                {loading ? (
+                                    <span className="inline-flex items-center gap-2">
+                                        <Loader2 className="size-4 animate-spin" />
+                                        {t('SignUp.Submitting')}
+                                    </span>
+                                ) : (
+                                    t('SignUp.Submit')
                                 )}
-
-                                <Button type="submit" className="w-full" disabled={loading}>
-                                    {loading ? (
-                                        <span className="inline-flex items-center gap-2">
-                                            <Loader2 className="size-4 animate-spin" />
-                                            {t('SignUp.Submitting')}
-                                        </span>
-                                    ) : (
-                                        t('SignUp.Submit')
-                                    )}
-                                </Button>
-                            </div>
+                            </Button>
 
                             <div className="after:border-border relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-t">
                                 <span className="bg-background text-muted-foreground relative z-10 px-2">{t('SignUp.Or')}</span>
@@ -208,6 +184,19 @@ export function SignUpForm({ className, callbackURL: callbackURLOverride, onRequ
                                     </svg>
                                     <span className="sr-only">{t('SignIn.LoginWithGoogle')}</span>
                                 </Button>
+                            </div>
+
+                            <div className="text-center text-sm">
+                                {t('SignUp.AlreadyHaveAccount')}{' '}
+                                {onRequestSignIn ? (
+                                    <button type="button" className="underline underline-offset-4" onClick={onRequestSignIn}>
+                                        {t('SignUp.SignIn')}
+                                    </button>
+                                ) : (
+                                    <Link href={`/sign-in?callbackURL=${encodeURIComponent(callbackURLOverride || '/')}`} className="underline underline-offset-4">
+                                        {t('SignUp.SignIn')}
+                                    </Link>
+                                )}
                             </div>
                         </div>
                     </form>

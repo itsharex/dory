@@ -102,7 +102,7 @@
             "ForgotPassword": "忘记密码？",
             "Submitting": "正在登录…",
             "Submit": "登录",
-            "DemoEnter": "以 Demo 身份进入",
+            "DemoEnter": "以访客身份继续",
             "OrContinueWith": "或使用以下方式继续",
             "LoginWithGithub": "使用 GitHub 登录",
             "LoginWithGoogle": "使用 Google 登录",

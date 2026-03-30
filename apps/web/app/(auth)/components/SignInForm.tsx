@@ -15,8 +15,6 @@ import { InputPassword } from '@/components/originui/input-password';
 import { authFetch } from '@/lib/client/auth-fetch';
 import { useTranslations } from 'next-intl';
 import { runtime, isDesktopRuntime } from '@/lib/runtime/runtime';
-import { Popover, PopoverContent, PopoverDescription, PopoverHeader, PopoverTitle, PopoverTrigger } from '@/registry/new-york-v4/ui/popover';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/registry/new-york-v4/ui/tooltip';
 
 type SignInFormProps = React.ComponentProps<'div'> & {
     imageUrl?: string;
@@ -32,13 +30,11 @@ export function SignInForm({ className, imageUrl, callbackURL: callbackURLOverri
     const searchParams = useSearchParams();
     const isDesktop = isDesktopRuntime();
     const [loading, setLoading] = useState(false);
-    const [demoLoading, setDemoLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [pwd, setPwd] = useState('');
     const [err, setErr] = useState<string | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
     const [guestLoading, setGuestLoading] = useState(false);
-    const [guestConfirmOpen, setGuestConfirmOpen] = useState(false);
     const callbackURL = callbackURLOverride || searchParams?.get('callbackURL') || '/';
 
     useEffect(() => {
@@ -221,27 +217,6 @@ export function SignInForm({ className, imageUrl, callbackURL: callbackURLOverri
         }
     }
 
-    async function onDemoSignIn() {
-        setErr(null);
-        setMsg(null);
-        setDemoLoading(true);
-        try {
-            const res = await authFetch('/api/auth/demo', { method: 'POST' });
-            if (!res.ok) {
-                const data = await res.json().catch(() => null);
-                throw new Error(data?.message ?? t('SignIn.LoginFailedRetry'));
-            }
-            posthog.capture('user_signed_in', { method: 'demo' });
-            router.refresh();
-            router.push(callbackURL);
-        } catch (e: any) {
-            setErr(e?.message ?? t('SignIn.NetworkErrorRetry'));
-            posthog.capture('user_sign_in_failed', { method: 'demo', error: e?.message });
-        } finally {
-            setDemoLoading(false);
-        }
-    }
-
     async function onGuestContinue() {
         setErr(null);
         setMsg(null);
@@ -263,7 +238,6 @@ export function SignInForm({ className, imageUrl, callbackURL: callbackURLOverri
                 throw new Error(typeof payload?.error === 'string' ? payload.error : t('SignIn.Guest.StartFailed'));
             }
 
-            setGuestConfirmOpen(false);
             router.refresh();
             router.push(`/${payload.organizationSlug}/connections`);
         } catch (nextError) {
@@ -275,7 +249,7 @@ export function SignInForm({ className, imageUrl, callbackURL: callbackURLOverri
 
     return (
         <>
-            <div className={cn('flex flex-col gap-6', className)} {...props}>
+            <div className={cn('flex min-w-0 flex-col gap-6', className)} {...props}>
                 <Card className="overflow-hidden p-0">
                     <CardContent className="grid p-0 md:grid-cols-1">
                         <form className="p-6 md:p-8" onSubmit={onSubmit} data-testid="sign-in-form">
@@ -319,20 +293,22 @@ export function SignInForm({ className, imageUrl, callbackURL: callbackURLOverri
                                     <InputPassword name="password" id="password" required value={pwd} onChange={e => setPwd(e.target.value)} autoComplete="current-password" />
                                 </div>
 
-                                <Button type="submit" className="w-full" disabled={loading || demoLoading || guestLoading}>
+                                <Button type="submit" className="w-full" disabled={loading || guestLoading}>
                                     {loading ? t('SignIn.Submitting') : t('SignIn.Submit')}
                                 </Button>
 
-                                {!isDesktop && showDemoOption ? (
+                                {!isDesktop && (showGuestOption || showDemoOption) ? (
                                     <Button
                                         type="button"
                                         className="w-full"
                                         variant="secondary"
-                                        disabled={loading || demoLoading || guestLoading}
-                                        onClick={onDemoSignIn}
-                                        data-testid="demo-sign-in"
+                                        disabled={loading || guestLoading}
+                                        onClick={() => {
+                                            void onGuestContinue();
+                                        }}
+                                        data-testid="guest-sign-in"
                                     >
-                                        {demoLoading ? t('SignIn.Submitting') : t('SignIn.DemoEnter')}
+                                        {guestLoading ? t('SignIn.Submitting') : t('SignIn.Guest.Action')}
                                     </Button>
                                 ) : null}
 
@@ -378,51 +354,6 @@ export function SignInForm({ className, imageUrl, callbackURL: callbackURLOverri
                                         <span className="sr-only">{t('SignIn.LoginWithGoogle')}</span>
                                     </Button>
                                 </div>
-
-                                {!isDesktop && showGuestOption ? (
-                                    <div className="flex justify-center">
-                                        <Popover open={guestConfirmOpen} onOpenChange={setGuestConfirmOpen}>
-                                            <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                    <PopoverTrigger asChild>
-                                                        <Button
-                                                            type="button"
-                                                            variant="ghost"
-                                                            className="text-muted-foreground hover:text-foreground"
-                                                            disabled={loading || demoLoading || guestLoading}
-                                                        >
-                                                            {guestLoading ? t('SignIn.Submitting') : t('SignIn.Guest.Action')}
-                                                        </Button>
-                                                    </PopoverTrigger>
-                                                </TooltipTrigger>
-                                                <TooltipContent side="bottom" className="max-w-xs">
-                                                    {t('SignIn.Guest.Tooltip')}
-                                                </TooltipContent>
-                                            </Tooltip>
-                                            <PopoverContent side="top" align="center" sideOffset={12} className="z-[120] w-80">
-                                                <PopoverHeader>
-                                                    <PopoverTitle>{t('SignIn.Guest.ConfirmTitle')}</PopoverTitle>
-                                                    <PopoverDescription>{t('SignIn.Guest.ConfirmDescription')}</PopoverDescription>
-                                                </PopoverHeader>
-                                                <div className="mt-4 flex justify-end gap-2">
-                                                    <Button type="button" variant="outline" size="sm" disabled={guestLoading} onClick={() => setGuestConfirmOpen(false)}>
-                                                        {t('SignIn.Guest.Cancel')}
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        disabled={guestLoading}
-                                                        onClick={() => {
-                                                            void onGuestContinue();
-                                                        }}
-                                                    >
-                                                        {guestLoading ? t('SignIn.Submitting') : t('SignIn.Guest.Confirm')}
-                                                    </Button>
-                                                </div>
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-                                ) : null}
 
                                 <div className="text-center text-sm">
                                     {t('SignIn.NoAccount')}{' '}

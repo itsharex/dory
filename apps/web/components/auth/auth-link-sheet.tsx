@@ -27,13 +27,12 @@ export function AuthLinkSheet({ open, onOpenChange, callbackURL }: AuthLinkSheet
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="bottom" className="h-[92vh] w-full overflow-y-auto rounded-t-3xl border-t px-0 pb-0 sm:max-w-none">
+            <SheetContent side="bottom" className="h-[95vh] w-full overflow-y-auto rounded-t-3xl border-t px-0 pb-0 sm:max-w-none">
                 <div className="mx-auto flex h-full w-full max-w-2xl flex-col px-6 pb-8">
                     <SheetHeader className="px-0 pt-6">
                         <SheetTitle>{t('AuthRequired.SheetTitle')}</SheetTitle>
                         <SheetDescription>{t('AuthRequired.SheetDescription')}</SheetDescription>
                     </SheetHeader>
-                    <div className="mt-2 rounded-xl border bg-muted/40 p-4 text-sm text-muted-foreground">{t('AuthRequired.WorkspaceNotice')}</div>
                     <Tabs value={tab} onValueChange={value => setTab(value as 'sign-in' | 'sign-up')} className="pb-8 pt-4">
                         <TabsList className="grid w-full grid-cols-2">
                             <TabsTrigger value="sign-in">{t('AuthRequired.SignInTab')}</TabsTrigger>

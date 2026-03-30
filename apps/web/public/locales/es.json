@@ -98,13 +98,22 @@
             "ForgotPassword": "¿Olvidaste tu contraseña?",
             "Submitting": "Iniciando sesión…",
             "Submit": "Entrar",
-            "DemoEnter": "Entrar como demo",
+            "DemoEnter": "Continuar como invitado",
             "OrContinueWith": "O continuar con",
             "LoginWithGithub": "Entrar con GitHub",
             "LoginWithGoogle": "Entrar con Google",
             "LoginWithMeta": "Entrar con Meta",
             "NoAccount": "¿No tienes una cuenta?",
             "SignUp": "Registrarse",
+            "Guest": {
+                "Action": "Continuar como invitado",
+                "Tooltip": "Ideal para quienes visitan por primera vez. Si más tarde inicias sesión con una cuenta existente, este espacio de trabajo de invitado se mantendrá como un espacio independiente.",
+                "ConfirmTitle": "¿Crear un espacio de trabajo temporal?",
+                "ConfirmDescription": "Crearemos un espacio de trabajo de invitado para ti de inmediato. Si más tarde inicias sesión con una cuenta existente, este espacio de trabajo seguirá siendo un espacio independiente.",
+                "Confirm": "Crear espacio de trabajo de invitado",
+                "Cancel": "Volver",
+                "StartFailed": "No se pudo iniciar el espacio de trabajo de invitado"
+            },
             "ContinueAgreement": "Al hacer clic en continuar, aceptas nuestros",
             "Terms": "Términos del servicio",
             "And": "y",
@@ -126,6 +135,10 @@
         },
         "TeamName": "Organización de {name}",
         "TeamDefaultName": "Predeterminado",
+        "AnonymousWorkspace": {
+            "Name": "Espacio de trabajo de invitado",
+            "LinkedName": "Espacio de trabajo de invitado importado"
+        },
         "Emails": {
             "ResetPassword": {
                 "Subject": "Restablece tu contraseña",
@@ -749,6 +762,17 @@
     "Chatbot": {
         "Close": "Cerrar",
         "EmptyState": "Selecciona una sesión o crea una nueva.",
+        "AuthRequired": {
+            "Title": "Inicia sesión para usar Chatbot",
+            "Description": "Los espacios de trabajo de invitado permiten explorar la app, pero Chatbot requiere una cuenta completa.",
+            "Hint": "Después de iniciar sesión, tu espacio de trabajo y tu organización actuales seguirán contigo.",
+            "WorkspaceNotice": "Si inicias sesión con una cuenta existente, este espacio de trabajo de invitado seguirá siendo un espacio independiente. Podrás cambiar entre espacios más tarde.",
+            "SignIn": "Inicia sesión para continuar",
+            "SheetTitle": "Continuar con una cuenta",
+            "SheetDescription": "Vincula este espacio de trabajo de invitado a una cuenta completa de Dory.",
+            "SignInTab": "Iniciar sesión",
+            "SignUpTab": "Crear cuenta"
+        },
         "Typing": "Generando",
         "Input": {
             "GlobalPlaceholder": "Usa @ para mencionar tablas y preguntar sobre la base de datos; Shift + Enter para una nueva línea",
@@ -817,6 +841,27 @@
         },
         "TableMention": {
             "Heading": "Tablas"
+        }
+    },
+    "Welcome": {
+        "Badge": "Modo anónimo",
+        "Title": "Empieza con un espacio de trabajo anónimo y mejora solo cuando necesites Chatbot.",
+        "Description": "Explora Dory de inmediato sin crear una cuenta. Crearemos un espacio de trabajo temporal para ti y conservaremos los datos de tu organización cuando más tarde inicies sesión.",
+        "CardTitle": "Entra en Dory al instante",
+        "CardDescription": "Crea una cuenta anónima y un espacio de trabajo personal con un solo clic.",
+        "Start": "Empezar con una cuenta anónima",
+        "Resume": "Continuar en el espacio de trabajo anónimo",
+        "Starting": "Preparando espacio de trabajo…",
+        "Hint": "Puedes seguir navegando de forma anónima. Cuando necesites Chatbot, inicia sesión y vincularemos este espacio de trabajo con tu cuenta real.",
+        "HaveAccount": "¿Ya tienes una cuenta?",
+        "SignIn": "Iniciar sesión",
+        "Highlights": {
+            "Instant": "Sin barrera de registro antes del primer uso.",
+            "Private": "Espacio de trabajo temporal limitado a tu sesión.",
+            "Upgrade": "Inicia sesión más tarde sin perder tu organización."
+        },
+        "Errors": {
+            "StartFailed": "No se pudo iniciar el espacio de trabajo anónimo. Inténtalo de nuevo."
         }
     },
     "Monitoring": {
@@ -1727,7 +1772,8 @@
                 "ConnectionIdRequired": "Se requiere el ID de conexión",
                 "ListSessionsFailed": "No se pudieron obtener las sesiones",
                 "CopilotCreationNotAllowed": "Las sesiones de Copilot no se pueden crear desde este endpoint",
-                "CreateSessionFailed": "No se pudo crear la sesión"
+                "CreateSessionFailed": "No se pudo crear la sesión",
+                "FullAccountRequired": "Inicia sesión para usar Chatbot."
             },
             "Tools": {
                 "Rag": {
@@ -2343,11 +2389,22 @@
         "StarNotificationDescription": "Dale una estrella en GitHub para ayudar a que más gente descubra el proyecto.",
         "StarNotificationAction": "Dar estrella en GitHub",
         "DismissStarNotification": "Cerrar aviso de estrella de GitHub",
+        "LogOut": "Cerrar sesión",
         "Update": "Actualizar",
         "Updating": "Actualizando...",
         "UpdateVersion": "Versión {version}",
         "UpdateTooltip": "Haz clic para reiniciar la app y actualizar a {version}",
-        "UpdateTooltipUnknown": "Haz clic para reiniciar la app y actualizar a la última versión"
+        "UpdateTooltipUnknown": "Haz clic para reiniciar la app y actualizar a la última versión",
+        "GuestSession": {
+            "Name": "Invitado",
+            "Subtitle": "Espacio de trabajo temporal",
+            "Title": "¿Abandonar la sesión de invitado?",
+            "Description": "Si sales ahora de esta sesión de invitado, la próxima vez que entres obtendrás una nueva cuenta de invitado. Los datos que no estén vinculados a una cuenta real quizá no puedan recuperarse.",
+            "SignIn": "Iniciar sesión",
+            "AbandonAction": "Abandonar sesión de invitado",
+            "Confirm": "Abandonar sesión",
+            "Cancel": "Mantener sesión"
+        }
     },
     "OrganizationSettings": {
         "Title": "Configuración de la organización",
