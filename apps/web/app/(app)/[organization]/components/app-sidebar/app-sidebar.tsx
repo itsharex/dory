@@ -2,12 +2,13 @@
 
 import { useParams } from 'next/navigation';
 import { IconFileAi, IconHelp, IconUsers } from '@tabler/icons-react';
+import { IconBrandGithub } from '@tabler/icons-react';
 import React from 'react';
 import { useTranslations } from 'next-intl';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenuButton } from '@/registry/new-york-v4/ui/sidebar';
 import { NavMain } from './nav-main';
 import { NavUser } from './nav-user';
-import { ArrowUpCircle, Compass, FileChartColumnIncreasing, SquareCode } from 'lucide-react';
+import { ArrowUpCircle, Compass, FileChartColumnIncreasing, SquareCode, Star, X } from 'lucide-react';
 import { NavSecondary } from './nav-secondary';
 import { ConnectionSwitcher } from './connection-switcher';
 import { Separator } from '@/registry/new-york-v4/ui/separator';
@@ -19,10 +20,15 @@ import type { User } from 'better-auth';
 import { useAtomValue } from 'jotai';
 import { currentConnectionAtom } from '@/shared/stores/app.store';
 import { buildExplorerBasePath, buildExplorerDatabasePath } from '@/lib/explorer/build-path';
+import { Button } from '@/registry/new-york-v4/ui/button';
+import { cn } from '@/lib/utils';
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
     initialUser?: User | null;
 };
+
+const GITHUB_REPO_URL = 'https://github.com/dorylab/dory';
+const SIDEBAR_STAR_NOTIFICATION_KEY = 'dory:sidebar:star-notification:v1';
 
 export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
     const params = useParams<{ organization: string; connectionId?: string }>();
@@ -47,6 +53,7 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
     const [isRestartingUpdate, setIsRestartingUpdate] = React.useState(false);
     const restartInFlightRef = React.useRef(false);
     const updateTooltip = updaterState.version ? t('UpdateTooltip', { version: updaterState.version }) : t('UpdateTooltipUnknown');
+    const [showStarNotification, setShowStarNotification] = React.useState<boolean | null>(null);
 
     const navMain = [
         {
@@ -118,6 +125,14 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
         };
     }, []);
 
+    React.useEffect(() => {
+        try {
+            setShowStarNotification(window.localStorage.getItem(SIDEBAR_STAR_NOTIFICATION_KEY) !== 'dismissed');
+        } catch {
+            setShowStarNotification(true);
+        }
+    }, []);
+
     const handleRestartAndInstall = async () => {
         if (!window.updateBridge || restartInFlightRef.current) return;
         restartInFlightRef.current = true;
@@ -134,6 +149,15 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
         }
     };
 
+    const dismissStarNotification = React.useCallback(() => {
+        try {
+            window.localStorage.setItem(SIDEBAR_STAR_NOTIFICATION_KEY, 'dismissed');
+        } catch {
+            // Ignore storage errors and only update local UI state.
+        }
+        setShowStarNotification(false);
+    }, []);
+
     return (
         <Sidebar {...props}>
             <ConnectionDialogRoot />
@@ -144,14 +168,45 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
             <SidebarContent>
                 <NavMain items={navMain} disabled={!connectionId} hasActiveConnection={!!connectionId} />
                 <div className="mt-auto space-y-2">
-                    <NavSecondary items={navSecondary} disabled={!connectionId} />
+                    {showStarNotification ? (
+                        <div className="px-2 group-data-[collapsible=icon]:hidden">
+                            <div className="relative rounded-2xl border border-sidebar-border/80 bg-sidebar-accent/40 p-2.5 text-sm text-sidebar-foreground shadow-sm">
+                                <div className="space-y-1.5 pr-6">
+                                    <div className="flex min-w-0 items-center gap-1">
+                                        <div className="inline-flex h-5.5 w-5.5 shrink-0 items-center justify-center rounded-md bg-primary/12 text-primary">
+                                            <Star className="h-3 w-3 fill-current" />
+                                        </div>
+                                        <p className="truncate whitespace-nowrap text-[12px] font-medium leading-none tracking-[-0.02em]">{t('StarNotificationTitle')}</p>
+                                    </div>
+                                    <p className="text-xs leading-4.5 text-muted-foreground">{t('StarNotificationDescription')}</p>
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
+                                    className={cn('absolute right-2 top-2 h-5 w-5 shrink-0 rounded-full text-muted-foreground hover:text-foreground')}
+                                    onClick={dismissStarNotification}
+                                    aria-label={t('DismissStarNotification')}
+                                >
+                                    <X className="h-3 w-3" />
+                                </Button>
+                                <Button asChild size="sm" className="mt-2.5 w-full justify-center rounded-xl px-3 text-[13px]">
+                                    <a href={GITHUB_REPO_URL} target="_blank" rel="noreferrer" className="min-w-0 gap-1.5">
+                                        <IconBrandGithub size={14} />
+                                        <span className="truncate whitespace-nowrap">{t('StarNotificationAction')}</span>
+                                    </a>
+                                </Button>
+                            </div>
+                        </div>
+                    ) : null}
+                    <NavSecondary items={navSecondary} />
                 </div>
             </SidebarContent>
 
             <div className="relative min-h-10 px-5 pb-3 pt-2 group-data-[collapsible=icon]:px-0">
                 <div className="flex items-center gap-6 transition-[opacity,transform] duration-0 ease-out group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:translate-y-1 group-data-[collapsible=icon]:opacity-0">
                     <a
-                        href="https://github.com/dorylab/dory"
+                        href={GITHUB_REPO_URL}
                         target="_blank"
                         rel="noreferrer"
                         className="inline-flex items-center gap-2 text-muted-foreground transition-colors hover:text-foreground"
