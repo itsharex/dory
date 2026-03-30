@@ -1,4 +1,5 @@
 import type { MainTranslator } from '../i18n.js';
+import type { MainLocale } from '../locale.js';
 import type { LogFn } from '../logger.js';
 
 type ProgressInfo = import('electron-updater').ProgressInfo;
@@ -45,7 +46,7 @@ export interface SetupUpdaterOptions {
     log: LogFn;
     logWarn: LogFn;
     logError: LogFn;
-    locale: string;
+    locale: MainLocale;
     t: MainTranslator;
 }
 

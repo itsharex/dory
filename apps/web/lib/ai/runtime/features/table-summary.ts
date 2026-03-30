@@ -32,7 +32,7 @@ type GetTableSummaryOptions = {
 
     model?: string | null;
     feature?: string;        // Default 'table_summary'
-    promptVersion?: number;  // Default 1
+    promptVersion?: number;  // Default 2
     algoVersion?: number;
     ignoreCache?: boolean;
 };
@@ -51,7 +51,7 @@ export async function getTableSummaryWithCache(options: GetTableSummaryOptions) 
         locale,
         model,
         feature = 'table_summary',
-        promptVersion = 1,
+        promptVersion = 2,
         algoVersion,
         ignoreCache = false,
     } = options;

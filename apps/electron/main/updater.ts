@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import electronUpdater from 'electron-updater';
 import { isDev } from './constants.js';
 import type { MainTranslator } from './i18n.js';
+import type { MainLocale } from './locale.js';
 import type { LogFn } from './logger.js';
 import {
     createCheckInProgressState,
@@ -947,4 +948,8 @@ export function setupUpdater({ log, logWarn, logError, locale, t }: SetupUpdater
         openUpdateDialogDebug,
         startAutoUpdateChecks,
     };
+}
+
+export function setUpdaterLocale(locale: MainLocale) {
+    currentLocale = locale;
 }

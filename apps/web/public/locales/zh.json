@@ -310,11 +310,11 @@
     },
     "SQLConsoleSidebar": {
         "Select database": "选择数据库",
-        "Select schema": "选择 Schema",
+        "Select schema": "选择模式",
         "Search databases": "搜索数据库...",
-        "Search schemas": "搜索 Schema...",
+        "Search schemas": "搜索模式...",
         "Databases": "数据库",
-        "Schemas": "Schemas",
+        "Schemas": "模式",
         "No results": "未找到匹配项",
         "Filter tables": "筛选表",
         "No matching tables found": "未找到匹配的表",
@@ -332,8 +332,8 @@
         "Views": "视图",
         "Functions": "函数",
         "System": "系统",
-        "Loading schemas": "正在加载 Schema",
-        "No schemas": "暂无 Schema",
+        "Loading schemas": "正在加载模式",
+        "No schemas": "暂无模式",
         "No tables": "暂无表",
         "No materialized views": "暂无物化视图",
         "No views": "暂无视图",
@@ -451,27 +451,27 @@
     },
     "PostgresExplorer": {
         "Tabs": {
-            "summary": "Summary",
-            "schemas": "Schemas",
-            "search": "Search",
-            "extensions": "Extensions",
-            "tables": "Tables",
-            "views": "Views",
-            "functions": "Functions",
-            "sequences": "Sequences",
-            "overview": "Overview",
-            "data": "Data",
-            "structure": "Structure",
-            "stats": "Stats",
-            "indexes": "Indexes"
+            "summary": "概览",
+            "schemas": "模式",
+            "search": "搜索",
+            "extensions": "扩展",
+            "tables": "表",
+            "views": "视图",
+            "functions": "函数",
+            "sequences": "序列",
+            "overview": "总览",
+            "data": "数据",
+            "structure": "结构",
+            "stats": "统计",
+            "indexes": "索引"
         },
         "Schemas": {
-            "SearchPlaceholder": "搜索 Schema",
-            "Empty": "暂无 Schema",
-            "FilteredEmpty": "未找到匹配的 Schema"
+            "SearchPlaceholder": "搜索模式",
+            "Empty": "暂无模式",
+            "FilteredEmpty": "未找到匹配的模式"
         },
         "Search": {
-            "Placeholder": "搜索 Schema、表、视图、函数或序列",
+            "Placeholder": "搜索模式、表、视图、函数或序列",
             "Empty": "未找到匹配对象"
         },
         "Extensions": {
@@ -640,24 +640,24 @@
         "Failed to save summary": "保存概览失败",
         "Failed to save summary note": "保存概览备注失败。",
         "Database Summary": "数据库总览",
-        "Schema Summary": "Schema 总览",
+        "Schema Summary": "模式总览",
         "Summary unavailable description": "概览数据暂时不可用。",
         "Failed to load summary": "无法加载概览",
         "Retry": "重试",
         "Database summary description": "快速了解当前数据库的关键信息、结构特征与下一步入口。",
-        "Schema summary description": "快速了解当前 Schema 的关键信息、结构特征与下一步入口。",
-        "Overview": "Overview",
-        "Overview description": "先看清这个 Schema 的关键事实。",
-        "Insights": "Insights",
+        "Schema summary description": "快速了解当前模式的关键信息、结构特征与下一步入口。",
+        "Overview": "概览",
+        "Overview description": "先看清这个模式的关键事实。",
+        "Insights": "洞察",
         "Insights description": "用更直接的方式理解规模、结构和探索成本。",
-        "Quick access": "Quick access",
+        "Quick access": "快速入口",
         "Quick access description": "直接进入下一步最值得看的内容。",
-        "Schema in database": "{database} 中的 Schema",
+        "Schema in database": "{database} 中的模式",
         "Database in catalog": "{catalog} 中的数据库",
         "Object mix": "对象构成",
         "Object mix headline": "{tables} 张表，{views} 个视图",
         "Object mix support": "{materializedViews} 个物化视图，{functions} 个函数",
-        "Object mix note": "先用对象构成判断这个 Schema 的探索范围。",
+        "Object mix note": "先用对象构成判断这个模式的探索范围。",
         "Table scale": "表规模",
         "Column shape": "字段结构",
         "No table size signal": "暂无表规模信号",
@@ -672,15 +672,15 @@
         "Max columns insight": "最多 {value} 个字段",
         "Widest insight": "最宽表：{table}",
         "Identity": "身份",
-        "Identity description": "先确认 Schema 上下文，再进入具体表的探索。",
+        "Identity description": "先确认模式上下文，再进入具体表的探索。",
         "Database": "数据库",
         "Catalog": "目录",
-        "Schema": "Schema",
+        "Schema": "模式",
         "Engine": "引擎",
         "Cluster / Endpoint": "集群 / 终端",
         "Size & Activity": "规模与活跃度",
         "Structure": "结构",
-        "Structure description": "从对象类型、表规模和字段复杂度理解这个 Schema 的结构画像。",
+        "Structure description": "从对象类型、表规模和字段复杂度理解这个模式的结构画像。",
         "Object Type Distribution": "对象类型分布",
         "Table Size Distribution": "表规模分布",
         "Column Complexity": "字段复杂度",
@@ -693,7 +693,7 @@
         "Highlights": "重点",
         "Highlights description": "优先展示最值得查看的表、关系结构和命名模式。",
         "Core Tables": "核心表",
-        "Core Tables description": "基于规则推断出的 Schema 核心表。",
+        "Core Tables description": "基于规则推断出的模式核心表。",
         "Largest Tables": "最大表",
         "Largest Tables description": "按存储占用排序的重点表。",
         "Tables": "表",
@@ -1200,6 +1200,8 @@
             "RunQueryFirst": "请先运行查询",
             "NoResults": "无结果",
             "Overview": "概览",
+            "Table": "表格",
+            "Charts": "图表",
             "ResultTab": "结果 {index}",
             "WaitingForResults": "等待结果中...",
             "DownloadCsvTitle": "下载 CSV"
@@ -1249,9 +1251,10 @@
             "Run": "运行",
             "Limit": "限制",
             "Saved": "已保存",
-            "SaveSql": "保存 SQL",
+            "SaveQuery": "保存查询",
             "Stop": "停止"
         },
+        "Refresh": "刷新",
         "Sidebar": {
             "Tables": "表",
             "SavedQueries": "保存的查询"
@@ -1472,13 +1475,13 @@
             "DefaultRoleLabel": "默认角色",
             "DefaultRolePlaceholder": "选择默认角色（可选）",
             "DefaultRoleNone": "无默认角色",
-            "OnClusterLabel": "On cluster",
+            "OnClusterLabel": "应用到集群",
             "OnClusterDescription": "将操作应用到选定的集群。",
             "ClusterLabel": "集群",
             "ClusterPlaceholder": "选择一个集群",
-            "ClusterDescription": "选择用于执行 ON CLUSTER 的集群。",
+            "ClusterDescription": "选择用于执行 ON CLUSTER 操作的集群。",
             "ClusterLoading": "正在加载集群...",
-            "ClusterMissing": "未检测到集群配置，已退回 This node",
+            "ClusterMissing": "未检测到集群配置，已回退到当前节点",
             "Errors": {
                 "NameRequired": "请输入用户名"
             }
@@ -1488,36 +1491,36 @@
             "EditTitle": "编辑角色 {name}",
             "NameLabel": "角色名称",
             "NamePlaceholder": "例如 readonly",
-            "OnClusterLabel": "On cluster",
+            "OnClusterLabel": "应用到集群",
             "OnClusterDescription": "将操作应用到选定的集群。",
             "ClusterLabel": "集群",
             "ClusterPlaceholder": "选择一个集群",
-            "ClusterDescription": "选择用于执行 ON CLUSTER 的集群。",
+            "ClusterDescription": "选择用于执行 ON CLUSTER 操作的集群。",
             "ClusterLoading": "正在加载集群...",
-            "ClusterMissing": "未检测到集群配置，已退回 This node",
+            "ClusterMissing": "未检测到集群配置，已回退到当前节点",
             "Errors": {
                 "NameRequired": "请输入角色名称"
             }
         },
         "GlobalGrantDialog": {
             "Title": "添加全局权限",
-            "Description": "选择要授予该{entity}的 Global 权限，可多选。",
+            "Description": "选择要授予该{entity}的全局权限，可多选。",
             "Empty": "暂无可添加的全局权限。"
         },
         "GlobalRevokeDialog": {
             "Title": "撤销全局权限",
-            "Description": "请选择要从 Global 撤销的权限，可多选。",
+            "Description": "请选择要撤销的全局权限，可多选。",
             "Empty": "暂无可撤销的全局权限。"
         },
         "GlobalPrivileges": {
-            "Title": "Global 权限",
-            "GlobalLabel": "Global",
+            "Title": "全局权限",
+            "GlobalLabel": "全局",
             "Columns": {
                 "Name": "名称",
                 "Actions": "操作"
             },
-            "AllGranted": "该{entity}已拥有 ALL Global 权限。",
-            "Empty": "暂无 Global 权限。"
+            "AllGranted": "该{entity}已拥有全部全局权限。",
+            "Empty": "暂无全局权限。"
         },
         "PrivilegeDetails": {
             "Title": "权限明细",
@@ -2123,6 +2126,146 @@
             "Dark": "深色",
             "System": "跟随系统"
         },
+        "LocaleToggle": {
+            "ToggleLanguage": "切换语言",
+            "Current": "当前"
+        },
+        "Settings": {
+            "Title": "设置",
+            "Description": "应用设置",
+            "SearchPlaceholder": "搜索设置",
+            "Categories": {
+                "Appearance": {
+                    "Label": "外观",
+                    "Title": "主题与外观",
+                    "Description": "控制应用的视觉风格与观感。",
+                    "Tag": "主题"
+                },
+                "Editor": {
+                    "Label": "编辑器",
+                    "Title": "编辑器设置",
+                    "Description": "自定义 SQL 编辑器的外观与行为。",
+                    "Tag": "SQL"
+                },
+                "Data": {
+                    "Label": "数据",
+                    "Title": "数据管理",
+                    "Description": "导出和导入工作区数据。"
+                },
+                "About": {
+                    "Label": "关于",
+                    "Title": "关于",
+                    "Description": "版本、许可证与鸣谢。"
+                }
+            },
+            "Appearance": {
+                "ModeLabel": "外观模式",
+                "ModeDescription": "跟随系统，或强制使用浅色/深色。",
+                "LanguageLabel": "语言",
+                "LanguageDescription": "选择应用界面显示语言。",
+                "ThemeLabel": "配色主题",
+                "ThemeDescription": "默认 / 蓝色 / 绿色 / 琥珀 / …",
+                "FontSizeLabel": "字体大小",
+                "FontSizeDescription": "调整整个界面的文字大小。"
+            },
+            "ThemeMode": {
+                "System": "跟随系统",
+                "Light": "浅色",
+                "Dark": "深色"
+            },
+            "FontSize": {
+                "Small": "小",
+                "Default": "默认",
+                "Large": "大"
+            },
+            "ColorTheme": {
+                "Placeholder": "选择主题",
+                "Groups": {
+                    "Default": "默认",
+                    "Scaled": "缩放",
+                    "Monospaced": "等宽"
+                },
+                "Options": {
+                    "default": "默认",
+                    "blue": "蓝色",
+                    "green": "绿色",
+                    "amber": "琥珀",
+                    "liquid": "流体",
+                    "mono": "等宽"
+                }
+            },
+            "Language": {
+                "Placeholder": "选择语言"
+            },
+            "Editor": {
+                "ThemeLabel": "编辑器主题",
+                "ThemeDescription": "选择 SQL 编辑器的配色主题。",
+                "FontFamilyLabel": "字体",
+                "FontFamilyDescription": "选择编辑器使用的字体。",
+                "CustomFontLabel": "自定义字体",
+                "CustomFontDescription": "输入一个 CSS font-family 值。",
+                "CustomFontPlaceholder": "例如：\"JetBrains Mono\", monospace",
+                "FontSizeLabel": "字号",
+                "FontSizeDescription": "调整编辑器文字大小。",
+                "LineHeightLabel": "行高",
+                "LineHeightDescription": "控制行间距倍率（1.1-2.2）。",
+                "QueryLimitLabel": "默认查询限制",
+                "QueryLimitDescription": "设置执行 SQL 时默认附带的 LIMIT。",
+                "LineNumbersLabel": "行号",
+                "LineNumbersDescription": "显示或隐藏行号。",
+                "MinimapLabel": "缩略图",
+                "MinimapDescription": "在右侧显示代码缩略图。",
+                "WordWrapLabel": "自动换行",
+                "WordWrapDescription": "在编辑器内换行显示长文本。",
+                "CodeFoldingLabel": "代码折叠",
+                "CodeFoldingDescription": "启用代码折叠控件。",
+                "ThemeOptions": {
+                    "auto": "自动（跟随应用）",
+                    "github-light": "GitHub 浅色",
+                    "github-dark": "GitHub 深色",
+                    "vs": "VS 浅色",
+                    "vs-dark": "VS 深色"
+                },
+                "FontFamilyOptions": {
+                    "monaco": "Monaco",
+                    "menlo": "Menlo",
+                    "consolas": "Consolas",
+                    "jetbrains-mono": "JetBrains Mono",
+                    "fira-code": "Fira Code",
+                    "source-code-pro": "Source Code Pro",
+                    "custom": "自定义"
+                }
+            },
+            "Data": {
+                "ExportLabel": "导出工作区",
+                "ExportDescription": "将连接和保存的查询导出为 JSON 文件，不包含密码和密钥。",
+                "ExportAction": "导出",
+                "ImportLabel": "导入工作区",
+                "ImportDescription": "从之前导出的 JSON 文件中导入连接和保存的查询。",
+                "ImportAction": "导入",
+                "ExportSuccess": "工作区导出成功。",
+                "ExportFailed": "导出失败",
+                "ExportFailedRetry": "导出失败，请重试。",
+                "ImportFailed": "导入失败",
+                "ImportFailedRetry": "导入失败，请重试。",
+                "InvalidJson": "无效的 JSON 文件。",
+                "ImportSummary": {
+                    "Connections": "{count} 个连接",
+                    "Folders": "{count} 个文件夹",
+                    "Queries": "{count} 条查询",
+                    "QueriesSkipped": "{count} 条查询已跳过",
+                    "Separator": "，",
+                    "Success": "已导入：{summary}。",
+                    "Empty": "没有可导入的数据。"
+                }
+            },
+            "About": {
+                "Subtitle": "新一代数据工作台",
+                "Version": "版本",
+                "GitHub": "GitHub",
+                "Footer": "© 2026 Dory Lab · 用心打造"
+            }
+        },
         "QueryClient": {
             "Error": "发生错误：{message}"
         },
@@ -2191,17 +2334,88 @@
     },
     "AppSidebar": {
         "SQLConsole": "SQL 控制台",
-        "Explorer": "Explorer",
-        "Schema": "Schema",
-        "Chatbot": "Chatbot",
+        "Explorer": "资源浏览",
+        "Schema": "模式",
+        "Chatbot": "聊天助手",
         "Monitoring": "监控",
         "Privileges": "权限",
-        "GetHelp": "获取帮助",
+        "GetHelp": "帮助",
         "Update": "更新",
         "Updating": "更新中...",
         "UpdateVersion": "版本 {version}",
         "UpdateTooltip": "点击后将重启应用并升级到 {version}",
         "UpdateTooltipUnknown": "点击后将重启应用并升级到最新版本"
+    },
+    "OrganizationSettings": {
+        "Title": "组织设置",
+        "Description": "管理组织信息和访问权限。",
+        "Nav": {
+            "Organization": "组织",
+            "Billing": "账单"
+        },
+        "Organization": {
+            "CardTitle": "基本信息",
+            "CardDescription": "更新工作区 URL 中展示的组织名称和 slug。",
+            "Fields": {
+                "Name": "名称",
+                "Slug": "Slug",
+                "OrganizationId": "组织 ID"
+            },
+            "Loading": "加载中...",
+            "Saving": "保存中...",
+            "SaveChanges": "保存更改",
+            "ReadOnlyHint": "你当前的角色不允许修改组织设置。",
+            "Toasts": {
+                "Updated": "组织已更新",
+                "UpdateFailed": "更新组织失败"
+            },
+            "Errors": {
+                "SlugRequired": "Slug 不能为空",
+                "SlugInvalid": "Slug 只能包含小写字母、数字和连字符"
+            }
+        },
+        "Billing": {
+            "Title": "账单",
+            "Description": "查看当前组织套餐，升级到 Pro，或在 Stripe 中管理账单。",
+            "UnavailableDescription": "无法加载组织账单信息。",
+            "CurrentPlan": "当前套餐",
+            "Loading": "加载中...",
+            "LoadingBillingStatus": "正在加载账单状态...",
+            "UpgradeToPro": "升级到 Pro",
+            "ManageBilling": "管理账单",
+            "Redirecting": "正在跳转...",
+            "Opening": "正在打开...",
+            "ReadOnlyHint": "只有组织所有者可以升级、取消或管理账单。你当前在这里是只读权限。",
+            "NoSubscription": "无订阅",
+            "NotAvailable": "暂无",
+            "CancellationScheduled": "已计划在 {date} 取消订阅。",
+            "Plan": {
+                "Pro": "Pro",
+                "Hobby": "Hobby"
+            },
+            "Details": {
+                "Plan": "套餐",
+                "SubscriptionStatus": "订阅状态",
+                "StripeSubscriptionId": "Stripe 订阅 ID",
+                "CurrentPeriodEnd": "当前周期结束时间"
+            },
+            "Status": {
+                "CancelAtPeriodEnd": "Pro 将持续有效到 {date}。取消会在当前计费周期结束时生效。",
+                "NoSubscription": "当前组织没有生效中的付费订阅。",
+                "Canceled": "付费订阅已取消，组织当前保持在 Hobby 套餐。",
+                "Inactive": "最近一次付费订阅当前未生效。在 Stripe 报告为 active 或 trialing 的 Pro 订阅之前，组织会保持在 Hobby 套餐。",
+                "Reported": "Stripe 返回的最新订阅状态为 {status}。"
+            },
+            "Errors": {
+                "OrganizationNotFound": "未找到组织",
+                "CheckoutFailed": "发起结账失败",
+                "NoManageableSubscription": "没有可管理的订阅",
+                "PortalFailed": "打开账单门户失败",
+                "LoadBillingFailed": "加载账单状态失败。",
+                "LoadOrganizationFailed": "加载组织详情失败。",
+                "UnresolvedFromUrl": "无法从当前 URL 解析出组织信息。"
+            }
+        }
     },
     "Routes": {
         "SQL Console": "SQL 控制台"

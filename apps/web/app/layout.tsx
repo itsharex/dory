@@ -12,6 +12,7 @@ import { getLocale, getMessages } from 'next-intl/server';
 
 import { cn } from '@/lib/utils';
 import { ActiveThemeProvider } from '@/components/active-theme';
+import { ElectronLocaleSync } from '@/components/electron-locale-sync';
 import { FontSizeProvider } from '@/components/font-size-provider';
 import { ElectronThemeSync } from '@/components/electron-theme-sync';
 
@@ -115,6 +116,7 @@ export default async function RootLayout({
                     <NextIntlClientProvider locale={locale} messages={messages}>
                         <JotaiProvider>
                             <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange enableColorScheme>
+                                <ElectronLocaleSync />
                                 <ElectronThemeSync />
                                 <ActiveThemeProvider initialTheme={activeThemeValue}>
                                     {children}

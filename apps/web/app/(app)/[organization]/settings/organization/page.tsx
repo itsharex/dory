@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/registry/new-york-v4/ui/card';
@@ -13,6 +14,7 @@ import { getFullOrganization, getOrganizationAccess, slugifyOrganizationName, up
 export default function OrganizationSettingsPage() {
     const params = useParams<{ organization: string }>();
     const organizationSlug = params.organization;
+    const t = useTranslations('OrganizationSettings.Organization');
     const queryClient = useQueryClient();
     const [name, setName] = useState('');
     const [slug, setSlug] = useState('');
@@ -36,11 +38,11 @@ export default function OrganizationSettingsPage() {
         mutationFn: () => {
             const normalizedSlug = slugifyOrganizationName(slug);
             if (!slug.trim()) {
-                throw new Error('Slug is required');
+                throw new Error(t('Errors.SlugRequired'));
             }
 
             if (normalizedSlug !== slug.trim()) {
-                throw new Error('Slug can only contain lowercase letters, numbers, and hyphens');
+                throw new Error(t('Errors.SlugInvalid'));
             }
 
             return updateOrganization({
@@ -50,7 +52,7 @@ export default function OrganizationSettingsPage() {
             });
         },
         onSuccess: async updated => {
-            toast.success('Organization updated');
+            toast.success(t('Toasts.Updated'));
             await queryClient.invalidateQueries({ queryKey: ['organization-full'] });
             await queryClient.invalidateQueries({ queryKey: ['organization-list'] });
             if (updated?.slug && updated.slug !== organizationSlug) {
@@ -58,7 +60,7 @@ export default function OrganizationSettingsPage() {
             }
         },
         onError: error => {
-            toast.error(error instanceof Error ? error.message : 'Failed to update organization');
+            toast.error(error instanceof Error ? error.message : t('Toasts.UpdateFailed'));
         },
     });
 
@@ -69,14 +71,12 @@ export default function OrganizationSettingsPage() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Details</CardTitle>
-                <CardDescription>
-                    Update the public name and slug used in the workspace URL.
-                </CardDescription>
+                <CardTitle>{t('CardTitle')}</CardTitle>
+                <CardDescription>{t('CardDescription')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid gap-2">
-                    <Label htmlFor="organization-name">Name</Label>
+                    <Label htmlFor="organization-name">{t('Fields.Name')}</Label>
                     <Input
                         id="organization-name"
                         value={name}
@@ -85,7 +85,7 @@ export default function OrganizationSettingsPage() {
                     />
                 </div>
                 <div className="grid gap-2">
-                    <Label htmlFor="organization-slug">Slug</Label>
+                    <Label htmlFor="organization-slug">{t('Fields.Slug')}</Label>
                     <Input
                         id="organization-slug"
                         value={slug}
@@ -95,19 +95,19 @@ export default function OrganizationSettingsPage() {
                 </div>
                 <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3 text-sm">
                     <div>
-                        <div className="font-medium">Organization ID</div>
-                        <div className="text-muted-foreground">{organization?.id ?? 'Loading...'}</div>
+                        <div className="font-medium">{t('Fields.OrganizationId')}</div>
+                        <div className="text-muted-foreground">{organization?.id ?? t('Loading')}</div>
                     </div>
                     <Button
                         onClick={() => updateMutation.mutate()}
                         disabled={!organization || !canUpdate || !name.trim() || !slug.trim() || updateMutation.isPending}
                     >
-                        {updateMutation.isPending ? 'Saving...' : 'Save changes'}
+                        {updateMutation.isPending ? t('Saving') : t('SaveChanges')}
                     </Button>
                 </div>
                 {!canUpdate ? (
                     <p className="text-sm text-muted-foreground">
-                        Your current role does not allow updating organization settings.
+                        {t('ReadOnlyHint')}
                     </p>
                 ) : null}
             </CardContent>

@@ -1,3 +1,6 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
 import { IconBrandGithub } from '@tabler/icons-react';
 import { ExternalLink } from 'lucide-react';
 import { Badge } from '@/registry/new-york-v4/ui/badge';
@@ -5,6 +8,8 @@ import { DoryLogo } from '@/components/@dory/ui/logo';
 import packageJson from '../../../../package.json';
 
 export function AboutPanel() {
+    const t = useTranslations('DoryUI.Settings');
+
     return (
         <div>
             <div className="flex items-center gap-3 text-2xl font-semibold tracking-tight">
@@ -12,9 +17,9 @@ export function AboutPanel() {
                     <DoryLogo className='h-full block' />
                 </div>
             </div>
-            <div className="mt-1 text-sm text-muted-foreground">Next-generation Data Studio</div>
+            <div className="mt-1 text-sm text-muted-foreground">{t('About.Subtitle')}</div>
             <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Version</span>
+                <span>{t('About.Version')}</span>
                 <Badge variant="secondary">{packageJson.version}</Badge>
             </div>
 
@@ -26,7 +31,7 @@ export function AboutPanel() {
                     rel="noreferrer"
                 >
                     <IconBrandGithub size={18} />
-                    <span className="font-medium">GitHub</span>
+                    <span className="font-medium">{t('About.GitHub')}</span>
                     <span className="text-xs text-muted-foreground group-hover:text-primary">dorylab/dory</span>
                     <ExternalLink className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary" />
                 </a>
@@ -35,7 +40,7 @@ export function AboutPanel() {
                 </div> */}
             </div>
 
-            <div className="mt-8 text-xs text-muted-foreground">© 2026 Dory Lab · Built with ❤️</div>
+            <div className="mt-8 text-xs text-muted-foreground">{t('About.Footer')}</div>
         </div>
     );
 }

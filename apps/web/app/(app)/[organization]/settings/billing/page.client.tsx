@@ -3,15 +3,16 @@
 import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/registry/new-york-v4/ui/card';
 import { getOrganizationBillingStatus, openOrganizationBillingPortal, upgradeOrganizationToPro } from '@/lib/billing/api';
 import { getOrganizationAccess, getFullOrganization } from '@/lib/organization/api';
 
-function formatDate(value: string | null) {
+function formatDate(value: string | null, fallback: string) {
     if (!value) {
-        return 'N/A';
+        return fallback;
     }
 
     const date = new Date(value);
@@ -22,29 +23,37 @@ function formatDate(value: string | null) {
     return date.toLocaleString();
 }
 
-function getStatusDescription(status: string | null, cancelAtPeriodEnd: boolean, periodEnd: string | null) {
+function getStatusDescription(
+    status: string | null,
+    cancelAtPeriodEnd: boolean,
+    periodEnd: string | null,
+    t: (key: string, values?: Record<string, string>) => string,
+    formatWithFallback: (value: string | null) => string,
+) {
     if (cancelAtPeriodEnd) {
-        return `Pro remains active until ${formatDate(periodEnd)}. Cancellation is scheduled at the end of the current billing period.`;
+        return t('Status.CancelAtPeriodEnd', { date: formatWithFallback(periodEnd) });
     }
 
     if (!status) {
-        return 'No paid subscription is active for this organization.';
+        return t('Status.NoSubscription');
     }
 
     if (status === 'canceled') {
-        return 'The paid subscription has been canceled. The organization remains on Hobby.';
+        return t('Status.Canceled');
     }
 
     if (status === 'incomplete' || status === 'incomplete_expired' || status === 'past_due' || status === 'unpaid') {
-        return 'The last paid subscription is not active. The organization remains on Hobby until Stripe reports an active or trialing Pro subscription.';
+        return t('Status.Inactive');
     }
 
-    return `Stripe reports the latest subscription status as ${status}.`;
+    return t('Status.Reported', { status });
 }
 
 export default function BillingSettingsPageClient() {
     const params = useParams<{ organization: string }>();
     const organizationSlug = params.organization;
+    const t = useTranslations('OrganizationSettings.Billing');
+    const formatWithFallback = (value: string | null) => formatDate(value, t('NotAvailable'));
 
     const organizationQuery = useQuery({
         queryKey: ['organization-full', organizationSlug],
@@ -67,26 +76,26 @@ export default function BillingSettingsPageClient() {
     const upgradeMutation = useMutation({
         mutationFn: async () => {
             if (!organizationQuery.data?.id) {
-                throw new Error('Organization not found');
+                throw new Error(t('Errors.OrganizationNotFound'));
             }
 
             await upgradeOrganizationToPro(organizationQuery.data.id, organizationSlug);
         },
         onError: error => {
-            toast.error(error instanceof Error ? error.message : 'Failed to start checkout');
+            toast.error(error instanceof Error ? error.message : t('Errors.CheckoutFailed'));
         },
     });
 
     const portalMutation = useMutation({
         mutationFn: async () => {
             if (!organizationQuery.data?.id || !billingStatusQuery.data?.subscriptionId) {
-                throw new Error('No manageable subscription found');
+                throw new Error(t('Errors.NoManageableSubscription'));
             }
 
             await openOrganizationBillingPortal(organizationQuery.data.id, organizationSlug, billingStatusQuery.data.subscriptionId);
         },
         onError: error => {
-            toast.error(error instanceof Error ? error.message : 'Failed to open billing portal');
+            toast.error(error instanceof Error ? error.message : t('Errors.PortalFailed'));
         },
     });
 
@@ -96,39 +105,41 @@ export default function BillingSettingsPageClient() {
     const isOrganizationLoading = organizationQuery.isLoading;
     const isBillingLoading = organizationQuery.isSuccess && billingStatusQuery.isLoading;
     const isLoading = isOrganizationLoading || isBillingLoading;
-    const currentPlanLabel = billingStatus?.plan === 'pro' ? 'Pro' : 'Hobby';
+    const currentPlanLabel = billingStatus?.plan === 'pro' ? t('Plan.Pro') : t('Plan.Hobby');
     const billingDescription = billingStatusQuery.isError
         ? billingStatusQuery.error instanceof Error
             ? billingStatusQuery.error.message
-            : 'Failed to load billing status.'
+            : t('Errors.LoadBillingFailed')
         : isLoading
-          ? 'Loading billing status...'
+          ? t('LoadingBillingStatus')
           : getStatusDescription(
                 billingStatus?.subscriptionStatus ?? null,
                 billingStatus?.cancelAtPeriodEnd ?? false,
                 billingStatus?.periodEnd ?? null,
+                t,
+                formatWithFallback,
             );
 
     const detailRows = useMemo(
         () => [
-            { label: 'Plan', value: currentPlanLabel },
-            { label: 'Subscription status', value: billingStatus?.subscriptionStatus ?? 'No subscription' },
-            { label: 'Stripe subscription ID', value: billingStatus?.stripeSubscriptionId ?? 'N/A' },
-            { label: 'Current period end', value: formatDate(billingStatus?.periodEnd ?? null) },
+            { label: t('Details.Plan'), value: currentPlanLabel },
+            { label: t('Details.SubscriptionStatus'), value: billingStatus?.subscriptionStatus ?? t('NoSubscription') },
+            { label: t('Details.StripeSubscriptionId'), value: billingStatus?.stripeSubscriptionId ?? t('NotAvailable') },
+            { label: t('Details.CurrentPeriodEnd'), value: formatWithFallback(billingStatus?.periodEnd ?? null) },
         ],
-        [billingStatus, currentPlanLabel],
+        [billingStatus, currentPlanLabel, t],
     );
 
     if (organizationQuery.isError) {
         return (
             <Card>
                 <CardHeader>
-                    <CardTitle>Billing</CardTitle>
-                    <CardDescription>Unable to load organization billing.</CardDescription>
+                    <CardTitle>{t('Title')}</CardTitle>
+                    <CardDescription>{t('UnavailableDescription')}</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <p className="text-sm text-muted-foreground">
-                        {organizationQuery.error instanceof Error ? organizationQuery.error.message : 'Failed to load organization details.'}
+                        {organizationQuery.error instanceof Error ? organizationQuery.error.message : t('Errors.LoadOrganizationFailed')}
                     </p>
                 </CardContent>
             </Card>
@@ -139,11 +150,11 @@ export default function BillingSettingsPageClient() {
         return (
             <Card>
                 <CardHeader>
-                    <CardTitle>Billing</CardTitle>
-                    <CardDescription>Unable to load organization billing.</CardDescription>
+                    <CardTitle>{t('Title')}</CardTitle>
+                    <CardDescription>{t('UnavailableDescription')}</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm text-muted-foreground">The current organization could not be resolved from this URL.</p>
+                    <p className="text-sm text-muted-foreground">{t('Errors.UnresolvedFromUrl')}</p>
                 </CardContent>
             </Card>
         );
@@ -152,13 +163,13 @@ export default function BillingSettingsPageClient() {
     return (
         <Card>
             <CardHeader>
-                <CardTitle>Billing</CardTitle>
-                <CardDescription>Review the current organization plan, upgrade to Pro, or manage billing in Stripe.</CardDescription>
+                <CardTitle>{t('Title')}</CardTitle>
+                <CardDescription>{t('Description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="rounded-lg border bg-muted/30 px-4 py-4">
-                    <div className="text-sm font-medium">Current plan</div>
-                    <div className="mt-2 text-2xl font-semibold">{isLoading ? 'Loading...' : currentPlanLabel}</div>
+                    <div className="text-sm font-medium">{t('CurrentPlan')}</div>
+                    <div className="mt-2 text-2xl font-semibold">{isLoading ? t('Loading') : currentPlanLabel}</div>
                     <p className="mt-2 text-sm text-muted-foreground">{billingDescription}</p>
                 </div>
 
@@ -173,26 +184,26 @@ export default function BillingSettingsPageClient() {
 
                 {billingStatus?.cancelAtPeriodEnd ? (
                     <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-                        Cancellation is scheduled for {formatDate(billingStatus.cancelAt || billingStatus.periodEnd)}.
+                        {t('CancellationScheduled', { date: formatWithFallback(billingStatus.cancelAt || billingStatus.periodEnd) })}
                     </div>
                 ) : null}
 
                 <div className="flex flex-wrap gap-3">
                     {billingStatus?.plan !== 'pro' && canManageBilling ? (
                         <Button onClick={() => upgradeMutation.mutate()} disabled={upgradeMutation.isPending || isLoading || !organization}>
-                            {upgradeMutation.isPending ? 'Redirecting...' : 'Upgrade to Pro'}
+                            {upgradeMutation.isPending ? t('Redirecting') : t('UpgradeToPro')}
                         </Button>
                     ) : null}
 
                     {billingStatus?.isManageable && canManageBilling ? (
                         <Button variant="outline" onClick={() => portalMutation.mutate()} disabled={portalMutation.isPending || isLoading || !organization}>
-                            {portalMutation.isPending ? 'Opening...' : 'Manage billing'}
+                            {portalMutation.isPending ? t('Opening') : t('ManageBilling')}
                         </Button>
                     ) : null}
                 </div>
 
                 {!canManageBilling ? (
-                    <p className="text-sm text-muted-foreground">Only organization owners can upgrade, cancel, or manage billing. Your current role is read-only here.</p>
+                    <p className="text-sm text-muted-foreground">{t('ReadOnlyHint')}</p>
                 ) : null}
             </CardContent>
         </Card>

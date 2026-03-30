@@ -1,14 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/registry/new-york-v4/ui/select';
 
 const FONT_SIZE_KEY = 'app:font-size';
 const DEFAULT_FONT_SIZE = '16px';
 const FONT_SIZE_OPTIONS = [
-    { label: 'Small', value: '14px' },
-    { label: 'Default', value: '16px' },
-    { label: 'Large', value: '18px' },
+    { labelKey: 'Small', value: '14px' },
+    { labelKey: 'Default', value: '16px' },
+    { labelKey: 'Large', value: '18px' },
     // { label: 'Extra Large', value: '20px' },
 ];
 
@@ -21,6 +22,7 @@ function applyFontSize(value: string) {
 }
 
 export function FontSizeSelect() {
+    const t = useTranslations('DoryUI.Settings');
     const [value, setValue] = useState(DEFAULT_FONT_SIZE);
     const [ready, setReady] = useState(false);
 
@@ -42,12 +44,12 @@ export function FontSizeSelect() {
     return (
         <Select value={value} onValueChange={setValue}>
             <SelectTrigger className="h-8 w-[180px] justify-between">
-                <SelectValue placeholder="Default" />
+                <SelectValue placeholder={t('FontSize.Default')} />
             </SelectTrigger>
             <SelectContent align="end">
                 {FONT_SIZE_OPTIONS.map(option => (
                     <SelectItem key={option.value} value={option.value}>
-                        {option.label}
+                        {t(`FontSize.${option.labelKey}`)}
                     </SelectItem>
                 ))}
             </SelectContent>

@@ -1198,6 +1198,8 @@
             "RunQueryFirst": "Run the query first",
             "NoResults": "No results",
             "Overview": "Overview",
+            "Table": "Table",
+            "Charts": "Charts",
             "ResultTab": "Result {index}",
             "WaitingForResults": "Waiting for results...",
             "DownloadCsvTitle": "Download CSV"
@@ -1250,6 +1252,7 @@
             "SaveQuery": "Save Query",
             "Stop": "Stop"
         },
+        "Refresh": "Refresh",
         "Sidebar": {
             "Tables": "Tables",
             "SavedQueries": "Saved Queries"
@@ -2121,6 +2124,146 @@
             "Dark": "Dark",
             "System": "System"
         },
+        "LocaleToggle": {
+            "ToggleLanguage": "Toggle language",
+            "Current": "Current"
+        },
+        "Settings": {
+            "Title": "Settings",
+            "Description": "Application settings",
+            "SearchPlaceholder": "Search settings",
+            "Categories": {
+                "Appearance": {
+                    "Label": "Appearance",
+                    "Title": "Theme & Appearance",
+                    "Description": "Control look and feel of the app.",
+                    "Tag": "Theme"
+                },
+                "Editor": {
+                    "Label": "Editor",
+                    "Title": "Editor Settings",
+                    "Description": "Customize the SQL editor appearance and behavior.",
+                    "Tag": "SQL"
+                },
+                "Data": {
+                    "Label": "Data",
+                    "Title": "Data Management",
+                    "Description": "Export and import workspace data."
+                },
+                "About": {
+                    "Label": "About",
+                    "Title": "About",
+                    "Description": "Version, licenses and credits."
+                }
+            },
+            "Appearance": {
+                "ModeLabel": "Appearance mode",
+                "ModeDescription": "Follow system or force light/dark.",
+                "LanguageLabel": "Language",
+                "LanguageDescription": "Choose the app display language.",
+                "ThemeLabel": "Color theme",
+                "ThemeDescription": "Default / Blue / Green / Amber / …",
+                "FontSizeLabel": "Font size",
+                "FontSizeDescription": "Scale the overall UI text size."
+            },
+            "ThemeMode": {
+                "System": "System",
+                "Light": "Light",
+                "Dark": "Dark"
+            },
+            "FontSize": {
+                "Small": "Small",
+                "Default": "Default",
+                "Large": "Large"
+            },
+            "ColorTheme": {
+                "Placeholder": "Select a theme",
+                "Groups": {
+                    "Default": "Default",
+                    "Scaled": "Scaled",
+                    "Monospaced": "Monospaced"
+                },
+                "Options": {
+                    "default": "Default",
+                    "blue": "Blue",
+                    "green": "Green",
+                    "amber": "Amber",
+                    "liquid": "Liquid",
+                    "mono": "Mono"
+                }
+            },
+            "Language": {
+                "Placeholder": "Select a language"
+            },
+            "Editor": {
+                "ThemeLabel": "Editor theme",
+                "ThemeDescription": "Pick a color theme for the SQL editor.",
+                "FontFamilyLabel": "Font family",
+                "FontFamilyDescription": "Choose a font for the editor.",
+                "CustomFontLabel": "Custom font",
+                "CustomFontDescription": "Enter a CSS font-family value.",
+                "CustomFontPlaceholder": "e.g. \"JetBrains Mono\", monospace",
+                "FontSizeLabel": "Font size",
+                "FontSizeDescription": "Adjust the editor text size.",
+                "LineHeightLabel": "Line height",
+                "LineHeightDescription": "Controls line spacing multiplier (1.1-2.2).",
+                "QueryLimitLabel": "Default query limit",
+                "QueryLimitDescription": "Sets the default LIMIT for SQL runs.",
+                "LineNumbersLabel": "Line numbers",
+                "LineNumbersDescription": "Show or hide line numbers.",
+                "MinimapLabel": "Minimap",
+                "MinimapDescription": "Show the code minimap on the right.",
+                "WordWrapLabel": "Word wrap",
+                "WordWrapDescription": "Wrap long lines within the editor.",
+                "CodeFoldingLabel": "Code folding",
+                "CodeFoldingDescription": "Enable code folding controls.",
+                "ThemeOptions": {
+                    "auto": "Auto (follow app)",
+                    "github-light": "GitHub Light",
+                    "github-dark": "GitHub Dark",
+                    "vs": "VS Light",
+                    "vs-dark": "VS Dark"
+                },
+                "FontFamilyOptions": {
+                    "monaco": "Monaco",
+                    "menlo": "Menlo",
+                    "consolas": "Consolas",
+                    "jetbrains-mono": "JetBrains Mono",
+                    "fira-code": "Fira Code",
+                    "source-code-pro": "Source Code Pro",
+                    "custom": "Custom"
+                }
+            },
+            "Data": {
+                "ExportLabel": "Export Workspace",
+                "ExportDescription": "Download connections and saved queries as a JSON file. Passwords and keys are excluded.",
+                "ExportAction": "Export",
+                "ImportLabel": "Import Workspace",
+                "ImportDescription": "Import connections and saved queries from a previously exported JSON file.",
+                "ImportAction": "Import",
+                "ExportSuccess": "Workspace exported successfully.",
+                "ExportFailed": "Export failed",
+                "ExportFailedRetry": "Export failed. Please try again.",
+                "ImportFailed": "Import failed",
+                "ImportFailedRetry": "Import failed. Please try again.",
+                "InvalidJson": "Invalid JSON file.",
+                "ImportSummary": {
+                    "Connections": "{count} connection(s)",
+                    "Folders": "{count} folder(s)",
+                    "Queries": "{count} query(ies)",
+                    "QueriesSkipped": "{count} query(ies) skipped",
+                    "Separator": ", ",
+                    "Success": "Imported: {summary}.",
+                    "Empty": "Nothing to import."
+                }
+            },
+            "About": {
+                "Subtitle": "Next-generation Data Studio",
+                "Version": "Version",
+                "GitHub": "GitHub",
+                "Footer": "© 2026 Dory Lab · Built with love"
+            }
+        },
         "QueryClient": {
             "Error": "Something went wrong: {message}"
         },
@@ -2200,6 +2343,77 @@
         "UpdateVersion": "Version {version}",
         "UpdateTooltip": "Click to restart the app and upgrade to {version}",
         "UpdateTooltipUnknown": "Click to restart the app and upgrade to the latest version"
+    },
+    "OrganizationSettings": {
+        "Title": "Organization settings",
+        "Description": "Manage organization details and access.",
+        "Nav": {
+            "Organization": "Organization",
+            "Billing": "Billing"
+        },
+        "Organization": {
+            "CardTitle": "Details",
+            "CardDescription": "Update the public name and slug used in the workspace URL.",
+            "Fields": {
+                "Name": "Name",
+                "Slug": "Slug",
+                "OrganizationId": "Organization ID"
+            },
+            "Loading": "Loading...",
+            "Saving": "Saving...",
+            "SaveChanges": "Save changes",
+            "ReadOnlyHint": "Your current role does not allow updating organization settings.",
+            "Toasts": {
+                "Updated": "Organization updated",
+                "UpdateFailed": "Failed to update organization"
+            },
+            "Errors": {
+                "SlugRequired": "Slug is required",
+                "SlugInvalid": "Slug can only contain lowercase letters, numbers, and hyphens"
+            }
+        },
+        "Billing": {
+            "Title": "Billing",
+            "Description": "Review the current organization plan, upgrade to Pro, or manage billing in Stripe.",
+            "UnavailableDescription": "Unable to load organization billing.",
+            "CurrentPlan": "Current plan",
+            "Loading": "Loading...",
+            "LoadingBillingStatus": "Loading billing status...",
+            "UpgradeToPro": "Upgrade to Pro",
+            "ManageBilling": "Manage billing",
+            "Redirecting": "Redirecting...",
+            "Opening": "Opening...",
+            "ReadOnlyHint": "Only organization owners can upgrade, cancel, or manage billing. Your current role is read-only here.",
+            "NoSubscription": "No subscription",
+            "NotAvailable": "N/A",
+            "CancellationScheduled": "Cancellation is scheduled for {date}.",
+            "Plan": {
+                "Pro": "Pro",
+                "Hobby": "Hobby"
+            },
+            "Details": {
+                "Plan": "Plan",
+                "SubscriptionStatus": "Subscription status",
+                "StripeSubscriptionId": "Stripe subscription ID",
+                "CurrentPeriodEnd": "Current period end"
+            },
+            "Status": {
+                "CancelAtPeriodEnd": "Pro remains active until {date}. Cancellation is scheduled at the end of the current billing period.",
+                "NoSubscription": "No paid subscription is active for this organization.",
+                "Canceled": "The paid subscription has been canceled. The organization remains on Hobby.",
+                "Inactive": "The last paid subscription is not active. The organization remains on Hobby until Stripe reports an active or trialing Pro subscription.",
+                "Reported": "Stripe reports the latest subscription status as {status}."
+            },
+            "Errors": {
+                "OrganizationNotFound": "Organization not found",
+                "CheckoutFailed": "Failed to start checkout",
+                "NoManageableSubscription": "No manageable subscription found",
+                "PortalFailed": "Failed to open billing portal",
+                "LoadBillingFailed": "Failed to load billing status.",
+                "LoadOrganizationFailed": "Failed to load organization details.",
+                "UnresolvedFromUrl": "The current organization could not be resolved from this URL."
+            }
+        }
     },
     "Routes": {
         "SQL Console": "SQL Console"

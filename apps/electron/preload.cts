@@ -32,6 +32,18 @@ contextBridge.exposeInMainWorld('themeBridge', {
     },
 });
 
+contextBridge.exposeInMainWorld('localeBridge', {
+    getLocale: () => ipcRenderer.invoke('locale:get') as Promise<'en-US' | 'zh-CN' | 'ja-JP' | 'es-ES'>,
+    setLocale: (locale: 'en-US' | 'zh-CN' | 'ja-JP' | 'es-ES') => ipcRenderer.invoke('locale:set', locale) as Promise<'en-US' | 'zh-CN' | 'ja-JP' | 'es-ES'>,
+    onLocaleChanged: (callback: (locale: 'en-US' | 'zh-CN' | 'ja-JP' | 'es-ES') => void) => {
+        const listener = (_event: unknown, locale: 'en-US' | 'zh-CN' | 'ja-JP' | 'es-ES') => {
+            callback(locale);
+        };
+        ipcRenderer.on('locale:changed', listener);
+        return () => ipcRenderer.removeListener('locale:changed', listener);
+    },
+});
+
 contextBridge.exposeInMainWorld('updateBridge', {
     getState: () => ipcRenderer.invoke('updater:get-state') as Promise<{ readyToInstall: boolean; version: string | null }>,
     restartAndInstall: () => ipcRenderer.invoke('updater:restart-and-install') as Promise<boolean>,

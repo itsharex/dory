@@ -4,10 +4,11 @@ import { fileURLToPath } from 'node:url';
 import { APP_ID, DISTRIBUTION, PROTOCOL, isBetaDistribution, isDev } from './main/constants.js';
 import { ensureDirectoryExists } from './main/filesystem.js';
 import { createMainI18n } from './main/i18n.js';
+import { getStoredLocale, registerLocaleIpc } from './main/locale.js';
 import { getMainLogFilePath, setupMainLogger } from './main/logger.js';
 import { registerProtocolClient } from './main/protocol.js';
 import { createStandaloneServerManager } from './main/server.js';
-import { setupUpdater } from './main/updater.js';
+import { setUpdaterLocale, setupUpdater } from './main/updater.js';
 import type { UpdateChannel } from './main/updater/types.js';
 import {
   createMainWindow,
@@ -54,6 +55,7 @@ applyTheme(getStoredTheme());
 log('[electron] distribution:', DISTRIBUTION);
 log('[electron] userData path:', app.getPath('userData'));
 log('[electron] stored theme on boot:', getStoredTheme());
+log('[electron] stored locale on boot:', getStoredLocale());
 
 function createUpdateChannelMenuItems(options: {
   getUpdateChannel: () => UpdateChannel;
@@ -201,6 +203,20 @@ function setupAppMenu(options: {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+function createLocalizedMenuLabels() {
+  const { t } = createMainI18n();
+  return {
+    checkForUpdatesLabel: t('menu.checkForUpdates'),
+    updateChannelLabel: t('menu.updateChannel'),
+    stableChannelLabel: t('menu.updateChannelStable'),
+    betaChannelLabel: t('menu.updateChannelBeta'),
+    resetSkippedUpdateLabel: t('menu.resetSkippedUpdate'),
+    openUpdateDialogDebugLabel: t('menu.openUpdateDialogDebug'),
+    openLogLabel: t('menu.openLog'),
+    openLogFailedTitle: t('error.openLogFailed'),
+  };
+}
+
 async function launch() {
   try {
     const targetUrl = await serverManager.getAppUrl();
@@ -249,7 +265,7 @@ if (!gotLock) {
     log('[electron] locale:', locale);
     registerProtocolClient(PROTOCOL, log);
     const updater = setupUpdater({ log, logWarn, logError, locale, t });
-    setupAppMenu({
+    const applyAppMenu = () => setupAppMenu({
       onCheckUpdate: () => {
         void updater.checkForUpdatesFromMenu();
       },
@@ -265,14 +281,13 @@ if (!gotLock) {
             updater.openUpdateDialogDebug();
           }
         : undefined,
-      checkForUpdatesLabel: t('menu.checkForUpdates'),
-      updateChannelLabel: t('menu.updateChannel'),
-      stableChannelLabel: t('menu.updateChannelStable'),
-      betaChannelLabel: t('menu.updateChannelBeta'),
-      resetSkippedUpdateLabel: t('menu.resetSkippedUpdate'),
-      openUpdateDialogDebugLabel: t('menu.openUpdateDialogDebug'),
-      openLogLabel: t('menu.openLog'),
-      openLogFailedTitle: t('error.openLogFailed'),
+      ...createLocalizedMenuLabels(),
+    });
+    applyAppMenu();
+    registerLocaleIpc(nextLocale => {
+      log('[electron] locale changed:', nextLocale);
+      setUpdaterLocale(nextLocale);
+      applyAppMenu();
     });
 
     const deepLinkArg = process.argv.find(arg => arg.startsWith(`${PROTOCOL}://`));

@@ -1,22 +1,23 @@
 import Link from 'next/link';
 import type React from 'react';
+import { getTranslations } from 'next-intl/server';
 import { isBillingEnabledForServer } from '@/lib/runtime/runtime';
 import { cn } from '@/lib/utils';
 
-const NAV_ITEMS = [{ slug: 'organization', label: 'Organization' }, ...(isBillingEnabledForServer() ? [{ slug: 'billing', label: 'Billing' }] : [])];
-
 export default async function OrganizationSettingsLayout({ children, params }: { children: React.ReactNode; params: Promise<{ organization: string }> }) {
     const { organization } = await params;
+    const t = await getTranslations('OrganizationSettings');
+    const navItems = [{ slug: 'organization', label: t('Nav.Organization') }, ...(isBillingEnabledForServer() ? [{ slug: 'billing', label: t('Nav.Billing') }] : [])];
 
     return (
         <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-6 py-8">
             <div className="space-y-2">
-                <h1 className="text-2xl font-semibold tracking-tight">Organization settings</h1>
-                <p className="text-sm text-muted-foreground">Manage organization details and access.</p>
+                <h1 className="text-2xl font-semibold tracking-tight">{t('Title')}</h1>
+                <p className="text-sm text-muted-foreground">{t('Description')}</p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-                {NAV_ITEMS.map(item => (
+                {navItems.map(item => (
                     <Link
                         key={item.slug}
                         href={`/${organization}/settings/${item.slug}`}

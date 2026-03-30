@@ -740,10 +740,10 @@ export function ResultTable() {
                             <div className="flex items-center gap-2">
                                 <TabsList className="h-7 p-[2px]" aria-label="Result view">
                                     <TabsTrigger value="table" className="h-6 px-3 text-xs cursor-pointer">
-                                        Table
+                                        {t('Results.Table')}
                                     </TabsTrigger>
                                     <TabsTrigger value="charts" className="h-6 px-3 text-xs cursor-pointer">
-                                        Charts
+                                        {t('Results.Charts')}
                                     </TabsTrigger>
                                 </TabsList>
                             </div>
