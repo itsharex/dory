@@ -195,6 +195,7 @@ function createAuth() {
                             anonymousActiveOrganizationId: anonymousUser.session.activeOrganizationId ?? null,
                             newUserId: newUser.user.id,
                             newSessionToken: newUser.session.token,
+                            newActiveOrganizationId: newUser.session.activeOrganizationId ?? null,
                         });
                     },
                 }),

@@ -1,10 +1,10 @@
-import { and, eq, isNull, or } from 'drizzle-orm';
+import { and, eq, inArray, isNull, or } from 'drizzle-orm';
 import type { PostgresDBClient } from '@/types';
 import { getServerLocale } from '@/lib/i18n/server-locale';
 import { translate } from '@/lib/i18n/i18n';
 import { getClient } from '@/lib/database/postgres/client';
 import { schema } from '@/lib/database/schema';
-import { isAnonymousUser } from './anonymous-user';
+import { mergeAnonymousOrganizationIntoExistingOrganization } from '@/lib/database/postgres/impl/organization/anonymous-resource-merge';
 
 type AuthSessionLike = {
     session?: {
@@ -39,11 +39,6 @@ async function buildAnonymousOrganizationValues(userId: string) {
     };
 }
 
-async function getLinkedAnonymousOrganizationName() {
-    const locale = await getServerLocale();
-    return translate(locale, 'Auth.AnonymousWorkspace.LinkedName');
-}
-
 async function getDb() {
     return (await getClient()) as PostgresDBClient;
 }
@@ -56,6 +51,43 @@ async function findFirstActiveOrganizationIdForUser(db: PostgresDBClient, userId
         .limit(1);
 
     return membership?.organizationId ?? null;
+}
+
+async function looksLikeDisposableAutoCreatedOrganization(
+    db: Pick<PostgresDBClient, 'select'>,
+    organizationId: string,
+    userId: string,
+) {
+    const [organization] = await db
+        .select({
+            id: schema.organizations.id,
+            slug: schema.organizations.slug,
+            ownerUserId: schema.organizations.ownerUserId,
+            createdAt: schema.organizations.createdAt,
+        })
+        .from(schema.organizations)
+        .where(eq(schema.organizations.id, organizationId))
+        .limit(1);
+
+    if (!organization) {
+        return false;
+    }
+
+    const looksLikeAutoCreated =
+        organization.ownerUserId === userId &&
+        (organization.slug ?? '').endsWith(`-${userId.slice(0, 8)}`) &&
+        Date.now() - new Date(organization.createdAt).getTime() < 15 * 60 * 1000;
+
+    if (!looksLikeAutoCreated) {
+        return false;
+    }
+
+    const members = await db
+        .select({ id: schema.organizationMembers.id })
+        .from(schema.organizationMembers)
+        .where(eq(schema.organizationMembers.organizationId, organizationId));
+
+    return members.length === 1;
 }
 
 export async function buildDefaultOrganizationValues(userId: string, email: string | null | undefined) {
@@ -128,21 +160,25 @@ export async function linkAnonymousOrganizationToUser(params: {
     anonymousActiveOrganizationId?: string | null;
     newUserId: string;
     newSessionToken?: string | null;
+    newActiveOrganizationId?: string | null;
 }) {
     const db = await getDb();
-    const targetOrganizationId = params.anonymousActiveOrganizationId ?? (await findFirstActiveOrganizationIdForUser(db, params.anonymousUserId));
+    const sourceOrganizationId = params.anonymousActiveOrganizationId ?? (await findFirstActiveOrganizationIdForUser(db, params.anonymousUserId));
 
-    if (!targetOrganizationId) {
+    if (!sourceOrganizationId) {
         return null;
     }
 
-    const targetOrganization = await db.transaction(async tx => {
+    const resultOrganization = await db.transaction(async tx => {
         const preexistingMemberships = await tx
             .select({ organizationId: schema.organizationMembers.organizationId })
             .from(schema.organizationMembers)
             .where(and(eq(schema.organizationMembers.userId, params.newUserId), or(eq(schema.organizationMembers.status, 'active'), isNull(schema.organizationMembers.status))));
 
-        const hadExistingOrganizations = preexistingMemberships.some(membership => membership.organizationId !== targetOrganizationId);
+        const candidateTargetOrganizationId =
+            (params.newActiveOrganizationId && params.newActiveOrganizationId !== sourceOrganizationId
+                ? params.newActiveOrganizationId
+                : preexistingMemberships.find(membership => membership.organizationId !== sourceOrganizationId)?.organizationId) ?? null;
 
         const [organization] = await tx
             .select({
@@ -151,23 +187,61 @@ export async function linkAnonymousOrganizationToUser(params: {
                 name: schema.organizations.name,
             })
             .from(schema.organizations)
-            .where(eq(schema.organizations.id, targetOrganizationId))
+            .where(eq(schema.organizations.id, sourceOrganizationId))
             .limit(1);
 
         if (!organization) {
             return null;
         }
 
-        if (hadExistingOrganizations) {
-            const linkedName = await getLinkedAnonymousOrganizationName();
-            await tx
-                .update(schema.organizations)
-                .set({
-                    name: linkedName,
-                    updatedAt: new Date(),
+        const [newUser] = await tx
+            .select({
+                createdAt: schema.user.createdAt,
+            })
+            .from(schema.user)
+            .where(eq(schema.user.id, params.newUserId))
+            .limit(1);
+
+        const isFreshlyCreatedUser = Boolean(newUser?.createdAt && Date.now() - new Date(newUser.createdAt).getTime() < 15 * 60 * 1000);
+        const canMergeIntoExistingOrganization =
+            candidateTargetOrganizationId &&
+            (!isFreshlyCreatedUser || !(await looksLikeDisposableAutoCreatedOrganization(tx, candidateTargetOrganizationId, params.newUserId)));
+
+        if (canMergeIntoExistingOrganization) {
+            const mergeResult = await mergeAnonymousOrganizationIntoExistingOrganization(tx, {
+                sourceOrganizationId: organization.id,
+                targetOrganizationId: candidateTargetOrganizationId,
+                anonymousUserId: params.anonymousUserId,
+                newUserId: params.newUserId,
+            });
+
+            await tx.delete(schema.organizationMembers).where(eq(schema.organizationMembers.organizationId, organization.id));
+
+            await tx.delete(schema.organizations).where(eq(schema.organizations.id, organization.id));
+
+            if (params.newSessionToken) {
+                await tx
+                    .update(schema.session)
+                    .set({
+                        activeOrganizationId: candidateTargetOrganizationId,
+                        updatedAt: new Date(),
+                    })
+                    .where(eq(schema.session.token, params.newSessionToken));
+            }
+
+            console.log('[auth] merged guest organization into existing organization', mergeResult);
+
+            const [targetOrganization] = await tx
+                .select({
+                    id: schema.organizations.id,
+                    slug: schema.organizations.slug,
+                    name: schema.organizations.name,
                 })
-                .where(eq(schema.organizations.id, organization.id));
-            organization.name = linkedName;
+                .from(schema.organizations)
+                .where(eq(schema.organizations.id, candidateTargetOrganizationId))
+                .limit(1);
+
+            return targetOrganization ?? null;
         }
 
         await tx
@@ -204,8 +278,67 @@ export async function linkAnonymousOrganizationToUser(params: {
         }
 
         await tx
-            .delete(schema.organizationMembers)
-            .where(and(eq(schema.organizationMembers.organizationId, organization.id), eq(schema.organizationMembers.userId, params.anonymousUserId)));
+            .update(schema.savedQueryFolders)
+            .set({
+                userId: params.newUserId,
+                updatedAt: new Date(),
+            })
+            .where(and(eq(schema.savedQueryFolders.organizationId, organization.id), eq(schema.savedQueryFolders.userId, params.anonymousUserId)));
+
+        await tx
+            .update(schema.savedQueries)
+            .set({
+                userId: params.newUserId,
+                updatedAt: new Date(),
+            })
+            .where(and(eq(schema.savedQueries.organizationId, organization.id), eq(schema.savedQueries.userId, params.anonymousUserId)));
+
+        await tx
+            .update(schema.chatSessions)
+            .set({
+                userId: params.newUserId,
+                updatedAt: new Date(),
+            })
+            .where(and(eq(schema.chatSessions.organizationId, organization.id), eq(schema.chatSessions.userId, params.anonymousUserId)));
+
+        await tx
+            .update(schema.chatMessages)
+            .set({
+                userId: params.newUserId,
+            })
+            .where(and(eq(schema.chatMessages.organizationId, organization.id), eq(schema.chatMessages.userId, params.anonymousUserId)));
+
+        await tx
+            .update(schema.connections)
+            .set({
+                createdByUserId: params.newUserId,
+                updatedAt: new Date(),
+            })
+            .where(eq(schema.connections.organizationId, organization.id));
+
+        await tx
+            .update(schema.connectionIdentities)
+            .set({
+                createdByUserId: params.newUserId,
+                updatedAt: new Date(),
+            })
+            .where(eq(schema.connectionIdentities.organizationId, organization.id));
+
+        const organizationConnections = await tx
+            .select({ id: schema.connections.id })
+            .from(schema.connections)
+            .where(and(eq(schema.connections.organizationId, organization.id), isNull(schema.connections.deletedAt)));
+
+        const connectionIds = organizationConnections.map(connection => connection.id);
+        if (connectionIds.length > 0) {
+            await tx
+                .update(schema.tabs)
+                .set({
+                    userId: params.newUserId,
+                    updatedAt: new Date(),
+                })
+                .where(and(eq(schema.tabs.userId, params.anonymousUserId), inArray(schema.tabs.connectionId, connectionIds)));
+        }
 
         if (params.newSessionToken) {
             await tx
@@ -216,16 +349,6 @@ export async function linkAnonymousOrganizationToUser(params: {
                 })
                 .where(eq(schema.session.token, params.newSessionToken));
         }
-
-        const [newUser] = await tx
-            .select({
-                createdAt: schema.user.createdAt,
-            })
-            .from(schema.user)
-            .where(eq(schema.user.id, params.newUserId))
-            .limit(1);
-
-        const isFreshlyCreatedUser = Boolean(newUser?.createdAt && Date.now() - new Date(newUser.createdAt).getTime() < 15 * 60 * 1000);
 
         if (isFreshlyCreatedUser) {
             const ownedOrganizations = await tx
@@ -265,5 +388,5 @@ export async function linkAnonymousOrganizationToUser(params: {
         return organization;
     });
 
-    return targetOrganization;
+    return resultOrganization;
 }
