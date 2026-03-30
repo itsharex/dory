@@ -212,5 +212,3 @@ everything — connections, tabs, and saved queries — is stored locally on you
 ## 📄 License
 
 Apache-2.0
-
-<a href="https://tooldisk.com" target="_blank"><img src="https://tooldisk.com/badge/badge_dark.svg" alt="Featured on ToolDisk.com" width="200" height="54" /></a>
