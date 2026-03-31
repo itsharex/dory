@@ -1,6 +1,7 @@
 import { getAuth } from '@/lib/auth';
 import { getDBService } from '@/lib/database';
 import { proxyAuthRequest, shouldProxyAuthRequest } from '@/lib/auth/auth-proxy';
+import { ensureDemoConnection } from '@/lib/demo/ensure-demo-connection';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -156,6 +157,16 @@ export async function POST(req: NextRequest) {
                 keepCurrentActiveOrganization: false,
             },
         });
+    }
+
+    // Ensure demo SQLite connection exists for the user's organization
+    const memberships = await db.organizations.listByUser(userId);
+    if (memberships.length > 0) {
+        try {
+            await ensureDemoConnection(db, userId, memberships[0]!.organizationId);
+        } catch (error) {
+            console.warn('[demo] failed to ensure demo connection:', error);
+        }
     }
 
     const response = await auth.api.signInEmail({

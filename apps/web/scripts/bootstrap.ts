@@ -8,6 +8,8 @@ import { getDatabaseProvider } from '../lib/database/provider';
 import { DEFAULT_PGLITE_DB_PATH, DESKTOP_PGLITE_DB_PATH } from '@/shared/data/app.data';
 import { ensureFileUrl } from '@/lib/database/pglite/url';
 import { isDesktopRuntime } from '@/lib/runtime/runtime';
+import { resolveDemoSqlitePath } from '@/lib/demo/paths';
+import { generateDemoSqlite } from '@/lib/demo/generate-demo-sqlite';
 
 
 async function ensureDirForFile(filePath: string) {
@@ -37,6 +39,17 @@ async function bootstrapPglite() {
   await migratePgliteDB();
 }
 
+function bootstrapDemoSqlite() {
+    try {
+        const demoPath = resolveDemoSqlitePath();
+        generateDemoSqlite(demoPath);
+        process.env.DEMO_SQLITE_PATH = demoPath;
+        console.log('[bootstrap] DEMO_SQLITE_PATH =', demoPath);
+    } catch (error) {
+        console.warn('[bootstrap] skipping demo sqlite:', error);
+    }
+}
+
 export async function bootstrap() {
     const dbType = getDatabaseProvider();
     console.log('[bootstrap] DB_TYPE =', dbType);
@@ -46,6 +59,8 @@ export async function bootstrap() {
     } else {
         console.log('[bootstrap] skip bootstrap');
     }
+
+    bootstrapDemoSqlite();
 }
 
 bootstrap().catch(err => {

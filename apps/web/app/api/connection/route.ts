@@ -5,6 +5,7 @@ import { handleApiError } from '../utils/handle-error';
 import { parseJsonBody } from '../utils/parse-json';
 import { withManagedOrganizationHandler, withOrganizationHandler } from '../utils/with-organization-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
+import { ensureDemoConnection } from '@/lib/demo/ensure-demo-connection';
 
 // GET /api/connections?id=xxx
 export const GET = withOrganizationHandler(async ({ req, db, organizationId }) => {
@@ -27,7 +28,17 @@ export const GET = withOrganizationHandler(async ({ req, db, organizationId }) =
             return NextResponse.json(ResponseUtil.success(record));
         }
 
-        const data = await db.connections.list(organizationId);
+        let data = await db.connections.list(organizationId);
+
+        if (data.length === 0 && userId) {
+            try {
+                await ensureDemoConnection(db, userId, organizationId);
+                data = await db.connections.list(organizationId);
+            } catch (err) {
+                console.warn('[api/connection] failed to create demo connection:', err);
+            }
+        }
+
         return NextResponse.json(ResponseUtil.success(data));
     } catch (err: any) {
         return handleApiError(err);
