@@ -1,10 +1,14 @@
 import type { ConnectionListItem } from '@/types/connections';
+import { isDemoSqliteConnectionPath } from '@/lib/demo/paths';
 
 export function getConnectionLocationLabel(connection?: ConnectionListItem['connection'] | null) {
     if (!connection) return null;
 
     if (connection.type === 'sqlite') {
         const normalizedPath = connection.path?.trim();
+        if (isDemoSqliteConnectionPath(normalizedPath)) {
+            return 'Built-in demo.sqlite';
+        }
         return normalizedPath || null;
     }
 

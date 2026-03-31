@@ -9,7 +9,7 @@ const nextConfig: NextConfig = {
     output: 'standalone',
     serverExternalPackages: ['@electric-sql/pglite', 'pino', 'better-sqlite3', 'electron'],
     outputFileTracingIncludes: {
-        '/*': ['./registry/**/*'],
+        '/*': ['./registry/**/*', './public/resources/demo.sqlite'],
     },
     logging: {
         fetches: {

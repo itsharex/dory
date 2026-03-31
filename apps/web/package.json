@@ -16,6 +16,7 @@
     "pglite:studio": "drizzle-kit studio --config ./drizzle.pglite.config.ts",
     "drizzle:push": "drizzle-kit push",
     "drizzle:migrate": "tsx ./scripts/migrate.ts",
+    "demo:backfill": "tsx ./scripts/backfill-demo-connections.ts",
     "postgres:check": "tsx ./scripts/check-postgres-connection.ts",
     "postgres:repair-migrations": "tsx ./scripts/repair-drizzle-migrations.ts",
     "postgres:migrate:generate": "drizzle-kit generate",

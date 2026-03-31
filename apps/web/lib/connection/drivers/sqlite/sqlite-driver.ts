@@ -1,6 +1,7 @@
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { MAX_RESULT_ROWS } from '@/app/config/sql-console';
+import { resolveStoredSqlitePath } from '@/lib/demo/paths';
 import { enforceSelectLimit } from '@/lib/connection/base/limit';
 import { compileParams } from '@/lib/connection/base/params/compile';
 import type { DriverQueryParams } from '@/lib/connection/base/params/types';
@@ -70,7 +71,7 @@ function getSqliteVersion(db: SqliteDatabase): string | undefined {
 }
 
 export function resolveSqlitePath(config: BaseConfig): string {
-    return assertAbsolutePath(config.path);
+    return assertAbsolutePath(resolveStoredSqlitePath(config.path));
 }
 
 export function openSqliteDatabase(config: BaseConfig): SqliteDatabase {

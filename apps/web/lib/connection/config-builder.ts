@@ -1,4 +1,5 @@
 import type { ConnectionListIdentity, ConnectionListItem, ConnectionSsh, TestConnectionPayload } from '@/types/connections';
+import { resolveStoredSqlitePath } from '@/lib/demo/paths';
 import { UnsupportedTypeError } from './base/errors';
 import type { BaseConfig } from './base/types';
 import { applyQueryRequestTimeout } from './defaults';
@@ -99,7 +100,7 @@ export function buildStoredConnectionConfig(
     const type = resolveConnectionType(connection.type ?? connection.engine ?? 'clickhouse');
 
     if (type === 'sqlite') {
-        const normalizedPath = connection.path?.trim();
+        const normalizedPath = resolveStoredSqlitePath(connection.path);
         if (!normalizedPath) {
             throw createError('missing_path');
         }
@@ -150,7 +151,7 @@ export function buildTestConnectionConfig(
     const type = resolveConnectionType(connection.type ?? connection.engine ?? 'clickhouse');
 
     if (type === 'sqlite') {
-        const normalizedPath = connection.path?.trim();
+        const normalizedPath = resolveStoredSqlitePath(connection.path);
         if (!normalizedPath) {
             throw createError('missing_path');
         }

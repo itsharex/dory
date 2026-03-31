@@ -1,28 +1,34 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 const DEMO_SQLITE_FILENAME = 'demo.sqlite';
+const DEMO_SQLITE_DIR = path.join('public', 'resources');
+const DEMO_SQLITE_RELATIVE_PATH = path.join(DEMO_SQLITE_DIR, DEMO_SQLITE_FILENAME);
+export const DEMO_SQLITE_CONNECTION_PATH = 'dory://demo-sqlite';
 
 /**
- * Resolve the absolute path for demo.sqlite based on PGLITE_DB_PATH.
- * The demo file lives as a sibling of the PGlite data directory.
- *
- * Example: PGLITE_DB_PATH = "file:///app/data/dory" → "/app/data/demo.sqlite"
+ * Resolve the absolute path for the bundled demo SQLite file.
+ * The file is treated as a fixed app resource rather than a generated runtime artifact.
  */
 export function resolveDemoSqlitePath(): string {
-    const raw = process.env.PGLITE_DB_PATH;
-    if (!raw) {
-        throw new Error('[demo] PGLITE_DB_PATH is not set, cannot resolve demo.sqlite path');
-    }
+    return path.resolve(process.cwd(), DEMO_SQLITE_RELATIVE_PATH);
+}
 
-    const fsPath = raw.startsWith('file:') ? fileURLToPath(raw) : decodeURIComponent(raw);
-    const parentDir = path.dirname(path.resolve(fsPath));
-    return path.join(parentDir, DEMO_SQLITE_FILENAME);
+export function isDemoSqliteConnectionPath(value: string | null | undefined): boolean {
+    return value?.trim() === DEMO_SQLITE_CONNECTION_PATH;
+}
+
+export function resolveStoredSqlitePath(value: string | null | undefined): string | undefined {
+    const normalized = value?.trim();
+    if (!normalized) return undefined;
+    if (isDemoSqliteConnectionPath(normalized)) {
+        return resolveDemoSqlitePath();
+    }
+    return normalized;
 }
 
 /**
- * Get the demo.sqlite path from the environment variable set during bootstrap.
+ * Get the fixed absolute path for demo.sqlite.
  */
 export function getDemoSqlitePath(): string | undefined {
-    return process.env.DEMO_SQLITE_PATH || undefined;
+    return resolveDemoSqlitePath();
 }

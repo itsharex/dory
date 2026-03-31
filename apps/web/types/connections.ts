@@ -254,10 +254,13 @@ export interface ConnectionQueryParams {
 export interface ConnectionPayload {
     connection: ConnectionCreateInput;
 
-    identities: ConnectionIdentity &
-        {
-            password?: string | null;
-        }[];
+    identities: Array<
+        Partial<ConnectionIdentity> &
+            ConnectionIdentityCreateInput & {
+                id?: string;
+                password?: string | null;
+            }
+    >;
 
-    ssh?: ConnectionSsh;
+    ssh?: ConnectionSshUpsertInput | null;
 }

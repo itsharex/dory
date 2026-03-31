@@ -7,7 +7,6 @@ import { migratePgliteDB } from '@/lib/database/pglite/migrate-pglite';
 import { getDatabaseProvider } from '@/lib/database/provider';
 import { ensureFileUrl, extractFilePath } from '@/lib/database/pglite/url';
 import { resolveDemoSqlitePath } from '@/lib/demo/paths';
-import { generateDemoSqlite } from '@/lib/demo/generate-demo-sqlite';
 
 async function ensureDirForFile(filePath: string) {
     const dir = path.dirname(filePath);
@@ -35,14 +34,13 @@ async function bootstrapPglite() {
     await migratePgliteDB();
 }
 
-function bootstrapDemoSqlite() {
+async function verifyDemoSqlite() {
+    const demoPath = resolveDemoSqlitePath();
     try {
-        const demoPath = resolveDemoSqlitePath();
-        generateDemoSqlite(demoPath);
-        process.env.DEMO_SQLITE_PATH = demoPath;
-        console.log('[dev] DEMO_SQLITE_PATH =', demoPath);
+        await fs.access(demoPath);
+        console.log('[dev] fixed demo sqlite =', demoPath);
     } catch (error) {
-        console.warn('[dev] skipping demo sqlite:', error);
+        console.warn('[dev] fixed demo sqlite missing:', demoPath, error);
     }
 }
 
@@ -58,7 +56,7 @@ export async function bootstrapLocalDev() {
         console.log('[dev] skip dev bootstrap');
     }
 
-    bootstrapDemoSqlite();
+    await verifyDemoSqlite();
 }
 
 // Allow direct tsx execution

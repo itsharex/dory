@@ -7,6 +7,7 @@ import Stripe from 'stripe';
 import { and, eq, isNull, or } from 'drizzle-orm';
 import { createCachedAsyncFactory } from '@dory/auth-core';
 import type { PostgresDBClient } from '../types';
+import { getDBService } from './database';
 import { getClient } from './database/postgres/client';
 import { getDatabaseProvider } from './database/provider';
 import { schema } from './database/schema';
@@ -261,6 +262,10 @@ function createAuth() {
                                     ownerUserId: user.id,
                                 },
                             };
+                        },
+                        afterCreateOrganization: async ({ organization, user }) => {
+                            const dbService = await getDBService();
+                            await dbService.organizations.ensureOrganizationDefaults(user.id, organization.id, dbService.connections);
                         },
                     },
                     sendInvitationEmail: async ({ id, email, role, organization, inviter }) => {

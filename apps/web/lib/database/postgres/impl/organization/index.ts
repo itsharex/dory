@@ -3,8 +3,10 @@ import { DatabaseError } from '@/lib/errors/DatabaseError';
 import { PostgresDBClient } from '@/types';
 import { and, eq, isNull, or } from 'drizzle-orm';
 import { organizations } from '@/lib/database/schema';
+import { ensureDemoConnection } from '@/lib/demo/ensure-demo-connection';
 import { organizationMembers } from '../../schemas';
 import { translateDatabase } from '@/lib/database/i18n';
+import type { PostgresConnectionsRepository } from '../connections';
 
 export class PostgresOrganizationsRepository {
     private db!: PostgresDBClient;
@@ -22,6 +24,20 @@ export class PostgresOrganizationsRepository {
 
     async listByUser(userId: string) {
         return this.db.select().from(organizationMembers).where(eq(organizationMembers.userId, userId));
+    }
+
+    async ensureOrganizationDefaults(
+        userId: string,
+        organizationId: string,
+        connectionsRepository: PostgresConnectionsRepository,
+    ) {
+        return ensureDemoConnection(
+            {
+                connections: connectionsRepository,
+            },
+            userId,
+            organizationId,
+        );
     }
 
     async getOrganizationBySlugOrId(value: string) {
@@ -46,7 +62,7 @@ export class PostgresOrganizationsRepository {
                 ),
             )
             .limit(1);
-    
+
         return rows.length > 0;
     }
 }
