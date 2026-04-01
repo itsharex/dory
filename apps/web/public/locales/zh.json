@@ -751,6 +751,16 @@
     "Chatbot": {
         "Close": "关闭",
         "EmptyState": "请选择一个会话或创建新的会话。",
+        "Welcome": {
+            "Heading": "向 AI 提问关于你的数据",
+            "Subheading": "AI 自动生成 SQL、执行查询并即时可视化结果",
+            "Suggestions": {
+                "TopUsers": "按订单金额显示前 10 名用户",
+                "ErrorLogs": "最近 24 小时的错误日志",
+                "OrderTrends": "本月每日订单趋势",
+                "TableSummary": "所有表的行数汇总"
+            }
+        },
         "Typing": "正在生成",
         "Input": {
             "GlobalPlaceholder": "@ 选中表进行数据库问答，Shift + Enter 换行",
@@ -960,7 +970,9 @@
             "ShortcutNewTab": "新建标签页：Cmd/Ctrl+T",
             "ShortcutToggleCopilot": "切换 Copilot：Cmd/Ctrl+K",
             "ShortcutFormat": "格式化 SQL：Shift+Cmd/Ctrl+F",
-            "NewConsole": "新建控制台"
+            "NewConsole": "新建控制台",
+            "OrDivider": "或",
+            "AskAI": "让 AI 帮你写 SQL"
         },
         "Editor": {
             "NoActiveTab": "没有活动标签",

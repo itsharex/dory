@@ -749,6 +749,16 @@
     "Chatbot": {
         "Close": "Close",
         "EmptyState": "Select a session or create a new one.",
+        "Welcome": {
+            "Heading": "Ask anything about your data",
+            "Subheading": "AI generates SQL, runs queries, and visualizes results instantly",
+            "Suggestions": {
+                "TopUsers": "Show top 10 users by order amount",
+                "ErrorLogs": "Error logs in the last 24 hours",
+                "OrderTrends": "Daily order trends this month",
+                "TableSummary": "Summary of all tables with row counts"
+            }
+        },
         "Typing": "Generating",
         "Input": {
             "GlobalPlaceholder": "@ mention tables to ask about the database, Shift + Enter for a new line",
@@ -958,7 +968,9 @@
             "ShortcutNewTab": "New tab: Cmd/Ctrl+T",
             "ShortcutToggleCopilot": "Open Copilot: Cmd/Ctrl+I",
             "ShortcutFormat": "Format SQL: Shift+Cmd/Ctrl+F",
-            "NewConsole": "New console"
+            "NewConsole": "New console",
+            "OrDivider": "or",
+            "AskAI": "Ask AI to write SQL"
         },
         "Editor": {
             "NoActiveTab": "No active tab",
