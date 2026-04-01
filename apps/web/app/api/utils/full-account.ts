@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { ResponseUtil } from '@/lib/result';
 import { ErrorCodes } from '@/lib/errors';
+import { Locale } from '@/lib/i18n/routing';
 import { translateApi } from './i18n';
 
 type SessionLike = {
     user?: Record<string, unknown> | null;
 } | null;
 
-export function requireFullAccount(session: SessionLike, locale: 'en' | 'zh') {
+export function requireFullAccount(session: SessionLike, locale: Locale) {
     const isAnonymous = Boolean((session?.user as { isAnonymous?: boolean | null } | null | undefined)?.isAnonymous);
     if (session?.user && !isAnonymous) {
         return null;
