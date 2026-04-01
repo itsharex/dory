@@ -1724,6 +1724,7 @@
                 "MissingTabId": "Falta tabId",
                 "FetchCopilotSessionFailed": "No se pudo obtener la sesión de Copilot",
                 "InvalidSessionType": "Tipo de sesión no válido",
+                "ConnectionIdRequired": "Se requiere el ID de conexión",
                 "ListSessionsFailed": "No se pudieron obtener las sesiones",
                 "CopilotCreationNotAllowed": "Las sesiones de Copilot no se pueden crear desde este endpoint",
                 "CreateSessionFailed": "No se pudo crear la sesión"

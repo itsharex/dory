@@ -1724,6 +1724,7 @@
                 "MissingTabId": "tabId がありません",
                 "FetchCopilotSessionFailed": "Copilot セッションの取得に失敗しました",
                 "InvalidSessionType": "無効なセッション種別です",
+                "ConnectionIdRequired": "接続IDが必要です",
                 "ListSessionsFailed": "セッションの取得に失敗しました",
                 "CopilotCreationNotAllowed": "このエンドポイントでは Copilot セッションを作成できません",
                 "CreateSessionFailed": "セッションの作成に失敗しました"

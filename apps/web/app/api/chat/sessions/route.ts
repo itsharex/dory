@@ -36,12 +36,23 @@ export const GET = withUserAndOrganizationHandler(async ({ req, db, userId, orga
     const locale = await getApiLocale();
     const { searchParams } = new URL(req.url);
     const type = (searchParams.get('type') as ChatSessionType | null) ?? 'global';
+    const connectionId = searchParams.get('connectionId');
 
     if (type !== 'global' && type !== 'copilot') {
         return NextResponse.json(
             ResponseUtil.error({
                 code: ErrorCodes.INVALID_PARAMS,
                 message: translateApi('Api.Chat.Errors.InvalidSessionType', undefined, locale),
+            }),
+            { status: 400 },
+        );
+    }
+
+    if (!connectionId) {
+        return NextResponse.json(
+            ResponseUtil.error({
+                code: ErrorCodes.INVALID_PARAMS,
+                message: translateApi('Api.Chat.Errors.ConnectionIdRequired', undefined, locale),
             }),
             { status: 400 },
         );
@@ -55,6 +66,7 @@ export const GET = withUserAndOrganizationHandler(async ({ req, db, userId, orga
             userId,
             type,
             includeArchived: false,
+            connectionId,
         });
 
         return NextResponse.json(
@@ -81,7 +93,7 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, userId, org
     const locale = await getApiLocale();
     console.log('POST /api/chat/sessions called', userId, organizationId);
 
-    let payload: { type?: string } | null = null;
+    let payload: { type?: string; connectionId?: string } | null = null;
     try {
         payload = await req.json();
     } catch {
@@ -89,11 +101,23 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, userId, org
     }
 
     const type = payload?.type ?? 'global';
+    const connectionId = payload?.connectionId ?? null;
+
     if (type !== 'global') {
         return NextResponse.json(
             ResponseUtil.error({
                 code: ErrorCodes.INVALID_PARAMS,
                 message: translateApi('Api.Chat.Errors.CopilotCreationNotAllowed', undefined, locale),
+            }),
+            { status: 400 },
+        );
+    }
+
+    if (!connectionId) {
+        return NextResponse.json(
+            ResponseUtil.error({
+                code: ErrorCodes.INVALID_PARAMS,
+                message: translateApi('Api.Chat.Errors.ConnectionIdRequired', undefined, locale),
             }),
             { status: 400 },
         );
@@ -105,6 +129,7 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, userId, org
         const created = await db.chat.createGlobalSession({
             organizationId,
             userId,
+            connectionId,
             title: null,
             metadata: null,
         });

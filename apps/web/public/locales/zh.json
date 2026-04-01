@@ -1738,6 +1738,7 @@
                 "MissingTabId": "缺少 tabId",
                 "FetchCopilotSessionFailed": "获取 Copilot 会话失败",
                 "InvalidSessionType": "非法的 session type",
+                "ConnectionIdRequired": "缺少 Connection ID 参数",
                 "ListSessionsFailed": "获取会话列表失败",
                 "CopilotCreationNotAllowed": "Copilot 会话不能通过该接口创建",
                 "CreateSessionFailed": "创建会话失败"

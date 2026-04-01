@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { UIMessage } from 'ai';
 import { useTranslations } from 'next-intl';
+import { useParams } from 'next/navigation';
 import posthog from 'posthog-js';
 
 import type { ChatSessionItem, ChatMode } from './types';
@@ -23,6 +24,8 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
     const { mode, copilotEnvelope } = params;
     const copilotTabId = copilotEnvelope?.meta?.tabId ?? null;
     const t = useTranslations('Chatbot');
+    const routeParams = useParams<{ connectionId: string }>();
+    const connectionId = routeParams.connectionId;
 
     const [sessions, setSessions] = useState<ChatSessionItem[]>([]);
     const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -55,7 +58,7 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
 
             setLoadingSessions(true);
             try {
-                const list = await apiFetchSessions({ mode: 'global', errorMessage: t('Errors.FetchSessions') });
+                const list = await apiFetchSessions({ mode: 'global', connectionId, errorMessage: t('Errors.FetchSessions') });
                 setSessions(list);
 
                 const currentPreferred = preferredId ?? selectedSessionRef.current;
@@ -74,7 +77,7 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
                 setLoadingSessions(false);
             }
         },
-        [mode, t],
+        [mode, connectionId, t],
     );
 
     const fetchSessionDetail = useCallback(async (sessionId: string) => {
@@ -178,7 +181,7 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
         if (creatingSession) return;
         setCreatingSession(true);
         try {
-            const created = await apiCreateSession({ mode: 'global', errorMessage: t('Errors.CreateSession') });
+            const created = await apiCreateSession({ mode: 'global', connectionId, errorMessage: t('Errors.CreateSession') });
             if (created?.id) {
                 posthog.capture('chat_session_created', { session_id: created.id });
             }

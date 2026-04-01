@@ -178,7 +178,7 @@ export interface ChatRepository {
 
     createGlobalSession(input: ChatSessionCreateGlobal): Promise<ChatSessionRecord>;
 
-    listSessions(params: { organizationId: string; userId: string; includeArchived?: boolean; type?: ChatSessionType }): Promise<ChatSessionRecord[]>;
+    listSessions(params: { organizationId: string; userId: string; connectionId: string; includeArchived?: boolean; type?: ChatSessionType }): Promise<ChatSessionRecord[]>;
 
     readSession(params: { organizationId: string; sessionId: string; userId: string }): Promise<ChatSessionRecord | null>;
 

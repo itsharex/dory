@@ -27,9 +27,12 @@ function assertOk<T>(res: Response, data: ApiEnvelope<T>, fallback: string) {
     }
 }
 
-export async function apiFetchSessions(params?: { mode?: ChatMode; errorMessage?: string }) {
-    const type = params?.mode ?? 'global';
-    const res = await authFetch(`/api/chat/sessions?type=${encodeURIComponent(type)}`, {
+export async function apiFetchSessions(params: { mode?: ChatMode; connectionId: string; errorMessage?: string }) {
+    const type = params.mode ?? 'global';
+    const url = new URL('/api/chat/sessions', window.location.origin);
+    url.searchParams.set('type', type);
+    url.searchParams.set('connectionId', params.connectionId);
+    const res = await authFetch(url.toString(), {
         method: 'GET',
         cache: 'no-store',
     });
@@ -54,7 +57,7 @@ export async function apiFetchSessionDetail(sessionId: string, options?: { error
     return { detail, messages };
 }
 
-export async function apiCreateSession(params: { mode: ChatMode; errorMessage?: string; copilotNotSupportedMessage?: string }) {
+export async function apiCreateSession(params: { mode: ChatMode; connectionId: string; errorMessage?: string; copilotNotSupportedMessage?: string }) {
     if (params.mode === 'copilot') {
         throw new Error(params.copilotNotSupportedMessage ?? 'Copilot sessions cannot be created manually.');
     }
@@ -65,6 +68,7 @@ export async function apiCreateSession(params: { mode: ChatMode; errorMessage?: 
         cache: 'no-store',
         body: JSON.stringify({
             type: 'global',
+            connectionId: params.connectionId,
         }),
     });
 
