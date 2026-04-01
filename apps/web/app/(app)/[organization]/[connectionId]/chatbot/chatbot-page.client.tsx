@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { Loader2, X } from 'lucide-react';
 
 import ChatBotComp from './thread/chatbox';
+import ChatWelcome from './components/empty';
 import ChatSessionSidebar from './sessions/chat-session-sidebar';
 import SessionDeleteDialog from './sessions/session-delete-dialog';
 
@@ -79,6 +80,15 @@ export default function ChatBotPageContent({
         ],
     );
 
+    const pendingPromptRef = useRef<string | null>(null);
+
+    const handleWelcomeSend = async (text: string) => {
+        pendingPromptRef.current = text;
+        await chat.handleCreateSession();
+        // pendingPromptRef is read by ChatBotComp on mount, then cleared after a tick
+        requestAnimationFrame(() => { pendingPromptRef.current = null; });
+    };
+
     const onExecuteAction: CopilotActionExecutor = async (action) => {
         if (action.type === 'sql.replace') {
             console.log('replace sql', action.sql);
@@ -119,6 +129,7 @@ export default function ChatBotPageContent({
                             key={mode === 'copilot' ? (copilotEnvelope?.meta?.tabId ?? 'copilot') : chat.selectedSessionId}
                             sessionId={chat.selectedSessionId}
                             initialMessages={chat.initialMessages}
+                            initialPrompt={pendingPromptRef.current}
                             onConversationActivity={chat.handleConversationActivity}
                             onExecuteAction={onExecuteAction}
                             onSessionCreated={(sessionId) => chat.setSelectedSessionId(sessionId)}
@@ -127,9 +138,10 @@ export default function ChatBotPageContent({
                         />
                     )
                 ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                        {t('EmptyState')}
-                    </div>
+                    <ChatWelcome
+                        onSend={handleWelcomeSend}
+                        disabled={chat.creatingSession}
+                    />
                 )}
             </main>
 

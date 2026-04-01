@@ -35,13 +35,14 @@ type ChatBotCompProps = {
     initialMessages: UIMessage[];
     onConversationActivity?: () => void;
     onSessionCreated?: (sessionId: string) => void;
+    initialPrompt?: string | null;
 
     mode?: 'global' | 'copilot';
     copilotEnvelope?: CopilotEnvelopeV1 | null;
     onExecuteAction?: CopilotActionExecutor;
 };
 
-const ChatBotComp = ({ sessionId, initialMessages, onConversationActivity, onSessionCreated, mode = 'global', copilotEnvelope = null, onExecuteAction }: ChatBotCompProps) => {
+const ChatBotComp = ({ sessionId, initialMessages, onConversationActivity, onSessionCreated, initialPrompt = null, mode = 'global', copilotEnvelope = null, onExecuteAction }: ChatBotCompProps) => {
     const router = useRouter();
     const params = useParams<{ organization: string; connectionId: string }>();
     const t = useTranslations('Chatbot');
@@ -156,6 +157,14 @@ const ChatBotComp = ({ sessionId, initialMessages, onConversationActivity, onSes
 
         return () => cancelAnimationFrame(raf);
     }, [chatStateId, messages, restoreScrollPosition]);
+
+    const initialPromptSubmittedRef = useRef(false);
+    useEffect(() => {
+        if (initialPrompt && !initialPromptSubmittedRef.current && status === 'ready') {
+            initialPromptSubmittedRef.current = true;
+            handleSubmit({ text: initialPrompt, files: [] });
+        }
+    }, [initialPrompt, status]);
 
     const handleCopySql = useCallback(
         async (sql: string) => {
