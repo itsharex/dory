@@ -50,7 +50,7 @@ export default function ChatBotPageContent({
                 editingSessionId={chat.editingSessionId}
                 editingValue={chat.editingSessionValue}
                 renameSubmittingId={chat.renameSubmittingId}
-                onCreate={chat.handleCreateSession}
+                onCreate={chat.handleNewChat}
                 onSelect={chat.handleSessionSelect}
                 onRenameStart={chat.handleRenameRequest}
                 onRenameChange={chat.handleRenameChange}
@@ -69,7 +69,7 @@ export default function ChatBotPageContent({
             chat.editingSessionId,
             chat.editingSessionValue,
             chat.renameSubmittingId,
-            chat.handleCreateSession,
+            chat.handleNewChat,
             chat.handleSessionSelect,
             chat.handleRenameRequest,
             chat.handleRenameChange,

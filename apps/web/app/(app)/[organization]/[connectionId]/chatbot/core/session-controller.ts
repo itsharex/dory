@@ -306,6 +306,15 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
 
     const sessionsForDisplay = useMemo(() => normalizeSessionsForDisplay(sessions, t('Sessions.Untitled')), [sessions, t]);
 
+    const handleNewChat = useCallback(() => {
+        if (mode === 'copilot') {
+            toast.message(t('Sessions.CopilotAutoCreate'));
+            return;
+        }
+        setSelectedSessionId(null);
+        setInitialMessages([]);
+    }, [mode, t]);
+
     const handleRefreshSessions = useCallback(() => {
         if (mode === 'copilot') {
             ensureCopilotSession().catch(() => undefined);
@@ -349,9 +358,10 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
         handleDeleteRequest,
         handleDeleteDialogClose,
         handleDeleteSubmit,
+        handleNewChat,
         handleRefreshSessions,
 
-        
+
         setSelectedSessionId,
     };
 }

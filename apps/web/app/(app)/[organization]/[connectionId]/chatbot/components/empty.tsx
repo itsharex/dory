@@ -16,7 +16,9 @@ import {
 import { Suggestions, Suggestion } from '@/components/ai-elements/suggestion';
 import { activeDatabaseAtom } from '@/shared/stores/app.store';
 import { useDatabases } from '@/hooks/use-databases';
+import { useTables } from '@/hooks/use-tables';
 import { DatabaseSelect } from '../../../components/sql-console-sidebar/database-select';
+import { TableMentionTextarea } from '../thread/table-mention-textarea';
 
 type ChatWelcomeProps = {
     onSend: (text: string) => void;
@@ -30,6 +32,7 @@ export default function ChatWelcome({ onSend, disabled = false }: ChatWelcomePro
     const [input, setInput] = useState('');
     const [activeDatabase, setActiveDatabase] = useAtom(activeDatabaseAtom);
     const { databases } = useDatabases();
+    const { tables } = useTables(activeDatabase);
 
     const handleSubmit = (message: PromptInputMessage) => {
         const text = message.text?.trim();
@@ -84,12 +87,14 @@ export default function ChatWelcome({ onSend, disabled = false }: ChatWelcomePro
                                     />
                                 </div>
                                 <div className="flex items-start gap-2 w-full">
-                                    <PromptInputTextarea
-                                        placeholder={t('Input.GlobalPlaceholder')}
-                                        value={input}
-                                        onChange={(e) => setInput(e.target.value)}
-                                        className="min-h-18 w-full resize-none border-0 bg-transparent text-sm focus-visible:outline-none focus-visible:ring-0"
-                                    />
+                                    <TableMentionTextarea value={input} onChange={setInput} tables={tables.map((t: any) => t.name ?? t)}>
+                                        <PromptInputTextarea
+                                            placeholder={t('Input.GlobalPlaceholder')}
+                                            value={input}
+                                            onChange={(e) => setInput(e.target.value)}
+                                            className="min-h-18 w-full resize-none border-0 bg-transparent text-sm focus-visible:outline-none focus-visible:ring-0"
+                                        />
+                                    </TableMentionTextarea>
                                 </div>
                             </div>
                         </PromptInputBody>
