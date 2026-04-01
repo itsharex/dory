@@ -18,7 +18,7 @@ import {
 import BoringAvatar from 'boring-avatars';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarTrigger, useSidebar } from '@/registry/new-york-v4/ui/sidebar';
-import { signOut } from '@/lib/auth-client';
+import { authClient, signOut } from '@/lib/auth-client';
 import { ModeToggle } from '@/components/mode-toggle';
 import { AuthLinkSheet } from '@/components/auth/auth-link-sheet';
 import { User } from 'better-auth';
@@ -36,6 +36,7 @@ export function NavUser({ user }: { user: User | null }) {
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [authSheetOpen, setAuthSheetOpen] = useState(false);
     const [signingOut, setSigningOut] = useState(false);
+    const [signOutError, setSignOutError] = useState<string | null>(null);
     const isAnonymous = isAnonymousUser(user);
 
     const callbackURL = (() => {
@@ -52,15 +53,22 @@ export function NavUser({ user }: { user: User | null }) {
 
     async function handleSignOut() {
         setSigningOut(true);
+        setSignOutError(null);
 
         try {
-            const res = await signOut();
+            const res = isAnonymous ? await authClient.deleteAnonymousUser() : await signOut();
             if (res.data?.success) {
                 router.push('/sign-in');
+                return;
             }
+            setSignOutError(t('GuestSession.DeleteFailed'));
+        } catch {
+            setSignOutError(isAnonymous ? t('GuestSession.DeleteFailed') : null);
         } finally {
             setSigningOut(false);
-            setConfirmOpen(false);
+            if (!isAnonymous) {
+                setConfirmOpen(false);
+            }
         }
     }
 
@@ -174,6 +182,7 @@ export function NavUser({ user }: { user: User | null }) {
                     <AlertDialogHeader>
                         <AlertDialogTitle>{t('GuestSession.Title')}</AlertDialogTitle>
                         <AlertDialogDescription>{t('GuestSession.Description')}</AlertDialogDescription>
+                        {signOutError ? <p className="text-sm text-destructive">{signOutError}</p> : null}
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={signingOut}>{t('GuestSession.Cancel')}</AlertDialogCancel>

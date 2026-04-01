@@ -107,9 +107,9 @@
             "SignUp": "Sign up",
             "Guest": {
                 "Action": "Continue as guest",
-                "Tooltip": "Best for first-time visitors. If you later sign in with an existing account, this guest workspace will remain as a separate workspace.",
+                "Tooltip": "Best for first-time visitors. If you later sign in, we will keep your current guest workspace with your account.",
                 "ConfirmTitle": "Create a temporary workspace?",
-                "ConfirmDescription": "We will create a guest workspace for you right away. If you later sign in with an existing account, this guest workspace will stay as a separate workspace.",
+                "ConfirmDescription": "We will create a guest workspace for you right away. If you later sign in, we will keep this workspace with your account.",
                 "Confirm": "Create guest workspace",
                 "Cancel": "Back",
                 "StartFailed": "Failed to start guest workspace"
@@ -776,7 +776,7 @@
             "Title": "Sign in to use Chatbot",
             "Description": "Guest workspaces can browse the app, but Chatbot requires a full account.",
             "Hint": "After sign-in, your current workspace and organization stay with you.",
-            "WorkspaceNotice": "If you sign in with an existing account, this guest workspace will stay as a separate workspace. You can switch between workspaces later.",
+            "WorkspaceNotice": "When you sign in, your current guest workspace will be kept with your account.",
             "SignIn": "Sign in to continue",
             "SheetTitle": "Continue with an account",
             "SheetDescription": "Link this guest workspace to a full Dory account.",
@@ -2412,11 +2412,12 @@
             "Name": "Guest",
             "Subtitle": "Temporary workspace",
             "Title": "Abandon guest session?",
-            "Description": "If you leave this guest session now, the next time you start you will get a new guest account. Data that is not linked to a real account may not be recoverable.",
+            "Description": "If you abandon this guest session now, we will delete this temporary account and workspace. The next time you start, you will get a new guest account.",
             "SignIn": "Sign in",
             "AbandonAction": "Abandon guest session",
             "Confirm": "Abandon session",
-            "Cancel": "Keep session"
+            "Cancel": "Keep session",
+            "DeleteFailed": "Failed to delete guest session. Please try again."
         }
     },
     "OrganizationSettings": {

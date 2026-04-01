@@ -111,9 +111,9 @@
             "SignUp": "注册",
             "Guest": {
                 "Action": "以访客身份继续",
-                "Tooltip": "更适合首次体验的用户。如果你之后登录已有账号，这个访客工作区会保留为独立 workspace。",
+                "Tooltip": "更适合首次体验的用户。如果你之后登录，我们会将当前访客工作区保留到你的账号下。",
                 "ConfirmTitle": "要创建临时工作区吗？",
-                "ConfirmDescription": "我们会立即为你创建一个访客工作区。如果你之后登录已有账号，这个访客工作区会保留为独立 workspace。",
+                "ConfirmDescription": "我们会立即为你创建一个访客工作区。如果你之后登录，我们会将这个工作区保留到你的账号下。",
                 "Confirm": "创建访客工作区",
                 "Cancel": "返回",
                 "StartFailed": "启动访客工作区失败"
@@ -778,7 +778,7 @@
             "Title": "登录后才能使用 Chatbot",
             "Description": "访客工作区可以继续浏览应用，但 Chatbot 需要正式账号。",
             "Hint": "登录后会保留当前工作区和组织，不会丢数据。",
-            "WorkspaceNotice": "如果你登录的是已有账号，当前访客工作区会保留为独立 workspace，之后可以在多个 workspace 之间切换。",
+            "WorkspaceNotice": "登录后，当前访客工作区会保留到你的账号下。",
             "SignIn": "登录后继续",
             "SheetTitle": "继续并绑定账号",
             "SheetDescription": "把当前访客工作区绑定到你的正式 Dory 账号。",
@@ -2413,11 +2413,12 @@
             "Name": "Guest",
             "Subtitle": "临时工作区",
             "Title": "要放弃当前访客会话吗？",
-            "Description": "如果现在离开这个访客会话，下次开始使用时会创建一个新的访客账号。尚未绑定到正式账号的数据可能无法找回。",
+            "Description": "如果现在放弃这个访客会话，我们会删除这个临时账号和工作区。下次开始使用时会创建一个新的访客账号。",
             "SignIn": "登录关联账号",
             "AbandonAction": "放弃访客会话",
             "Confirm": "确认放弃",
-            "Cancel": "继续保留"
+            "Cancel": "继续保留",
+            "DeleteFailed": "删除访客会话失败，请重试。"
         }
     },
     "OrganizationSettings": {

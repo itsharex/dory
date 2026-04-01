@@ -107,9 +107,9 @@
             "SignUp": "Registrarse",
             "Guest": {
                 "Action": "Continuar como invitado",
-                "Tooltip": "Ideal para quienes visitan por primera vez. Si más tarde inicias sesión con una cuenta existente, este espacio de trabajo de invitado se mantendrá como un espacio independiente.",
+                "Tooltip": "Ideal para quienes visitan por primera vez. Si más tarde inicias sesión, mantendremos tu espacio de trabajo de invitado actual en tu cuenta.",
                 "ConfirmTitle": "¿Crear un espacio de trabajo temporal?",
-                "ConfirmDescription": "Crearemos un espacio de trabajo de invitado para ti de inmediato. Si más tarde inicias sesión con una cuenta existente, este espacio de trabajo seguirá siendo un espacio independiente.",
+                "ConfirmDescription": "Crearemos un espacio de trabajo de invitado para ti de inmediato. Si más tarde inicias sesión, mantendremos este espacio de trabajo en tu cuenta.",
                 "Confirm": "Crear espacio de trabajo de invitado",
                 "Cancel": "Volver",
                 "StartFailed": "No se pudo iniciar el espacio de trabajo de invitado"
@@ -766,7 +766,7 @@
             "Title": "Inicia sesión para usar Chatbot",
             "Description": "Los espacios de trabajo de invitado permiten explorar la app, pero Chatbot requiere una cuenta completa.",
             "Hint": "Después de iniciar sesión, tu espacio de trabajo y tu organización actuales seguirán contigo.",
-            "WorkspaceNotice": "Si inicias sesión con una cuenta existente, este espacio de trabajo de invitado seguirá siendo un espacio independiente. Podrás cambiar entre espacios más tarde.",
+            "WorkspaceNotice": "Cuando inicies sesión, tu espacio de trabajo de invitado actual se mantendrá en tu cuenta.",
             "SignIn": "Inicia sesión para continuar",
             "SheetTitle": "Continuar con una cuenta",
             "SheetDescription": "Vincula este espacio de trabajo de invitado a una cuenta completa de Dory.",
@@ -2399,11 +2399,12 @@
             "Name": "Invitado",
             "Subtitle": "Espacio de trabajo temporal",
             "Title": "¿Abandonar la sesión de invitado?",
-            "Description": "Si sales ahora de esta sesión de invitado, la próxima vez que entres obtendrás una nueva cuenta de invitado. Los datos que no estén vinculados a una cuenta real quizá no puedan recuperarse.",
+            "Description": "Si abandonas ahora esta sesión de invitado, eliminaremos esta cuenta temporal y su espacio de trabajo. La próxima vez que entres obtendrás una nueva cuenta de invitado.",
             "SignIn": "Iniciar sesión",
             "AbandonAction": "Abandonar sesión de invitado",
             "Confirm": "Abandonar sesión",
-            "Cancel": "Mantener sesión"
+            "Cancel": "Mantener sesión",
+            "DeleteFailed": "No se pudo eliminar la sesión de invitado. Inténtalo de nuevo."
         }
     },
     "OrganizationSettings": {
