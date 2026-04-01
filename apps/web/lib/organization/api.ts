@@ -91,6 +91,7 @@ export type OrganizationSummary = {
     logo?: string | null;
     metadata?: Record<string, unknown> | null;
     createdAt: string | Date;
+    provisioningKind?: string | null;
 };
 
 export type OrganizationMember = {
@@ -161,12 +162,11 @@ export async function listOrganizations() {
 }
 
 export async function createOrganization(input: { name: string; slug: string }) {
-    return authOrganizationRequest<OrganizationFull>('/organization/create', {
+    return appApiRequest<OrganizationSummary>('/api/organizations/create', {
         method: 'POST',
         body: {
             name: input.name,
             slug: input.slug || 'workspace',
-            keepCurrentActiveOrganization: false,
         },
     });
 }

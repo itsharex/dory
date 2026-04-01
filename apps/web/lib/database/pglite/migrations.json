@@ -150,5 +150,13 @@
     "bps": true,
     "folderMillis": 1775056342854,
     "hash": "0f8ec7eeaecfacbe82ec3e05e43a0b2da8b8cba8f122e9bb401d794c10a5191e"
+  },
+  {
+    "sql": [
+      "ALTER TABLE \"organizations\" ADD COLUMN \"provisioning_kind\" text;"
+    ],
+    "bps": true,
+    "folderMillis": 1775064413388,
+    "hash": "c645e6c65c2200c70cc36b161acf697d63796db70e2b376a4427f131bd6337bb"
   }
 ]

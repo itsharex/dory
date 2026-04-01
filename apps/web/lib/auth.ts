@@ -13,6 +13,7 @@ import { getDatabaseProvider } from './database/provider';
 import { schema } from './database/schema';
 import { sendEmail } from './email';
 import { resolveOrganizationIdForSession, shouldCreateDefaultOrganization } from './auth/migration-state';
+import { createProvisionedOrganization } from './auth/organization-provisioning';
 import { translate } from './i18n/i18n';
 import { getServerLocale } from './i18n/server-locale';
 import { isBillingEnabledForServer, isDesktopRuntime } from './runtime/runtime';
@@ -160,14 +161,12 @@ function createAuth() {
             }
 
             const defaults = await buildDefaultOrganizationValues(userId, email);
-
-            const created = await auth.api.createOrganization({
-                body: {
-                    name: defaults.name,
-                    slug: defaults.slug,
-                    userId,
-                    keepCurrentActiveOrganization: false,
-                },
+            const created = await createProvisionedOrganization({
+                auth,
+                userId,
+                name: defaults.name,
+                slug: defaults.slug,
+                provisioningKind: 'system_default',
             });
 
             const organizationId = created?.id ?? null;
@@ -223,6 +222,11 @@ function createAuth() {
                             },
                             additionalFields: {
                                 ownerUserId: {
+                                    type: 'string',
+                                    required: false,
+                                    input: false,
+                                },
+                                provisioningKind: {
                                     type: 'string',
                                     required: false,
                                     input: false,

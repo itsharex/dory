@@ -3,11 +3,11 @@ import type { PostgresDBClient } from '@/types';
 import { getServerLocale } from '@/lib/i18n/server-locale';
 import { translate } from '@/lib/i18n/i18n';
 import { getClient } from '@/lib/database/postgres/client';
+import type { OrganizationProvisioningKind } from '@/lib/database/postgres/schemas';
 import { schema } from '@/lib/database/schema';
-import {
-    mergeAnonymousOrganizationIntoExistingOrganization,
-    migrateAnonymousOrganizationOwnership,
-} from '@/lib/database/postgres/impl/organization/anonymous-resource-merge';
+import { mergeAnonymousOrganizationIntoExistingOrganization, migrateAnonymousOrganizationOwnership } from '@/lib/database/postgres/impl/organization/anonymous-resource-merge';
+import { resolveAnonymousOrganizationLinkDecision } from './anonymous-link-strategy';
+import { createProvisionedOrganization } from './organization-provisioning';
 
 type AuthSessionLike = {
     session?: {
@@ -40,6 +40,13 @@ export const anonymousDeleteCleanupTableCoverage = {
         'organizations',
     ],
 } as const;
+
+type AnonymousOrganizationRow = {
+    id: string;
+    slug: string | null;
+    name: string;
+    provisioningKind: OrganizationProvisioningKind | null;
+};
 
 function slugifyOrganizationName(name: string) {
     const normalized = name
@@ -77,10 +84,7 @@ async function findFirstActiveOrganizationIdForUser(db: PostgresDBClient, userId
 }
 
 async function findOwnedOrganizationIdsForUser(db: Pick<PostgresDBClient, 'select'>, userId: string) {
-    const organizations = await db
-        .select({ id: schema.organizations.id })
-        .from(schema.organizations)
-        .where(eq(schema.organizations.ownerUserId, userId));
+    const organizations = await db.select({ id: schema.organizations.id }).from(schema.organizations).where(eq(schema.organizations.ownerUserId, userId));
 
     return organizations.map(organization => organization.id);
 }
@@ -110,18 +114,12 @@ export async function cleanupAnonymousUserOrganizations(userId: string) {
     }
 
     await db.transaction(async tx => {
-        const connections = await tx
-            .select({ id: schema.connections.id })
-            .from(schema.connections)
-            .where(inArray(schema.connections.organizationId, organizationIds));
+        const connections = await tx.select({ id: schema.connections.id }).from(schema.connections).where(inArray(schema.connections.organizationId, organizationIds));
 
         const connectionIds = connections.map(connection => connection.id);
 
         const connectionIdentities = connectionIds.length
-            ? await tx
-                  .select({ id: schema.connectionIdentities.id })
-                  .from(schema.connectionIdentities)
-                  .where(inArray(schema.connectionIdentities.connectionId, connectionIds))
+            ? await tx.select({ id: schema.connectionIdentities.id }).from(schema.connectionIdentities).where(inArray(schema.connectionIdentities.connectionId, connectionIds))
             : [];
         const connectionIdentityIds = connectionIdentities.map(identity => identity.id);
 
@@ -133,9 +131,7 @@ export async function cleanupAnonymousUserOrganizations(userId: string) {
             await tx.delete(schema.connectionSsh).where(inArray(schema.connectionSsh.connectionId, connectionIds));
             await tx.delete(schema.tabs).where(inArray(schema.tabs.connectionId, connectionIds));
             await tx.delete(schema.aiSchemaCache).where(inArray(schema.aiSchemaCache.connectionId, connectionIds));
-            await tx
-                .delete(schema.syncOperations)
-                .where(and(eq(schema.syncOperations.entityType, 'connection'), inArray(schema.syncOperations.entityId, connectionIds)));
+            await tx.delete(schema.syncOperations).where(and(eq(schema.syncOperations.entityType, 'connection'), inArray(schema.syncOperations.entityId, connectionIds)));
         }
 
         if (connectionIdentityIds.length > 0) {
@@ -167,41 +163,23 @@ export async function cleanupAnonymousUserOrganizations(userId: string) {
     };
 }
 
-async function looksLikeDisposableAutoCreatedOrganization(
-    db: Pick<PostgresDBClient, 'select'>,
-    organizationId: string,
-    userId: string,
-) {
-    const [organization] = await db
-        .select({
-            id: schema.organizations.id,
-            slug: schema.organizations.slug,
-            ownerUserId: schema.organizations.ownerUserId,
-            createdAt: schema.organizations.createdAt,
-        })
-        .from(schema.organizations)
-        .where(eq(schema.organizations.id, organizationId))
-        .limit(1);
+async function normalizeAnonymousSourceOrganizations(tx: Pick<PostgresDBClient, 'update'>, organizations: AnonymousOrganizationRow[]) {
+    const organizationIdsToBackfill = organizations.filter(organization => organization.provisioningKind == null).map(organization => organization.id);
 
-    if (!organization) {
-        return false;
+    if (organizationIdsToBackfill.length > 0) {
+        await tx
+            .update(schema.organizations)
+            .set({
+                provisioningKind: 'anonymous',
+                updatedAt: new Date(),
+            })
+            .where(inArray(schema.organizations.id, organizationIdsToBackfill));
     }
 
-    const looksLikeAutoCreated =
-        organization.ownerUserId === userId &&
-        (organization.slug ?? '').endsWith(`-${userId.slice(0, 8)}`) &&
-        Date.now() - new Date(organization.createdAt).getTime() < 15 * 60 * 1000;
-
-    if (!looksLikeAutoCreated) {
-        return false;
-    }
-
-    const members = await db
-        .select({ id: schema.organizationMembers.id })
-        .from(schema.organizationMembers)
-        .where(eq(schema.organizationMembers.organizationId, organizationId));
-
-    return members.length === 1;
+    return organizations.map(organization => ({
+        ...organization,
+        provisioningKind: organization.provisioningKind ?? 'anonymous',
+    }));
 }
 
 export async function buildDefaultOrganizationValues(userId: string, email: string | null | undefined) {
@@ -219,7 +197,6 @@ export async function bootstrapAnonymousOrganization(params: { auth: any; sessio
     const db = await getDb();
     const userId = params.session.user?.id ?? null;
     const sessionToken = params.session.session?.token ?? null;
-    const email = params.session.user?.email ?? null;
 
     if (!userId || !sessionToken) {
         throw new Error('missing_anonymous_session');
@@ -229,13 +206,13 @@ export async function bootstrapAnonymousOrganization(params: { auth: any; sessio
 
     if (!organizationId) {
         const defaults = await buildAnonymousOrganizationValues(userId);
-        const created = await params.auth.api.createOrganization({
-            headers: params.headers ?? new Headers(),
-            body: {
-                ...defaults,
-                userId,
-                keepCurrentActiveOrganization: false,
-            },
+        const created = await createProvisionedOrganization({
+            auth: params.auth,
+            headers: params.headers,
+            userId,
+            name: defaults.name,
+            slug: defaults.slug,
+            provisioningKind: 'anonymous',
         });
 
         organizationId = created?.id ?? null;
@@ -249,6 +226,7 @@ export async function bootstrapAnonymousOrganization(params: { auth: any; sessio
             id: schema.organizations.id,
             slug: schema.organizations.slug,
             name: schema.organizations.name,
+            provisioningKind: schema.organizations.provisioningKind,
         })
         .from(schema.organizations)
         .where(eq(schema.organizations.id, organizationId))
@@ -294,55 +272,56 @@ export async function linkAnonymousOrganizationToUser(params: {
             .from(schema.organizationMembers)
             .where(and(eq(schema.organizationMembers.userId, params.newUserId), or(eq(schema.organizationMembers.status, 'active'), isNull(schema.organizationMembers.status))));
 
-        const candidateTargetOrganizationId =
-            (params.newActiveOrganizationId && !sourceOrganizationIds.includes(params.newActiveOrganizationId)
-                ? params.newActiveOrganizationId
-                : preexistingMemberships.find(membership => !sourceOrganizationIds.includes(membership.organizationId))?.organizationId) ?? null;
-
-        const [organization] = await tx
+        const sourceOrganizationsRaw = await tx
             .select({
                 id: schema.organizations.id,
                 slug: schema.organizations.slug,
                 name: schema.organizations.name,
+                provisioningKind: schema.organizations.provisioningKind,
             })
             .from(schema.organizations)
-            .where(eq(schema.organizations.id, primarySourceOrganizationId))
-            .limit(1);
+            .where(inArray(schema.organizations.id, sourceOrganizationIds));
 
-        if (!organization) {
+        const sourceOrganizationOrder = new Map(sourceOrganizationIds.map((organizationId, index) => [organizationId, index]));
+        const sourceOrganizations = (await normalizeAnonymousSourceOrganizations(tx, sourceOrganizationsRaw)).sort(
+            (left, right) => (sourceOrganizationOrder.get(left.id) ?? Number.MAX_SAFE_INTEGER) - (sourceOrganizationOrder.get(right.id) ?? Number.MAX_SAFE_INTEGER),
+        );
+
+        if (sourceOrganizations.length === 0) {
             return null;
         }
 
-        const [newUser] = await tx
-            .select({
-                createdAt: schema.user.createdAt,
-            })
-            .from(schema.user)
-            .where(eq(schema.user.id, params.newUserId))
-            .limit(1);
+        const primarySourceOrganization = sourceOrganizations.find(organization => organization.id === primarySourceOrganizationId) ?? sourceOrganizations[0]!;
+        const targetCandidateOrganizationIds = [...new Set(preexistingMemberships.map(membership => membership.organizationId))];
+        const targetCandidateOrganizations = targetCandidateOrganizationIds.length
+            ? await tx
+                  .select({
+                      id: schema.organizations.id,
+                      slug: schema.organizations.slug,
+                      name: schema.organizations.name,
+                      provisioningKind: schema.organizations.provisioningKind,
+                  })
+                  .from(schema.organizations)
+                  .where(inArray(schema.organizations.id, targetCandidateOrganizationIds))
+            : [];
 
-        const isFreshlyCreatedUser = Boolean(newUser?.createdAt && Date.now() - new Date(newUser.createdAt).getTime() < 15 * 60 * 1000);
-        const canMergeIntoExistingOrganization =
-            candidateTargetOrganizationId &&
-            (!isFreshlyCreatedUser || !(await looksLikeDisposableAutoCreatedOrganization(tx, candidateTargetOrganizationId, params.newUserId)));
+        const linkDecision = resolveAnonymousOrganizationLinkDecision({
+            sourceOrganizations,
+            userOrganizations: targetCandidateOrganizations,
+            newActiveOrganizationId: params.newActiveOrganizationId,
+        });
 
-        if (canMergeIntoExistingOrganization) {
+        if (!linkDecision) {
+            return null;
+        }
+
+        if (linkDecision.action === 'merge' && linkDecision.targetOrganizationId) {
             const mergeResults = [];
 
-            for (const sourceOrganizationId of sourceOrganizationIds) {
-                const [sourceOrganization] = await tx
-                    .select({ id: schema.organizations.id })
-                    .from(schema.organizations)
-                    .where(eq(schema.organizations.id, sourceOrganizationId))
-                    .limit(1);
-
-                if (!sourceOrganization) {
-                    continue;
-                }
-
+            for (const sourceOrganization of sourceOrganizations) {
                 const mergeResult = await mergeAnonymousOrganizationIntoExistingOrganization(tx, {
                     sourceOrganizationId: sourceOrganization.id,
-                    targetOrganizationId: candidateTargetOrganizationId,
+                    targetOrganizationId: linkDecision.targetOrganizationId,
                     anonymousUserId: params.anonymousUserId,
                     newUserId: params.newUserId,
                 });
@@ -358,7 +337,7 @@ export async function linkAnonymousOrganizationToUser(params: {
                 await tx
                     .update(schema.session)
                     .set({
-                        activeOrganizationId: candidateTargetOrganizationId,
+                        activeOrganizationId: linkDecision.targetOrganizationId,
                         updatedAt: new Date(),
                     })
                     .where(eq(schema.session.token, params.newSessionToken));
@@ -371,23 +350,14 @@ export async function linkAnonymousOrganizationToUser(params: {
                     id: schema.organizations.id,
                     slug: schema.organizations.slug,
                     name: schema.organizations.name,
+                    provisioningKind: schema.organizations.provisioningKind,
                 })
                 .from(schema.organizations)
-                .where(eq(schema.organizations.id, candidateTargetOrganizationId))
+                .where(eq(schema.organizations.id, linkDecision.targetOrganizationId))
                 .limit(1);
 
             return targetOrganization ?? null;
         }
-
-        const sourceOrganizations = await tx
-            .select({
-                id: schema.organizations.id,
-                slug: schema.organizations.slug,
-                name: schema.organizations.name,
-                createdAt: schema.organizations.createdAt,
-            })
-            .from(schema.organizations)
-            .where(inArray(schema.organizations.id, sourceOrganizationIds));
 
         const migrationResults = [];
 
@@ -396,6 +366,7 @@ export async function linkAnonymousOrganizationToUser(params: {
                 .update(schema.organizations)
                 .set({
                     ownerUserId: params.newUserId,
+                    provisioningKind: 'anonymous_promoted',
                     updatedAt: new Date(),
                 })
                 .where(eq(schema.organizations.id, sourceOrganization.id));
@@ -439,7 +410,7 @@ export async function linkAnonymousOrganizationToUser(params: {
             await tx
                 .update(schema.session)
                 .set({
-                    activeOrganizationId: primarySourceOrganizationId,
+                    activeOrganizationId: linkDecision.primarySourceOrganizationId,
                     updatedAt: new Date(),
                 })
                 .where(eq(schema.session.token, params.newSessionToken));
@@ -447,42 +418,7 @@ export async function linkAnonymousOrganizationToUser(params: {
 
         console.log('[auth] reassigned guest organization ownership to linked user', migrationResults);
 
-        if (isFreshlyCreatedUser) {
-            const ownedOrganizations = await tx
-                .select({
-                    id: schema.organizations.id,
-                    slug: schema.organizations.slug,
-                    createdAt: schema.organizations.createdAt,
-                })
-                .from(schema.organizations)
-                .where(eq(schema.organizations.ownerUserId, params.newUserId));
-
-            for (const ownedOrganization of ownedOrganizations) {
-                if (sourceOrganizationIds.includes(ownedOrganization.id)) {
-                    continue;
-                }
-
-                const looksLikeAutoCreated =
-                    (ownedOrganization.slug ?? '').endsWith(`-${params.newUserId.slice(0, 8)}`) && Date.now() - new Date(ownedOrganization.createdAt).getTime() < 15 * 60 * 1000;
-
-                if (!looksLikeAutoCreated) {
-                    continue;
-                }
-
-                const members = await tx
-                    .select({ id: schema.organizationMembers.id })
-                    .from(schema.organizationMembers)
-                    .where(eq(schema.organizationMembers.organizationId, ownedOrganization.id));
-
-                if (members.length !== 1) {
-                    continue;
-                }
-
-                await tx.delete(schema.organizations).where(eq(schema.organizations.id, ownedOrganization.id));
-            }
-        }
-
-        return sourceOrganizations.find(sourceOrganization => sourceOrganization.id === primarySourceOrganizationId) ?? organization;
+        return sourceOrganizations.find(sourceOrganization => sourceOrganization.id === linkDecision.primarySourceOrganizationId) ?? primarySourceOrganization;
     });
 
     return resultOrganization;

@@ -2,6 +2,7 @@ import { getAuth } from '@/lib/auth';
 import { getDBService } from '@/lib/database';
 import { proxyAuthRequest, shouldProxyAuthRequest } from '@/lib/auth/auth-proxy';
 import { ensureDemoConnection } from '@/lib/demo/ensure-demo-connection';
+import { createProvisionedOrganization } from '@/lib/auth/organization-provisioning';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -40,10 +41,7 @@ function rewriteSetCookie(value: string, isSecureRequest: boolean): string {
     const parts = value.split(';');
     const [nameValue, ...attrs] = parts;
     const normalizedAttrs = attrs.map(attr => attr.trim());
-    const isClearingCookie =
-        /=\s*$/.test(nameValue) ||
-        normalizedAttrs.some(attr => /^max-age=0$/i.test(attr)) ||
-        normalizedAttrs.some(attr => /^expires=/i.test(attr));
+    const isClearingCookie = /=\s*$/.test(nameValue) || normalizedAttrs.some(attr => /^max-age=0$/i.test(attr)) || normalizedAttrs.some(attr => /^expires=/i.test(attr));
 
     let rewrittenNameValue = nameValue;
     if (!isSecureRequest && /^__Secure-/i.test(nameValue)) {
@@ -149,13 +147,12 @@ export async function POST(req: NextRequest) {
     const existingMemberships = await db.organizations.listByUser(userId);
     if (existingMemberships.length === 0) {
         const name = `${DEMO_USER.name}'s Workspace`;
-        await auth.api.createOrganization({
-            body: {
-                name,
-                slug: `${slugifyOrganizationName(name)}-${userId.slice(0, 8)}`,
-                userId,
-                keepCurrentActiveOrganization: false,
-            },
+        await createProvisionedOrganization({
+            auth,
+            userId,
+            name,
+            slug: `${slugifyOrganizationName(name)}-${userId.slice(0, 8)}`,
+            provisioningKind: 'manual',
         });
     }
 
