@@ -40,7 +40,9 @@ export default function SignInPage() {
             )}
         >
             <RuntimeHint className="absolute right-4 top-4 z-20" />
-            <SignInForm className='z-100' imageUrl="https://images.unsplash.com/photo-1536147116438-62679a5e01f2?q=80&w=2688&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" />
+            <div className="z-100 w-full max-w-md">
+                <SignInForm imageUrl="https://images.unsplash.com/photo-1536147116438-62679a5e01f2?q=80&w=2688&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" />
+            </div>
             {/* <div className="absolute z-10 inset-0 h-full w-full bg-[#0f172a]">
 
             </div> */}

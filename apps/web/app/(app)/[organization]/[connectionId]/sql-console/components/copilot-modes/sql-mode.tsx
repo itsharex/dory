@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
 import { Check, ChevronDown, Loader2, Play, Save, Square } from 'lucide-react';
+import { usePathname, useSearchParams } from 'next/navigation';
 
 import { Button } from '@/registry/new-york-v4/ui/button';
 import {
@@ -25,13 +26,10 @@ import { SaveSqlDialog } from './save-sql-dialog';
 import type { SqlModeProps } from './types';
 import { authFetch } from '@/lib/client/auth-fetch';
 import { useTranslations } from 'next-intl';
-import {
-    normalizeSqlEditorSettings,
-    SQL_EDITOR_QUERY_LIMIT_OPTIONS,
-    sqlEditorSettingsAtom,
-} from '@/shared/stores/sql-editor-settings.store';
-
+import { normalizeSqlEditorSettings, SQL_EDITOR_QUERY_LIMIT_OPTIONS, sqlEditorSettingsAtom } from '@/shared/stores/sql-editor-settings.store';
 import { currentConnectionAtom } from '@/shared/stores/app.store';
+import { authClient } from '@/lib/auth-client';
+import { AuthLinkSheet } from '@/components/auth/auth-link-sheet';
 import type { SavedQueryItem } from '../saved-queries/saved-queries-sidebar';
 
 export function SqlMode({
@@ -51,9 +49,13 @@ export function SqlMode({
     onCloseChatbot,
 }: SqlModeProps) {
     const t = useTranslations('SqlConsole');
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const { data: session } = authClient.useSession();
     const selectionByTab = useAtomValue(editorSelectionByTabAtom);
     const [editorSettings, setEditorSettings] = useAtom(sqlEditorSettingsAtom);
     const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+    const [authSheetOpen, setAuthSheetOpen] = useState(false);
     const [savedQueries, setSavedQueries] = useState<SavedQueryItem[]>([]);
     const [queryLimit, setQueryLimit] = useState(editorSettings.queryLimit);
     const selection = activeTab?.tabId ? selectionByTab[activeTab.tabId] : null;
@@ -75,7 +77,7 @@ export function SqlMode({
         setEditorSettings(prev => normalizeSqlEditorSettings({ ...prev, queryLimit: next }));
     };
     const getSqlText = useCallback(
-        () => editorRef.current?.getValue() ?? (activeTab?.tabType === 'sql' ? activeTab?.content ?? '' : ''),
+        () => editorRef.current?.getValue() ?? (activeTab?.tabType === 'sql' ? (activeTab?.content ?? '') : ''),
         [activeTab?.tabType === 'sql' && activeTab?.content, activeTab?.tabType, editorRef],
     );
     const currentSqlText = getSqlText().trim();
@@ -83,6 +85,20 @@ export function SqlMode({
     const runLabel = hasSelection ? t('Toolbar.RunSelected') : t('Toolbar.Run');
     const runLabelWithLimit = hasSqlLimit ? `${runLabel} ( Limit: SQL )` : `${runLabel} ( Limit: ${queryLimit} )`;
     const isSaved = !!currentSqlText && savedQueries.some(q => q.sqlText.trim() === currentSqlText);
+    const requiresFullAccount = !session?.user || session.user.isAnonymous;
+    const callbackURL = useMemo(() => {
+        const query = searchParams?.toString();
+        return query ? `${pathname}?${query}` : pathname || '/';
+    }, [pathname, searchParams]);
+
+    const requestSave = useCallback(() => {
+        if (!canSave) return;
+        if (requiresFullAccount) {
+            setAuthSheetOpen(true);
+            return;
+        }
+        setSaveDialogOpen(true);
+    }, [canSave, requiresFullAccount]);
 
     const fetchSavedQueries = useCallback(async () => {
         if (!connectionId) {
@@ -126,18 +142,16 @@ export function SqlMode({
             const isSave = event.key.toLowerCase() === 's';
             const hasModifier = event.metaKey || event.ctrlKey;
             if (!isSave || !hasModifier) return;
-            if (!canSave) return;
             event.preventDefault();
-            setSaveDialogOpen(true);
+            requestSave();
         };
         window.addEventListener('keydown', handler);
         return () => {
             window.removeEventListener('keydown', handler);
         };
-    }, [canSave]);
+    }, [requestSave]);
 
     return (
-
         <div className="flex flex-1 flex-col min-h-0 mr-10">
             <PanelGroup
                 key={showChatbot ? 'sql-with-copilot' : 'sql-without-copilot'}
@@ -148,38 +162,18 @@ export function SqlMode({
                     if (copilotSize > 5) setChatWidth(copilotSize);
                 }}
             >
-                <Panel
-                    defaultSize={showChatbot ? 100 - chatWidth : 100}
-                    minSize={40}
-                    order={1}
-                    className="min-h-0"
-                >
+                <Panel defaultSize={showChatbot ? 100 - chatWidth : 100} minSize={40} order={1} className="min-h-0">
                     <div className="flex h-full flex-col min-h-0">
                         <div className="flex items-center gap-2 p-2 border-b shrink-0">
                             <div className="flex items-center">
-                                <Button
-                                    disabled={isRunning}
-                                    size="sm"
-                                    className="gap-2 rounded-r-none cursor-pointer"
-                                    onClick={handleRunQuery}
-                                    data-testid="run-query"
-                                >
-                                    {isRunning ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                    ) : (
-                                        <Play className="h-4 w-4" />
-                                    )}
+                                <Button disabled={isRunning} size="sm" className="gap-2 rounded-r-none cursor-pointer" onClick={handleRunQuery} data-testid="run-query">
+                                    {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                                     {runLabelWithLimit}
                                 </Button>
 
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button
-                                            size="sm"
-                                            variant="default"
-                                            className="rounded-l-none px-2 cursor-pointer"
-                                            aria-label="Run options"
-                                        >
+                                        <Button size="sm" variant="default" className="rounded-l-none px-2 cursor-pointer" aria-label="Run options">
                                             <ChevronDown className="h-4 w-4" />
                                         </Button>
                                     </DropdownMenuTrigger>
@@ -201,12 +195,7 @@ export function SqlMode({
                             </div>
 
                             {isRunning && activeTab ? (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-2"
-                                    onClick={() => cancelQuery(activeTab)}
-                                >
+                                <Button variant="outline" size="sm" className="gap-2" onClick={() => cancelQuery(activeTab)}>
                                     <Square className="h-4 w-4" />
                                     {t('Toolbar.Stop')}
                                 </Button>
@@ -218,24 +207,14 @@ export function SqlMode({
                                     {t('Toolbar.Saved')}
                                 </div>
                             ) : (
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-2"
-                                    onClick={() => setSaveDialogOpen(true)}
-                                    disabled={!canSave}
-                                >
+                                <Button variant="outline" size="sm" className="gap-2" onClick={requestSave} disabled={!canSave}>
                                     <Save className="h-4 w-4" />
                                     {t('Toolbar.SaveQuery')}
                                 </Button>
                             )}
                         </div>
 
-                        <PanelGroup
-                            direction="vertical"
-                            autoSaveId="sql-editor-v"
-                            className="h-full min-h-0"
-                        >
+                        <PanelGroup direction="vertical" autoSaveId="sql-editor-v" className="h-full min-h-0">
                             <Panel defaultSize={25} minSize={15} className="min-h-0">
                                 <div className="flex flex-col h-full border-b min-h-0">
                                     <SQLEditor ref={editorRef} activeTab={activeTab} updateTab={updateTab} onRunQuery={handleRunQuery} />
@@ -253,12 +232,7 @@ export function SqlMode({
                     </div>
                 </Panel>
 
-                <PanelResizeHandle
-                    className={[
-                        'w-1.5 bg-border data-[resize-handle-active=true]:bg-foreground/30 transition-colors',
-                        showChatbot ? '' : 'hidden',
-                    ].join(' ')}
-                />
+                <PanelResizeHandle className={['w-1.5 bg-border data-[resize-handle-active=true]:bg-foreground/30 transition-colors', showChatbot ? '' : 'hidden'].join(' ')} />
 
                 <Panel
                     defaultSize={showChatbot ? chatWidth : 0}
@@ -282,13 +256,8 @@ export function SqlMode({
                     ) : null}
                 </Panel>
             </PanelGroup>
-            <SaveSqlDialog
-                open={saveDialogOpen}
-                onOpenChange={setSaveDialogOpen}
-                defaultTitle={defaultSaveTitle}
-                getSqlText={getSqlText}
-                onSaved={fetchSavedQueries}
-            />
+            <SaveSqlDialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen} defaultTitle={defaultSaveTitle} getSqlText={getSqlText} onSaved={fetchSavedQueries} />
+            <AuthLinkSheet open={authSheetOpen} onOpenChange={setAuthSheetOpen} callbackURL={callbackURL} />
         </div>
     );
 }

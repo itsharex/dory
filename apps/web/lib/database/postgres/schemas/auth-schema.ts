@@ -10,6 +10,7 @@ export const user = pgTable('user', {
         .$defaultFn(() => newEntityId()),
     name: text('name').notNull(),
     email: text('email').notNull().unique(),
+    isAnonymous: boolean('is_anonymous').default(false).notNull(),
 
     emailVerified: boolean('email_verified')
         .$defaultFn(() => false)

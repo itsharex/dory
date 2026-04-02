@@ -18,18 +18,12 @@ import { CopilotActionExecutor } from './copilot/action-bridge';
 
 type ChatBotPageContentProps = {
     variant?: 'sidebar' | 'compact';
-    mode?: ChatMode; 
-    copilotEnvelope?: CopilotEnvelopeV1 | null; 
+    mode?: ChatMode;
+    copilotEnvelope?: CopilotEnvelopeV1 | null;
     onClose?: () => void;
 };
 
-export default function ChatBotPageContent({
-    variant = 'sidebar',
-    mode = 'global',
-    copilotEnvelope = null,
-    onClose,
-}: ChatBotPageContentProps) {
-    
+export default function ChatBotPageContent({ variant = 'sidebar', mode = 'global', copilotEnvelope = null, onClose }: ChatBotPageContentProps) {
     const [compactMode, setCompactMode] = useState<boolean>(variant === 'compact');
     useEffect(() => setCompactMode(variant === 'compact'), [variant]);
     const t = useTranslations('Chatbot');
@@ -87,7 +81,7 @@ export default function ChatBotPageContent({
         await chat.handleCreateSession();
     };
 
-    const onExecuteAction: CopilotActionExecutor = async (action) => {
+    const onExecuteAction: CopilotActionExecutor = async action => {
         if (action.type === 'sql.replace') {
             console.log('replace sql', action.sql);
         }
@@ -104,13 +98,7 @@ export default function ChatBotPageContent({
             {compactMode ? (
                 <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
                     {hasSessions && sessionSelector}
-                    <Button
-                        variant="outline"
-                        size="icon"
-                        title={t('Close')}
-                        onClick={() => onClose?.()}
-                        className="h-8 w-8"
-                    >
+                    <Button variant="outline" size="icon" title={t('Close')} onClick={() => onClose?.()} className="h-8 w-8">
                         <X className="h-4 w-4" />
                     </Button>
                 </div>
@@ -132,7 +120,7 @@ export default function ChatBotPageContent({
                             initialPrompt={pendingPromptRef.current}
                             onConversationActivity={chat.handleConversationActivity}
                             onExecuteAction={onExecuteAction}
-                            onSessionCreated={(sessionId) => chat.setSelectedSessionId(sessionId)}
+                            onSessionCreated={sessionId => chat.setSelectedSessionId(sessionId)}
                             mode={mode}
                             copilotEnvelope={copilotEnvelope}
                         />

@@ -3,6 +3,8 @@ import { pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
 import { newEntityId } from '@/lib/id';
 import { user } from '../auth-schema';
 
+export type OrganizationProvisioningKind = 'anonymous' | 'system_default' | 'manual' | 'anonymous_promoted';
+
 export const organizations = pgTable(
     'organizations',
     {
@@ -18,6 +20,7 @@ export const organizations = pgTable(
 
         // URL /organization/:slug
         slug: text('slug'),
+        provisioningKind: text('provisioning_kind').$type<OrganizationProvisioningKind>(),
         logo: text('logo'),
         metadata: text('metadata'),
         stripeCustomerId: text('stripe_customer_id'),

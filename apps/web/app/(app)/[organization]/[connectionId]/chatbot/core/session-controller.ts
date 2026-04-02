@@ -10,18 +10,11 @@ import posthog from 'posthog-js';
 
 import type { ChatSessionItem, ChatMode } from './types';
 import { normalizeSessionsForDisplay } from './utils';
-import {
-    apiCreateSession,
-    apiDeleteSession,
-    apiFetchSessionDetail,
-    apiFetchSessions,
-    apiFetchCopilotSession,
-    apiRenameSession,
-} from './api';
+import { apiCreateSession, apiDeleteSession, apiFetchSessionDetail, apiFetchSessions, apiFetchCopilotSession, apiRenameSession } from './api';
 import type { CopilotEnvelopeV1 } from '../copilot/types/copilot-envelope';
 
-export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: CopilotEnvelopeV1 | null }) {
-    const { mode, copilotEnvelope } = params;
+export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: CopilotEnvelopeV1 | null; enabled?: boolean }) {
+    const { mode, copilotEnvelope, enabled = true } = params;
     const copilotTabId = copilotEnvelope?.meta?.tabId ?? null;
     const t = useTranslations('Chatbot');
     const routeParams = useParams<{ connectionId: string }>();
@@ -80,32 +73,33 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
         [mode, connectionId, t],
     );
 
-    const fetchSessionDetail = useCallback(async (sessionId: string) => {
-        setLoadingMessages(true);
-        try {
-            const { detail, messages } = await apiFetchSessionDetail(sessionId, { errorMessage: t('Errors.FetchSessionDetail') });
+    const fetchSessionDetail = useCallback(
+        async (sessionId: string) => {
+            setLoadingMessages(true);
+            try {
+                const { detail, messages } = await apiFetchSessionDetail(sessionId, { errorMessage: t('Errors.FetchSessionDetail') });
 
-            console.log('[chat] fetch session detail', detail, messages);
+                console.log('[chat] fetch session detail', detail, messages);
 
-            if (detail?.session) {
-                setSessions(prev => {
-                    
-                    const exists = prev.some(item => item.id === detail.session.id);
-                    if (!exists) return [detail.session, ...prev];
-                    return prev.map(item => (item.id === detail.session.id ? detail.session : item));
-                });
+                if (detail?.session) {
+                    setSessions(prev => {
+                        const exists = prev.some(item => item.id === detail.session.id);
+                        if (!exists) return [detail.session, ...prev];
+                        return prev.map(item => (item.id === detail.session.id ? detail.session : item));
+                    });
+                }
+                setInitialMessages(messages);
+            } catch (e: any) {
+                console.error('[chat] fetch session detail failed', e);
+                toast.error(e?.message || t('Errors.FetchSessionDetail'));
+                setInitialMessages([]);
+            } finally {
+                setLoadingMessages(false);
             }
-            setInitialMessages(messages);
-        } catch (e: any) {
-            console.error('[chat] fetch session detail failed', e);
-            toast.error(e?.message || t('Errors.FetchSessionDetail'));
-            setInitialMessages([]);
-        } finally {
-            setLoadingMessages(false);
-        }
-    }, [t]);
+        },
+        [t],
+    );
 
-    
     const ensureCopilotSession = useCallback(async () => {
         if (mode !== 'copilot') return;
         if (!copilotTabId) {
@@ -154,23 +148,33 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
         }
     }, [mode, copilotTabId, fetchSessionDetail, t]);
 
-    
     useEffect(() => {
+        if (!enabled) {
+            setLoadingSessions(false);
+            setLoadingMessages(false);
+            setSessions([]);
+            setSelectedSessionId(null);
+            setInitialMessages([]);
+            return;
+        }
+
         if (mode === 'copilot') {
             ensureCopilotSession().catch(() => undefined);
         } else {
             fetchSessions().catch(() => undefined);
         }
-    }, [mode, fetchSessions, ensureCopilotSession]);
+    }, [enabled, mode, fetchSessions, ensureCopilotSession]);
 
-    
     useEffect(() => {
         if (!selectedSessionId) {
             setInitialMessages([]);
             return;
         }
+        if (!enabled) {
+            return;
+        }
         fetchSessionDetail(selectedSessionId).catch(() => undefined);
-    }, [selectedSessionId, fetchSessionDetail]);
+    }, [enabled, selectedSessionId, fetchSessionDetail]);
 
     const handleCreateSession = useCallback(async () => {
         if (mode === 'copilot') {
@@ -196,7 +200,7 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
 
     const handleSessionSelect = useCallback(
         (sessionId: string) => {
-            if (mode === 'copilot') return; 
+            if (mode === 'copilot') return;
             setSelectedSessionId(sessionId);
         },
         [mode],
@@ -208,7 +212,6 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
         fetchSessions(currentId).catch(() => undefined);
     }, [mode, fetchSessions]);
 
-    
     const handleRenameRequest = useCallback(
         (sessionId: string) => {
             if (mode === 'copilot') return toast.error(t('Errors.CopilotRenameUnsupported'));
@@ -259,7 +262,6 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
         }
     }, [mode, editingSessionId, editingSessionValue, sessions, fetchSessions, t]);
 
-    
     const handleDeleteRequest = useCallback(
         (sessionId: string) => {
             if (mode === 'copilot') return toast.error(t('Errors.CopilotDeleteUnsupported'));
@@ -363,8 +365,6 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
         handleDeleteSubmit,
         handleNewChat,
         handleRefreshSessions,
-
-
         setSelectedSessionId,
     };
 }

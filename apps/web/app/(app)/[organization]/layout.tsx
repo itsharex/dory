@@ -7,9 +7,9 @@ import { AppSidebar } from './components/app-sidebar/app-sidebar';
 import { getSessionFromRequest } from '@/lib/auth/session';
 import { getFirstOrganizationForUser, getOrganizationBySlugOrId } from '@/lib/server/organization';
 import { resolveCurrentOrganizationId } from '@/lib/auth/current-organization';
+import { isAnonymousUser } from '@/lib/auth/anonymous-user';
 
-
-export default async function TeamLayout({ children, params }: { children: React.ReactNode; params: Promise<{ organization: string } > }) {
+export default async function TeamLayout({ children, params }: { children: React.ReactNode; params: Promise<{ organization: string }> }) {
     const cookieStore = await cookies();
     const defaultOpen = cookieStore.get('sidebar_state')?.value !== 'false';
     const session = await getSessionFromRequest();
@@ -24,6 +24,10 @@ export default async function TeamLayout({ children, params }: { children: React
         const fallbackOrganization = await getFirstOrganizationForUser(session.user.id);
         if (fallbackOrganization) {
             redirect(`/${fallbackOrganization.slug}/connections`);
+        }
+
+        if (isAnonymousUser(session.user)) {
+            redirect('/sign-in');
         }
 
         redirect('/create-organization');

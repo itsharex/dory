@@ -4,6 +4,9 @@ export const dynamic = 'force-dynamic';
 
 import { getAuth } from '@/lib/auth';
 import { proxyAuthRequest, shouldProxyAuthRequest } from '@/lib/auth/auth-proxy';
+import { deleteAnonymousUserLocally } from '@/lib/auth/anonymous';
+import { buildAnonymousDeleteResponse, isLocalAnonymousDeleteRequest } from '@/lib/auth/anonymous-delete';
+import { isAnonymousUser } from '@/lib/auth/anonymous-user';
 
 function getSetCookies(headers: Headers): string[] {
     const anyHeaders = headers as unknown as { getSetCookie?: () => string[] };
@@ -85,6 +88,25 @@ export async function POST(req: Request) {
         return proxyAuthRequest(req);
     }
     const auth = await getAuth();
+    const pathname = new URL(req.url).pathname;
+
+    if (isLocalAnonymousDeleteRequest(pathname)) {
+        const session = await auth.api.getSession({
+            headers: req.headers,
+        });
+
+        if (!session?.user?.id) {
+            return Response.json({ error: 'UNAUTHORIZED' }, { status: 401 });
+        }
+
+        if (!isAnonymousUser(session.user)) {
+            return Response.json({ error: 'ANONYMOUS_SESSION_REQUIRED' }, { status: 403 });
+        }
+
+        await deleteAnonymousUserLocally(session.user.id);
+        return buildAnonymousDeleteResponse(req);
+    }
+
     const res = await auth.handler(req);
     return rewriteAuthResponse(req, res);
 }

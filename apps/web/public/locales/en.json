@@ -98,13 +98,22 @@
             "ForgotPassword": "Forgot your password?",
             "Submitting": "Signing in…",
             "Submit": "Login",
-            "DemoEnter": "Enter as Demo",
+            "DemoEnter": "Continue as guest",
             "OrContinueWith": "Or continue with",
             "LoginWithGithub": "Login with Github",
             "LoginWithGoogle": "Login with Google",
             "LoginWithMeta": "Login with Meta",
             "NoAccount": "Don't have an account?",
             "SignUp": "Sign up",
+            "Guest": {
+                "Action": "Continue as guest",
+                "Tooltip": "Best for first-time visitors. If you later sign in, we will keep your current guest workspace with your account.",
+                "ConfirmTitle": "Create a temporary workspace?",
+                "ConfirmDescription": "We will create a guest workspace for you right away. If you later sign in, we will keep this workspace with your account.",
+                "Confirm": "Create guest workspace",
+                "Cancel": "Back",
+                "StartFailed": "Failed to start guest workspace"
+            },
             "ContinueAgreement": "By clicking continue, you agree to our",
             "Terms": "Terms of Service",
             "And": "and",
@@ -126,6 +135,10 @@
         },
         "TeamName": "{name}'s organization",
         "TeamDefaultName": "Default",
+        "AnonymousWorkspace": {
+            "Name": "Guest workspace",
+            "LinkedName": "Imported guest workspace"
+        },
         "Emails": {
             "ResetPassword": {
                 "Subject": "Reset your password",
@@ -759,6 +772,17 @@
                 "TableSummary": "Summary of all tables with row counts"
             }
         },
+        "AuthRequired": {
+            "Title": "Sign in to use Chatbot",
+            "Description": "Guest workspaces can browse the app, but Chatbot requires a full account.",
+            "Hint": "After sign-in, your current workspace and organization stay with you.",
+            "WorkspaceNotice": "When you sign in, your current guest workspace will be kept with your account.",
+            "SignIn": "Sign in to continue",
+            "SheetTitle": "Continue with an account",
+            "SheetDescription": "Link this guest workspace to a full Dory account.",
+            "SignInTab": "Sign in",
+            "SignUpTab": "Create account"
+        },
         "Typing": "Generating",
         "Input": {
             "GlobalPlaceholder": "@ mention tables to ask about the database, Shift + Enter for a new line",
@@ -828,6 +852,27 @@
         },
         "TableMention": {
             "Heading": "Tables"
+        }
+    },
+    "Welcome": {
+        "Badge": "Anonymous mode",
+        "Title": "Start with an anonymous workspace, upgrade only when you need Chatbot.",
+        "Description": "Explore Dory immediately without creating an account. We will create a temporary workspace for you and keep your organization data when you later sign in.",
+        "CardTitle": "Enter Dory instantly",
+        "CardDescription": "Create an anonymous account and a personal workspace with one click.",
+        "Start": "Start with anonymous account",
+        "Resume": "Continue anonymous workspace",
+        "Starting": "Preparing workspace…",
+        "Hint": "You can keep browsing anonymously. When you need Chatbot, sign in and we will link this workspace to your real account.",
+        "HaveAccount": "Already have an account?",
+        "SignIn": "Sign in",
+        "Highlights": {
+            "Instant": "No signup wall before first use.",
+            "Private": "Temporary workspace scoped to your session.",
+            "Upgrade": "Sign in later without losing your organization."
+        },
+        "Errors": {
+            "StartFailed": "Failed to start anonymous workspace. Please try again."
         }
     },
     "Monitoring": {
@@ -1264,6 +1309,11 @@
             "Saved": "Saved",
             "SaveQuery": "Save Query",
             "Stop": "Stop"
+        },
+        "AnonymousWorkspaceAlert": {
+            "Title": "You're not signed in, so workspace content can't be saved",
+            "Description": "This is a guest workspace. Sign in or create an account to save queries and other workspace content while keeping your current guest data.",
+            "Action": "Sign in to continue"
         },
         "Refresh": "Refresh",
         "Sidebar": {
@@ -1740,7 +1790,8 @@
                 "ConnectionIdRequired": "Connection ID is required",
                 "ListSessionsFailed": "Failed to fetch sessions",
                 "CopilotCreationNotAllowed": "Copilot sessions cannot be created via this endpoint",
-                "CreateSessionFailed": "Failed to create session"
+                "CreateSessionFailed": "Failed to create session",
+                "FullAccountRequired": "Please sign in to use Chatbot."
             },
             "Tools": {
                 "Rag": {
@@ -2356,11 +2407,23 @@
         "StarNotificationDescription": "Give the project a GitHub star to help more people discover it.",
         "StarNotificationAction": "Star on GitHub",
         "DismissStarNotification": "Dismiss GitHub star prompt",
+        "LogOut": "Log out",
         "Update": "Update",
         "Updating": "Updating...",
         "UpdateVersion": "Version {version}",
         "UpdateTooltip": "Click to restart the app and upgrade to {version}",
-        "UpdateTooltipUnknown": "Click to restart the app and upgrade to the latest version"
+        "UpdateTooltipUnknown": "Click to restart the app and upgrade to the latest version",
+        "GuestSession": {
+            "Name": "Guest",
+            "Subtitle": "Temporary workspace",
+            "Title": "Abandon guest session?",
+            "Description": "If you abandon this guest session now, we will delete this temporary account and workspace. The next time you start, you will get a new guest account.",
+            "SignIn": "Sign in",
+            "AbandonAction": "Abandon guest session",
+            "Confirm": "Abandon session",
+            "Cancel": "Keep session",
+            "DeleteFailed": "Failed to delete guest session. Please try again."
+        }
     },
     "OrganizationSettings": {
         "Title": "Organization settings",

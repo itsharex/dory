@@ -51,7 +51,7 @@ function serializeMessage(message: ChatMessageRecord) {
  * => { session, messages }
  */
 export async function GET(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
-    return withUserAndOrganizationHandler(async ({ db, userId, organizationId }) => {
+    return withUserAndOrganizationHandler(async ({ db, session, userId, organizationId }) => {
         const locale = await getApiLocale();
         const { sessionId } = await params;
         console.log('Fetching chat session detail for sessionId:', sessionId);
@@ -88,7 +88,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sess
                 organizationId,
                 sessionId,
                 userId,
-                
             });
 
             return NextResponse.json(
@@ -123,9 +122,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sess
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
-    return withUserAndOrganizationHandler(async ({ db, userId, organizationId }) => {
+    return withUserAndOrganizationHandler(async ({ db, session, userId, organizationId }) => {
         const locale = await getApiLocale();
-        const { sessionId } = await params
+        const { sessionId } = await params;
         if (!sessionId) {
             return NextResponse.json(
                 ResponseUtil.error({
@@ -221,9 +220,9 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ se
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
-    return withUserAndOrganizationHandler(async ({ db, userId, organizationId }) => {
+    return withUserAndOrganizationHandler(async ({ db, session, userId, organizationId }) => {
         const locale = await getApiLocale();
-        const { sessionId } = await params
+        const { sessionId } = await params;
         if (!sessionId) {
             return NextResponse.json(
                 ResponseUtil.error({
@@ -237,11 +236,9 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ s
         try {
             if (!db?.chat) throw new Error('Chat repository not available');
 
-            
             if (typeof (db.chat as any).archiveSession === 'function') {
                 await (db.chat as any).archiveSession({ organizationId, sessionId, userId });
             } else {
-                
                 await (db.chat as any).deleteSession({ organizationId, sessionId, userId });
             }
 

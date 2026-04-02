@@ -3,6 +3,7 @@
 import React, { useMemo, useState, Activity, useCallback, useEffect } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { Loader2, X } from 'lucide-react';
+import { authClient } from '@/lib/auth-client';
 
 import { useChatSessions } from '../../../chatbot/core/session-controller';
 import type { CopilotEnvelopeV1 } from '../../../chatbot/copilot/types/copilot-envelope';
@@ -24,6 +25,7 @@ import ContextTab from './context';
 // ✅ shadcn Tabs
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/registry/new-york-v4/ui/tabs';
 import { ActionTab } from './action/ui';
+import { AccountRequiredSheet } from '@/components/auth/account-required-sheet';
 
 type CopilotPanelProps = {
     tabs: UITabPayload[];
@@ -38,17 +40,10 @@ type CopilotPanelProps = {
 
 type SubTabKey = 'ask' | 'action' | 'context';
 
-export default function CopilotPanel({
-    tabs,
-    activeTabId,
-    activeTab,
-    updateTab,
-    addTab,
-    setActiveTabId,
-    onClose,
-    editorRef,
-}: CopilotPanelProps) {
+export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, addTab, setActiveTabId, onClose, editorRef }: CopilotPanelProps) {
     const t = useTranslations('SqlConsole');
+    const { data: session } = authClient.useSession();
+    const requiresFullAccount = !session?.user || session.user.isAnonymous;
     const activeDatabase = useAtomValue(activeDatabaseAtom);
     const currentConnection = useAtomValue(currentConnectionAtom);
     const sessionMeta = useAtomValue(currentSessionMetaAtom);
@@ -60,13 +55,13 @@ export default function CopilotPanel({
     const [copilotEnvelope, setCopilotEnvelope] = useState<CopilotEnvelopeV1 | null>(null);
     const activeTabCoreFields = activeTab
         ? {
-            tabId: activeTab.tabId,
-            tabName: activeTab.tabName,
-            tabType: activeTab.tabType,
-            connectionId: activeTab.connectionId,
-            databaseName: (activeTab as any)?.databaseName,
-            tableName: (activeTab as any)?.tableName,
-        }
+              tabId: activeTab.tabId,
+              tabName: activeTab.tabName,
+              tabType: activeTab.tabType,
+              connectionId: activeTab.connectionId,
+              databaseName: (activeTab as any)?.databaseName,
+              tableName: (activeTab as any)?.tableName,
+          }
         : null;
 
     const onExecuteAction = useSqlCopilotExecutor({
@@ -85,12 +80,11 @@ export default function CopilotPanel({
 
     const tabId = activeTab?.tabId;
     const tabName = activeTab?.tabName;
-    const tabType = (activeTab as any)?.tabType; 
+    const tabType = (activeTab as any)?.tabType;
     const tabConnectionId = (activeTab as any)?.connectionId;
     const tabContent = (activeTab as any)?.content ?? '';
     const editorSelection = tabId ? (selectionByTab[tabId] ?? null) : null;
 
-    
     const isSqlTab = tabType === 'sql';
 
     useEffect(() => {
@@ -118,7 +112,6 @@ export default function CopilotPanel({
                     connectionId,
                 },
             });
-
 
             if (!cancelled) {
                 setCopilotEnvelope(nextEnvelope);
@@ -151,9 +144,9 @@ export default function CopilotPanel({
             sql: sqlTextFromResult,
             error: hasErrorMessage
                 ? {
-                    message: sessionErrorMessage!,
-                    code: sessionErrorCode ?? null,
-                }
+                      message: sessionErrorMessage!,
+                      code: sessionErrorCode ?? null,
+                  }
                 : null,
             database: activeDatabase || null,
             dialect: (currentConnection as any)?.connection?.type ?? undefined,
@@ -183,9 +176,7 @@ export default function CopilotPanel({
         (sql: string, meta?: ApplySqlMeta) => {
             if (!activeTab || activeTab.tabType !== 'sql') return;
 
-            const previousSql =
-                (editorRef?.current?.getValue?.() as string | undefined) ??
-                (typeof tabContent === 'string' ? tabContent : '');
+            const previousSql = (editorRef?.current?.getValue?.() as string | undefined) ?? (typeof tabContent === 'string' ? tabContent : '');
 
             const currentSql = previousSql ?? '';
             const originalSql = meta?.originalSql;
@@ -262,6 +253,7 @@ export default function CopilotPanel({
     const chat = useChatSessions({
         mode: 'copilot',
         copilotEnvelope,
+        enabled: !requiresFullAccount,
     });
 
     const loading = chat.loadingSessions || (chat.loadingMessages && !chat.selectedSessionId);
@@ -275,6 +267,10 @@ export default function CopilotPanel({
             setSubTab('action');
         }
     }, [actionRequest?.id]);
+
+    if (requiresFullAccount) {
+        return <AccountRequiredSheet compact />;
+    }
 
     return (
         <div className="flex h-full min-h-0 flex-col border-t">
@@ -331,7 +327,7 @@ export default function CopilotPanel({
                                     onApplySql={handleApplySqlWithEvent}
                                     onExecuted={handleActionExecuted}
                                     autoRun={actionRequest ? { intent: actionRequest.intent, requestId: actionRequest.id } : null}
-                                    onAutoRunHandled={(requestId) => {
+                                    onAutoRunHandled={requestId => {
                                         setActionRequest(prev => (prev?.id === requestId ? null : prev));
                                     }}
                                 />

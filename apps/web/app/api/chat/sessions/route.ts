@@ -5,7 +5,6 @@ import type { ChatSessionRecord, ChatSessionType } from '@/types';
 import { withUserAndOrganizationHandler } from '@/app/api/utils/with-organization-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 
-
 function serializeSession(session: ChatSessionRecord) {
     const toIso = (value: Date | number | null | undefined) => {
         if (!value) return null;
@@ -32,7 +31,7 @@ function serializeSession(session: ChatSessionRecord) {
 /**
  * GET /api/chat/sessions?type=global|copilot
  */
-export const GET = withUserAndOrganizationHandler(async ({ req, db, userId, organizationId }) => {
+export const GET = withUserAndOrganizationHandler(async ({ req, db, session, userId, organizationId }) => {
     const locale = await getApiLocale();
     const { searchParams } = new URL(req.url);
     const type = (searchParams.get('type') as ChatSessionType | null) ?? 'global';
@@ -89,7 +88,7 @@ export const GET = withUserAndOrganizationHandler(async ({ req, db, userId, orga
 /**
  * POST /api/chat/sessions
  */
-export const POST = withUserAndOrganizationHandler(async ({ req, db, userId, organizationId }) => {
+export const POST = withUserAndOrganizationHandler(async ({ req, db, session, userId, organizationId }) => {
     const locale = await getApiLocale();
     console.log('POST /api/chat/sessions called', userId, organizationId);
 

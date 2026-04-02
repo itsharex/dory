@@ -36,7 +36,7 @@ function serializeSession(session: ChatSessionRecord) {
 /**
  * POST /api/chat/session/copilot
  */
-export const POST = withUserAndOrganizationHandler(async ({ req, db, userId, organizationId }) => {
+export const POST = withUserAndOrganizationHandler(async ({ req, db, session, userId, organizationId }) => {
     const locale = await getApiLocale();
     let payload: any = null;
     try {
@@ -58,18 +58,16 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, userId, org
     }
 
     const context = envelope?.context && typeof envelope.context === 'object' ? envelope.context : null;
-    const connectionId =
-        typeof envelope?.meta?.connectionId === 'string' ? envelope.meta.connectionId : null;
+    const connectionId = typeof envelope?.meta?.connectionId === 'string' ? envelope.meta.connectionId : null;
     const activeDatabase =
         envelope?.surface === 'sql'
             ? typeof context?.baseline?.database === 'string'
                 ? context.baseline.database
                 : null
             : typeof context?.database === 'string'
-                ? context.database
-                : null;
-    const activeSchema =
-        envelope?.surface === 'table' && typeof context?.table?.schema === 'string' ? context.table.schema : null;
+              ? context.database
+              : null;
+    const activeSchema = envelope?.surface === 'table' && typeof context?.table?.schema === 'string' ? context.table.schema : null;
 
     try {
         if (!db?.chat) throw new Error('Chat repository not available');
@@ -82,10 +80,7 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, userId, org
             activeDatabase,
             activeSchema,
             metadata: envelope ? { copilotEnvelope: envelope } : null,
-            title:
-                envelope?.surface === 'table' && typeof context?.table?.name === 'string' && context.table.name.trim()
-                    ? context.table.name.trim()
-                    : null,
+            title: envelope?.surface === 'table' && typeof context?.table?.name === 'string' && context.table.name.trim() ? context.table.name.trim() : null,
         });
 
         return NextResponse.json(
@@ -99,12 +94,7 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, userId, org
             const status = error.code === 403 ? 403 : error.code === 404 ? 404 : 500;
             return NextResponse.json(
                 ResponseUtil.error({
-                    code:
-                        status === 403
-                            ? ErrorCodes.UNAUTHORIZED
-                            : status === 404
-                                ? ErrorCodes.NOT_FOUND
-                                : ErrorCodes.DATABASE_ERROR,
+                    code: status === 403 ? ErrorCodes.UNAUTHORIZED : status === 404 ? ErrorCodes.NOT_FOUND : ErrorCodes.DATABASE_ERROR,
                     message: error.message,
                 }),
                 { status },
@@ -125,7 +115,7 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, userId, org
 /**
  * GET /api/chat/session/copilot?tabId=...
  */
-export const GET = withUserAndOrganizationHandler(async ({ req, db, userId, organizationId }) => {
+export const GET = withUserAndOrganizationHandler(async ({ req, db, session, userId, organizationId }) => {
     const locale = await getApiLocale();
     const { searchParams } = new URL(req.url);
     const tabId = (searchParams.get('tabId') ?? '').trim();
@@ -154,12 +144,7 @@ export const GET = withUserAndOrganizationHandler(async ({ req, db, userId, orga
             const status = error.code === 403 ? 403 : error.code === 404 ? 404 : 500;
             return NextResponse.json(
                 ResponseUtil.error({
-                    code:
-                        status === 403
-                            ? ErrorCodes.UNAUTHORIZED
-                            : status === 404
-                                ? ErrorCodes.NOT_FOUND
-                                : ErrorCodes.DATABASE_ERROR,
+                    code: status === 403 ? ErrorCodes.UNAUTHORIZED : status === 404 ? ErrorCodes.NOT_FOUND : ErrorCodes.DATABASE_ERROR,
                     message: error.message,
                 }),
                 { status },

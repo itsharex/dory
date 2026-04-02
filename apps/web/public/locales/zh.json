@@ -102,13 +102,22 @@
             "ForgotPassword": "忘记密码？",
             "Submitting": "正在登录…",
             "Submit": "登录",
-            "DemoEnter": "以 Demo 身份进入",
+            "DemoEnter": "以访客身份继续",
             "OrContinueWith": "或使用以下方式继续",
             "LoginWithGithub": "使用 GitHub 登录",
             "LoginWithGoogle": "使用 Google 登录",
             "LoginWithMeta": "使用 Meta 登录",
             "NoAccount": "还没有账号？",
             "SignUp": "注册",
+            "Guest": {
+                "Action": "以访客身份继续",
+                "Tooltip": "更适合首次体验的用户。如果你之后登录，我们会将当前访客工作区保留到你的账号下。",
+                "ConfirmTitle": "要创建临时工作区吗？",
+                "ConfirmDescription": "我们会立即为你创建一个访客工作区。如果你之后登录，我们会将这个工作区保留到你的账号下。",
+                "Confirm": "创建访客工作区",
+                "Cancel": "返回",
+                "StartFailed": "启动访客工作区失败"
+            },
             "ContinueAgreement": "继续即表示你同意我们的",
             "Terms": "服务条款",
             "And": "和",
@@ -130,6 +139,10 @@
         },
         "TeamName": "{name}的团队",
         "TeamDefaultName": "默认",
+        "AnonymousWorkspace": {
+            "Name": "访客工作区",
+            "LinkedName": "导入的访客工作区"
+        },
         "Emails": {
             "ResetPassword": {
                 "Subject": "重置你的密码",
@@ -761,11 +774,23 @@
                 "TableSummary": "所有表的行数汇总"
             }
         },
+        "AuthRequired": {
+            "Title": "登录后才能使用 Chatbot",
+            "Description": "访客工作区可以继续浏览应用，但 Chatbot 需要正式账号。",
+            "Hint": "登录后会保留当前工作区和组织，不会丢数据。",
+            "WorkspaceNotice": "登录后，当前访客工作区会保留到你的账号下。",
+            "SignIn": "登录后继续",
+            "SheetTitle": "继续并绑定账号",
+            "SheetDescription": "把当前访客工作区绑定到你的正式 Dory 账号。",
+            "SignInTab": "登录",
+            "SignUpTab": "注册"
+        },
         "Typing": "正在生成",
         "Input": {
             "GlobalPlaceholder": "@ 选中表进行数据库问答，Shift + Enter 换行",
             "CopilotPlaceholder": "问这段 SQL / 让 AI 修复或改写，Shift + Enter 换行",
-            "SentWithAttachments": "已发送附件"
+            "SentWithAttachments": "已发送附件",
+            "WelcomePlaceholder": "询问你的数据……例如：“上周收入最高的 10 位用户”"
         },
         "Sessions": {
             "Title": "会话列表",
@@ -829,6 +854,27 @@
         },
         "TableMention": {
             "Heading": "表名"
+        }
+    },
+    "Welcome": {
+        "Badge": "匿名模式",
+        "Title": "先用匿名工作区体验，等需要 Chatbot 时再登录。",
+        "Description": "无需注册即可直接进入 Dory。我们会先为你创建一个临时工作区，之后登录时保留当前组织和数据。",
+        "CardTitle": "立即进入 Dory",
+        "CardDescription": "点击一次即可创建匿名账号和默认工作区。",
+        "Start": "匿名开始使用",
+        "Resume": "继续匿名工作区",
+        "Starting": "正在准备工作区…",
+        "Hint": "你可以先匿名浏览。等需要 Chatbot 时再登录，我们会把当前工作区绑定到正式账号。",
+        "HaveAccount": "已经有账号了？",
+        "SignIn": "去登录",
+        "Highlights": {
+            "Instant": "第一次使用前不强制注册。",
+            "Private": "临时工作区仅绑定当前会话。",
+            "Upgrade": "后续登录也不会丢失当前组织。"
+        },
+        "Errors": {
+            "StartFailed": "匿名工作区启动失败，请稍后重试。"
         }
     },
     "Monitoring": {
@@ -1265,6 +1311,11 @@
             "Saved": "已保存",
             "SaveQuery": "保存查询",
             "Stop": "停止"
+        },
+        "AnonymousWorkspaceAlert": {
+            "Title": "未登录，无法保存工作区内容",
+            "Description": "当前是访客工作区。登录或注册后，才能保存查询和其它工作区内容，并保留当前访客数据。",
+            "Action": "登录后继续"
         },
         "Refresh": "刷新",
         "Sidebar": {
@@ -1741,7 +1792,8 @@
                 "ConnectionIdRequired": "缺少 Connection ID 参数",
                 "ListSessionsFailed": "获取会话列表失败",
                 "CopilotCreationNotAllowed": "Copilot 会话不能通过该接口创建",
-                "CreateSessionFailed": "创建会话失败"
+                "CreateSessionFailed": "创建会话失败",
+                "FullAccountRequired": "请先登录后再使用 Chatbot。"
             },
             "Tools": {
                 "Rag": {
@@ -2352,16 +2404,28 @@
         "Chatbot": "聊天助手",
         "Monitoring": "监控",
         "Privileges": "权限",
-        "GetHelp": "帮助",
         "StarNotificationTitle": "喜欢 Dory 吗？",
         "StarNotificationDescription": "去 GitHub 点个 Star，帮助更多人发现这个项目。",
         "StarNotificationAction": "GitHub Star",
         "DismissStarNotification": "关闭 GitHub Star 提示",
+        "GetHelp": "获取帮助",
+        "LogOut": "退出登录",
         "Update": "更新",
         "Updating": "更新中...",
         "UpdateVersion": "版本 {version}",
         "UpdateTooltip": "点击后将重启应用并升级到 {version}",
-        "UpdateTooltipUnknown": "点击后将重启应用并升级到最新版本"
+        "UpdateTooltipUnknown": "点击后将重启应用并升级到最新版本",
+        "GuestSession": {
+            "Name": "Guest",
+            "Subtitle": "临时工作区",
+            "Title": "要放弃当前访客会话吗？",
+            "Description": "如果现在放弃这个访客会话，我们会删除这个临时账号和工作区。下次开始使用时会创建一个新的访客账号。",
+            "SignIn": "登录关联账号",
+            "AbandonAction": "放弃访客会话",
+            "Confirm": "确认放弃",
+            "Cancel": "继续保留",
+            "DeleteFailed": "删除访客会话失败，请重试。"
+        }
     },
     "OrganizationSettings": {
         "Title": "组织设置",

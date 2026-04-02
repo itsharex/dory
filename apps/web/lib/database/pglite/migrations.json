@@ -135,12 +135,28 @@
   },
   {
     "sql": [
+      "ALTER TABLE \"user\" ADD COLUMN \"is_anonymous\" boolean DEFAULT false NOT NULL;\n"
+    ],
+    "bps": true,
+    "folderMillis": 1774538755994,
+    "hash": "651a13178dfa1d12a979e0fae46abc2c081ace29c9f3f36864d2242a8f64fead"
+  },
+  {
+    "sql": [
       "ALTER TABLE \"connections\" ALTER COLUMN \"host\" DROP NOT NULL;",
       "\nALTER TABLE \"connections\" ALTER COLUMN \"port\" DROP NOT NULL;",
       "\nALTER TABLE \"connections\" ADD COLUMN \"path\" text;"
     ],
     "bps": true,
-    "folderMillis": 1774596423872,
+    "folderMillis": 1775056342854,
     "hash": "0f8ec7eeaecfacbe82ec3e05e43a0b2da8b8cba8f122e9bb401d794c10a5191e"
+  },
+  {
+    "sql": [
+      "ALTER TABLE \"organizations\" ADD COLUMN \"provisioning_kind\" text;"
+    ],
+    "bps": true,
+    "folderMillis": 1775064413388,
+    "hash": "c645e6c65c2200c70cc36b161acf697d63796db70e2b376a4427f131bd6337bb"
   }
 ]
