@@ -789,7 +789,8 @@
         "Input": {
             "GlobalPlaceholder": "@ 选中表进行数据库问答，Shift + Enter 换行",
             "CopilotPlaceholder": "问这段 SQL / 让 AI 修复或改写，Shift + Enter 换行",
-            "SentWithAttachments": "已发送附件"
+            "SentWithAttachments": "已发送附件",
+            "WelcomePlaceholder": "询问你的数据……例如：“上周收入最高的 10 位用户”"
         },
         "Sessions": {
             "Title": "会话列表",

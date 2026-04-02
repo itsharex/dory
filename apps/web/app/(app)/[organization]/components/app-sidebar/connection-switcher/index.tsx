@@ -159,7 +159,6 @@ export function ConnectionSwitcher() {
         
         if (connectionId) {
             const match = connections.find(item => item.connection.id === connectionId);
-            console.log('ConnectionSwitcher: sync connectionId from URL', { connectionId, match });
             if (match && match.connection.id !== currentConnection?.connection?.id) {
                 setCurrentConnection(match);
             }
