@@ -1,43 +1,19 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { shouldCleanupAnonymousUserAfterDelete } from '../../lib/auth/anonymous-delete';
+import { buildAnonymousDeleteResponse, isLocalAnonymousDeleteRequest } from '../../lib/auth/anonymous-delete';
 
-test('anonymous delete cleanup only runs after the auth delete succeeds', () => {
-    assert.equal(
-        shouldCleanupAnonymousUserAfterDelete({
-            pathname: '/api/auth/delete-anonymous-user',
-            anonymousUserId: 'user_anon',
-            responseOk: true,
-        }),
-        true,
-    );
-
-    assert.equal(
-        shouldCleanupAnonymousUserAfterDelete({
-            pathname: '/api/auth/delete-anonymous-user',
-            anonymousUserId: 'user_anon',
-            responseOk: false,
-        }),
-        false,
-    );
+test('anonymous delete route matcher only matches the delete endpoint', () => {
+    assert.equal(isLocalAnonymousDeleteRequest('/api/auth/delete-anonymous-user'), true);
+    assert.equal(isLocalAnonymousDeleteRequest('/api/auth/sign-in/email'), false);
 });
 
-test('anonymous delete cleanup does not run for non-anonymous or non-delete requests', () => {
-    assert.equal(
-        shouldCleanupAnonymousUserAfterDelete({
-            pathname: '/api/auth/sign-in/email',
-            anonymousUserId: 'user_anon',
-            responseOk: true,
-        }),
-        false,
-    );
+test('anonymous delete response clears both Better Auth session cookies', () => {
+    const response = buildAnonymousDeleteResponse(new Request('http://localhost:3000/api/auth/delete-anonymous-user', { method: 'POST' }));
+    const setCookies = [...response.headers.entries()]
+        .filter(([header]) => header === 'set-cookie')
+        .map(([, value]) => value);
 
-    assert.equal(
-        shouldCleanupAnonymousUserAfterDelete({
-            pathname: '/api/auth/delete-anonymous-user',
-            anonymousUserId: null,
-            responseOk: true,
-        }),
-        false,
-    );
+    assert.equal(response.status, 200);
+    assert.equal(setCookies.some(cookie => cookie.includes('better-auth.session_token=; Path=/; Max-Age=0; HttpOnly; SameSite=lax')), true);
+    assert.equal(setCookies.some(cookie => cookie.includes('__Secure-better-auth.session_token=; Path=/; Max-Age=0; HttpOnly; SameSite=lax')), true);
 });

@@ -4,8 +4,8 @@ export const dynamic = 'force-dynamic';
 
 import { getAuth } from '@/lib/auth';
 import { proxyAuthRequest, shouldProxyAuthRequest } from '@/lib/auth/auth-proxy';
-import { cleanupAnonymousUserOrganizations } from '@/lib/auth/anonymous';
-import { shouldCleanupAnonymousUserAfterDelete } from '@/lib/auth/anonymous-delete';
+import { deleteAnonymousUserLocally } from '@/lib/auth/anonymous';
+import { buildAnonymousDeleteResponse, isLocalAnonymousDeleteRequest } from '@/lib/auth/anonymous-delete';
 import { isAnonymousUser } from '@/lib/auth/anonymous-user';
 
 function getSetCookies(headers: Headers): string[] {
@@ -88,31 +88,25 @@ export async function POST(req: Request) {
         return proxyAuthRequest(req);
     }
     const auth = await getAuth();
-    const isDeleteAnonymousUserRequest = new URL(req.url).pathname.endsWith('/delete-anonymous-user');
-    let anonymousUserIdToCleanup: string | null = null;
+    const pathname = new URL(req.url).pathname;
 
-    if (isDeleteAnonymousUserRequest) {
+    if (isLocalAnonymousDeleteRequest(pathname)) {
         const session = await auth.api.getSession({
             headers: req.headers,
         });
 
-        if (session && isAnonymousUser(session.user)) {
-            anonymousUserIdToCleanup = session.user.id;
+        if (!session?.user?.id) {
+            return Response.json({ error: 'UNAUTHORIZED' }, { status: 401 });
         }
+
+        if (!isAnonymousUser(session.user)) {
+            return Response.json({ error: 'ANONYMOUS_SESSION_REQUIRED' }, { status: 403 });
+        }
+
+        await deleteAnonymousUserLocally(session.user.id);
+        return buildAnonymousDeleteResponse(req);
     }
 
     const res = await auth.handler(req);
-
-    if (
-        anonymousUserIdToCleanup &&
-        shouldCleanupAnonymousUserAfterDelete({
-            pathname: new URL(req.url).pathname,
-            anonymousUserId: anonymousUserIdToCleanup,
-            responseOk: res.ok,
-        })
-    ) {
-        await cleanupAnonymousUserOrganizations(anonymousUserIdToCleanup);
-    }
-
     return rewriteAuthResponse(req, res);
 }
