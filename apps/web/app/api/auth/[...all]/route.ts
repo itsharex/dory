@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { getAuth } from '@/lib/auth';
 import { proxyAuthRequest, shouldProxyAuthRequest } from '@/lib/auth/auth-proxy';
 import { cleanupAnonymousUserOrganizations } from '@/lib/auth/anonymous';
+import { shouldCleanupAnonymousUserAfterDelete } from '@/lib/auth/anonymous-delete';
 import { isAnonymousUser } from '@/lib/auth/anonymous-user';
 
 function getSetCookies(headers: Headers): string[] {
@@ -87,17 +88,31 @@ export async function POST(req: Request) {
         return proxyAuthRequest(req);
     }
     const auth = await getAuth();
+    const isDeleteAnonymousUserRequest = new URL(req.url).pathname.endsWith('/delete-anonymous-user');
+    let anonymousUserIdToCleanup: string | null = null;
 
-    if (new URL(req.url).pathname.endsWith('/delete-anonymous-user')) {
+    if (isDeleteAnonymousUserRequest) {
         const session = await auth.api.getSession({
             headers: req.headers,
         });
 
         if (session && isAnonymousUser(session.user)) {
-            await cleanupAnonymousUserOrganizations(session.user.id);
+            anonymousUserIdToCleanup = session.user.id;
         }
     }
 
     const res = await auth.handler(req);
+
+    if (
+        anonymousUserIdToCleanup &&
+        shouldCleanupAnonymousUserAfterDelete({
+            pathname: new URL(req.url).pathname,
+            anonymousUserId: anonymousUserIdToCleanup,
+            responseOk: res.ok,
+        })
+    ) {
+        await cleanupAnonymousUserOrganizations(anonymousUserIdToCleanup);
+    }
+
     return rewriteAuthResponse(req, res);
 }

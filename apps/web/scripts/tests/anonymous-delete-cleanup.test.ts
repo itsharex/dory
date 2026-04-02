@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { anonymousDeleteCleanupTableCoverage } from '../../lib/auth/anonymous';
+import { anonymousDeleteCleanupTableCoverage, anonymousMergeCleanupTableCoverage } from '../../lib/auth/anonymous';
 import { anonymousOwnershipNoMigratePolicies } from '../../lib/database/postgres/impl/organization/anonymous-resource-merge';
 
 const cleanupTables: Set<string> = new Set([
@@ -54,4 +54,8 @@ test('anonymous delete cleanup deletes organizations after dependent resources',
     assert.equal(organizationScopedTables.indexOf('connections') < organizationScopedTables.indexOf('organizations'), true);
     assert.equal(organizationScopedTables.indexOf('organizationMembers') < organizationScopedTables.indexOf('organizations'), true);
     assert.equal(organizationScopedTables.indexOf('invitation') < organizationScopedTables.indexOf('organizations'), true);
+});
+
+test('anonymous merge cleanup removes organization-scoped no-migrate tables before deleting the source organization', () => {
+    assert.deepEqual([...anonymousMergeCleanupTableCoverage.organizationScoped].sort(), ['aiUsageEvents', 'aiUsageTraces', 'invitation', 'queryAudit']);
 });

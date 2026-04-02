@@ -41,6 +41,10 @@ export const anonymousDeleteCleanupTableCoverage = {
     ],
 } as const;
 
+export const anonymousMergeCleanupTableCoverage = {
+    organizationScoped: ['queryAudit', 'aiUsageEvents', 'aiUsageTraces', 'invitation'],
+} as const;
+
 type AnonymousOrganizationRow = {
     id: string;
     slug: string | null;
@@ -87,6 +91,20 @@ async function findOwnedOrganizationIdsForUser(db: Pick<PostgresDBClient, 'selec
     const organizations = await db.select({ id: schema.organizations.id }).from(schema.organizations).where(eq(schema.organizations.ownerUserId, userId));
 
     return organizations.map(organization => organization.id);
+}
+
+async function cleanupNonMigratedAnonymousOrganizations(
+    tx: Pick<PostgresDBClient, 'delete'>,
+    organizationIds: string[],
+) {
+    if (organizationIds.length === 0) {
+        return;
+    }
+
+    await tx.delete(schema.queryAudit).where(inArray(schema.queryAudit.organizationId, organizationIds));
+    await tx.delete(schema.aiUsageEvents).where(inArray(schema.aiUsageEvents.organizationId, organizationIds));
+    await tx.delete(schema.aiUsageTraces).where(inArray(schema.aiUsageTraces.organizationId, organizationIds));
+    await tx.delete(schema.invitation).where(inArray(schema.invitation.organizationId, organizationIds));
 }
 
 async function findAnonymousOrganizationIdsForLink(
@@ -146,10 +164,7 @@ export async function cleanupAnonymousUserOrganizations(userId: string) {
             await tx.delete(schema.chatSessions).where(inArray(schema.chatSessions.organizationId, organizationIds));
             await tx.delete(schema.savedQueries).where(inArray(schema.savedQueries.organizationId, organizationIds));
             await tx.delete(schema.savedQueryFolders).where(inArray(schema.savedQueryFolders.organizationId, organizationIds));
-            await tx.delete(schema.queryAudit).where(inArray(schema.queryAudit.organizationId, organizationIds));
-            await tx.delete(schema.aiUsageEvents).where(inArray(schema.aiUsageEvents.organizationId, organizationIds));
-            await tx.delete(schema.aiUsageTraces).where(inArray(schema.aiUsageTraces.organizationId, organizationIds));
-            await tx.delete(schema.invitation).where(inArray(schema.invitation.organizationId, organizationIds));
+            await cleanupNonMigratedAnonymousOrganizations(tx, organizationIds);
             await tx.delete(schema.organizationMembers).where(inArray(schema.organizationMembers.organizationId, organizationIds));
             await tx.delete(schema.connectionIdentities).where(inArray(schema.connectionIdentities.organizationId, organizationIds));
             await tx.delete(schema.connections).where(inArray(schema.connections.organizationId, organizationIds));
@@ -326,6 +341,7 @@ export async function linkAnonymousOrganizationToUser(params: {
                     newUserId: params.newUserId,
                 });
 
+                await cleanupNonMigratedAnonymousOrganizations(tx, [sourceOrganization.id]);
                 await tx.delete(schema.organizationMembers).where(eq(schema.organizationMembers.organizationId, sourceOrganization.id));
 
                 await tx.delete(schema.organizations).where(eq(schema.organizations.id, sourceOrganization.id));
