@@ -23,7 +23,6 @@ import { resolveCurrentOrganizationId } from '@/lib/auth/current-organization';
 import { USE_CLOUD_AI } from '@/app/config/app';
 import { buildCloudForwardHeaders } from '@/app/api/utils/cloud-ai-proxy';
 import { getCloudApiBaseUrl } from '@/lib/cloud/url';
-import { requireFullAccount } from '@/app/api/utils/full-account';
 
 export const runtime = 'nodejs';
 
@@ -88,10 +87,6 @@ async function handleChatRequest(req: NextRequest) {
     /* ------------------------------------------------------------------ */
 
     const session = await getSessionFromRequest(req);
-    const gateResponse = requireFullAccount(session, locale);
-    if (gateResponse) {
-        return gateResponse;
-    }
     const userId = session?.user?.id ?? null;
     const organizationId = resolveCurrentOrganizationId(session);
     const connectionId = connectionIdFromBody ?? req.headers.get('x-connection-id') ?? null;

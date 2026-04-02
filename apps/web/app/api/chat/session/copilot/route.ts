@@ -6,7 +6,6 @@ import { DatabaseError } from '@/lib/errors/DatabaseError';
 import type { ChatSessionRecord } from '@/types';
 import { withUserAndOrganizationHandler } from '@/app/api/utils/with-organization-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
-import { requireFullAccount } from '@/app/api/utils/full-account';
 
 function toIso(value: Date | number | null | undefined) {
     if (!value) return null;
@@ -39,10 +38,6 @@ function serializeSession(session: ChatSessionRecord) {
  */
 export const POST = withUserAndOrganizationHandler(async ({ req, db, session, userId, organizationId }) => {
     const locale = await getApiLocale();
-    const gateResponse = requireFullAccount(session, locale);
-    if (gateResponse) {
-        return gateResponse;
-    }
     let payload: any = null;
     try {
         payload = await req.json();
@@ -122,10 +117,6 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, session, us
  */
 export const GET = withUserAndOrganizationHandler(async ({ req, db, session, userId, organizationId }) => {
     const locale = await getApiLocale();
-    const gateResponse = requireFullAccount(session, locale);
-    if (gateResponse) {
-        return gateResponse;
-    }
     const { searchParams } = new URL(req.url);
     const tabId = (searchParams.get('tabId') ?? '').trim();
     if (!tabId) {

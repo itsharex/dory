@@ -6,7 +6,6 @@ import { DatabaseError } from '@/lib/errors/DatabaseError';
 import type { ChatMessageRecord, ChatSessionRecord } from '@/types';
 import { withUserAndOrganizationHandler } from '@/app/api/utils/with-organization-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
-import { requireFullAccount } from '@/app/api/utils/full-account';
 
 function toIso(value: Date | number | null | undefined) {
     if (!value) return null;
@@ -54,10 +53,6 @@ function serializeMessage(message: ChatMessageRecord) {
 export async function GET(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
     return withUserAndOrganizationHandler(async ({ db, session, userId, organizationId }) => {
         const locale = await getApiLocale();
-        const gateResponse = requireFullAccount(session, locale);
-        if (gateResponse) {
-            return gateResponse;
-        }
         const { sessionId } = await params;
         console.log('Fetching chat session detail for sessionId:', sessionId);
         if (!sessionId) {
@@ -129,10 +124,6 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sess
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
     return withUserAndOrganizationHandler(async ({ db, session, userId, organizationId }) => {
         const locale = await getApiLocale();
-        const gateResponse = requireFullAccount(session, locale);
-        if (gateResponse) {
-            return gateResponse;
-        }
         const { sessionId } = await params;
         if (!sessionId) {
             return NextResponse.json(
@@ -231,10 +222,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ se
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ sessionId: string }> }) {
     return withUserAndOrganizationHandler(async ({ db, session, userId, organizationId }) => {
         const locale = await getApiLocale();
-        const gateResponse = requireFullAccount(session, locale);
-        if (gateResponse) {
-            return gateResponse;
-        }
         const { sessionId } = await params;
         if (!sessionId) {
             return NextResponse.json(

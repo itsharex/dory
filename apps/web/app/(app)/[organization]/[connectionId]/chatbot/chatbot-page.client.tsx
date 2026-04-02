@@ -4,8 +4,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { Loader2, X } from 'lucide-react';
-import { authClient } from '@/lib/auth-client';
-import { AccountRequiredSheet } from '@/components/auth/account-required-sheet';
 
 import ChatBotComp from './thread/chatbox';
 import ChatWelcome from './components/empty';
@@ -29,13 +27,10 @@ export default function ChatBotPageContent({ variant = 'sidebar', mode = 'global
     const [compactMode, setCompactMode] = useState<boolean>(variant === 'compact');
     useEffect(() => setCompactMode(variant === 'compact'), [variant]);
     const t = useTranslations('Chatbot');
-    const { data: session } = authClient.useSession();
-    const requiresFullAccount = !session?.user || session.user.isAnonymous;
 
     const chat = useChatSessions({
         mode,
         copilotEnvelope,
-        enabled: !requiresFullAccount,
     });
 
     const sessionSelector = useMemo(
@@ -112,9 +107,7 @@ export default function ChatBotPageContent({ variant = 'sidebar', mode = 'global
             )}
 
             <main className="flex-1 min-w-0 flex relative mt-10">
-                {requiresFullAccount ? (
-                    <AccountRequiredSheet compact={compactMode} />
-                ) : mode === 'copilot' || chat.selectedSessionId ? (
+                {mode === 'copilot' || chat.selectedSessionId ? (
                     chat.loadingMessages ? (
                         <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                             <Loader2 className="h-6 w-6 animate-spin" />
