@@ -14,7 +14,7 @@ import { authClient, signInViaGithub, signInViaGoogle } from '@/lib/auth-client'
 import { InputPassword } from '@/components/originui/input-password';
 import { authFetch } from '@/lib/client/auth-fetch';
 import { useTranslations } from 'next-intl';
-import { runtime, isDesktopRuntime } from '@/lib/runtime/runtime';
+import { runtime } from '@/lib/runtime/runtime';
 
 type SignInFormProps = React.ComponentProps<'div'> & {
     imageUrl?: string;
@@ -28,7 +28,6 @@ export function SignInForm({ className, imageUrl, callbackURL: callbackURLOverri
     const t = useTranslations('Auth');
     const router = useRouter();
     const searchParams = useSearchParams();
-    const isDesktop = isDesktopRuntime();
     const [loading, setLoading] = useState(false);
     const [email, setEmail] = useState('');
     const [pwd, setPwd] = useState('');
@@ -297,7 +296,7 @@ export function SignInForm({ className, imageUrl, callbackURL: callbackURLOverri
                                     {loading ? t('SignIn.Submitting') : t('SignIn.Submit')}
                                 </Button>
 
-                                {!isDesktop && (showGuestOption || showDemoOption) ? (
+                                {(showGuestOption || showDemoOption) ? (
                                     <Button
                                         type="button"
                                         className="w-full"
