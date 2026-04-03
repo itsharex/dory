@@ -305,6 +305,7 @@
             "Private Key Passphrase (optional)": "私钥密码（可选）",
             "SSH Private Key": "SSH 私钥",
             "SSH Private Key Placeholder": "粘贴 PEM 格式私钥内容",
+            "Select File": "选择文件",
             "Use SSL": "使用 SSL",
             "Please upload": "请上传你的私钥文件",
             "Please enter your password": "请输入你的密码"

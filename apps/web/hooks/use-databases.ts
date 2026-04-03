@@ -21,6 +21,7 @@ export function useDatabases() {
             setDatabasesState({
                 connectionId: null,
                 items: [],
+                loading: false,
             });
             return;
         }
@@ -33,6 +34,7 @@ export function useDatabases() {
             setDatabasesState({
                 connectionId,
                 items: [],
+                loading: true,
             });
         }
 
@@ -52,6 +54,7 @@ export function useDatabases() {
         }
 
         const request = (async () => {
+            setDatabasesState(prev => ({ ...prev, loading: true }));
             const response = await authFetch(`/api/connection/${requestedConnectionId}/databases`, {
                 method: 'GET',
                 headers: {
@@ -68,8 +71,11 @@ export function useDatabases() {
                     return {
                         connectionId: requestedConnectionId,
                         items: res.data ?? [],
+                        loading: false,
                     };
                 });
+            } else {
+                setDatabasesState(prev => ({ ...prev, loading: false }));
             }
         })();
 
@@ -83,6 +89,7 @@ export function useDatabases() {
 
     return {
         databases: databasesState.connectionId === connectionId ? databasesState.items : [],
+        loading: databasesState.loading,
         refresh,
     };
 }
