@@ -142,6 +142,43 @@ jobs:
             - name: Install dependencies
               run: yarn install --immutable
 
+            - name: Apply release version to desktop build
+              shell: bash
+              env:
+                  RELEASE_TAG: ${{ needs.resolve_context.outputs.tag }}
+              run: |
+                  RELEASE_VERSION="$(
+                    RELEASE_TAG="$RELEASE_TAG" node <<'NODE'
+                    const fs = require('fs');
+
+                    const tag = (process.env.RELEASE_TAG || '').trim();
+                    const fallback = JSON.parse(fs.readFileSync('apps/electron/package.json', 'utf8')).version;
+                    const version = tag ? tag.replace(/^v/, '') : fallback;
+
+                    if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version)) {
+                        console.error(`Unsupported release version: ${version}`);
+                        process.exit(1);
+                    }
+
+                    process.stdout.write(version);
+                    NODE
+                  )"
+
+                  VERSION="$RELEASE_VERSION" node <<'NODE'
+                  const fs = require('fs');
+
+                  const targets = ['package.json', 'apps/web/package.json', 'apps/electron/package.json'];
+                  const version = process.env.VERSION;
+
+                  for (const target of targets) {
+                      const data = JSON.parse(fs.readFileSync(target, 'utf8'));
+                      data.version = version;
+                      fs.writeFileSync(target, `${JSON.stringify(data, null, target === 'package.json' ? 2 : 4)}\n`);
+                  }
+                  NODE
+
+                  echo "Applied desktop build version: $RELEASE_VERSION"
+
             - name: Resolve build config
               id: build_config
               shell: bash
