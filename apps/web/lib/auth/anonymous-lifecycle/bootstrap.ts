@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { createProvisionedOrganization } from '@/lib/auth/organization-provisioning';
+import { getDBService } from '@/lib/database';
 import { schema } from '@/lib/database/schema';
 import { AuthSessionLike, buildAnonymousOrganizationValues, findFirstActiveOrganizationIdForUser, getDb } from './common';
 
@@ -45,6 +46,9 @@ export async function bootstrapAnonymousOrganization(params: { auth: any; sessio
     if (!organization) {
         throw new Error(`organization_not_found_for_${organizationId}`);
     }
+
+    const dbService = await getDBService();
+    await dbService.organizations.ensureOrganizationDefaults(userId, organization.id, dbService.connections);
 
     await db
         .update(schema.session)
