@@ -92,6 +92,11 @@ const ChatBotComp = ({ sessionId, initialMessages, onConversationActivity, onSes
             appliedInitialRef.current = null;
         }
 
+        // Skip overwriting messages after initial prompt was submitted,
+        // to avoid a race condition where fetchSessionDetail returns the
+        // just-sent user message and causes it to appear twice.
+        if (initialPromptSubmittedRef.current) return;
+
         const key = initialMessages.map(message => message.id).join('|');
         if (appliedInitialRef.current !== key) {
             setMessages(initialMessages);
