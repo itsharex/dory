@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { useParams, useRouter } from 'next/navigation';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
+import { Panel, Group, Separator } from 'react-resizable-panels';
 
 import { buildExplorerDatabasePath, buildExplorerListPath, buildExplorerObjectPath, buildExplorerSchemaPath } from '@/lib/explorer/build-path';
 import { resolveExplorerRoute } from '@/lib/explorer/routing';
@@ -139,8 +139,8 @@ export function ExplorerLayout({ defaultLayout = [25, 85], children }: ExplorerL
 
     return (
         <main className="relative h-full w-full">
-            <PanelGroup direction="horizontal" autoSaveId="sql-console-horizontal" onLayout={onLayout}>
-                <Panel defaultSize={horizontalLayout[0]} minSize={15} maxSize={40}>
+            <Group orientation="horizontal" id="explorer-horizontal" defaultLayout={{ sidebar: horizontalLayout[0], content: horizontalLayout[1] }} onLayoutChanged={onLayout}>
+                <Panel id="sidebar" minSize="15%" maxSize="40%">
                     <div className="flex h-full min-h-0 flex-col bg-card">
                         <ExplorerSidebar
                             catalogName={catalog}
@@ -157,12 +157,12 @@ export function ExplorerLayout({ defaultLayout = [25, 85], children }: ExplorerL
                     </div>
                 </Panel>
 
-                <PanelResizeHandle className="w-1.5 bg-border transition-colors data-[resize-handle-active=true]:bg-foreground/30" />
+                <Separator className="w-1.5 bg-border transition-colors" />
 
-                <Panel defaultSize={horizontalLayout[1]} minSize={40}>
+                <Panel id="content" minSize="40%">
                     <div className="flex h-full min-h-0 flex-col">{children}</div>
                 </Panel>
-            </PanelGroup>
+            </Group>
         </main>
     );
 }

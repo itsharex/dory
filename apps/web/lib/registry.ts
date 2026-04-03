@@ -1,5 +1,5 @@
 import { Index } from "@/__registry__"
-import { registryItemSchema } from "shadcn/registry"
+import { registryItemSchema } from "shadcn/schema"
 
 const memoizedIndex: typeof Index = Object.fromEntries(
   Object.entries(Index).map(([style, items]) => [style, { ...items }])
