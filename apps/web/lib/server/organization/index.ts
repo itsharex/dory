@@ -18,7 +18,7 @@ export async function getOrganizationBySlugOrId(slugOrId: string, userId: string
             currentOrganizationId,
         });
 
-        if (!currentOrganizationId || slugOrId !== currentOrganizationId) {
+        if (!currentOrganizationId) {
             console.log('[organization] resolve:desktop:mismatch', {
                 slugOrId,
                 userId,
@@ -38,13 +38,7 @@ export async function getOrganizationBySlugOrId(slugOrId: string, userId: string
             return null;
         }
 
-        console.log('[organization] resolve:desktop:success', {
-            slugOrId,
-            userId,
-            currentOrganizationId,
-            accessSource: access.source,
-        });
-        return access.organization
+        const resolvedOrganization = access.organization
             ? {
                   id: access.organization.id,
                   slug: access.organization.slug ?? access.organization.id,
@@ -55,6 +49,25 @@ export async function getOrganizationBySlugOrId(slugOrId: string, userId: string
                   slug: currentOrganizationId,
                   name: currentOrganizationId,
               };
+
+        if (slugOrId !== resolvedOrganization.id && slugOrId !== resolvedOrganization.slug) {
+            console.log('[organization] resolve:desktop:mismatch', {
+                slugOrId,
+                userId,
+                currentOrganizationId,
+                resolvedOrganizationId: resolvedOrganization.id,
+                resolvedOrganizationSlug: resolvedOrganization.slug,
+            });
+            return null;
+        }
+
+        console.log('[organization] resolve:desktop:success', {
+            slugOrId,
+            userId,
+            currentOrganizationId,
+            accessSource: access.source,
+        });
+        return resolvedOrganization;
     }
 
     const db = await getDBService();
