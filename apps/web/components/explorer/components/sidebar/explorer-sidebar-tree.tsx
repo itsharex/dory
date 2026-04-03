@@ -167,7 +167,7 @@ function CatalogHeader({ catalogName, expanded, onToggle }: { catalogName: strin
             <button
                 type="button"
                 onClick={onToggle}
-                className="rounded p-0.5 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                className="cursor-pointer rounded p-0.5 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 aria-label={`${expanded ? t('Collapse') : t('Expand')} ${catalogName}`}
             >
                 {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}

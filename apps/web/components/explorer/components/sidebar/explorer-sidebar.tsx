@@ -9,6 +9,7 @@ import { useTranslations } from 'next-intl';
 
 import { Input } from '@/registry/new-york-v4/ui/input';
 import { ScrollArea } from '@/registry/new-york-v4/ui/scroll-area';
+import { Skeleton } from '@/registry/new-york-v4/ui/skeleton';
 import { useDatabases } from '@/hooks/use-databases';
 import type { ResponseObject } from '@/types';
 import { getSidebarConfig } from '@/app/(app)/[organization]/components/sql-console-sidebar/sidebar-config';
@@ -113,7 +114,7 @@ export function ExplorerSidebar({
     const defaultSchemaName = sidebarConfig.defaultSchemaName ?? 'public';
     const showCatalog = false; // For now, we are hiding the catalog level as it's not commonly used and adds extra complexity to the UI. We can revisit this decision in the future if needed.
 
-    const { databases } = useDatabases();
+    const { databases, loading: databasesLoading } = useDatabases();
 
     const [expandedCatalog, setExpandedCatalog] = useState(false);
     const [expandedDatabases, setExpandedDatabases] = useState<Set<string>>(new Set());
@@ -487,6 +488,22 @@ export function ExplorerSidebar({
 
             <ScrollArea className="mt-1 min-h-0 flex-1 w-[calc(100%+0.75rem)] -mr-3 space-y-2">
                 <div className="pr-3">
+                    {databasesLoading && databaseEntries.length === 0 ? (
+                        <div className="space-y-3 px-2">
+                            {Array.from({ length: 3 }).map((_, i) => (
+                                <div key={i} className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <Skeleton className="h-3.5 w-3.5 rounded" />
+                                        <Skeleton className="h-4 w-24" />
+                                    </div>
+                                    <div className="ml-6 space-y-1.5">
+                                        <Skeleton className="h-3 w-20" />
+                                        <Skeleton className="h-3 w-28" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
                     <ExplorerSidebarTree
                         catalogName={catalogName}
                         groupKeys={supportedGroupKeys}
@@ -536,6 +553,7 @@ export function ExplorerSidebar({
                         filterEntries={filterEntries}
                         getSchemaObjects={getSchemaObjects}
                     />
+                    )}
                 </div>
             </ScrollArea>
         </div>

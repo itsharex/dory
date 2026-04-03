@@ -10,7 +10,7 @@ export function FieldHelp({ text }: { text: string }) {
             <TooltipTrigger asChild>
                 <button
                     type="button"
-                    className="inline-flex h-4 w-4 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
+                    className="cursor-pointer inline-flex h-4 w-4 items-center justify-center text-muted-foreground transition-colors hover:text-foreground"
                     aria-label="Show field help"
                 >
                     <CircleHelp className="h-4 w-4" />

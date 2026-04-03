@@ -1,12 +1,15 @@
 'use client';
 
+import { useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { UseFormReturn } from 'react-hook-form';
+import { FileUp } from 'lucide-react';
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/registry/new-york-v4/ui/form';
 import { Input } from '@/registry/new-york-v4/ui/input';
 import { RadioGroup, RadioGroupItem } from '@/registry/new-york-v4/ui/radio-group';
 import { Label } from '@/registry/new-york-v4/ui/label';
 import { Textarea } from '@/registry/new-york-v4/ui/textarea';
+import { Button } from '@/registry/new-york-v4/ui/button';
 import { cn } from '@/lib/utils';
 
 export default function SSHConnectionForm(props: { form: UseFormReturn<any> }) {
@@ -14,6 +17,21 @@ export default function SSHConnectionForm(props: { form: UseFormReturn<any> }) {
     const sshEnabled = form.watch('ssh.enabled');
     const authMethod = form.watch('ssh.authMethod');
     const t = useTranslations('Connections.ConnectionContent');
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const text = reader.result;
+            if (typeof text === 'string') {
+                form.setValue('ssh.privateKey', text, { shouldValidate: true });
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    };
 
     return (
         <div className={cn('space-y-4 rounded-lg bg-background/60 p-4', !sshEnabled && 'opacity-50 pointer-events-none')}>
@@ -84,12 +102,12 @@ export default function SSHConnectionForm(props: { form: UseFormReturn<any> }) {
                         <FormControl>
                             <RadioGroup className="flex flex-row gap-4" value={field.value} onValueChange={field.onChange}>
                                 <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="password" id="ssh-auth-password" />
-                                    <Label htmlFor="ssh-auth-password">{t('Password')}</Label>
+                                    <RadioGroupItem value="password" id="ssh-auth-password" className="cursor-pointer" />
+                                    <Label htmlFor="ssh-auth-password" className="cursor-pointer">{t('Password')}</Label>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                    <RadioGroupItem value="private_key" id="ssh-auth-key" />
-                                    <Label htmlFor="ssh-auth-key">{t('Private Key')}</Label>
+                                    <RadioGroupItem value="private_key" id="ssh-auth-key" className="cursor-pointer" />
+                                    <Label htmlFor="ssh-auth-key" className="cursor-pointer">{t('Private Key')}</Label>
                                 </div>
                             </RadioGroup>
                         </FormControl>
@@ -119,7 +137,26 @@ export default function SSHConnectionForm(props: { form: UseFormReturn<any> }) {
                         name="ssh.privateKey"
                         render={({ field }) => (
                             <FormItem className="w-full">
-                                <FormLabel>{t('SSH Private Key')}</FormLabel>
+                                <div className="flex items-center justify-between">
+                                    <FormLabel>{t('SSH Private Key')}</FormLabel>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-7 gap-1.5 text-xs text-muted-foreground"
+                                        onClick={() => fileInputRef.current?.click()}
+                                    >
+                                        <FileUp className="h-3.5 w-3.5" />
+                                        {t('Select File')}
+                                    </Button>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept=".pem,.key,.pub,.ppk"
+                                        className="hidden"
+                                        onChange={handleFileSelect}
+                                    />
+                                </div>
                                 <FormControl>
                                     <Textarea rows={4} placeholder={t('SSH Private Key Placeholder')} {...field} />
                                 </FormControl>

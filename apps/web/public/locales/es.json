@@ -303,6 +303,7 @@
             "Private Key Passphrase (optional)": "Frase de paso de la clave privada (opcional)",
             "SSH Private Key": "Clave privada SSH",
             "SSH Private Key Placeholder": "Pega tu clave privada en formato PEM",
+            "Select File": "Seleccionar archivo",
             "Use SSL": "Usar SSL",
             "Please upload": "Sube tu archivo de clave privada",
             "Please enter your password": "Introduce tu contraseña"
