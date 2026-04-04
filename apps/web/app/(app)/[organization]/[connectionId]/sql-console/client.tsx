@@ -2,7 +2,7 @@
 
 import React, { Activity, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
-import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
+import { Group, Panel, Separator as PanelSeparator, type Layout } from 'react-resizable-panels';
 import { Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -195,7 +195,8 @@ export default function SQLConsoleClient({
         }
     }, [chatWidth, normalizedChatWidth, setChatWidth]);
 
-    const handleLayoutChange = (next: number[]) => {
+    const handleLayoutChange = (layout: Layout) => {
+        const next = [layout['left-panel'] ?? horizontalLayout[0], layout['middle-panel'] ?? horizontalLayout[1]];
         onLayoutFromHook?.(next);
     };
 
@@ -293,12 +294,12 @@ export default function SQLConsoleClient({
 
     return (
         <main className="relative h-full w-full">
-            <PanelGroup direction="horizontal" autoSaveId="sql-console-horizontal" onLayout={handleLayoutChange}>
+            <Group orientation="horizontal" id="sql-console-horizontal" defaultLayout={{ 'left-panel': horizontalLayout[0], 'middle-panel': horizontalLayout[1] }} onLayoutChanged={handleLayoutChange}>
                 {/* Left */}
                 <Panel
-                    defaultSize={horizontalLayout[0]}
-                    minSize={INITIAL_LAYOUT.horizontal.leftPanel.min}
-                    maxSize={INITIAL_LAYOUT.horizontal.leftPanel.max}
+                    id="left-panel"
+                    minSize={`${INITIAL_LAYOUT.horizontal.leftPanel.min}%`}
+                    maxSize={`${INITIAL_LAYOUT.horizontal.leftPanel.max}%`}
                 >
                     <div className="flex flex-col h-full min-h-0 bg-card">
                         <Tabs defaultValue="tables" className="flex-1 min-h-0">
@@ -325,10 +326,10 @@ export default function SQLConsoleClient({
                     </div>
                 </Panel>
 
-                <PanelResizeHandle className="w-1.5 bg-border data-[resize-handle-active=true]:bg-foreground/30 transition-colors" />
+                <PanelSeparator className="w-1.5 bg-border transition-colors" />
 
                 {/* Middle */}
-                <Panel minSize={INITIAL_LAYOUT.horizontal.middlePanel.min} defaultSize={horizontalLayout[1]}>
+                <Panel id="middle-panel" minSize={`${INITIAL_LAYOUT.horizontal.middlePanel.min}%`}>
                     <div className="flex h-full flex-col">
                         {isLoading || tabs.length === 0 ? (
                             <SQLTabEmpty addTab={addTab} disabled={isLoading} />
@@ -395,7 +396,7 @@ export default function SQLConsoleClient({
                         )}
                     </div>
                 </Panel>
-            </PanelGroup>
+            </Group>
 
             <div className="absolute right-0 bottom-0 z-20 flex" style={{ top: isLoading || tabs.length === 0 ? 0 : `${tabHeaderHeight}px` }}>
                 <div className="flex h-full w-10 flex-col items-center gap-2 border-l bg-background/95 py-3 shadow-xl backdrop-blur">

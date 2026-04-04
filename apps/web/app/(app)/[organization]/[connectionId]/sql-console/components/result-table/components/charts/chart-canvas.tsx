@@ -431,7 +431,7 @@ export function ChartCanvas(props: {
                                     className="cursor-pointer"
                                     onClick={(data, _index, event) =>
                                         handleDatumClick(
-                                            ((data as { payload?: Record<string, unknown> } | undefined)?.payload ?? (data as Record<string, unknown> | undefined)),
+                                            ((data as unknown as { payload?: Record<string, unknown> } | undefined)?.payload ?? (data as unknown as Record<string, unknown> | undefined)),
                                             ALL_SERIES_KEY,
                                             'Value',
                                             Boolean((event as React.MouseEvent<SVGElement> | undefined)?.shiftKey),
@@ -493,7 +493,7 @@ export function ChartCanvas(props: {
     );
 }
 
-function ScatterTooltipContent(props: React.ComponentProps<typeof ChartTooltipContent> & { yAxisLabel: string }) {
+function ScatterTooltipContent(props: React.ComponentProps<typeof ChartTooltipContent> & { yAxisLabel: string; active?: boolean; payload?: Array<{ payload?: Record<string, unknown> }> }) {
     const { active, payload, yAxisLabel } = props;
     if (!active || !payload?.length) {
         return null;
@@ -518,7 +518,7 @@ function ScatterTooltipContent(props: React.ComponentProps<typeof ChartTooltipCo
     );
 }
 
-function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartTooltipContent> & { filterEnabled?: boolean; chartConfig: ChartConfig; xAxisLabel: string; yAxisLabel: string }) {
+function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartTooltipContent> & { filterEnabled?: boolean; chartConfig: ChartConfig; xAxisLabel: string; yAxisLabel: string; active?: boolean; payload?: Array<Record<string, unknown>> }) {
     const { filterEnabled, chartConfig, xAxisLabel, yAxisLabel } = props;
     if (!props.active || !props.payload?.length) {
         return null;

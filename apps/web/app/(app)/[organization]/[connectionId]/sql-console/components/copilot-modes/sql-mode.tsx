@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
-import { PanelGroup, Panel, PanelResizeHandle } from 'react-resizable-panels';
+import { Group, Panel, Separator, type Layout } from 'react-resizable-panels';
 import { Check, ChevronDown, Loader2, Play, Save, Square } from 'lucide-react';
 import { usePathname, useSearchParams } from 'next/navigation';
 
@@ -153,16 +153,16 @@ export function SqlMode({
 
     return (
         <div className="flex flex-1 flex-col min-h-0 mr-10">
-            <PanelGroup
+            <Group
                 key={showChatbot ? 'sql-with-copilot' : 'sql-without-copilot'}
-                direction="horizontal"
+                orientation="horizontal"
                 className="h-full min-h-0"
-                onLayout={sizes => {
-                    const [, copilotSize] = sizes;
-                    if (copilotSize > 5) setChatWidth(copilotSize);
+                onLayoutChange={(layout: Layout) => {
+                    const copilotSize = layout['copilot-panel'];
+                    if (copilotSize !== undefined && copilotSize > 5) setChatWidth(copilotSize);
                 }}
             >
-                <Panel defaultSize={showChatbot ? 100 - chatWidth : 100} minSize={40} order={1} className="min-h-0">
+                <Panel id="main-panel" defaultSize={`${showChatbot ? 100 - chatWidth : 100}%`} minSize="40%" className="min-h-0">
                     <div className="flex h-full flex-col min-h-0">
                         <div className="flex items-center gap-2 p-2 border-b shrink-0">
                             <div className="flex items-center">
@@ -214,31 +214,31 @@ export function SqlMode({
                             )}
                         </div>
 
-                        <PanelGroup direction="vertical" autoSaveId="sql-editor-v" className="h-full min-h-0">
-                            <Panel defaultSize={25} minSize={15} className="min-h-0">
+                        <Group orientation="vertical" className="h-full min-h-0">
+                            <Panel id="editor-panel" defaultSize="25%" minSize="15%" className="min-h-0">
                                 <div className="flex flex-col h-full border-b min-h-0">
                                     <SQLEditor ref={editorRef} activeTab={activeTab} updateTab={updateTab} onRunQuery={handleRunQuery} />
                                 </div>
                             </Panel>
 
-                            <PanelResizeHandle className="h-1.5 bg-border data-[resize-handle-active=true]:bg-foreground/30 transition-colors" />
+                            <Separator className="h-1.5 bg-border transition-colors" />
 
-                            <Panel minSize={25} className="min-h-0">
+                            <Panel id="result-panel" minSize="25%" className="min-h-0">
                                 <div className="flex h-full flex-col min-h-0">
                                     <ResultTable />
                                 </div>
                             </Panel>
-                        </PanelGroup>
+                        </Group>
                     </div>
                 </Panel>
 
-                <PanelResizeHandle className={['w-1.5 bg-border data-[resize-handle-active=true]:bg-foreground/30 transition-colors', showChatbot ? '' : 'hidden'].join(' ')} />
+                <Separator className={['w-1.5 bg-border transition-colors', showChatbot ? '' : 'hidden'].join(' ')} />
 
                 <Panel
-                    defaultSize={showChatbot ? chatWidth : 0}
-                    minSize={showChatbot ? 30 : 0}
-                    order={2}
-                    className="min-h-0" // ✅
+                    id="copilot-panel"
+                    defaultSize={`${showChatbot ? chatWidth : 0}%`}
+                    minSize={`${showChatbot ? 30 : 0}%`}
+                    className="min-h-0"
                 >
                     {showChatbot ? (
                         <div className="flex h-full flex-col min-h-0 border-l bg-card">
@@ -255,7 +255,7 @@ export function SqlMode({
                         </div>
                     ) : null}
                 </Panel>
-            </PanelGroup>
+            </Group>
             <SaveSqlDialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen} defaultTitle={defaultSaveTitle} getSqlText={getSqlText} onSaved={fetchSavedQueries} />
             <AuthLinkSheet open={authSheetOpen} onOpenChange={setAuthSheetOpen} callbackURL={callbackURL} />
         </div>
