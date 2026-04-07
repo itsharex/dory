@@ -1,0 +1,3 @@
+{
+  "/api/monitoring/recent-queries/route": "app/api/monitoring/recent-queries/route.js"
+}

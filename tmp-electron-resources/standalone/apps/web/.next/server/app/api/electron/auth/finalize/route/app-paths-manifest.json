@@ -1,0 +1,3 @@
+{
+  "/api/electron/auth/finalize/route": "app/api/electron/auth/finalize/route.js"
+}

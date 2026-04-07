@@ -1,0 +1,3 @@
+{
+  "/api/monitoring/slow-queries/route": "app/api/monitoring/slow-queries/route.js"
+}

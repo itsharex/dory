@@ -1,0 +1,40 @@
+{
+  "version": 3,
+  "middleware": {},
+  "sortedMiddleware": [],
+  "functions": {
+    "/api/ai/table-stats-insights/route": {
+      "files": [
+        "server/edge/chunks/_10-kg-a._.js",
+        "server/edge/chunks/turbopack-node_modules_next_dist_esm_build_templates_edge-wrapper_06qlvyu.js",
+        "server/middleware-build-manifest.js",
+        "server/interception-route-rewrite-manifest.js",
+        "required-server-files.js",
+        "server/server-reference-manifest.js",
+        "server/app/api/ai/table-stats-insights/route_client-reference-manifest.js",
+        "server/edge/chunks/02dz_web__next-internal_server_app_api_ai_table-stats-insights_route_actions_0xoybnt.js",
+        "server/edge/chunks/[root-of-the-server]__0azsywy._.js",
+        "server/edge/chunks/_08x1n7~._.js",
+        "server/edge/chunks/turbopack-node_modules_next_dist_esm_build_templates_edge-wrapper_0wpdu9i.js"
+      ],
+      "name": "app/api/ai/table-stats-insights/route",
+      "page": "/api/ai/table-stats-insights/route",
+      "entrypoint": "server/edge/chunks/turbopack-node_modules_next_dist_esm_build_templates_edge-wrapper_0wpdu9i.js",
+      "matchers": [
+        {
+          "regexp": "^/api/ai/table-stats-insights(?:/)?$",
+          "originalSource": "/api/ai/table-stats-insights"
+        }
+      ],
+      "wasm": [],
+      "assets": [],
+      "env": {
+        "__NEXT_BUILD_ID": "TT_55OKTNcN_51WdeQwsl",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "FHOJ+7P+sQaRZN8p8Zox9eDj4F7rXGGF0hL46ttogMg=",
+        "__NEXT_PREVIEW_MODE_ID": "3d4da79bfe6367e62644e5c542e418f3",
+        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "2ee2bfd91582e48f7535ca30cb3ed186cc29cf7c4f0bf70965609a25e16c590e",
+        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "bb9b122c97ca1e224e1a37f3bcdb84ec855bc47e62a133b59808e24f786be901"
+      }
+    }
+  }
+}

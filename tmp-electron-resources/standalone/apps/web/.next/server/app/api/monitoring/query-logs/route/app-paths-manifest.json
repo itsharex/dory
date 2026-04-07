@@ -1,0 +1,3 @@
+{
+  "/api/monitoring/query-logs/route": "app/api/monitoring/query-logs/route.js"
+}

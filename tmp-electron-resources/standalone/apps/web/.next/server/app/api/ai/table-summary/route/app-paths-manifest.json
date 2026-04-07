@@ -1,0 +1,3 @@
+{
+  "/api/ai/table-summary/route": "app/api/ai/table-summary/route.js"
+}

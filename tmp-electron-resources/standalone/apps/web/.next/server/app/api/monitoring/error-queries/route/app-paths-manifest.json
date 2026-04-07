@@ -1,0 +1,3 @@
+{
+  "/api/monitoring/error-queries/route": "app/api/monitoring/error-queries/route.js"
+}

@@ -1,0 +1,3 @@
+{
+  "/api/privileges/roles/[name]/global/route": "app/api/privileges/roles/[name]/global/route.js"
+}

@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "functions": {
+    "/api/ai/schema-explanations": {},
+    "/api/ai/schema-tags": {},
+    "/api/ai/stream": {},
+    "/api/ai/table-stats-insights": {},
+    "/api/ai/table-summary": {},
+    "/api/ai/usage/events": {},
+    "/api/ai/usage/overview": {},
+    "/api/auth/[...all]": {},
+    "/api/auth/anonymous/bootstrap": {},
+    "/api/auth/anonymous/recover": {},
+    "/api/auth/demo": {},
+    "/api/auth/request-password-reset": {},
+    "/api/auth/resend-verification": {},
+    "/api/auth/reset-password": {},
+    "/api/chat": {},
+    "/api/connection/connect": {},
+    "/api/connection/test": {},
+    "/api/electron/auth/bridge": {},
+    "/api/electron/auth/consume": {},
+    "/api/electron/auth/finalize": {},
+    "/api/electron/auth/sign-in/email": {},
+    "/api/electron/auth/start/github": {},
+    "/api/electron/auth/start/google": {},
+    "/api/organization/access": {},
+    "/api/organization/billing": {},
+    "/api/organizations/create": {}
+  }
+}

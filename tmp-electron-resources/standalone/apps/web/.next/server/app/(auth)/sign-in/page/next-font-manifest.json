@@ -1,0 +1,15 @@
+{
+  "pages": {},
+  "app": {
+    "[project]/apps/web/app/(auth)/sign-in/page": [
+      "static/media/geist_400-s.p.14xm8iow7oo4u.ttf",
+      "static/media/geist_mono_400-s.p.0o6t1cpbgbt5q.ttf",
+      "static/media/instrument_sans_400-s.p.0wauer.qhr0_i.ttf",
+      "static/media/noto_sans_mono_400-s.p.06_918jcl8nng.ttf",
+      "static/media/mulish_400-s.p.16v6b_k65ktot.ttf",
+      "static/media/inter_400-s.p.17qkhxk72.4oh.ttf"
+    ]
+  },
+  "appUsingSizeAdjust": true,
+  "pagesUsingSizeAdjust": false
+}

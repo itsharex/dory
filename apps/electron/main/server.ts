@@ -88,6 +88,7 @@ export function createStandaloneServerManager({ isDev, userDataPath, databasePat
 
         await new Promise<void>((resolve, reject) => {
             let bootstrapCompleted = false;
+            let settled = false;
             const bootstrapProc = fork(bootstrapPath, [], {
                 cwd: standaloneDir,
                 env: createDesktopServerEnv({
@@ -104,25 +105,42 @@ export function createStandaloneServerManager({ isDev, userDataPath, databasePat
             console.log('[electron] bootstrapProc PID:', bootstrapProc.pid);
             console.log('[electron] bootstrapProc databasePath:', databasePath);
 
+            const resolveOnce = () => {
+                if (settled) return;
+                settled = true;
+                resolve();
+            };
+
+            const rejectOnce = (error: Error) => {
+                if (settled) return;
+                settled = true;
+                reject(error);
+            };
+
             bootstrapProc.stdout?.on('data', buf => {
                 const output = String(buf).trimEnd();
                 log('[bootstrap stdout]', output);
                 if (output.includes('[bootstrap] completed')) {
                     bootstrapCompleted = true;
+                    log('[electron] bootstrap completed, starting Next server');
+                    resolveOnce();
+                    if (bootstrapProc.exitCode === null && !bootstrapProc.killed) {
+                        bootstrapProc.kill();
+                    }
                 }
             });
             bootstrapProc.stderr?.on('data', buf => logWarn('[bootstrap stderr]', String(buf).trimEnd()));
 
             bootstrapProc.on('error', error => {
-                reject(new Error(`Failed to start bootstrap script: ${String(error)}`));
+                rejectOnce(new Error(`Failed to start bootstrap script: ${String(error)}`));
             });
 
             bootstrapProc.on('exit', (code, signal) => {
                 if (bootstrapCompleted || code === 0) {
-                    resolve();
+                    resolveOnce();
                     return;
                 }
-                reject(new Error(`Bootstrap script exited with code=${String(code)} signal=${String(signal)}`));
+                rejectOnce(new Error(`Bootstrap script exited with code=${String(code)} signal=${String(signal)}`));
             });
         });
 

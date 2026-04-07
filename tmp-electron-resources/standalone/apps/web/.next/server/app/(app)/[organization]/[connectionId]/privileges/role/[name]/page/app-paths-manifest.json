@@ -1,0 +1,3 @@
+{
+  "/(app)/[organization]/[connectionId]/privileges/role/[name]/page": "app/(app)/[organization]/[connectionId]/privileges/role/[name]/page.js"
+}
