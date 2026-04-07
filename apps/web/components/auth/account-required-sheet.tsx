@@ -11,9 +11,10 @@ import { AuthLinkSheet } from './auth-link-sheet';
 
 type AccountRequiredSheetProps = {
     compact?: boolean;
+    title?: string;
 };
 
-export function AccountRequiredSheet({ compact = false }: AccountRequiredSheetProps) {
+export function AccountRequiredSheet({ compact = false, title }: AccountRequiredSheetProps) {
     const t = useTranslations('Chatbot');
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -32,20 +33,19 @@ export function AccountRequiredSheet({ compact = false }: AccountRequiredSheetPr
     }, [session]);
 
     const card = (
-        <Card className="mx-auto w-full max-w-2xl border-dashed">
-            <CardHeader className="text-center">
+        <Card className="mx-auto w-full max-w-sm border-dashed shadow-sm">
+            <CardHeader className="space-y-3 text-center">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <MessageSquareText className="h-5 w-5" />
                 </div>
-                <CardTitle>{t('AuthRequired.Title')}</CardTitle>
-                <CardDescription>{t('AuthRequired.Description')}</CardDescription>
+                <CardTitle>{title ?? t('AuthRequired.Title')}</CardTitle>
+                <CardDescription>{t('AuthRequired.Hint')}</CardDescription>
             </CardHeader>
-            <CardContent className="flex flex-col items-center gap-3">
-                <Button onClick={() => setOpen(true)}>
+            <CardContent className="flex flex-col items-center gap-2 pt-0">
+                <Button onClick={() => setOpen(true)} className="min-w-32">
                     <Lock className="mr-2 h-4 w-4" />
                     {t('AuthRequired.SignIn')}
                 </Button>
-                <p className="text-center text-sm text-muted-foreground">{t('AuthRequired.Hint')}</p>
             </CardContent>
         </Card>
     );

@@ -8,6 +8,7 @@ import { handleApiError } from '../../utils/handle-error';
 import { parseJsonBody } from '../../utils/parse-json';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { requireConnectionId } from '../../utils/require-connection-id';
+import { requireFullAccount } from '../utils/require-full-account';
 
 const createSchema = z.object({
     id: z.string().optional(),
@@ -91,9 +92,13 @@ export const GET = withUserAndOrganizationHandler(async ({ req, db, organization
 });
 
 // POST /api/sql-console/saved-queries
-export const POST = withUserAndOrganizationHandler(async ({ req, db, userId, organizationId }) => {
+export const POST = withUserAndOrganizationHandler(async ({ req, db, userId, organizationId, session }) => {
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
+    const unauthorizedResponse = requireFullAccount(session, locale);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
     try {
         const payload = await parseJsonBody(req, createSchema);
         const connectionId = requireConnectionId(req, t);
@@ -110,9 +115,13 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, userId, org
 });
 
 // PATCH /api/sql-console/saved-queries?id=xxx
-export const PATCH = withUserAndOrganizationHandler(async ({ req, db, userId, organizationId }) => {
+export const PATCH = withUserAndOrganizationHandler(async ({ req, db, userId, organizationId, session }) => {
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
+    const unauthorizedResponse = requireFullAccount(session, locale);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
     try {
         const payload = await parseJsonBody(req, updateSchema);
         const searchId = req.nextUrl.searchParams.get('id');
@@ -143,9 +152,13 @@ export const PATCH = withUserAndOrganizationHandler(async ({ req, db, userId, or
 });
 
 // DELETE /api/sql-console/saved-queries?id=xxx
-export const DELETE = withUserAndOrganizationHandler(async ({ req, db, userId, organizationId }) => {
+export const DELETE = withUserAndOrganizationHandler(async ({ req, db, userId, organizationId, session }) => {
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
+    const unauthorizedResponse = requireFullAccount(session, locale);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
     try {
         const id = req.nextUrl.searchParams.get('id');
         if (!id) {

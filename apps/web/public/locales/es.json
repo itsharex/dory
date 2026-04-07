@@ -107,6 +107,7 @@
             "SignUp": "Registrarse",
             "Guest": {
                 "Action": "Continuar como invitado",
+                "ResumeAction": "Abrir espacio de invitado existente",
                 "Tooltip": "Ideal para quienes visitan por primera vez. Si más tarde inicias sesión, mantendremos tu espacio de trabajo de invitado actual en tu cuenta.",
                 "ConfirmTitle": "¿Crear un espacio de trabajo temporal?",
                 "ConfirmDescription": "Crearemos un espacio de trabajo de invitado para ti de inmediato. Si más tarde inicias sesión, mantendremos este espacio de trabajo en tu cuenta.",
@@ -766,9 +767,9 @@
         "AuthRequired": {
             "Title": "Inicia sesión para usar Chatbot",
             "Description": "Los espacios de trabajo de invitado permiten explorar la app, pero Chatbot requiere una cuenta completa.",
-            "Hint": "Después de iniciar sesión, tu espacio de trabajo y tu organización actuales seguirán contigo.",
+            "Hint": "Después de iniciar sesión, tu espacio de trabajo actual seguirá contigo.",
             "WorkspaceNotice": "Cuando inicies sesión, tu espacio de trabajo de invitado actual se mantendrá en tu cuenta.",
-            "SignIn": "Inicia sesión para continuar",
+            "SignIn": "Iniciar sesión",
             "SheetTitle": "Continuar con una cuenta",
             "SheetDescription": "Vincula este espacio de trabajo de invitado a una cuenta completa de Dory.",
             "SignInTab": "Iniciar sesión",
@@ -1157,6 +1158,7 @@
             }
         },
         "SavedQueries": {
+            "AccountRequiredTitle": "Inicia sesión para guardar consultas",
             "LoadFailed": "No se pudieron cargar las consultas guardadas",
             "Loading": "Cargando consultas guardadas...",
             "Empty": "No hay consultas guardadas",
@@ -2404,12 +2406,13 @@
         "GuestSession": {
             "Name": "Invitado",
             "Subtitle": "Espacio de trabajo temporal",
-            "Title": "¿Abandonar la sesión de invitado?",
-            "Description": "Si abandonas ahora esta sesión de invitado, eliminaremos esta cuenta temporal y su espacio de trabajo. La próxima vez que entres obtendrás una nueva cuenta de invitado.",
+            "Exit": "Volver a iniciar sesión",
+            "Title": "¿Eliminar el espacio de invitado?",
+            "Description": "Esto elimina permanentemente la cuenta de invitado y todos los datos del espacio de trabajo en este dispositivo. No se puede deshacer.",
             "SignIn": "Iniciar sesión",
-            "AbandonAction": "Abandonar sesión de invitado",
-            "Confirm": "Abandonar sesión",
-            "Cancel": "Mantener sesión",
+            "DeleteAction": "Eliminar espacio de invitado",
+            "Confirm": "Eliminar espacio",
+            "Cancel": "Mantener espacio",
             "DeleteFailed": "No se pudo eliminar la sesión de invitado. Inténtalo de nuevo."
         }
     },

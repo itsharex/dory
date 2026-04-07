@@ -25,7 +25,19 @@ export default function WelcomePageClient({ resumeAnonymousSession = false }: We
         setLoading(true);
 
         try {
-            if (!resumeAnonymousSession) {
+            if (resumeAnonymousSession) {
+                const recoverResponse = await fetch('/api/auth/anonymous/recover', {
+                    method: 'POST',
+                    credentials: 'include',
+                });
+
+                if (!recoverResponse.ok) {
+                    const result = await authClient.signIn.anonymous();
+                    if (result?.error) {
+                        throw new Error(result.error.message || t('Errors.StartFailed'));
+                    }
+                }
+            } else {
                 const result = await authClient.signIn.anonymous();
                 if (result?.error) {
                     throw new Error(result.error.message || t('Errors.StartFailed'));

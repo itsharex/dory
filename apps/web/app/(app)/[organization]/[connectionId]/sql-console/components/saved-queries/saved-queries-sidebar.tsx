@@ -36,11 +36,14 @@ import { ScrollArea } from '@/registry/new-york-v4/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/registry/new-york-v4/ui/tooltip';
 import { SmartCodeBlock } from '@/components/@dory/ui/code-block/code-block';
 import { authFetch } from '@/lib/client/auth-fetch';
+import { authClient } from '@/lib/auth-client';
+import { isAnonymousUser } from '@/lib/auth/anonymous-user';
 import { cn } from '@/lib/utils';
 import { useAtomValue } from 'jotai';
 import { useLocale, useTranslations } from 'next-intl';
 import { currentConnectionAtom } from '@/shared/stores/app.store';
 import posthog from 'posthog-js';
+import { AccountRequiredSheet } from '@/components/auth/account-required-sheet';
 import { FolderItem, type FolderData } from './folder-item';
 import { CreateFolderDialog } from './create-folder-dialog';
 import { DeleteConfirmationDialog } from './delete-confirmation-dialog';
@@ -183,8 +186,10 @@ function saveExpandedFolders(set: Set<string>) {
 export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
     const t = useTranslations('SqlConsole');
     const locale = useLocale();
+    const { data: session } = authClient.useSession();
     const currentConnection = useAtomValue(currentConnectionAtom);
     const connectionId = currentConnection?.connection.id ?? null;
+    const isAnonymous = isAnonymousUser(session?.user);
     const scrollRootRef = useRef<HTMLDivElement | null>(null);
     const scrollRestoreRef = useRef<{ top: number } | null>(null);
     const [loading, setLoading] = useState(false);
@@ -235,6 +240,10 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
     }, []);
 
     const fetchFolders = useCallback(async () => {
+        if (isAnonymous) {
+            setFolders([]);
+            return;
+        }
         try {
             const res = await authFetch('/api/sql-console/saved-query-folders');
             const data = await res.json().catch(() => null);
@@ -244,12 +253,18 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
         } catch {
             /* ignore */
         }
-    }, []);
+    }, [isAnonymous]);
 
     const fetchList = useCallback(
         async (nextLimit: number, options?: { silent?: boolean }) => {
             if (!options?.silent) setLoading(true);
             setError(null);
+            if (isAnonymous) {
+                setItems([]);
+                setHasMore(false);
+                if (!options?.silent) setLoading(false);
+                return;
+            }
             if (!connectionId) {
                 const message = t('Api.SqlConsole.Tabs.MissingConnectionContext');
                 setError(message);
@@ -280,7 +295,7 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
                 if (!options?.silent) setLoading(false);
             }
         },
-        [t, connectionId],
+        [t, connectionId, isAnonymous],
     );
 
     const fetchAll = useCallback(
@@ -805,6 +820,10 @@ export function SavedQueriesSidebar({ onSelect }: SavedQueriesSidebarProps) {
     const activeQueryForOverlay = useMemo(() => (activeQueryDragId ? items.find(q => q.id === activeQueryDragId) : null), [activeQueryDragId, items]);
 
     const hasContent = !isSearching ? folders.length > 0 || rootItems.length > 0 : rootItems.length > 0;
+
+    if (isAnonymous) {
+        return <AccountRequiredSheet compact title={t('SavedQueries.AccountRequiredTitle')} />;
+    }
 
     const renderQueryItem = (item: SavedQueryItem, dragProps?: { listeners: Record<string, Function>; attributes: Record<string, any> }) => {
         const summary = summarizeSql(item.sqlText ?? '');

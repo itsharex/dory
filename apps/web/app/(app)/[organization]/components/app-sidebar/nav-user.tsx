@@ -2,23 +2,13 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { IconDotsVertical, IconFolder, IconLogin2, IconLogout } from '@tabler/icons-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { IconDotsVertical, IconLogin2, IconLogout } from '@tabler/icons-react';
 import { Avatar, AvatarImage } from '@/registry/new-york-v4/ui/avatar';
-import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/registry/new-york-v4/ui/alert-dialog';
 import BoringAvatar from 'boring-avatars';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarTrigger, useSidebar } from '@/registry/new-york-v4/ui/sidebar';
-import { authClient, signOut } from '@/lib/auth-client';
+import { signOut } from '@/lib/auth-client';
 import { ModeToggle } from '@/components/mode-toggle';
 import { AuthLinkSheet } from '@/components/auth/auth-link-sheet';
 import { User } from 'better-auth';
@@ -26,14 +16,11 @@ import { isAnonymousUser } from '@/lib/auth/anonymous-user';
 
 export function NavUser({ user }: { user: User | null }) {
     const { isMobile, state } = useSidebar();
-    const params = useParams<{ organization: string }>();
     const pathname = usePathname();
     const router = useRouter();
     const searchParams = useSearchParams();
     const t = useTranslations('AppSidebar');
     const collapsed = state === 'collapsed';
-    const organizationSlug = params.organization;
-    const [confirmOpen, setConfirmOpen] = useState(false);
     const [authSheetOpen, setAuthSheetOpen] = useState(false);
     const [signingOut, setSigningOut] = useState(false);
     const [signOutError, setSignOutError] = useState<string | null>(null);
@@ -56,19 +43,16 @@ export function NavUser({ user }: { user: User | null }) {
         setSignOutError(null);
 
         try {
-            const res = isAnonymous ? await authClient.deleteAnonymousUser() : await signOut();
+            const res = await signOut();
             if (res.data?.success) {
                 router.push('/sign-in');
                 return;
             }
-            setSignOutError(t('GuestSession.DeleteFailed'));
+            setSignOutError(isAnonymous ? t('GuestSession.DeleteFailed') : null);
         } catch {
             setSignOutError(isAnonymous ? t('GuestSession.DeleteFailed') : null);
         } finally {
             setSigningOut(false);
-            if (!isAnonymous) {
-                setConfirmOpen(false);
-            }
         }
     }
 
@@ -86,15 +70,6 @@ export function NavUser({ user }: { user: User | null }) {
                     </div>
                 </div>
             </DropdownMenuLabel>
-            {/* <DropdownMenuItem
-                onClick={() => {
-                    if (!organizationSlug) return;
-                    router.push(`/${organizationSlug}/settings/organization`);
-                }}
-            >
-                <IconFolder />
-                My Project
-            </DropdownMenuItem> */}
             {isAnonymous ? (
                 <DropdownMenuItem
                     onClick={e => {
@@ -109,16 +84,11 @@ export function NavUser({ user }: { user: User | null }) {
             <DropdownMenuItem
                 onClick={async e => {
                     e.preventDefault();
-                    if (isAnonymous) {
-                        setConfirmOpen(true);
-                        return;
-                    }
-
                     await handleSignOut();
                 }}
             >
                 <IconLogout />
-                {isAnonymous ? t('GuestSession.AbandonAction') : t('LogOut')}
+                {isAnonymous ? t('GuestSession.Exit') : t('LogOut')}
             </DropdownMenuItem>
         </DropdownMenuContent>
     );
@@ -176,22 +146,6 @@ export function NavUser({ user }: { user: User | null }) {
                     </div>
                 </SidebarMenuItem>
             </SidebarMenu>
-
-            <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>{t('GuestSession.Title')}</AlertDialogTitle>
-                        <AlertDialogDescription>{t('GuestSession.Description')}</AlertDialogDescription>
-                        {signOutError ? <p className="text-sm text-destructive">{signOutError}</p> : null}
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel disabled={signingOut}>{t('GuestSession.Cancel')}</AlertDialogCancel>
-                        <AlertDialogAction onClick={handleSignOut} disabled={signingOut}>
-                            {t('GuestSession.Confirm')}
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
             <AuthLinkSheet open={authSheetOpen} onOpenChange={setAuthSheetOpen} callbackURL={callbackURL} />
         </>
     );

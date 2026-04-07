@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { Folder } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -13,6 +14,9 @@ import { useAtomValue } from 'jotai';
 import { authFetch } from '@/lib/client/auth-fetch';
 import { currentConnectionAtom } from '@/shared/stores/app.store';
 import { useTranslations } from 'next-intl';
+import { authClient } from '@/lib/auth-client';
+import { isAnonymousUser } from '@/lib/auth/anonymous-user';
+import { AuthLinkSheet } from '@/components/auth/auth-link-sheet';
 
 type SaveSqlDialogProps = {
     open: boolean;
@@ -24,7 +28,10 @@ type SaveSqlDialogProps = {
 
 export function SaveSqlDialog({ open, onOpenChange, defaultTitle, getSqlText, onSaved }: SaveSqlDialogProps) {
     const t = useTranslations('SqlConsole');
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const currentConnection = useAtomValue(currentConnectionAtom);
+    const { data: session } = authClient.useSession();
     const connectionId = currentConnection?.connection.id ?? null;
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -33,6 +40,8 @@ export function SaveSqlDialog({ open, onOpenChange, defaultTitle, getSqlText, on
     const [loadingFolders, setLoadingFolders] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [authSheetOpen, setAuthSheetOpen] = useState(false);
+    const isAnonymous = isAnonymousUser(session?.user);
 
     const resolvedDefaultTitle = useMemo(() => {
         const raw = defaultTitle?.trim();
@@ -42,6 +51,10 @@ export function SaveSqlDialog({ open, onOpenChange, defaultTitle, getSqlText, on
     const folderEmptyText = useMemo(() => {
         return loadingFolders ? t('SaveSql.LoadingFolders') : t('SaveSql.FolderEmpty');
     }, [loadingFolders, t]);
+    const callbackURL = useMemo(() => {
+        const query = searchParams?.toString();
+        return query ? `${pathname}?${query}` : pathname || '/';
+    }, [pathname, searchParams]);
 
     useEffect(() => {
         if (!open) return;
@@ -52,7 +65,7 @@ export function SaveSqlDialog({ open, onOpenChange, defaultTitle, getSqlText, on
     }, [open, resolvedDefaultTitle]);
 
     useEffect(() => {
-        if (!open || !connectionId) {
+        if (!open || !connectionId || isAnonymous) {
             setFolderOptions([]);
             setLoadingFolders(false);
             return;
@@ -101,10 +114,14 @@ export function SaveSqlDialog({ open, onOpenChange, defaultTitle, getSqlText, on
         return () => {
             cancelled = true;
         };
-    }, [connectionId, open, t]);
+    }, [connectionId, isAnonymous, open, t]);
 
     const handleSave = async () => {
         if (saving) return;
+        if (isAnonymous) {
+            setAuthSheetOpen(true);
+            return;
+        }
         const sqlText = getSqlText().trim();
         if (!sqlText) {
             setError(t('SaveSql.Errors.SqlRequired'));
@@ -163,50 +180,53 @@ export function SaveSqlDialog({ open, onOpenChange, defaultTitle, getSqlText, on
     };
 
     return (
-        <Dialog open={open} onOpenChange={next => !saving && onOpenChange(next)}>
-            <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                    <DialogTitle>{t('SaveSql.Title')}</DialogTitle>
-                </DialogHeader>
-                <div className="grid gap-3">
-                    <div className="grid gap-2">
-                        <label className="text-sm font-medium">{t('SaveSql.NameLabel')}</label>
-                        <Input value={title} onChange={event => setTitle(event.target.value)} placeholder={t('SaveSql.NamePlaceholder')} />
-                    </div>
-                    <div className="grid gap-2">
-                        <label className="text-sm font-medium">{t('SaveSql.DescriptionLabel')}</label>
-                        <Textarea value={description} onChange={event => setDescription(event.target.value)} placeholder={t('SaveSql.DescriptionPlaceholder')} rows={3} />
-                    </div>
-                    <div className="grid gap-2">
-                        <label className="text-sm font-medium">{t('SaveSql.FolderLabel')}</label>
-                        <div className={saving ? 'pointer-events-none opacity-70' : undefined}>
-                            <SearchableSelect
-                                value={folderId}
-                                options={folderOptions}
-                                onChange={setFolderId}
-                                icon={Folder}
-                                enableAll
-                                allLabel={t('SaveSql.RootFolderLabel')}
-                                allValue=""
-                                placeholder={t('SaveSql.FolderPlaceholder')}
-                                emptyText={folderEmptyText}
-                                groupLabel={t('SaveSql.FolderGroupLabel')}
-                                popoverClassName="w-[var(--radix-popover-trigger-width)]"
-                                triggerSize="default"
-                            />
+        <>
+            <Dialog open={open} onOpenChange={next => !saving && onOpenChange(next)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{t('SaveSql.Title')}</DialogTitle>
+                    </DialogHeader>
+                    <div className="grid gap-3">
+                        <div className="grid gap-2">
+                            <label className="text-sm font-medium">{t('SaveSql.NameLabel')}</label>
+                            <Input value={title} onChange={event => setTitle(event.target.value)} placeholder={t('SaveSql.NamePlaceholder')} />
                         </div>
+                        <div className="grid gap-2">
+                            <label className="text-sm font-medium">{t('SaveSql.DescriptionLabel')}</label>
+                            <Textarea value={description} onChange={event => setDescription(event.target.value)} placeholder={t('SaveSql.DescriptionPlaceholder')} rows={3} />
+                        </div>
+                        <div className="grid gap-2">
+                            <label className="text-sm font-medium">{t('SaveSql.FolderLabel')}</label>
+                            <div className={saving ? 'pointer-events-none opacity-70' : undefined}>
+                                <SearchableSelect
+                                    value={folderId}
+                                    options={folderOptions}
+                                    onChange={setFolderId}
+                                    icon={Folder}
+                                    enableAll
+                                    allLabel={t('SaveSql.RootFolderLabel')}
+                                    allValue=""
+                                    placeholder={t('SaveSql.FolderPlaceholder')}
+                                    emptyText={folderEmptyText}
+                                    groupLabel={t('SaveSql.FolderGroupLabel')}
+                                    popoverClassName="w-[var(--radix-popover-trigger-width)]"
+                                    triggerSize="default"
+                                />
+                            </div>
+                        </div>
+                        {error ? <p className="text-sm text-destructive">{error}</p> : null}
                     </div>
-                    {error ? <p className="text-sm text-destructive">{error}</p> : null}
-                </div>
-                <DialogFooter className="gap-2 sm:gap-0">
-                    <Button className="mr-2" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
-                        {t('Actions.Cancel')}
-                    </Button>
-                    <Button onClick={handleSave} disabled={saving}>
-                        {saving ? t('SaveSql.Saving') : t('Actions.Save')}
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button className="mr-2" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
+                            {t('Actions.Cancel')}
+                        </Button>
+                        <Button onClick={handleSave} disabled={saving}>
+                            {saving ? t('SaveSql.Saving') : t('Actions.Save')}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+            <AuthLinkSheet open={authSheetOpen} onOpenChange={setAuthSheetOpen} callbackURL={callbackURL} />
+        </>
     );
 }

@@ -1,7 +1,9 @@
 import localFont from 'next/font/local';
+import { cookies } from 'next/headers';
 
 import { cn } from '@/lib/utils';
 import { SignInForm } from '../components/SignInForm';
+import { getAnonymousRecoveryCookieName, resolveRecoverableAnonymousUser } from '@/lib/auth/anonymous-recovery';
 // import { BubbleBackground } from '@/components/animate-ui/components/backgrounds/bubble';
 import { HeroBackground } from '../components/bg';
 import { RuntimeHint } from '../components/runtime-hint';
@@ -29,7 +31,11 @@ import { RuntimeHint } from '../components/runtime-hint';
 //     variable: '--font-manrope',
 //     display: 'swap',
 // });
-export default function SignInPage() {
+export default async function SignInPage() {
+    const cookieStore = await cookies();
+    const recoveryToken = cookieStore.get(getAnonymousRecoveryCookieName())?.value;
+    const resumeAnonymousSession = Boolean(await resolveRecoverableAnonymousUser(recoveryToken));
+
     return (
         <div
             className={cn(
@@ -41,7 +47,10 @@ export default function SignInPage() {
         >
             <RuntimeHint className="absolute right-4 top-4 z-20" />
             <div className="z-100 w-full max-w-md">
-                <SignInForm imageUrl="https://images.unsplash.com/photo-1536147116438-62679a5e01f2?q=80&w=2688&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D" />
+                <SignInForm
+                    imageUrl="https://images.unsplash.com/photo-1536147116438-62679a5e01f2?q=80&w=2688&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                    resumeAnonymousSession={resumeAnonymousSession}
+                />
             </div>
             {/* <div className="absolute z-10 inset-0 h-full w-full bg-[#0f172a]">
 

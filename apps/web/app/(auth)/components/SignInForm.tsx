@@ -22,9 +22,19 @@ type SignInFormProps = React.ComponentProps<'div'> & {
     onRequestSignUp?: () => void;
     showGuestOption?: boolean;
     showDemoOption?: boolean;
+    resumeAnonymousSession?: boolean;
 };
 
-export function SignInForm({ className, imageUrl, callbackURL: callbackURLOverride, onRequestSignUp, showGuestOption = true, showDemoOption = true, ...props }: SignInFormProps) {
+export function SignInForm({
+    className,
+    imageUrl,
+    callbackURL: callbackURLOverride,
+    onRequestSignUp,
+    showGuestOption = true,
+    showDemoOption = true,
+    resumeAnonymousSession = false,
+    ...props
+}: SignInFormProps) {
     const t = useTranslations('Auth');
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -222,9 +232,23 @@ export function SignInForm({ className, imageUrl, callbackURL: callbackURLOverri
         setGuestLoading(true);
 
         try {
-            const result = await authClient.signIn.anonymous();
-            if (result?.error) {
-                throw new Error(result.error.message || t('SignIn.Guest.StartFailed'));
+            if (resumeAnonymousSession) {
+                const recoverResponse = await fetch('/api/auth/anonymous/recover', {
+                    method: 'POST',
+                    credentials: 'include',
+                });
+
+                if (!recoverResponse.ok) {
+                    const result = await authClient.signIn.anonymous();
+                    if (result?.error) {
+                        throw new Error(result.error.message || t('SignIn.Guest.StartFailed'));
+                    }
+                }
+            } else {
+                const result = await authClient.signIn.anonymous();
+                if (result?.error) {
+                    throw new Error(result.error.message || t('SignIn.Guest.StartFailed'));
+                }
             }
 
             const response = await fetch('/api/auth/anonymous/bootstrap', {
@@ -296,7 +320,7 @@ export function SignInForm({ className, imageUrl, callbackURL: callbackURLOverri
                                     {loading ? t('SignIn.Submitting') : t('SignIn.Submit')}
                                 </Button>
 
-                                {(showGuestOption || showDemoOption) ? (
+                                {showGuestOption || showDemoOption ? (
                                     <Button
                                         type="button"
                                         className="w-full"
@@ -307,7 +331,7 @@ export function SignInForm({ className, imageUrl, callbackURL: callbackURLOverri
                                         }}
                                         data-testid="guest-sign-in"
                                     >
-                                        {guestLoading ? t('SignIn.Submitting') : t('SignIn.Guest.Action')}
+                                        {guestLoading ? t('SignIn.Submitting') : resumeAnonymousSession ? t('SignIn.Guest.ResumeAction') : t('SignIn.Guest.Action')}
                                     </Button>
                                 ) : null}
 

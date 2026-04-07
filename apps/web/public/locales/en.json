@@ -107,6 +107,7 @@
             "SignUp": "Sign up",
             "Guest": {
                 "Action": "Continue as guest",
+                "ResumeAction": "Open existing guest workspace",
                 "Tooltip": "Best for first-time visitors. If you later sign in, we will keep your current guest workspace with your account.",
                 "ConfirmTitle": "Create a temporary workspace?",
                 "ConfirmDescription": "We will create a guest workspace for you right away. If you later sign in, we will keep this workspace with your account.",
@@ -775,10 +776,10 @@
         },
         "AuthRequired": {
             "Title": "Sign in to use Chatbot",
-            "Description": "Guest workspaces can browse the app, but Chatbot requires a full account.",
-            "Hint": "After sign-in, your current workspace and organization stay with you.",
+            "Description": "After sign-in, your current workspace stay with you.",
+            "Hint": "After sign-in, your current workspace stay with you.",
             "WorkspaceNotice": "When you sign in, your current guest workspace will be kept with your account.",
-            "SignIn": "Sign in to continue",
+            "SignIn": "Sign in",
             "SheetTitle": "Continue with an account",
             "SheetDescription": "Link this guest workspace to a full Dory account.",
             "SignInTab": "Sign in",
@@ -1170,6 +1171,7 @@
             }
         },
         "SavedQueries": {
+            "AccountRequiredTitle": "Sign in to save queries",
             "LoadFailed": "Failed to load saved queries",
             "Loading": "Loading saved queries...",
             "Empty": "No saved queries",
@@ -1692,7 +1694,8 @@
             "InvalidParams": "Invalid parameters",
             "MissingOrganizationContext": "Missing organization context or not authenticated",
             "InternalError": "Internal server error",
-            "Unauthorized": "Unauthorized"
+            "Unauthorized": "Unauthorized",
+            "FullAccountRequired": "Please sign in to save and manage SQL."
         },
         "ElectronAuthFinalize": {
             "Title": "Sign-in complete",
@@ -2417,12 +2420,13 @@
         "GuestSession": {
             "Name": "Guest",
             "Subtitle": "Temporary workspace",
-            "Title": "Abandon guest session?",
-            "Description": "If you abandon this guest session now, we will delete this temporary account and workspace. The next time you start, you will get a new guest account.",
+            "Exit": "Back to sign-in",
+            "Title": "Delete guest workspace?",
+            "Description": "This permanently deletes the guest account and all workspace data on this device. You cannot undo this action.",
             "SignIn": "Sign in",
-            "AbandonAction": "Abandon guest session",
-            "Confirm": "Abandon session",
-            "Cancel": "Keep session",
+            "DeleteAction": "Delete guest workspace",
+            "Confirm": "Delete workspace",
+            "Cancel": "Keep workspace",
             "DeleteFailed": "Failed to delete guest session. Please try again."
         }
     },

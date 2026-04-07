@@ -22,6 +22,7 @@ import { organizationAc, organizationRoles } from './auth/organization-ac';
 import { canManageOrganizationBilling } from './billing/authz';
 import { buildDefaultOrganizationValues, linkAnonymousOrganizationToUser } from './auth/anonymous';
 import { isAnonymousUser } from './auth/anonymous-user';
+import { appendClearAnonymousRecoveryCookieHeader } from './auth/anonymous-recovery';
 
 const REQUIRE_EMAIL_VERIFICATION = parseEnvFlag(process.env.NEXT_PUBLIC_REQUIRE_EMAIL_VERIFICATION);
 
@@ -191,7 +192,7 @@ function createAuth() {
                 anonymous({
                     emailDomainName: 'anon.getdory.dev',
                     generateName: () => 'Guest',
-                    onLinkAccount: async ({ anonymousUser, newUser }) => {
+                    onLinkAccount: async ({ anonymousUser, newUser, ctx }) => {
                         await linkAnonymousOrganizationToUser({
                             anonymousUserId: anonymousUser.user.id,
                             anonymousActiveOrganizationId: anonymousUser.session.activeOrganizationId ?? null,
@@ -199,6 +200,13 @@ function createAuth() {
                             newSessionToken: newUser.session.token,
                             newActiveOrganizationId: newUser.session.activeOrganizationId ?? null,
                         });
+
+                        if (newUser.user.id !== anonymousUser.user.id && !isAnonymousUser(newUser.user)) {
+                            if (!ctx.context.responseHeaders) {
+                                ctx.context.responseHeaders = new Headers();
+                            }
+                            appendClearAnonymousRecoveryCookieHeader(ctx.context.responseHeaders);
+                        }
                     },
                 }),
                 organization({

@@ -4,6 +4,7 @@ import { getAuth } from '@/lib/auth';
 import { getSessionFromRequest } from '@/lib/auth/session';
 import { bootstrapAnonymousOrganization } from '@/lib/auth/anonymous';
 import { isAnonymousUser } from '@/lib/auth/anonymous-user';
+import { appendAnonymousRecoveryCookieHeader, issueAnonymousRecoveryToken } from '@/lib/auth/anonymous-recovery';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,11 +31,22 @@ export async function POST(req: NextRequest) {
             headers: req.headers,
         });
 
-        return NextResponse.json({
+        const response = NextResponse.json({
             organizationId: organization.id,
             organizationSlug: organization.slug ?? organization.id,
             organizationName: organization.name,
         });
+
+        const token = await issueAnonymousRecoveryToken({
+            userId: session.user.id,
+            activeOrganizationId: organization.id,
+        });
+        appendAnonymousRecoveryCookieHeader(response.headers, {
+            requestUrl: req.url,
+            token,
+        });
+
+        return response;
     } catch (error) {
         console.error('[auth][anonymous-bootstrap] failed', error);
         return NextResponse.json({ error: 'ANONYMOUS_BOOTSTRAP_FAILED' }, { status: 500 });

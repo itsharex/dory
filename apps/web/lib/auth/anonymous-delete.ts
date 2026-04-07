@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { appendClearAnonymousRecoveryCookieHeader } from './anonymous-recovery';
 
 export function isLocalAnonymousDeleteRequest(pathname: string) {
     return pathname.endsWith('/delete-anonymous-user');
@@ -17,6 +18,7 @@ export function buildAnonymousDeleteResponse(req: Request) {
 
     response.cookies.set('better-auth.session_token', '', cookieOptions);
     response.cookies.set('__Secure-better-auth.session_token', '', cookieOptions);
+    appendClearAnonymousRecoveryCookieHeader(response.headers, req.url);
 
     return response;
 }

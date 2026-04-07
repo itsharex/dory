@@ -7,6 +7,7 @@ import { handleApiError } from '../../../utils/handle-error';
 import { parseJsonBody } from '../../../utils/parse-json';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { requireConnectionId } from '../../../utils/require-connection-id';
+import { requireFullAccount } from '../../utils/require-full-account';
 
 const reorderSchema = z.object({
     folderId: z.string().nullable().optional().default(null),
@@ -14,9 +15,13 @@ const reorderSchema = z.object({
 });
 
 // POST /api/sql-console/saved-queries/reorder
-export const POST = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId }) => {
+export const POST = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId, session }) => {
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
+    const unauthorizedResponse = requireFullAccount(session, locale);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
     try {
         const payload = await parseJsonBody(req, reorderSchema);
         const connectionId = requireConnectionId(req, t);

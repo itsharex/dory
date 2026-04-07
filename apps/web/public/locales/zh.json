@@ -111,6 +111,7 @@
             "SignUp": "注册",
             "Guest": {
                 "Action": "以访客身份继续",
+                "ResumeAction": "进入已有访客工作区",
                 "Tooltip": "更适合首次体验的用户。如果你之后登录，我们会将当前访客工作区保留到你的账号下。",
                 "ConfirmTitle": "要创建临时工作区吗？",
                 "ConfirmDescription": "我们会立即为你创建一个访客工作区。如果你之后登录，我们会将这个工作区保留到你的账号下。",
@@ -778,9 +779,9 @@
         "AuthRequired": {
             "Title": "登录后才能使用 Chatbot",
             "Description": "访客工作区可以继续浏览应用，但 Chatbot 需要正式账号。",
-            "Hint": "登录后会保留当前工作区和组织，不会丢数据。",
+            "Hint": "登录后会保留当前工作区，不会丢数据。",
             "WorkspaceNotice": "登录后，当前访客工作区会保留到你的账号下。",
-            "SignIn": "登录后继续",
+            "SignIn": "登录",
             "SheetTitle": "继续并绑定账号",
             "SheetDescription": "把当前访客工作区绑定到你的正式 Dory 账号。",
             "SignInTab": "登录",
@@ -1172,6 +1173,7 @@
             }
         },
         "SavedQueries": {
+            "AccountRequiredTitle": "登录后才能保存查询",
             "LoadFailed": "加载保存的查询失败",
             "Loading": "正在加载保存的查询...",
             "Empty": "暂无保存的查询",
@@ -1694,7 +1696,8 @@
             "InvalidParams": "参数校验失败",
             "MissingOrganizationContext": "用户未登录或缺少团队信息",
             "InternalError": "服务器内部错误",
-            "Unauthorized": "用户未登录"
+            "Unauthorized": "用户未登录",
+            "FullAccountRequired": "请先登录后再保存和管理 SQL。"
         },
         "ElectronAuthFinalize": {
             "Title": "登录已完成",
@@ -2419,12 +2422,13 @@
         "GuestSession": {
             "Name": "Guest",
             "Subtitle": "临时工作区",
-            "Title": "要放弃当前访客会话吗？",
-            "Description": "如果现在放弃这个访客会话，我们会删除这个临时账号和工作区。下次开始使用时会创建一个新的访客账号。",
+            "Exit": "返回登录页",
+            "Title": "要删除访客工作区吗？",
+            "Description": "这会永久删除当前设备上的访客账号和全部工作区数据，且无法撤销。",
             "SignIn": "登录关联账号",
-            "AbandonAction": "放弃访客会话",
-            "Confirm": "确认放弃",
-            "Cancel": "继续保留",
+            "DeleteAction": "删除访客工作区",
+            "Confirm": "确认删除",
+            "Cancel": "保留工作区",
             "DeleteFailed": "删除访客会话失败，请重试。"
         }
     },

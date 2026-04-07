@@ -8,14 +8,17 @@ import { handleApiError } from '../../utils/handle-error';
 import { parseJsonBody } from '../../utils/parse-json';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { requireConnectionId } from '../../utils/require-connection-id';
+import { requireFullAccount } from '../utils/require-full-account';
 
 const createSchema = z.object({
     name: z.string().min(1).max(100),
 });
 
-const updateSchema = z.object({
-    name: z.string().min(1).max(100).optional(),
-}).refine((data) => data.name !== undefined);
+const updateSchema = z
+    .object({
+        name: z.string().min(1).max(100).optional(),
+    })
+    .refine(data => data.name !== undefined);
 
 // GET /api/sql-console/saved-query-folders
 export const GET = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId }) => {
@@ -31,9 +34,13 @@ export const GET = withUserAndOrganizationHandler(async ({ req, db, organization
 });
 
 // POST /api/sql-console/saved-query-folders
-export const POST = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId }) => {
+export const POST = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId, session }) => {
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
+    const unauthorizedResponse = requireFullAccount(session, locale);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
     try {
         const payload = await parseJsonBody(req, createSchema);
         const connectionId = requireConnectionId(req, t);
@@ -50,9 +57,13 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, organizatio
 });
 
 // PATCH /api/sql-console/saved-query-folders?id=xxx
-export const PATCH = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId }) => {
+export const PATCH = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId, session }) => {
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
+    const unauthorizedResponse = requireFullAccount(session, locale);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
     try {
         const id = req.nextUrl.searchParams.get('id');
         if (!id) {
@@ -81,9 +92,13 @@ export const PATCH = withUserAndOrganizationHandler(async ({ req, db, organizati
 });
 
 // DELETE /api/sql-console/saved-query-folders?id=xxx
-export const DELETE = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId }) => {
+export const DELETE = withUserAndOrganizationHandler(async ({ req, db, organizationId, userId, session }) => {
     const locale = await getApiLocale();
     const t = (key: string, values?: Record<string, unknown>) => translateApi(key, values, locale);
+    const unauthorizedResponse = requireFullAccount(session, locale);
+    if (unauthorizedResponse) {
+        return unauthorizedResponse;
+    }
     try {
         const id = req.nextUrl.searchParams.get('id');
         if (!id) {
