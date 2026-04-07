@@ -15,6 +15,7 @@ STANDALONE_SRC="${WEB_DIR}/.next/standalone"
 STANDALONE_WEB_SRC="${STANDALONE_SRC}/apps/web"
 OUT_DIR="${ROOT_DIR}/release/standalone"
 OUT_WEB_DIR="${OUT_DIR}/apps/web"
+OUT_WEB_NEXT_NODE_MODULES_DIR="${OUT_WEB_DIR}/.next/node_modules"
 
 if [[ ! -d "${STANDALONE_SRC}" ]]; then
   echo "Error: standalone output not found: ${STANDALONE_SRC}" >&2
@@ -122,6 +123,16 @@ if [[ -d "${BETTER_SQLITE3_DIR}" ]]; then
       npm rebuild "${REBUILD_ARGS[@]}"
     )
   fi
+fi
+
+if [[ -d "${BETTER_SQLITE3_DIR}" ]] && [[ -d "${OUT_WEB_NEXT_NODE_MODULES_DIR}" ]]; then
+  while IFS= read -r -d '' better_sqlite3_link; do
+    if [[ -L "${better_sqlite3_link}" ]]; then
+      echo "Materializing $(basename "${better_sqlite3_link}") in apps/web/.next/node_modules..."
+      rm -f "${better_sqlite3_link}"
+      cp -a "${BETTER_SQLITE3_DIR}" "${better_sqlite3_link}"
+    fi
+  done < <(find "${OUT_WEB_NEXT_NODE_MODULES_DIR}" -maxdepth 1 -type l -name 'better-sqlite3-*' -print0)
 fi
 
 echo "Output ready: ${OUT_DIR}"
