@@ -125,14 +125,22 @@ if [[ -d "${BETTER_SQLITE3_DIR}" ]]; then
   fi
 fi
 
-if [[ -d "${BETTER_SQLITE3_DIR}" ]] && [[ -d "${OUT_WEB_NEXT_NODE_MODULES_DIR}" ]]; then
-  while IFS= read -r -d '' better_sqlite3_link; do
-    if [[ -L "${better_sqlite3_link}" ]]; then
-      echo "Materializing $(basename "${better_sqlite3_link}") in apps/web/.next/node_modules..."
-      rm -f "${better_sqlite3_link}"
-      cp -a "${BETTER_SQLITE3_DIR}" "${better_sqlite3_link}"
+if [[ -d "${OUT_WEB_NEXT_NODE_MODULES_DIR}" ]]; then
+  while IFS= read -r -d '' traced_link; do
+    if [[ -L "${traced_link}" ]]; then
+      traced_target="$(readlink "${traced_link}")"
+      traced_target_path="$(node -e "const path=require('node:path'); process.stdout.write(path.resolve(process.argv[1], process.argv[2]));" "$(dirname "${traced_link}")" "${traced_target}")"
+
+      if [[ ! -e "${traced_target_path}" ]]; then
+        echo "Error: traced dependency target not found for ${traced_link} -> ${traced_target}" >&2
+        exit 1
+      fi
+
+      echo "Materializing $(basename "${traced_link}") in apps/web/.next/node_modules..."
+      rm -f "${traced_link}"
+      cp -a "${traced_target_path}" "${traced_link}"
     fi
-  done < <(find "${OUT_WEB_NEXT_NODE_MODULES_DIR}" -maxdepth 1 -type l -name 'better-sqlite3-*' -print0)
+  done < <(find "${OUT_WEB_NEXT_NODE_MODULES_DIR}" -type l -print0)
 fi
 
 echo "Output ready: ${OUT_DIR}"
