@@ -64,6 +64,7 @@ const config = {
     mac: {
         icon: '../web/public/logo.icns',
         category: 'public.app-category.developer-tools',
+        notarize: false,
         hardenedRuntime: true,
         gatekeeperAssess: false,
         entitlements: './scripts/entitlements.mac.plist',
