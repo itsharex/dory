@@ -3,7 +3,6 @@
 import React, { useMemo, useState, Activity, useCallback, useEffect } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { Loader2, X } from 'lucide-react';
-import { authClient } from '@/lib/auth-client';
 
 import { useChatSessions } from '../../../chatbot/core/session-controller';
 import type { CopilotEnvelopeV1 } from '../../../chatbot/copilot/types/copilot-envelope';
@@ -25,7 +24,6 @@ import ContextTab from './context';
 // ✅ shadcn Tabs
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/registry/new-york-v4/ui/tabs';
 import { ActionTab } from './action/ui';
-import { AccountRequiredSheet } from '@/components/auth/account-required-sheet';
 
 type CopilotPanelProps = {
     tabs: UITabPayload[];
@@ -42,8 +40,6 @@ type SubTabKey = 'ask' | 'action' | 'context';
 
 export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, addTab, setActiveTabId, onClose, editorRef }: CopilotPanelProps) {
     const t = useTranslations('SqlConsole');
-    const { data: session } = authClient.useSession();
-    const requiresFullAccount = !session?.user || session.user.isAnonymous;
     const activeDatabase = useAtomValue(activeDatabaseAtom);
     const currentConnection = useAtomValue(currentConnectionAtom);
     const sessionMeta = useAtomValue(currentSessionMetaAtom);
@@ -253,7 +249,6 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
     const chat = useChatSessions({
         mode: 'copilot',
         copilotEnvelope,
-        enabled: !requiresFullAccount,
     });
 
     const loading = chat.loadingSessions || (chat.loadingMessages && !chat.selectedSessionId);
@@ -267,10 +262,6 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
             setSubTab('action');
         }
     }, [actionRequest?.id]);
-
-    if (requiresFullAccount) {
-        return <AccountRequiredSheet compact />;
-    }
 
     return (
         <div className="flex h-full min-h-0 flex-col border-t">

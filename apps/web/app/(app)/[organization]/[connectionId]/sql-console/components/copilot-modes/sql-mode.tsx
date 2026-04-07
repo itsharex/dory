@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { Group, Panel, Separator, type Layout } from 'react-resizable-panels';
 import { Check, ChevronDown, Loader2, Play, Save, Square } from 'lucide-react';
-import { usePathname, useSearchParams } from 'next/navigation';
 
 import { Button } from '@/registry/new-york-v4/ui/button';
 import {
@@ -28,8 +27,6 @@ import { authFetch } from '@/lib/client/auth-fetch';
 import { useTranslations } from 'next-intl';
 import { normalizeSqlEditorSettings, SQL_EDITOR_QUERY_LIMIT_OPTIONS, sqlEditorSettingsAtom } from '@/shared/stores/sql-editor-settings.store';
 import { currentConnectionAtom } from '@/shared/stores/app.store';
-import { authClient } from '@/lib/auth-client';
-import { AuthLinkSheet } from '@/components/auth/auth-link-sheet';
 import type { SavedQueryItem } from '../saved-queries/saved-queries-sidebar';
 
 export function SqlMode({
@@ -49,13 +46,9 @@ export function SqlMode({
     onCloseChatbot,
 }: SqlModeProps) {
     const t = useTranslations('SqlConsole');
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
-    const { data: session } = authClient.useSession();
     const selectionByTab = useAtomValue(editorSelectionByTabAtom);
     const [editorSettings, setEditorSettings] = useAtom(sqlEditorSettingsAtom);
     const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-    const [authSheetOpen, setAuthSheetOpen] = useState(false);
     const [savedQueries, setSavedQueries] = useState<SavedQueryItem[]>([]);
     const [queryLimit, setQueryLimit] = useState(editorSettings.queryLimit);
     const selection = activeTab?.tabId ? selectionByTab[activeTab.tabId] : null;
@@ -85,20 +78,11 @@ export function SqlMode({
     const runLabel = hasSelection ? t('Toolbar.RunSelected') : t('Toolbar.Run');
     const runLabelWithLimit = hasSqlLimit ? `${runLabel} ( Limit: SQL )` : `${runLabel} ( Limit: ${queryLimit} )`;
     const isSaved = !!currentSqlText && savedQueries.some(q => q.sqlText.trim() === currentSqlText);
-    const requiresFullAccount = !session?.user || session.user.isAnonymous;
-    const callbackURL = useMemo(() => {
-        const query = searchParams?.toString();
-        return query ? `${pathname}?${query}` : pathname || '/';
-    }, [pathname, searchParams]);
 
     const requestSave = useCallback(() => {
         if (!canSave) return;
-        if (requiresFullAccount) {
-            setAuthSheetOpen(true);
-            return;
-        }
         setSaveDialogOpen(true);
-    }, [canSave, requiresFullAccount]);
+    }, [canSave]);
 
     const fetchSavedQueries = useCallback(async () => {
         if (!connectionId) {
@@ -257,7 +241,6 @@ export function SqlMode({
                 </Panel>
             </Group>
             <SaveSqlDialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen} defaultTitle={defaultSaveTitle} getSqlText={getSqlText} onSaved={fetchSavedQueries} />
-            <AuthLinkSheet open={authSheetOpen} onOpenChange={setAuthSheetOpen} callbackURL={callbackURL} />
         </div>
     );
 }
