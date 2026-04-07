@@ -10,32 +10,13 @@ import { useSettings } from '../../components/settings/settings-provider';
 const PGLITE_UPGRADE_NOTICE_VERSION = 'v0.8.0';
 const PGLITE_UPGRADE_NOTICE_STORAGE_KEY = `dory:pglite-upgrade-alert:${PGLITE_UPGRADE_NOTICE_VERSION}`;
 
-export function PgliteUpgradeAlert() {
+export function getPgliteUpgradeNoticeStorageKey() {
+    return PGLITE_UPGRADE_NOTICE_STORAGE_KEY;
+}
+
+export function PgliteUpgradeAlert({ onDismiss }: { onDismiss: () => void }) {
     const t = useTranslations('DoryUI.Settings.PgliteUpgradeAlert');
     const { openSettings } = useSettings();
-    const [visible, setVisible] = React.useState(false);
-
-    React.useEffect(() => {
-        try {
-            setVisible(window.localStorage.getItem(PGLITE_UPGRADE_NOTICE_STORAGE_KEY) !== 'dismissed');
-        } catch {
-            setVisible(true);
-        }
-    }, []);
-
-    const dismiss = React.useCallback(() => {
-        try {
-            window.localStorage.setItem(PGLITE_UPGRADE_NOTICE_STORAGE_KEY, 'dismissed');
-        } catch {
-            // Ignore storage errors and only update local UI state.
-        }
-
-        setVisible(false);
-    }, []);
-
-    if (!visible) {
-        return null;
-    }
 
     return (
         <div className="flex h-10 shrink-0 items-center gap-3 border-b border-amber-500/25 bg-amber-500/10 px-3 text-sm md:px-4">
@@ -61,7 +42,7 @@ export function PgliteUpgradeAlert() {
                 variant="ghost"
                 size="icon-xs"
                 className={cn('h-6 w-6 shrink-0 rounded-full text-muted-foreground hover:text-foreground')}
-                onClick={dismiss}
+                onClick={onDismiss}
                 aria-label={t('Dismiss')}
             >
                 <X className="h-3.5 w-3.5" />
