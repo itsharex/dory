@@ -2323,6 +2323,12 @@
                     "Empty": "Nothing to import."
                 }
             },
+            "PgliteUpgradeAlert": {
+                "Title": "Back up your workspace before {version}",
+                "Description": "Upgrading to Dory {version} may reset local workspace data because PGlite cannot migrate cleanly from v0.2.7 to v0.4.x. Export a backup first.",
+                "Action": "Open backup settings",
+                "Dismiss": "Dismiss backup reminder"
+            },
             "About": {
                 "Subtitle": "Next-generation Data Studio",
                 "Version": "Version",

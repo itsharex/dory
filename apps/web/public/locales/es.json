@@ -2310,6 +2310,12 @@
                     "Empty": "No hay nada que importar."
                 }
             },
+            "PgliteUpgradeAlert": {
+                "Title": "Haz una copia de seguridad antes de {version}",
+                "Description": "Actualizar a Dory {version} puede restablecer los datos locales del espacio de trabajo porque PGlite no puede migrar limpiamente de v0.2.7 a v0.4.x. Exporta una copia antes de continuar.",
+                "Action": "Abrir configuración de copia",
+                "Dismiss": "Cerrar recordatorio de copia"
+            },
             "About": {
                 "Subtitle": "Estudio de datos de nueva generación",
                 "Version": "Versión",

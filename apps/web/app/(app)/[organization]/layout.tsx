@@ -8,6 +8,8 @@ import { getSessionFromRequest } from '@/lib/auth/session';
 import { getFirstOrganizationForUser, getOrganizationBySlugOrId } from '@/lib/server/organization';
 import { resolveCurrentOrganizationId } from '@/lib/auth/current-organization';
 import { isAnonymousUser } from '@/lib/auth/anonymous-user';
+import { SettingsProvider } from '../components/settings/settings';
+import { PgliteUpgradeAlert } from './components/pglite-upgrade-alert';
 
 export default async function TeamLayout({ children, params }: { children: React.ReactNode; params: Promise<{ organization: string }> }) {
     const cookieStore = await cookies();
@@ -54,19 +56,25 @@ export default async function TeamLayout({ children, params }: { children: React
     }
 
     return (
-        <SidebarProvider
-            defaultOpen={defaultOpen}
-            style={
-                {
-                    '--sidebar-width': 'calc(var(--spacing) * 50)',
-                    '--sidebar-width-icon': '40px',
-                } as React.CSSProperties
-            }
-        >
-            <AppSidebar variant="inset" collapsible="icon" initialUser={session.user as any} />
-            <SidebarInset className="flex flex-col h-screen min-h-0" style={{ height: 'calc(100vh - 1rem)', width: 'calc(100% - 248px)' }}>
-                <AppContentShell>{children}</AppContentShell>
-            </SidebarInset>
-        </SidebarProvider>
+        <SettingsProvider>
+            <div className="flex h-screen min-h-0 flex-col overflow-hidden">
+                <PgliteUpgradeAlert />
+                <SidebarProvider
+                    className="flex-1 !min-h-0"
+                    defaultOpen={defaultOpen}
+                    style={
+                        {
+                            '--sidebar-width': 'calc(var(--spacing) * 50)',
+                            '--sidebar-width-icon': '40px',
+                        } as React.CSSProperties
+                    }
+                >
+                    <AppSidebar className="md:top-10 md:bottom-0 md:h-auto" variant="inset" collapsible="icon" initialUser={session.user as any} />
+                    <SidebarInset className="flex min-h-0 flex-col" style={{ height: 'calc(100% - 1rem)', width: 'calc(100% - 248px)' }}>
+                        <AppContentShell>{children}</AppContentShell>
+                    </SidebarInset>
+                </SidebarProvider>
+            </div>
+        </SettingsProvider>
     );
 }

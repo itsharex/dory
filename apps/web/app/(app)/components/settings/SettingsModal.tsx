@@ -12,16 +12,23 @@ import { SettingsContent } from './SettingsContent';
 export function SettingsModal({
     open,
     onOpenChange,
-    defaultCategory = 'appearance',
+    activeCategory = 'appearance',
+    onActiveCategoryChange,
 }: {
     open: boolean;
     onOpenChange: (v: boolean) => void;
-    defaultCategory?: CategoryKey;
+    activeCategory?: CategoryKey;
+    onActiveCategoryChange?: (category: CategoryKey) => void;
 }) {
-    const [active, setActive] = React.useState<CategoryKey>(defaultCategory);
     const [query, setQuery] = React.useState('');
     const t = useTranslations('DoryUI.Settings');
     const categories = React.useMemo(() => getCategories(t), [t]);
+
+    React.useEffect(() => {
+        if (open) {
+            setQuery('');
+        }
+    }, [open, activeCategory]);
 
     const filtered = React.useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -33,8 +40,14 @@ export function SettingsModal({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className={cn('p-0 gap-0 overflow-hidden', 'sm:max-w-[960px] w-[960px] h-[600px]', 'rounded-2xl')}>
                 <div className="grid grid-cols-[280px_1fr] h-full">
-                    <SettingsSidebar active={active} query={query} onQueryChange={setQuery} onSelect={setActive} filtered={filtered} />
-                    <SettingsContent active={active} />
+                    <SettingsSidebar
+                        active={activeCategory}
+                        query={query}
+                        onQueryChange={setQuery}
+                        onSelect={onActiveCategoryChange ?? (() => undefined)}
+                        filtered={filtered}
+                    />
+                    <SettingsContent active={activeCategory} />
                 </div>
             </DialogContent>
         </Dialog>
