@@ -2325,12 +2325,6 @@
                     "Empty": "没有可导入的数据。"
                 }
             },
-            "PgliteUpgradeAlert": {
-                "Title": "请在 {version} 升级前备份工作区",
-                "Description": "升级到 Dory {version} 时，PGlite 无法从 v0.2.7 平滑迁移到 v0.4.x，本地工作区数据可能被重置。请先导出备份。",
-                "Action": "打开备份设置",
-                "Dismiss": "关闭备份提醒"
-            },
             "About": {
                 "Subtitle": "新一代数据工作台",
                 "Version": "版本",

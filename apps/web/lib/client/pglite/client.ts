@@ -49,6 +49,35 @@ export function bumpPgliteSchemaVersion() {
     (globalThis as any).__pglite_init_promise = undefined;
 }
 
+async function resetPgliteClientState() {
+    try {
+        await globalThis.__pglite_instance?.close();
+    } catch (error) {
+        console.warn('[PGlite client] Failed to close crashed instance during reset', error);
+    }
+
+    globalThis.__pglite_instance = undefined;
+    globalThis.__drizzle_instance = undefined;
+    globalThis.__pglite_init_promise = undefined;
+}
+
+async function createPgliteClientForDataDir(dataDir: string): Promise<DBClient> {
+    const pglite = new PGlite({
+        dataDir,
+        relaxedDurability: true,
+    });
+
+    await pglite.waitReady;
+
+    const db = drizzle(pglite, { schema: schemas }) as unknown as DBClient;
+    (db as any).$client = pglite;
+
+    globalThis.__pglite_instance = pglite;
+    globalThis.__drizzle_instance = db;
+
+    return db;
+}
+
 export async function initPGLiteClient(): Promise<DBClient> {
     if (typeof window === 'undefined') {
         throw new Error(translate(getClientLocale(), 'Client.Pglite.BrowserOnly'));
@@ -58,27 +87,28 @@ export async function initPGLiteClient(): Promise<DBClient> {
     if (globalThis.__pglite_init_promise) return globalThis.__pglite_init_promise;
 
     const initPromise = (async () => {
-        const dataDir = getCurrentDataDir();
+        const initialDataDir = getCurrentDataDir();
 
-        // ---- Initialize PGlite ----
-        const pglite = new PGlite({
-            dataDir,
-            relaxedDurability: true,
-        });
+        try {
+            return await createPgliteClientForDataDir(initialDataDir);
+        } catch (error) {
+            console.warn('[PGlite client] Initial startup failed, rotating browser data directory', {
+                dataDir: initialDataDir,
+                error,
+            });
 
-        await pglite.waitReady;
+            await resetPgliteClientState();
+            bumpPgliteSchemaVersion();
 
-        // ---- Initialize drizzle ----
-        const db = drizzle(pglite, { schema: schemas }) as unknown as DBClient;
-        (db as any).$client = pglite;
-
-        globalThis.__pglite_instance = pglite;
-        globalThis.__drizzle_instance = db;
-        return db;
+            return createPgliteClientForDataDir(getCurrentDataDir());
+        }
     })();
 
-    globalThis.__pglite_init_promise = initPromise;
-    return initPromise;
+    globalThis.__pglite_init_promise = initPromise.catch(error => {
+        void resetPgliteClientState();
+        throw error;
+    });
+    return globalThis.__pglite_init_promise;
 }
 
 export async function getDBClient() {
