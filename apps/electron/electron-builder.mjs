@@ -53,6 +53,7 @@ const config = {
         {
             from: '../../release/standalone',
             to: 'standalone',
+            filter: ['**/*'],
         },
     ],
     asar: true,
