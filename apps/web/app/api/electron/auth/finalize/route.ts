@@ -68,33 +68,32 @@ function extractSessionCookieFromSetCookieHeaders(headers: Headers, cookieName: 
 }
 
 async function getSessionFromFinalizeRequest(auth: Awaited<ReturnType<typeof getAuth>>, req: Request, url: URL) {
-    const sessionFromRequest = await auth.api.getSession({ headers: req.headers }).catch(() => null);
-    if (sessionFromRequest) return sessionFromRequest;
-
     const provider = url.searchParams.get('provider') === 'google' ? 'google' : 'github';
-    if (!url.searchParams.get('code') || !url.searchParams.get('state')) {
-        return null;
+    const hasOAuthCallbackParams = Boolean(url.searchParams.get('code') && url.searchParams.get('state'));
+
+    if (hasOAuthCallbackParams) {
+        const response = await auth.api.callbackOAuth({
+            headers: req.headers,
+            params: { id: provider },
+            query: Object.fromEntries(url.searchParams),
+            asResponse: true,
+        });
+
+        const ctx = await auth.$context;
+        const sessionCookie = extractSessionCookieFromSetCookieHeaders(response.headers ?? new Headers(), ctx.authCookies.sessionToken.name);
+        if (!sessionCookie) {
+            return null;
+        }
+
+        const headers = new Headers(req.headers);
+        const existingCookie = headers.get('cookie');
+        const sessionCookiePair = `${sessionCookie.name}=${sessionCookie.value}`;
+        headers.set('cookie', existingCookie ? `${existingCookie}; ${sessionCookiePair}` : sessionCookiePair);
+
+        return auth.api.getSession({ headers }).catch(() => null);
     }
 
-    const response = await auth.api.callbackOAuth({
-        headers: req.headers,
-        params: { id: provider },
-        query: Object.fromEntries(url.searchParams),
-        asResponse: true,
-    });
-
-    const ctx = await auth.$context;
-    const sessionCookie = extractSessionCookieFromSetCookieHeaders(response.headers ?? new Headers(), ctx.authCookies.sessionToken.name);
-    if (!sessionCookie) {
-        return null;
-    }
-
-    const headers = new Headers(req.headers);
-    const existingCookie = headers.get('cookie');
-    const sessionCookiePair = `${sessionCookie.name}=${sessionCookie.value}`;
-    headers.set('cookie', existingCookie ? `${existingCookie}; ${sessionCookiePair}` : sessionCookiePair);
-
-    return auth.api.getSession({ headers }).catch(() => null);
+    return auth.api.getSession({ headers: req.headers }).catch(() => null);
 }
 
 function buildDeepLinkUrl(params: Record<string, string | undefined | null>) {

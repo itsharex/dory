@@ -42,7 +42,6 @@ export function AuthLinkSheet({ open, onOpenChange, callbackURL }: AuthLinkSheet
                             <SignInForm
                                 callbackURL={callbackURL}
                                 onRequestSignUp={() => setTab('sign-up')}
-                                onSignedIn={() => onOpenChange(false)}
                                 showDemoOption={false}
                                 showGuestOption={false}
                             />

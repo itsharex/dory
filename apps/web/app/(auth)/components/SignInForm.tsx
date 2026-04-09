@@ -21,7 +21,6 @@ type SignInFormProps = React.ComponentProps<'div'> & {
     imageUrl?: string;
     callbackURL?: string;
     onRequestSignUp?: () => void;
-    onSignedIn?: () => void;
     showGuestOption?: boolean;
     showDemoOption?: boolean;
     resumeAnonymousSession?: boolean;
@@ -32,7 +31,6 @@ export function SignInForm({
     imageUrl,
     callbackURL: callbackURLOverride,
     onRequestSignUp,
-    onSignedIn,
     showGuestOption = true,
     showDemoOption = true,
     resumeAnonymousSession = false,
@@ -116,7 +114,6 @@ export function SignInForm({
 
                 setMsg(t('SignIn.SuccessRefreshing'));
                 await refetchSession();
-                onSignedIn?.();
                 router.refresh();
                 router.replace(callbackURL);
             } catch (e) {
@@ -127,7 +124,7 @@ export function SignInForm({
         return () => {
             unsubscribe?.();
         };
-    }, [callbackURL, onSignedIn, refetchSession, router, t]);
+    }, [callbackURL, refetchSession, router, t]);
 
     async function signInViaGithubElectron() {
         if (isDesktopOffline) {
@@ -193,7 +190,6 @@ export function SignInForm({
                     posthog.identify(email, { email });
                     posthog.capture('user_signed_in', { method: 'email' });
                     await refetchSession();
-                    onSignedIn?.();
                     router.refresh();
                     router.push(callbackURL);
                 }
