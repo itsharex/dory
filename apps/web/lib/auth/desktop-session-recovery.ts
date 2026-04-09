@@ -382,7 +382,16 @@ export async function readDesktopSessionRecoveryPayload(headers: Headers) {
     return verifyRecoveryToken(token);
 }
 
-export async function buildDesktopSessionCookie(sessionToken: string, requestUrl?: string | null) {
+function buildDesktopRecoveryCookie(recoveryToken: string, requestUrl?: string | null) {
+    return buildCookieValue({
+        name: DESKTOP_SESSION_COOKIE_NAME,
+        value: recoveryToken,
+        maxAge: DESKTOP_SESSION_COOKIE_TTL_SECONDS,
+        secure: getSecureCookieFlag(requestUrl),
+    });
+}
+
+async function buildLocalSessionCookie(sessionToken: string, requestUrl?: string | null) {
     const auth = await getAuth();
     const ctx = await auth.$context;
     const maxAge = ctx.sessionConfig?.expiresIn ?? DESKTOP_SESSION_COOKIE_TTL_SECONDS;
@@ -398,24 +407,17 @@ export async function mirrorCloudSessionToDesktop(req: Request, responseHeaders:
     if (!details?.cloudSession?.user?.id) {
         return null;
     }
+    const userId = details.cloudSession.user.id;
 
     await ensureLocalDesktopUserState(details);
 
-    const auth = await getAuth();
-    const ctx = await auth.$context;
-    const localSession = await ctx.internalAdapter.createSession(details.cloudSession.user.id, false);
-    if (!localSession) {
-        return null;
-    }
-
     const activeOrganizationId = details.cloudSession.session?.activeOrganizationId ?? null;
-    if (activeOrganizationId) {
-        await ctx.internalAdapter.updateSession(localSession.token, {
-            activeOrganizationId,
-        });
-    }
+    const recoveryToken = await issueDesktopSessionRecoveryToken({
+        userId,
+        activeOrganizationId,
+    });
 
-    return buildDesktopSessionCookie(localSession.token, req.url);
+    return buildDesktopRecoveryCookie(recoveryToken, req.url);
 }
 
 export async function resolveDesktopRecoveredSession(headers: Headers) {
@@ -450,7 +452,7 @@ export async function resolveDesktopRecoveredSession(headers: Headers) {
         });
     }
 
-    const localCookie = await buildDesktopSessionCookie(localSession.token);
+    const localCookie = await buildLocalSessionCookie(localSession.token);
     const cookieValue = readCookieValueFromSetCookie(localCookie, DESKTOP_SESSION_COOKIE_NAME);
     if (!cookieValue) {
         return null;
