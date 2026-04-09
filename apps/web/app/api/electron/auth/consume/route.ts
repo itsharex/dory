@@ -130,24 +130,32 @@ async function linkAnonymousUserLocally(params: {
 
 export async function POST(req: Request) {
     if (shouldProxyAuthRequest()) {
-        // Parse the full body before proxying (consuming the stream)
-        const rawBody = await req.json().catch(() => ({}));
+        // Buffer the body as text first — reading it as JSON would consume the stream
+        // and proxyAuthRequest would receive an empty body.
+        const rawBodyText = await req.text().catch(() => '{}');
+        let rawBody: unknown = {};
+        try {
+            rawBody = JSON.parse(rawBodyText);
+        } catch {
+            /* leave as {} */
+        }
+
         const parsed = bodySchemaWithAnonymous.safeParse(rawBody);
         if (!parsed.success) {
             return NextResponse.json({ error: 'invalid_request_body' }, { status: 400 });
         }
 
-        const { ticket, anonymousUserId, anonymousActiveOrganizationId } = parsed.data;
+        const { anonymousUserId, anonymousActiveOrganizationId } = parsed.data;
 
         console.log('[electron-auth][consume] proxying request', {
             hasAnonymousUserId: Boolean(anonymousUserId),
         });
 
-        // Rebuild request for proxy with only the ticket (cloud ignores extra fields anyway)
+        // Forward the original body text — cloud's Zod schema strips unknown fields.
         const proxyReq = new Request(req.url, {
             method: req.method,
             headers: req.headers,
-            body: JSON.stringify({ ticket }),
+            body: rawBodyText,
         });
 
         const response = await proxyAuthRequest(proxyReq);
