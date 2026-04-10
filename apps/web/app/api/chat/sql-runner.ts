@@ -4,6 +4,9 @@ import { ensureConnectionPoolForUser } from '../connection/utils';
 import { getDBService } from '@/lib/database';
 import { Locale } from '@/lib/i18n/routing';
 import { translateApi } from '@/app/api/utils/i18n';
+import type { BaseConnection } from '@/lib/connection/base/base-connection';
+import type { ConnectionType } from '@/types/connections';
+import type { TableIndexInfo } from '@/types/table-info';
 
 type CreateSqlRunnerOptions = {
     userId: string;
@@ -84,6 +87,17 @@ export function createSqlRunnerTool({
                 const instance = entry.instance;
 
                 const targetDatabase = requestedDatabase ?? sanitizeDatabase(defaultDatabase) ?? sanitizeDatabase(config.database);
+                const performanceGuardResult = await validateSqlPerformance({
+                    sql: trimmed,
+                    database: targetDatabase,
+                    instance,
+                    connectionType: config.type,
+                    t,
+                });
+
+                if (performanceGuardResult) {
+                    return performanceGuardResult;
+                }
 
                 const started = Date.now();
                 const result = await instance.queryWithContext(trimmed, {
@@ -236,6 +250,228 @@ function sanitizeDatabase(value?: string | null): string | null {
     if (!value) return null;
     const trimmed = value.trim();
     return trimmed.length ? trimmed : null;
+}
+
+async function validateSqlPerformance(params: {
+    sql: string;
+    database: string | null;
+    instance: BaseConnection;
+    connectionType?: ConnectionType | null;
+    t: (key: string, values?: Record<string, unknown>) => string;
+}): Promise<SqlResultError | null> {
+    const { sql, database, instance, connectionType, t } = params;
+
+    if (containsSelectWildcard(sql)) {
+        return buildErrorResult(sql, database, t('Api.Chat.SqlRunner.SelectAllNotAllowed'));
+    }
+
+    const sortableQuery = extractSortableQuery(sql);
+    if (!sortableQuery || !database) {
+        return null;
+    }
+
+    const orderByColumns = sortableQuery.orderByColumns.filter(isSimpleColumnReference);
+    if (!orderByColumns.length) {
+        return null;
+    }
+
+    const indexCoverage = await assessOrderByIndexCoverage({
+        instance,
+        connectionType,
+        database,
+        table: sortableQuery.table,
+        columns: orderByColumns,
+    });
+
+    if (indexCoverage === 'covered') {
+        return null;
+    }
+
+    const messageKey =
+        indexCoverage === 'missing'
+            ? 'Api.Chat.SqlRunner.OrderByIndexMissing'
+            : 'Api.Chat.SqlRunner.OrderByIndexUnknown';
+
+    return buildErrorResult(
+        sql,
+        database,
+        t(messageKey, {
+            columns: orderByColumns.join(', '),
+            table: sortableQuery.table,
+        }),
+    );
+}
+
+function containsSelectWildcard(sql: string): boolean {
+    const match = sql.match(/^\s*select\s+([\s\S]+?)\s+from\b/i);
+    if (!match) return false;
+
+    const selectList = match[1];
+    return /(^|,)\s*(?:[a-zA-Z_][\w$]*\s*\.\s*)?\*(\s*(,|$))/i.test(selectList);
+}
+
+function extractSortableQuery(sql: string): { table: string; orderByColumns: string[] } | null {
+    const normalized = sql.replace(/\s+/g, ' ').trim();
+
+    if (!/^select\b/i.test(normalized)) return null;
+    if (/\b(join|union|intersect|except)\b/i.test(normalized)) return null;
+    if (/\bfrom\s*\(/i.test(normalized)) return null;
+    if (!/\border\s+by\b/i.test(normalized) || !/\blimit\s+\d+\b/i.test(normalized)) return null;
+
+    const fromMatch = normalized.match(/\bfrom\s+([`"a-zA-Z0-9_.]+)/i);
+    const orderByMatch = normalized.match(/\border\s+by\s+(.+?)\s+limit\s+\d+\b/i);
+
+    if (!fromMatch || !orderByMatch) {
+        return null;
+    }
+
+    const table = stripIdentifierQuotes(fromMatch[1]);
+    const orderByColumns = orderByMatch[1]
+        .split(',')
+        .map(part => part.replace(/\s+(asc|desc)\b/gi, '').trim())
+        .map(part => stripIdentifierQuotes(part))
+        .filter(Boolean);
+
+    if (!table || !orderByColumns.length) {
+        return null;
+    }
+
+    return { table, orderByColumns };
+}
+
+function stripIdentifierQuotes(value: string): string {
+    return value.replace(/[`"]/g, '').trim();
+}
+
+function isSimpleColumnReference(value: string): boolean {
+    return /^[a-zA-Z_][\w$]*(?:\.[a-zA-Z_][\w$]*)?$/.test(value);
+}
+
+async function assessOrderByIndexCoverage(params: {
+    instance: BaseConnection;
+    connectionType?: ConnectionType | null;
+    database: string;
+    table: string;
+    columns: string[];
+}): Promise<'covered' | 'missing' | 'unknown'> {
+    const { instance, connectionType, database, table, columns } = params;
+    const indexColumns = await getIndexedColumns(instance, connectionType, database, table);
+
+    if (!indexColumns) {
+        return 'unknown';
+    }
+
+    return columns.every(column => indexColumns.has(stripTableQualifier(column))) ? 'covered' : 'missing';
+}
+
+async function getIndexedColumns(
+    instance: BaseConnection,
+    connectionType: ConnectionType | null | undefined,
+    database: string,
+    table: string,
+): Promise<Set<string> | null> {
+    if (connectionType === 'mysql' || connectionType === 'mariadb') {
+        return getMysqlIndexedColumns(instance, database, table);
+    }
+
+    const tableInfo = (instance.capabilities as any)?.tableInfo;
+    if (!tableInfo || typeof tableInfo.indexes !== 'function') {
+        return null;
+    }
+
+    try {
+        const indexes = (await tableInfo.indexes(database, table)) as TableIndexInfo[];
+        if (!Array.isArray(indexes) || !indexes.length) {
+            return new Set();
+        }
+
+        const indexedColumns = new Set<string>();
+        for (const index of indexes) {
+            for (const column of extractColumnsFromIndexDefinition(index.definition)) {
+                indexedColumns.add(column);
+            }
+        }
+
+        return indexedColumns;
+    } catch (error) {
+        console.warn('[chat][sqlRunner] failed to inspect indexes', error);
+        return null;
+    }
+}
+
+async function getMysqlIndexedColumns(instance: BaseConnection, database: string, tableRef: string): Promise<Set<string> | null> {
+    const { schema, table } = splitTableReference(tableRef);
+    const tableSchema = schema ?? database;
+
+    try {
+        const result = await instance.queryWithContext<{ columns?: string | null }>(
+            `
+                SELECT GROUP_CONCAT(column_name ORDER BY seq_in_index SEPARATOR ',') AS columns
+                FROM information_schema.statistics
+                WHERE table_schema = ?
+                  AND table_name = ?
+                GROUP BY index_name
+            `,
+            {
+                database,
+                params: [tableSchema, table],
+            },
+        );
+
+        const indexedColumns = new Set<string>();
+        for (const row of Array.isArray(result.rows) ? result.rows : []) {
+            const columns = String(row.columns ?? '')
+                .split(',')
+                .map(column => column.trim())
+                .filter(Boolean);
+            for (const column of columns) {
+                indexedColumns.add(column);
+            }
+        }
+
+        return indexedColumns;
+    } catch (error) {
+        console.warn('[chat][sqlRunner] failed to inspect mysql indexes', error);
+        return null;
+    }
+}
+
+function extractColumnsFromIndexDefinition(definition?: string | null): string[] {
+    if (!definition) return [];
+
+    const match = definition.match(/\((.+)\)/);
+    if (!match) return [];
+
+    return match[1]
+        .split(',')
+        .map(part => part.trim())
+        .map(part => part.replace(/\s+(ASC|DESC)\b/gi, ''))
+        .map(part => part.replace(/^.*\./, ''))
+        .map(part => stripIdentifierQuotes(part))
+        .filter(isSimpleColumnReference)
+        .map(stripTableQualifier);
+}
+
+function splitTableReference(tableRef: string): { schema: string | null; table: string } {
+    const clean = stripIdentifierQuotes(tableRef);
+    const parts = clean.split('.');
+
+    if (parts.length >= 2) {
+        return {
+            schema: parts[parts.length - 2] || null,
+            table: parts[parts.length - 1] || clean,
+        };
+    }
+
+    return {
+        schema: null,
+        table: clean,
+    };
+}
+
+function stripTableQualifier(column: string): string {
+    const parts = stripIdentifierQuotes(column).split('.');
+    return parts[parts.length - 1] || column;
 }
 
 function extractErrorCode(message: string): number | null {

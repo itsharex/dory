@@ -1833,6 +1833,9 @@
                 "SqlRequired": "SQL 语句不能为空",
                 "MissingConnection": "缺少数据库连接信息，无法执行查询。",
                 "ReadOnlyOnly": "目前仅允许执行只读查询（SELECT/SHOW/DESCRIBE/EXPLAIN），请勿包含写入或更新语句。",
+                "SelectAllNotAllowed": "chatbot 生成的 SQL 不允许使用 SELECT *，请只选择回答问题所需的列。",
+                "OrderByIndexMissing": "这个查询可能较重：表 {table} 上用于 ORDER BY 的列 {columns} 未确认有索引。请先缩小查询列范围，或先检查索引。",
+                "OrderByIndexUnknown": "这个查询可能较重：表 {table} 上用于 ORDER BY 的列 {columns} 无法确认是否有索引。请先缩小查询列范围，或先检查索引。",
                 "ExecuteFailed": "执行 SQL 失败"
             }
         },

@@ -12,7 +12,7 @@ import { fetchCloudUiMessageStream, type CloudStreamRequest } from '@/lib/ai/clo
 import { buildCloudToolDeclarations } from '@/lib/ai/cloud-tools';
 import { createSqlRunnerTool, isManualExecutionRequiredSqlResult } from './sql-runner';
 import { createChartBuilderTool } from './chart-builder';
-import { MAX_HISTORY_MESSAGES, SYSTEM_PROMPT } from '@/lib/ai/prompts';
+import { MAX_HISTORY_MESSAGES, SQL_RUNNER_GUIDE, SQL_TOOL_INSTRUCTION, SYSTEM_PROMPT } from '@/lib/ai/prompts';
 import { normalizeMessage } from './utils';
 import { newEntityId } from '@/lib/id';
 import type { CopilotEnvelopeV1 } from '@/app/(app)/[organization]/[connectionId]/chatbot/copilot/types/copilot-envelope';
@@ -230,7 +230,9 @@ async function handleChatRequest(req: NextRequest) {
 
     const copilotContextSection = copilotEnvelope ? `Copilot Context\n${JSON.stringify(toPromptContext(copilotEnvelope), null, 2)}` : '';
 
-    const systemPrompt = [compiledSystem, SYSTEM_PROMPT, copilotContextSection, schemaSection].filter(Boolean).join('\n\n');
+    const sqlToolSection = sqlToolEnabled ? [SQL_TOOL_INSTRUCTION, SQL_RUNNER_GUIDE].join('\n\n') : '';
+
+    const systemPrompt = [compiledSystem, SYSTEM_PROMPT, sqlToolSection, copilotContextSection, schemaSection].filter(Boolean).join('\n\n');
 
     const modelMessages = await convertToModelMessages(historyMessagesForModel, { tools });
 

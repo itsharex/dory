@@ -1831,6 +1831,9 @@
                 "SqlRequired": "SQL cannot be empty",
                 "MissingConnection": "Missing database connection info; unable to execute query.",
                 "ReadOnlyOnly": "Only read-only queries are allowed (SELECT/SHOW/DESCRIBE/EXPLAIN). Do not include write or update statements.",
+                "SelectAllNotAllowed": "SELECT * is not allowed in chatbot-generated SQL. Select only the columns needed for the answer.",
+                "OrderByIndexMissing": "This query may be expensive: ORDER BY uses column(s) {columns} on table {table}, and they are not confirmed to be indexed. Narrow the selected columns or inspect indexes first.",
+                "OrderByIndexUnknown": "This query may be expensive: ORDER BY uses column(s) {columns} on table {table}, but index support could not be confirmed. Narrow the selected columns or inspect indexes first.",
                 "ExecuteFailed": "SQL execution failed"
             }
         },

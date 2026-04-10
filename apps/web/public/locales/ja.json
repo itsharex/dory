@@ -1817,6 +1817,9 @@
                 "SqlRequired": "SQL は空にできません",
                 "MissingConnection": "データベース接続情報がないため、クエリを実行できません。",
                 "ReadOnlyOnly": "読み取り専用クエリ（SELECT/SHOW/DESCRIBE/EXPLAIN）のみ許可されています。書き込みや更新文は含めないでください。",
+                "SelectAllNotAllowed": "chatbot が生成する SQL では SELECT * は使用できません。必要な列だけを選択してください。",
+                "OrderByIndexMissing": "このクエリは高コストの可能性があります: テーブル {table} の ORDER BY 列 {columns} にインデックスが確認できません。まず取得列を絞るか、インデックスを確認してください。",
+                "OrderByIndexUnknown": "このクエリは高コストの可能性があります: テーブル {table} の ORDER BY 列 {columns} のインデックス有無を確認できませんでした。まず取得列を絞るか、インデックスを確認してください。",
                 "ExecuteFailed": "SQL 実行に失敗しました"
             }
         },

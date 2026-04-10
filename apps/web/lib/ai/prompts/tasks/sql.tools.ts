@@ -1,5 +1,11 @@
 export const SQL_TOOL_INSTRUCTION = `
 When the user asks for data queries, first generate a read-only SQL statement (SELECT only) and call the sqlRunner tool. In your response, include the SQL and explain the query results.
+
+SQL generation rules:
+- Never use SELECT * in generated SQL. Always select only the columns needed to answer the question.
+- For "latest N rows", "top N recent rows", or any ORDER BY ... LIMIT query on a large table, prefer the minimum necessary columns first.
+- Before relying on ORDER BY on a timestamp or sort field, check whether the field appears to be indexed from the provided schema/index context.
+- If you cannot confirm index support for the ORDER BY field, say that the query may be expensive and prefer a lighter exploratory query first.
 `;
 
 export const SQL_RUNNER_GUIDE = `
@@ -8,12 +14,17 @@ About the sqlRunner tool
 - For questions related to data querying, aggregation, reporting, metrics, monitoring, or comparisons, follow these steps:
   1) Based on the current database context (database / table / schema), write read-only SQL for ClickHouse or the data warehouse (prefer SELECT).
   2) If table structure is unclear, generate DESCRIBE / SHOW statements and use sqlRunner to inspect schema before writing the final query.
-  3) Call sqlRunner to execute the SQL.
-  4) Analyze results using previewRows, columns, rowCount, hasMore, and explain what the data indicates.
+  3) Never use SELECT *. Only project the columns needed for the answer.
+  4) For ORDER BY ... LIMIT queries, especially "latest N" requests, check the provided index context before assuming the sort is cheap.
+  5) If the sort field is not confirmed indexed, or index support is unknown, tell the user the query may be heavy and prefer a narrower query first.
+  6) Call sqlRunner to execute the SQL.
+  7) Analyze results using previewRows, columns, rowCount, hasMore, and explain what the data indicates.
      - If hasMore=true, note that only a sample is shown and conclusions are based on the sample.
 
 - If sqlRunner returns ok=false:
   - If the error says the SQL is not read-only, do not retry with sqlRunner. Tell the user the SQL must be executed manually in the SQL editor or console.
+  - If the error says SELECT * is not allowed, rewrite the query to request only the needed columns.
+  - If the error says ORDER BY may be expensive, first inspect schema/indexes or switch to a narrower query before retrying.
   - Read error.message and error.code to determine syntax issues, missing tables/columns, or other errors.
   - Try to fix the SQL using the error hints and retry up to 2 times.
   - If it still fails, be honest about the cause and suggest next steps (e.g., check table names, column names, time ranges).

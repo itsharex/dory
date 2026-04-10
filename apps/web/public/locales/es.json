@@ -1817,6 +1817,9 @@
                 "SqlRequired": "El SQL no puede estar vacío",
                 "MissingConnection": "Falta información de conexión a la base de datos; no se puede ejecutar la consulta.",
                 "ReadOnlyOnly": "Solo se permiten consultas de solo lectura (SELECT/SHOW/DESCRIBE/EXPLAIN). No incluyas sentencias de escritura o actualización.",
+                "SelectAllNotAllowed": "No se permite usar SELECT * en el SQL generado por el chatbot. Selecciona solo las columnas necesarias para responder.",
+                "OrderByIndexMissing": "Esta consulta puede ser costosa: ORDER BY usa la(s) columna(s) {columns} en la tabla {table}, y no se confirmó que tengan índice. Reduce las columnas seleccionadas o revisa los índices primero.",
+                "OrderByIndexUnknown": "Esta consulta puede ser costosa: ORDER BY usa la(s) columna(s) {columns} en la tabla {table}, pero no se pudo confirmar si tienen índice. Reduce las columnas seleccionadas o revisa los índices primero.",
                 "ExecuteFailed": "La ejecución SQL falló"
             }
         },
