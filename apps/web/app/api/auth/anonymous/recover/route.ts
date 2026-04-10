@@ -16,10 +16,16 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
     if (shouldProxyAuthRequest()) {
+        console.log('[auth][anonymous-recover] proxying request');
         return proxyAuthRequest(req);
     }
 
     const payload = await readAnonymousRecoveryPayload(req.headers);
+    console.log('[auth][anonymous-recover] payload', {
+        hasPayload: Boolean(payload),
+        userId: payload?.userId ?? null,
+        activeOrganizationId: payload?.activeOrganizationId ?? null,
+    });
     if (!payload) {
         const response = NextResponse.json({ error: 'ANONYMOUS_RECOVERY_NOT_FOUND' }, { status: 401 });
         appendClearAnonymousRecoveryCookieHeader(response.headers, req.url);
@@ -27,6 +33,11 @@ export async function POST(req: Request) {
     }
 
     const recoverableUser = await resolveRecoverableAnonymousPayload(payload);
+    console.log('[auth][anonymous-recover] recoverable user', {
+        recoverable: Boolean(recoverableUser),
+        userId: recoverableUser?.userId ?? null,
+        activeOrganizationId: recoverableUser?.activeOrganizationId ?? null,
+    });
     if (!recoverableUser) {
         const response = NextResponse.json({ error: 'ANONYMOUS_RECOVERY_INVALID' }, { status: 401 });
         appendClearAnonymousRecoveryCookieHeader(response.headers, req.url);
@@ -64,6 +75,10 @@ export async function POST(req: Request) {
     appendAnonymousRecoveryCookieHeader(response.headers, {
         requestUrl: req.url,
         token: refreshedRecoveryToken,
+    });
+    console.log('[auth][anonymous-recover] issued local session', {
+        userId: recoverableUser.userId,
+        activeOrganizationId: recoverableUser.activeOrganizationId ?? null,
     });
     return response;
 }

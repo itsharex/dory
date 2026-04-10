@@ -16,13 +16,27 @@ export async function linkAnonymousOrganizationToUser(params: {
     newSessionToken?: string | null;
     newActiveOrganizationId?: string | null;
 }) {
+    console.log('[auth][anonymous-link] start', {
+        anonymousUserId: params.anonymousUserId,
+        anonymousActiveOrganizationId: params.anonymousActiveOrganizationId ?? null,
+        newUserId: params.newUserId,
+        newActiveOrganizationId: params.newActiveOrganizationId ?? null,
+        hasNewSessionToken: Boolean(params.newSessionToken),
+    });
+
     const db = await getDb();
     const sourceOrganizationIds = await findAnonymousOrganizationIdsForLink(db, {
         anonymousUserId: params.anonymousUserId,
         anonymousActiveOrganizationId: params.anonymousActiveOrganizationId,
     });
 
+    console.log('[auth][anonymous-link] source organizations resolved', {
+        anonymousUserId: params.anonymousUserId,
+        sourceOrganizationIds,
+    });
+
     if (sourceOrganizationIds.length === 0) {
+        console.log('[auth][anonymous-link] no source organizations found');
         return null;
     }
 
@@ -73,7 +87,22 @@ export async function linkAnonymousOrganizationToUser(params: {
             newActiveOrganizationId: params.newActiveOrganizationId,
         });
 
+        console.log('[auth][anonymous-link] decision', {
+            anonymousUserId: params.anonymousUserId,
+            newUserId: params.newUserId,
+            sourceOrganizations: sourceOrganizations.map(organization => ({
+                id: organization.id,
+                provisioningKind: organization.provisioningKind,
+            })),
+            targetCandidateOrganizations: targetCandidateOrganizations.map(organization => ({
+                id: organization.id,
+                provisioningKind: organization.provisioningKind,
+            })),
+            linkDecision,
+        });
+
         if (!linkDecision) {
+            console.log('[auth][anonymous-link] no link decision');
             return null;
         }
 
@@ -181,6 +210,13 @@ export async function linkAnonymousOrganizationToUser(params: {
         console.log('[auth] reassigned guest organization ownership to linked user', migrationResults);
 
         return sourceOrganizations.find(sourceOrganization => sourceOrganization.id === linkDecision.primarySourceOrganizationId) ?? primarySourceOrganization;
+    });
+
+    console.log('[auth][anonymous-link] result organization', {
+        anonymousUserId: params.anonymousUserId,
+        newUserId: params.newUserId,
+        resultOrganizationId: resultOrganization?.id ?? null,
+        resultOrganizationSlug: resultOrganization?.slug ?? null,
     });
 
     return resultOrganization;

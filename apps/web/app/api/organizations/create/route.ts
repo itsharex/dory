@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getAuth } from '@/lib/auth';
 import { createProvisionedOrganization } from '@/lib/auth/organization-provisioning';
+import { getSessionFromRequest } from '@/lib/auth/session';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,7 +14,7 @@ const createOrganizationSchema = z.object({
 
 export async function POST(req: Request) {
     const auth = await getAuth();
-    const session = await auth.api.getSession({ headers: req.headers }).catch(() => null);
+    const session = await getSessionFromRequest();
 
     if (!session?.user?.id) {
         return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });

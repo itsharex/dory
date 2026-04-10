@@ -193,12 +193,29 @@ function createAuth() {
                     emailDomainName: 'anon.getdory.dev',
                     generateName: () => 'Guest',
                     onLinkAccount: async ({ anonymousUser, newUser, ctx }) => {
+                        console.log('[auth][onLinkAccount] start', {
+                            anonymousUserId: anonymousUser.user.id,
+                            anonymousIsAnonymous: anonymousUser.user.isAnonymous,
+                            anonymousActiveOrganizationId: anonymousUser.session.activeOrganizationId ?? null,
+                            newUserId: newUser.user.id,
+                            newUserEmail: newUser.user.email ?? null,
+                            newUserIsAnonymous: newUser.user.isAnonymous,
+                            newActiveOrganizationId: newUser.session.activeOrganizationId ?? null,
+                        });
+
                         await linkAnonymousOrganizationToUser({
                             anonymousUserId: anonymousUser.user.id,
                             anonymousActiveOrganizationId: anonymousUser.session.activeOrganizationId ?? null,
                             newUserId: newUser.user.id,
                             newSessionToken: newUser.session.token,
                             newActiveOrganizationId: newUser.session.activeOrganizationId ?? null,
+                        });
+
+                        console.log('[auth][onLinkAccount] completed', {
+                            anonymousUserId: anonymousUser.user.id,
+                            newUserId: newUser.user.id,
+                            clearedRecoveryCookie:
+                                newUser.user.id !== anonymousUser.user.id && !isAnonymousUser(newUser.user),
                         });
 
                         if (newUser.user.id !== anonymousUser.user.id && !isAnonymousUser(newUser.user)) {

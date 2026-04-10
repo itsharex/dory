@@ -1,4 +1,5 @@
 import { getAuth } from '@/lib/auth';
+import { proxyAuthRequest, shouldProxyAuthRequest } from '@/lib/auth/auth-proxy';
 import { schema } from '@/lib/database/schema';
 import { getClient } from '@/lib/database/postgres/client';
 import type { PostgresDBClient } from '@/types';
@@ -68,33 +69,32 @@ function extractSessionCookieFromSetCookieHeaders(headers: Headers, cookieName: 
 }
 
 async function getSessionFromFinalizeRequest(auth: Awaited<ReturnType<typeof getAuth>>, req: Request, url: URL) {
-    const sessionFromRequest = await auth.api.getSession({ headers: req.headers }).catch(() => null);
-    if (sessionFromRequest) return sessionFromRequest;
-
     const provider = url.searchParams.get('provider') === 'google' ? 'google' : 'github';
-    if (!url.searchParams.get('code') || !url.searchParams.get('state')) {
-        return null;
+    const hasOAuthCallbackParams = Boolean(url.searchParams.get('code') && url.searchParams.get('state'));
+
+    if (hasOAuthCallbackParams) {
+        const response = await auth.api.callbackOAuth({
+            headers: req.headers,
+            params: { id: provider },
+            query: Object.fromEntries(url.searchParams),
+            asResponse: true,
+        });
+
+        const ctx = await auth.$context;
+        const sessionCookie = extractSessionCookieFromSetCookieHeaders(response.headers ?? new Headers(), ctx.authCookies.sessionToken.name);
+        if (!sessionCookie) {
+            return null;
+        }
+
+        const headers = new Headers(req.headers);
+        const existingCookie = headers.get('cookie');
+        const sessionCookiePair = `${sessionCookie.name}=${sessionCookie.value}`;
+        headers.set('cookie', existingCookie ? `${existingCookie}; ${sessionCookiePair}` : sessionCookiePair);
+
+        return auth.api.getSession({ headers }).catch(() => null);
     }
 
-    const response = await auth.api.callbackOAuth({
-        headers: req.headers,
-        params: { id: provider },
-        query: Object.fromEntries(url.searchParams),
-        asResponse: true,
-    });
-
-    const ctx = await auth.$context;
-    const sessionCookie = extractSessionCookieFromSetCookieHeaders(response.headers ?? new Headers(), ctx.authCookies.sessionToken.name);
-    if (!sessionCookie) {
-        return null;
-    }
-
-    const headers = new Headers(req.headers);
-    const existingCookie = headers.get('cookie');
-    const sessionCookiePair = `${sessionCookie.name}=${sessionCookie.value}`;
-    headers.set('cookie', existingCookie ? `${existingCookie}; ${sessionCookiePair}` : sessionCookiePair);
-
-    return auth.api.getSession({ headers }).catch(() => null);
+    return auth.api.getSession({ headers: req.headers }).catch(() => null);
 }
 
 function buildDeepLinkUrl(params: Record<string, string | undefined | null>) {
@@ -242,6 +242,16 @@ async function createTicket(auth: Awaited<ReturnType<typeof getAuth>>, payload: 
 }
 
 export async function GET(req: Request) {
+    if (shouldProxyAuthRequest()) {
+        const url = new URL(req.url);
+        console.log('[electron-auth][finalize] proxying callback', {
+            hasCode: Boolean(url.searchParams.get('code')),
+            hasState: Boolean(url.searchParams.get('state')),
+            provider: url.searchParams.get('provider') ?? null,
+        });
+        return proxyAuthRequest(req);
+    }
+
     const url = new URL(req.url);
     const locale = await getApiLocale();
     const copy = getFinalizePageCopy(locale);
@@ -264,6 +274,13 @@ export async function GET(req: Request) {
     });
 
     const activeSession = await getSessionFromFinalizeRequest(auth, req, url);
+    console.log('[electron-auth][finalize] active session resolved', {
+        userId: activeSession?.user?.id ?? null,
+        email: activeSession?.user?.email ?? null,
+        isAnonymous: activeSession?.user && 'isAnonymous' in activeSession.user ? (activeSession.user as any).isAnonymous : null,
+        activeOrganizationId:
+            activeSession?.session && 'activeOrganizationId' in activeSession.session ? (activeSession.session as any).activeOrganizationId ?? null : null,
+    });
     if (!activeSession?.session?.token) {
         return NextResponse.json({ error: 'missing_session_cookie' }, { status: 401 });
     }

@@ -13,6 +13,7 @@ import { IconBrandGithub } from '@tabler/icons-react';
 import { authClient, signInViaGithub, signInViaGoogle } from '@/lib/auth-client';
 import { InputPassword } from '@/components/originui/input-password';
 import { authFetch } from '@/lib/client/auth-fetch';
+import { useCloudFeatureAvailability } from '@/lib/client/use-cloud-features';
 import { useTranslations } from 'next-intl';
 import { runtime } from '@/lib/runtime/runtime';
 
@@ -44,7 +45,27 @@ export function SignInForm({
     const [err, setErr] = useState<string | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
     const [guestLoading, setGuestLoading] = useState(false);
+    const { isOffline: isDesktopOffline } = useCloudFeatureAvailability();
+    const { data: session, refetch: refetchSession } = authClient.useSession();
     const callbackURL = callbackURLOverride || searchParams?.get('callbackURL') || '/';
+
+    async function recoverAnonymousSessionIfNeeded() {
+        if (!session?.user?.isAnonymous && !resumeAnonymousSession) {
+            return true;
+        }
+
+        const recoverResponse = await fetch('/api/auth/anonymous/recover', {
+            method: 'POST',
+            credentials: 'include',
+        });
+
+        if (!recoverResponse.ok) {
+            const payload = await recoverResponse.json().catch(() => null);
+            throw new Error(typeof payload?.error === 'string' ? payload.error : t('SignIn.Guest.StartFailed'));
+        }
+
+        return true;
+    }
 
     useEffect(() => {
         if (!window.authBridge?.onCallback) return;
@@ -79,7 +100,13 @@ export function SignInForm({
                 const consumeRes = await fetch('/api/electron/auth/consume', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ticket }),
+                    body: JSON.stringify({
+                        ticket,
+                        anonymousUserId: session?.user?.isAnonymous ? session.user.id : null,
+                        anonymousActiveOrganizationId: session?.user?.isAnonymous
+                            ? ((session.session as { activeOrganizationId?: string | null } | undefined)?.activeOrganizationId ?? null)
+                            : null,
+                    }),
                 });
 
                 if (!consumeRes.ok) {
@@ -88,8 +115,7 @@ export function SignInForm({
                 }
 
                 setMsg(t('SignIn.SuccessRefreshing'));
-                router.refresh();
-                router.replace(callbackURL);
+                window.location.assign(callbackURL);
             } catch (e) {
                 setErr(t('SignIn.InvalidCallback'));
             }
@@ -98,12 +124,17 @@ export function SignInForm({
         return () => {
             unsubscribe?.();
         };
-    }, [callbackURL, router, t]);
+    }, [callbackURL, refetchSession, router, t]);
 
     async function signInViaGithubElectron() {
+        if (isDesktopOffline) {
+            setErr(t('SignIn.CloudFeaturesUnavailableOffline'));
+            return;
+        }
         setErr(null);
         setMsg(null);
         try {
+            await recoverAnonymousSessionIfNeeded();
             const res = await authFetch('/api/electron/auth/start/github', { method: 'GET' });
             console.log('GitHub OAuth start response:', res);
             const data = await res.json().catch(() => ({}));
@@ -117,9 +148,14 @@ export function SignInForm({
     }
 
     async function signInViaGoogleElectron() {
+        if (isDesktopOffline) {
+            setErr(t('SignIn.CloudFeaturesUnavailableOffline'));
+            return;
+        }
         setErr(null);
         setMsg(null);
         try {
+            await recoverAnonymousSessionIfNeeded();
             const res = await authFetch('/api/electron/auth/start/google', { method: 'GET' });
             console.log('Google OAuth start response:', res);
             const data = await res.json().catch(() => ({}));
@@ -139,6 +175,7 @@ export function SignInForm({
         setLoading(true);
         try {
             if (window.authBridge?.openExternal) {
+                await recoverAnonymousSessionIfNeeded();
                 const res = await fetch('/api/electron/auth/sign-in/email', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -152,10 +189,12 @@ export function SignInForm({
                 } else {
                     posthog.identify(email, { email });
                     posthog.capture('user_signed_in', { method: 'email' });
+                    await refetchSession();
                     router.refresh();
                     router.push(callbackURL);
                 }
             } else {
+                await recoverAnonymousSessionIfNeeded();
                 const { error } = await authClient.signIn.email({
                     email,
                     password: pwd,
@@ -181,6 +220,10 @@ export function SignInForm({
     }
 
     async function onForgotPassword() {
+        if (isDesktopOffline) {
+            setErr(t('SignIn.CloudFeaturesUnavailableOffline'));
+            return;
+        }
         if (!email) {
             setErr(t('SignIn.ForgotPasswordEmailRequired'));
             return;
@@ -239,10 +282,8 @@ export function SignInForm({
                 });
 
                 if (!recoverResponse.ok) {
-                    const result = await authClient.signIn.anonymous();
-                    if (result?.error) {
-                        throw new Error(result.error.message || t('SignIn.Guest.StartFailed'));
-                    }
+                    const payload = await recoverResponse.json().catch(() => null);
+                    throw new Error(typeof payload?.error === 'string' ? payload.error : t('SignIn.Guest.StartFailed'));
                 }
             } else {
                 const result = await authClient.signIn.anonymous();
@@ -292,6 +333,11 @@ export function SignInForm({
                                         {msg}
                                     </div>
                                 ) : null}
+                                {isDesktopOffline ? (
+                                    <div className="rounded-md border border-amber-300/40 bg-amber-50 p-3 text-sm text-amber-800" data-testid="offline-cloud-warning">
+                                        {t('SignIn.CloudFeaturesUnavailableOffline')}
+                                    </div>
+                                ) : null}
 
                                 <div className="grid gap-3">
                                     <Label htmlFor="email">{t('SignIn.Email')}</Label>
@@ -309,7 +355,7 @@ export function SignInForm({
                                 <div className="grid gap-3">
                                     <div className="flex items-center">
                                         <Label htmlFor="password">{t('SignIn.Password')}</Label>
-                                        <button type="button" onClick={onForgotPassword} className="ml-auto text-sm underline-offset-2 hover:underline">
+                                        <button type="button" onClick={onForgotPassword} disabled={isDesktopOffline} className="ml-auto text-sm underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-50">
                                             {t('SignIn.ForgotPassword')}
                                         </button>
                                     </div>
@@ -344,11 +390,16 @@ export function SignInForm({
                                         variant="outline"
                                         type="button"
                                         className="w-full"
+                                        disabled={isDesktopOffline}
                                         onClick={() => {
                                             if (window.authBridge?.openExternal) {
                                                 void signInViaGithubElectron();
                                             } else {
-                                                signInViaGithub(callbackURL);
+                                                void recoverAnonymousSessionIfNeeded().then(() => {
+                                                    signInViaGithub(callbackURL);
+                                                }).catch((error: unknown) => {
+                                                    setErr(error instanceof Error ? error.message : t('SignIn.GithubStartFailed'));
+                                                });
                                             }
                                         }}
                                     >
@@ -360,11 +411,16 @@ export function SignInForm({
                                         variant="outline"
                                         type="button"
                                         className="w-full"
+                                        disabled={isDesktopOffline}
                                         onClick={() => {
                                             if (window.authBridge?.openExternal) {
                                                 void signInViaGoogleElectron();
                                             } else {
-                                                signInViaGoogle(callbackURL);
+                                                void recoverAnonymousSessionIfNeeded().then(() => {
+                                                    signInViaGoogle(callbackURL);
+                                                }).catch((error: unknown) => {
+                                                    setErr(error instanceof Error ? error.message : t('SignIn.GoogleStartFailed'));
+                                                });
                                             }
                                         }}
                                     >
