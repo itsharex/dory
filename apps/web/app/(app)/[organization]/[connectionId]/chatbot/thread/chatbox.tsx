@@ -100,17 +100,6 @@ const ChatBotComp = ({
     const showGlobalLoader = status === 'submitted' || (status === 'streaming' && !hasAssistantContent);
 
     useEffect(() => {
-        console.log('[chatbot-debug] chatbox state', {
-            chatStateId,
-            sessionId,
-            initialPrompt,
-            status,
-            messagesCount: messages.length,
-            initialMessagesCount: initialMessages.length,
-        });
-    }, [chatStateId, sessionId, initialPrompt, status, messages.length, initialMessages.length]);
-
-    useEffect(() => {
         if (sessionRef.current !== chatStateId) {
             sessionRef.current = chatStateId;
             appliedInitialRef.current = null;
@@ -118,11 +107,6 @@ const ChatBotComp = ({
 
         const key = initialMessages.map(message => message.id).join('|');
         if (appliedInitialRef.current !== key) {
-            console.log('[chatbot-debug] apply initial messages', {
-                chatStateId,
-                key,
-                count: initialMessages.length,
-            });
             setMessages(initialMessages);
             appliedInitialRef.current = key;
         }
@@ -189,18 +173,8 @@ const ChatBotComp = ({
 
     const initialPromptSubmittedRef = useRef(false);
     useEffect(() => {
-        console.log('[chatbot-debug] initial prompt effect check', {
-            chatStateId,
-            initialPrompt,
-            status,
-            submitted: initialPromptSubmittedRef.current,
-        });
         if (initialPrompt && !initialPromptSubmittedRef.current && status === 'ready') {
             initialPromptSubmittedRef.current = true;
-            console.log('[chatbot-debug] initial prompt submitting', {
-                chatStateId,
-                initialPrompt,
-            });
             handleSubmit({ text: initialPrompt, files: [] });
             onInitialPromptConsumed?.();
         }
@@ -296,18 +270,6 @@ const ChatBotComp = ({
             has_attachments: Boolean(message.files?.length),
             has_table_context: Boolean(tableForContext),
             connection_id: connectionId,
-        });
-
-        console.log('[chatbot-debug] sendMessage called', {
-            chatStateId,
-            sessionId,
-            chatIdForRequest,
-            text: message.text,
-            databaseForContext,
-            schemaForContext,
-            tableForContext,
-            status,
-            messagesCountBeforeSend: messages.length,
         });
 
         const requestOptions = {

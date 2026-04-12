@@ -76,11 +76,6 @@ export default function ChatBotPageContent({ variant = 'sidebar', mode = 'global
     );
 
     const handleWelcomeSend = async (text: string) => {
-        console.log('[chatbot-debug] welcome prompt clicked', {
-            text,
-            selectedSessionId: chat.selectedSessionId,
-            creatingSession: chat.creatingSession,
-        });
         setPendingPrompt(text);
         await chat.handleCreateSession();
     };
@@ -96,24 +91,6 @@ export default function ChatBotPageContent({ variant = 'sidebar', mode = 'global
 
     const hasSessions = chat.sessionsForDisplay.length > 0;
     const shouldRenderThread = mode === 'copilot' || Boolean(chat.selectedSessionId);
-
-    useEffect(() => {
-        console.log('[chatbot-debug] page state', {
-            pendingPrompt,
-            selectedSessionId: chat.selectedSessionId,
-            loadingMessages: chat.loadingMessages,
-            creatingSession: chat.creatingSession,
-            initialMessagesCount: chat.initialMessages.length,
-            shouldRenderThread,
-        });
-    }, [
-        pendingPrompt,
-        chat.selectedSessionId,
-        chat.loadingMessages,
-        chat.creatingSession,
-        chat.initialMessages.length,
-        shouldRenderThread,
-    ]);
 
     return (
         <div className="flex h-full relative">
