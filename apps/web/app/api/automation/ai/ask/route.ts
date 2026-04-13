@@ -11,6 +11,7 @@ import { ensureConnectionPoolForUser } from '@/app/api/connection/utils';
 import { isMissingAiEnvError } from '@/lib/ai/errors';
 import { withAutomationHandler } from '../../with-automation-handler';
 import { isReadOnlyQuery, AI_ROW_LIMIT } from '../../utils';
+import { getReadOnlyQueryKeywordList } from '@/app/api/utils/sql-readonly';
 
 /**
  * POST /api/automation/ai/ask
@@ -87,7 +88,7 @@ export const POST = withAutomationHandler(async ({ req, userId, organizationId }
             if (!isReadOnlyQuery(trimmed)) {
                 const errorResult = {
                     ok: false,
-                    error: 'Only read-only queries (SELECT, SHOW, DESCRIBE, EXPLAIN) are allowed.',
+                    error: `Only read-only queries (${getReadOnlyQueryKeywordList()}) are allowed.`,
                     sql: trimmed,
                 };
                 sqlResults.push({ sql: trimmed, rows: [], columns: null, rowCount: 0, error: errorResult.error });
