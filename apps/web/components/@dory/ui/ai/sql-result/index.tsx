@@ -104,20 +104,23 @@ export const SqlResultCard = React.memo(function SqlResultCard({
     manualPrimaryAction,
     manualMenuActions,
     mode = 'global',
+    hideHeader = false,
+    codeActions,
 }: SqlResultCardProps) {
     const t = useTranslations('DoryUI');
     const { sql, database, ok, manualExecution, previewRows = [], columns, rowCount, truncated, durationMs, error, timestamp } = result;
+    const requiresManualExecution = manualExecution?.required === true;
+    const shouldDefaultOpen = !ok || requiresManualExecution;
 
     const [chartResult, setChartResult] = useState<ChartResultPart | null>(null);
     const [chartError, setChartError] = useState<string | null>(null);
-    const [open, setOpen] = useState(true);
+    const [open, setOpen] = useState(shouldDefaultOpen);
 
     const displayColumns = useMemo(() => computeDisplayColumns(columns, previewRows, t('SqlResult.ColumnPlaceholder')), [columns, previewRows, t]);
 
     const csvPreview = useMemo(() => buildCsvFromPreview(displayColumns, previewRows), [displayColumns, previewRows]);
     const canExportCsv = Boolean(csvPreview);
     const runLabel = t('SqlResult.Actions.Run');
-    const requiresManualExecution = manualExecution?.required === true;
     const statusText = ok ? t('SqlResult.Status.Success') : requiresManualExecution ? t('SqlResult.Status.Blocked') : t('SqlResult.Status.Failed');
     const statusDotClass = ok ? 'text-muted-foreground' : 'text-destructive/70';
 
@@ -184,8 +187,8 @@ export const SqlResultCard = React.memo(function SqlResultCard({
     useEffect(() => {
         setChartResult(null);
         setChartError(null);
-        setOpen(true);
-    }, [result]);
+        setOpen(shouldDefaultOpen);
+    }, [result, shouldDefaultOpen]);
 
     const handleGenerateChart = () => {
         const nextChart = buildAutoChartFromSql(result, {
@@ -208,6 +211,112 @@ export const SqlResultCard = React.memo(function SqlResultCard({
     };
 
     const actionStyles = useMemo(() => getSqlResultActionStyles(mode), [mode]);
+
+    const resultBody = (
+        <CardContent className="space-y-3 px-0 pb-0 pt-2">
+            {ok ? (
+                previewRows.length > 0 ? (
+                    <div className="overflow-hidden rounded-xl border border-border/40 bg-muted/18">
+                        <ScrollArea className="h-56 w-full">
+                            <div className="w-full overflow-x-auto">
+                                <table className="w-full min-w-max text-sm">
+                                    <thead className="sticky top-0 z-10 bg-muted/45">
+                                        <tr>
+                                            {displayColumns.map(col => (
+                                                <th key={col} className="border-b border-border/50 px-4 py-2.5 text-left text-[12px] font-medium text-muted-foreground">
+                                                    {col}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        {previewRows.map((row, rowIndex) => (
+                                            <tr key={rowIndex} className="even:bg-muted/[0.16]">
+                                                {displayColumns.map(col => (
+                                                    <td key={col} className="border-b border-border/40 px-4 py-2.5 align-top">
+                                                        <span className="text-[12px] font-mono leading-6 text-foreground/80">{formatCellValue((row as any)[col])}</span>
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </ScrollArea>
+
+                        {truncated && <div className="border-t border-border/40 px-4 py-2.5 text-[11px] text-muted-foreground">{t('SqlResult.Truncated', { count: previewRows.length })}</div>}
+                    </div>
+                ) : (
+                    <div className="text-sm text-muted-foreground">{t('SqlResult.NoRows')}</div>
+                )
+            ) : (
+                <div className="space-y-2">
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive/60" />
+                        <span>
+                            {requiresManualExecution
+                                ? t('SqlResult.Notice.ReadOnlyRestriction')
+                                : t('SqlResult.ExecutionFailed', { error: error?.message ?? t('SqlResult.UnknownError') })}
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {requiresManualExecution || (!requiresManualExecution && footerActions) ? (
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    {requiresManualExecution
+                        ? (manualPrimaryAction ?? (
+                              <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-9 rounded-full px-4 text-sm font-medium"
+                                  onClick={() => onManualExecute({ sql, database, mode: 'editor' })}
+                              >
+                                  {t('SqlResult.Actions.OpenInEditor')}
+                              </Button>
+                          ))
+                        : null}
+                    {!requiresManualExecution ? footerActions : null}
+                </div>
+            ) : null}
+
+            {!requiresManualExecution && !footerActions && onFollowUp ? (
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <Button type="button" size="sm" variant="secondary" className="h-9 rounded-full px-4 text-sm font-medium" onClick={handleFollowUpClick}>
+                        {t('SqlResult.FollowUp.Button')}
+                    </Button>
+                </div>
+            ) : null}
+
+            {!requiresManualExecution && footerActions && onFollowUp ? (
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <Button type="button" size="sm" variant="secondary" className="h-9 rounded-full px-4 text-sm font-medium" onClick={handleFollowUpClick}>
+                        {t('SqlResult.FollowUp.Button')}
+                    </Button>
+                </div>
+            ) : null}
+
+            {chartError && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <AlertCircle className="h-3.5 w-3.5 text-muted-foreground/70" />
+                    {chartError}
+                </div>
+            )}
+        </CardContent>
+    );
+
+    if (hideHeader) {
+        return (
+            <>
+                <div className="mt-1 space-y-2">
+                    <SmartCodeBlock value={sql} maxHeightClassName="max-h-36" variant="bare" onCopy={() => onCopy(sql)} actions={codeActions} />
+                    {resultBody}
+                </div>
+                {chartResult && <ChartResultCard result={chartResult} source="auto" onFollowUp={onFollowUp} />}
+            </>
+        );
+    }
 
     return (
         <>
@@ -304,112 +413,11 @@ export const SqlResultCard = React.memo(function SqlResultCard({
                         </div>
 
                         <CollapsibleContent className="space-y-2">
-                            <SmartCodeBlock value={sql} maxHeightClassName="max-h-36" variant="bare" onCopy={() => onCopy(sql)} />
+                            <SmartCodeBlock value={sql} maxHeightClassName="max-h-36" variant="bare" onCopy={() => onCopy(sql)} actions={codeActions} />
                         </CollapsibleContent>
                     </CardHeader>
 
-                    <CollapsibleContent>
-                        <CardContent className="space-y-3 px-0 pb-0 pt-2">
-                            {ok ? (
-                                previewRows.length > 0 ? (
-                                    <div className="overflow-hidden rounded-xl border border-border/40 bg-muted/18">
-                                        <ScrollArea className="h-56 w-full">
-                                            <div className="w-full overflow-x-auto">
-                                                <table className="w-full min-w-max text-sm">
-                                                    <thead className="sticky top-0 z-10 bg-muted/45">
-                                                        <tr>
-                                                            {displayColumns.map(col => (
-                                                                <th
-                                                                    key={col}
-                                                                    className="border-b border-border/50 px-4 py-2.5 text-left text-[12px] font-medium text-muted-foreground"
-                                                                >
-                                                                    {col}
-                                                                </th>
-                                                            ))}
-                                                        </tr>
-                                                    </thead>
-
-                                                    <tbody>
-                                                        {previewRows.map((row, rowIndex) => (
-                                                            <tr key={rowIndex} className="even:bg-muted/[0.16]">
-                                                                {displayColumns.map(col => (
-                                                                    <td key={col} className="border-b border-border/40 px-4 py-2.5 align-top">
-                                                                        <span className="text-[12px] font-mono leading-6 text-foreground/80">
-                                                                            {formatCellValue((row as any)[col])}
-                                                                        </span>
-                                                                    </td>
-                                                                ))}
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </ScrollArea>
-
-                                        {truncated && (
-                                            <div className="border-t border-border/40 px-4 py-2.5 text-[11px] text-muted-foreground">
-                                                {t('SqlResult.Truncated', { count: previewRows.length })}
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="text-sm text-muted-foreground">{t('SqlResult.NoRows')}</div>
-                                )
-                            ) : (
-                                <div className="space-y-2">
-                                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive/60" />
-                                        <span>
-                                            {requiresManualExecution
-                                                ? t('SqlResult.Notice.ReadOnlyRestriction')
-                                                : t('SqlResult.ExecutionFailed', { error: error?.message ?? t('SqlResult.UnknownError') })}
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {requiresManualExecution || (!requiresManualExecution && footerActions) ? (
-                                <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                                    {requiresManualExecution
-                                        ? (manualPrimaryAction ?? (
-                                              <Button
-                                                  type="button"
-                                                  size="sm"
-                                                  className="h-9 rounded-full px-4 text-sm font-medium"
-                                                  onClick={() => onManualExecute({ sql, database, mode: 'editor' })}
-                                              >
-                                                  {t('SqlResult.Actions.OpenInEditor')}
-                                              </Button>
-                                          ))
-                                        : null}
-                                    {!requiresManualExecution ? footerActions : null}
-                                </div>
-                            ) : null}
-
-                            {!requiresManualExecution && !footerActions && onFollowUp ? (
-                                <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                                    <Button type="button" size="sm" variant="secondary" className="h-9 rounded-full px-4 text-sm font-medium" onClick={handleFollowUpClick}>
-                                        {t('SqlResult.FollowUp.Button')}
-                                    </Button>
-                                </div>
-                            ) : null}
-
-                            {!requiresManualExecution && footerActions && onFollowUp ? (
-                                <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                                    <Button type="button" size="sm" variant="secondary" className="h-9 rounded-full px-4 text-sm font-medium" onClick={handleFollowUpClick}>
-                                        {t('SqlResult.FollowUp.Button')}
-                                    </Button>
-                                </div>
-                            ) : null}
-
-                            {chartError && (
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <AlertCircle className="h-3.5 w-3.5 text-muted-foreground/70" />
-                                    {chartError}
-                                </div>
-                            )}
-                        </CardContent>
-                    </CollapsibleContent>
+                    <CollapsibleContent>{resultBody}</CollapsibleContent>
                 </Card>
             </Collapsible>
 

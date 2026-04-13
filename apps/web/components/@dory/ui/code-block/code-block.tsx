@@ -28,6 +28,7 @@ interface SmartCodeBlockProps {
     variant?: 'default' | 'soft' | 'bare';
     forceThemeMode?: 'light' | 'dark';
     onCopy?: () => void;
+    actions?: React.ReactNode;
 }
 
 export function SmartCodeBlock({
@@ -41,6 +42,7 @@ export function SmartCodeBlock({
     variant = 'default',
     forceThemeMode,
     onCopy,
+    actions,
 }: SmartCodeBlockProps) {
     const [copied, setCopied] = React.useState(false);
     const { resolvedTheme } = useTheme();
@@ -152,20 +154,27 @@ export function SmartCodeBlock({
                     maxHeightClassName,
                 )}
             >
-                <Button
-                    type="button"
-                    size="icon"
-                    variant={variant === 'soft' ? 'ghost' : 'outline'}
+                <div
                     className={cn(
-                        'absolute right-2 top-2 z-10 h-7 w-7 rounded-full bg-background/80 shadow-sm',
-                        variant === 'soft' || variant === 'bare' ? 'border-0' : 'border',
+                        'absolute right-2 top-2 z-10 flex items-center gap-1',
                         'opacity-0 transition-opacity group-hover:opacity-100',
-                        copied && 'opacity-100',
+                        (copied || actions) && 'opacity-100',
                     )}
-                    onClick={handleCopy}
                 >
-                    {copied ? <Check className="h-2 w-2 text-xs" /> : <Copy className="h-2 w-2 text-xs" />}
-                </Button>
+                    <Button
+                        type="button"
+                        size="icon"
+                        variant={variant === 'soft' ? 'ghost' : 'outline'}
+                        className={cn(
+                            'h-7 w-7 rounded-full bg-background/80 shadow-sm',
+                            variant === 'soft' || variant === 'bare' ? 'border-0' : 'border',
+                        )}
+                        onClick={handleCopy}
+                    >
+                        {copied ? <Check className="h-2 w-2 text-xs" /> : <Copy className="h-2 w-2 text-xs" />}
+                    </Button>
+                    {actions}
+                </div>
 
                 <div
                     className={cn(

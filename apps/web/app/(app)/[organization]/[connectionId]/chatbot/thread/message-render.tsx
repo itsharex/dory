@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import type { UIMessage } from 'ai';
-import { AlertTriangleIcon, BotIcon, CheckCircle2Icon, ChevronDownIcon, LoaderCircleIcon } from 'lucide-react';
+import { AlertTriangleIcon, CheckCircle2Icon, ChevronDownIcon, ChevronRightIcon, LoaderCircleIcon, MoreHorizontalIcon } from 'lucide-react';
 
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/components/ai-elements/sources';
@@ -12,15 +12,14 @@ import { ChartResultPart, ChartResultCard } from '@/components/@dory/ui/ai/chart
 import { SqlResultCard } from '@/components/@dory/ui/ai/sql-result';
 import { AssistantFallbackCard } from '@/components/@dory/ui/ai/assistant-fallback';
 import { Button } from '@/registry/new-york-v4/ui/button';
-import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/registry/new-york-v4/ui/collapsible';
-import { DropdownMenuItem } from '@/registry/new-york-v4/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
 import { buildAutoChartFromSql } from '@/components/@dory/ui/ai/utils/auto-charts';
 import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 
 import type { CopilotActionExecutor } from '../copilot/action-bridge';
-import { SqlResultPart } from '@/components/@dory/ui/ai/sql-result/type';
+import { SqlResultPart, SqlResultManualExecutionMode } from '@/components/@dory/ui/ai/sql-result/type';
 import { ChatMode } from '../core/types';
 
 type MessageRendererProps = {
@@ -30,7 +29,7 @@ type MessageRendererProps = {
     status: string;
 
     onCopySql: (sql: string) => Promise<void> | void;
-    onManualExecute: (payload: { sql: string; database: string | null }) => void;
+    onManualExecute: (payload: { sql: string; database: string | null; mode?: SqlResultManualExecutionMode }) => void;
 
     mode?: ChatMode;
     onExecuteAction?: CopilotActionExecutor;
@@ -292,7 +291,8 @@ function getProcessStatusCopy(status: ProcessVisualStatus, locale: 'zh' | 'en') 
 
 const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, onManualExecute, mode = 'global', onExecuteAction }: MessageRendererProps) => {
     const t = useTranslations('Chatbot');
-    const processItems: Array<{ summary: string; content: ReactNode; status: ProcessVisualStatus }> = [];
+    const doryUiT = useTranslations('DoryUI');
+    const processItems: Array<{ summary: string; content: ReactNode; status: ProcessVisualStatus; actions?: ReactNode; defaultOpen?: boolean }> = [];
     const contentItems: ReactNode[] = [];
     const sqlResults: SqlResultPart[] = [];
     const chartResults: ChartResultPart[] = [];
@@ -533,6 +533,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
             processItems.push({
                 summary: getToolStepSummary(part),
                 status: getProcessVisualStatus(part),
+                defaultOpen: getProcessVisualStatus(part) !== 'completed',
                 content: renderToolStateCard({ part, key: `${message.id}-tool-call-${i}` }),
             });
             return;
@@ -550,6 +551,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
             processItems.push({
                 summary: getToolStepSummary(part),
                 status: getProcessVisualStatus(part),
+                defaultOpen: getProcessVisualStatus(part) !== 'completed',
                 content: renderToolStateCard({ part, key: `${message.id}-dynamic-tool-call-${i}` }),
             });
             return;
@@ -575,6 +577,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
             processItems.push({
                 summary: getToolStepSummary(part),
                 status: getProcessVisualStatus(part),
+                defaultOpen: false,
                 content: (
                     <div key={`${message.id}-tool-chart-${i}`} className="pt-1">
                         <ChartResultCard key={`${message.id}-chart-${i}`} result={chartResult} source="tool" />
@@ -598,6 +601,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
             processItems.push({
                 summary: getToolStepSummary(part),
                 status: getProcessVisualStatus(part),
+                defaultOpen: false,
                 content: (
                     <div key={`${message.id}-tool-sql-${i}`} className="pt-1">
                         <SqlResultCard
@@ -605,6 +609,52 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
                             result={sqlResult}
                             onCopy={onCopySql}
                             onManualExecute={onManualExecute}
+                            hideHeader
+                            codeActions={
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button type="button" variant="ghost" size="icon" className="h-7 w-7 rounded-full text-muted-foreground hover:bg-muted/40">
+                                            <MoreHorizontalIcon className="size-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" side="bottom">
+                                        <DropdownMenuItem
+                                            onClick={() => {
+                                                onManualExecute({ sql: sqlResult.sql, database: sqlResult.database, mode: 'editor' });
+                                            }}
+                                        >
+                                            {doryUiT('SqlResult.Actions.OpenInEditor')}
+                                        </DropdownMenuItem>
+                                        {showCopilotSqlActions && sqlResult.sql?.trim() ? (
+                                            <DropdownMenuItem
+                                                onClick={() => {
+                                                    onExecuteAction?.({ type: 'sql.replace', sql: sqlResult.sql });
+                                                }}
+                                            >
+                                                {t('Tools.ReplaceSql')}
+                                            </DropdownMenuItem>
+                                        ) : null}
+                                        {showCopilotSqlActions && sqlResult.sql?.trim() ? (
+                                            <DropdownMenuItem
+                                                onClick={() => {
+                                                    onExecuteAction?.({ type: 'sql.newTab', sql: sqlResult.sql });
+                                                }}
+                                            >
+                                                {t('Tools.NewTab')}
+                                            </DropdownMenuItem>
+                                        ) : null}
+                                        {sqlResult.manualExecution?.required ? (
+                                            <DropdownMenuItem
+                                                onClick={() => {
+                                                    onManualExecute({ sql: sqlResult.sql, database: sqlResult.database, mode: 'run' });
+                                                }}
+                                            >
+                                                {doryUiT('SqlResult.Actions.Run')}
+                                            </DropdownMenuItem>
+                                        ) : null}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            }
                             mode={mode}
                             manualPrimaryAction={
                                 showCopilotSqlActions && sqlResult.manualExecution?.required && sqlResult.sql?.trim() ? (
@@ -660,6 +710,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
             processItems.push({
                 summary: getToolStepSummary(part),
                 status: getProcessVisualStatus(part),
+                defaultOpen: getProcessVisualStatus(part) !== 'completed',
                 content: renderToolStateCard({
                     part,
                     key: `${message.id}-tool-result-${i}`,
@@ -707,10 +758,6 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
                 const toolState = toolCallStateById.get(id);
                 return toolState ? !toolState.hasFinalState : false;
             });
-        const overallStatus = hasProcessError ? 'error' : hasRunningProcess ? 'running' : 'completed';
-        const overallStatusCopy = getProcessStatusCopy(overallStatus, locale);
-        const processStatus =
-            locale === 'zh' ? (hasProcessError ? '失败' : hasRunningProcess ? '执行中' : '已完成') : hasProcessError ? 'Error' : hasRunningProcess ? 'Running' : 'Completed';
         const toolExecutionSummary = buildToolExecutionSummary(message.parts ?? [], locale);
         const processSummary = buildAgentSummary(
             processItems.map(item => item.summary),
@@ -719,31 +766,45 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
 
         contentItems.unshift(
             <Collapsible key={`${message.id}-agent-process`} defaultOpen={hasProcessError || hasRunningProcess || processItems.length > 1} className="group overflow-hidden">
-                <CollapsibleTrigger className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-border/70 bg-muted/20 px-3 py-1.5 text-left transition-colors hover:bg-muted/35">
-                    <div className="flex min-w-0 items-center gap-2">
-                        <BotIcon className="size-3.5 shrink-0 text-muted-foreground" />
-                        <span className="truncate text-[13px] text-foreground/80">{toolExecutionSummary ?? processSummary}</span>
-                        <Badge variant="outline" className={cn('hidden rounded-full border px-2 py-0 text-[10px] font-medium sm:inline-flex', overallStatusCopy.badgeClassName)}>
-                            {processStatus}
-                        </Badge>
-                        <span className="hidden text-muted-foreground text-[11px] sm:inline">{locale === 'zh' ? `${processItems.length} 步` : `${processItems.length} steps`}</span>
-                        <span className="text-muted-foreground">{overallStatusCopy.icon}</span>
-                    </div>
-                    <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                <CollapsibleTrigger className="inline-flex max-w-full items-center gap-1.5 rounded-lg py-1 text-left text-muted-foreground transition-colors hover:text-foreground/80">
+                    <span className="truncate text-[13px] leading-5">
+                        {toolExecutionSummary ?? processSummary}
+                        <span className="ml-1.5 hidden text-[12px] sm:inline">
+                            {locale === 'zh' ? `${processItems.length} 步` : `${processItems.length} items`}
+                        </span>
+                    </span>
+                    <span className="shrink-0 text-muted-foreground/80 transition-transform group-data-[state=open]:hidden">
+                        <ChevronRightIcon className="size-3.5" />
+                    </span>
+                    <span className="hidden shrink-0 text-muted-foreground/80 transition-transform group-data-[state=open]:inline-flex">
+                        <ChevronDownIcon className="size-3.5" />
+                    </span>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="pt-3 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:animate-in data-[state=open]:slide-in-from-top-2">
-                    <div className="space-y-3">
+                <CollapsibleContent className="pt-2 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:animate-in data-[state=open]:slide-in-from-top-2">
+                    <div className="space-y-2.5 border-l border-border/50 pl-3">
                         {processItems.map((item, index) => {
                             const stepStatusCopy = getProcessStatusCopy(item.status, locale);
 
                             return (
-                                <div key={`${message.id}-process-step-${index}`} className="space-y-1.5">
-                                    <div className="flex flex-wrap items-center gap-2 text-[13px]">
-                                        <span className={cn('h-1.5 w-1.5 rounded-full', stepStatusCopy.dotClassName)} />
-                                        <span className="text-foreground/85">{item.summary}</span>
+                                <Collapsible key={`${message.id}-process-step-${index}`} defaultOpen={item.defaultOpen ?? false} className="group/step">
+                                    <div className="min-w-0">
+                                        <div className="min-w-0 flex-1">
+                                            <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 rounded-md py-0.5 text-left text-[12.5px] text-muted-foreground transition-colors hover:text-foreground/80">
+                                                <span className="inline-flex min-w-0 items-center gap-1.5">
+                                                    <span className="truncate">{item.summary}</span>
+                                                    <ChevronRightIcon className="size-3.5 shrink-0 group-data-[state=open]/step:hidden" />
+                                                    <ChevronDownIcon className="hidden size-3.5 shrink-0 group-data-[state=open]/step:block" />
+                                                </span>
+                                                <span className="flex shrink-0 items-center gap-1">
+                                                    {item.actions}
+                                                </span>
+                                            </CollapsibleTrigger>
+                                            <CollapsibleContent className="pt-2">
+                                                <div className="min-w-0 pl-0.5">{item.content}</div>
+                                            </CollapsibleContent>
+                                        </div>
                                     </div>
-                                    <div className="min-w-0 pl-3.5">{item.content}</div>
-                                </div>
+                                </Collapsible>
                             );
                         })}
                     </div>

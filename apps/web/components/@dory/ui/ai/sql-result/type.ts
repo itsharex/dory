@@ -31,6 +31,8 @@ export type SqlResultCardProps = {
     manualPrimaryAction?: ReactNode;
     manualMenuActions?: ReactNode;
     mode?: SqlResultCardMode;
+    hideHeader?: boolean;
+    codeActions?: ReactNode;
 };
 
 export type SqlResultCardMode = 'global' | 'copilot';
