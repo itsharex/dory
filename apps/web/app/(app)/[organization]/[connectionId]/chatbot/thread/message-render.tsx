@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import type { UIMessage } from 'ai';
-import { BotIcon, ChevronDownIcon, CopyIcon, RefreshCcwIcon } from 'lucide-react';
+import { AlertTriangleIcon, BotIcon, CheckCircle2Icon, ChevronDownIcon, LoaderCircleIcon } from 'lucide-react';
 
 import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
 import { Source, Sources, SourcesContent, SourcesTrigger } from '@/components/ai-elements/sources';
@@ -11,12 +11,12 @@ import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/componen
 import { ChartResultPart, ChartResultCard } from '@/components/@dory/ui/ai/charts-result';
 import { SqlResultCard } from '@/components/@dory/ui/ai/sql-result';
 import { AssistantFallbackCard } from '@/components/@dory/ui/ai/assistant-fallback';
-import { Card, CardContent, CardHeader, CardTitle } from '@/registry/new-york-v4/ui/card';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/registry/new-york-v4/ui/collapsible';
 import { DropdownMenuItem } from '@/registry/new-york-v4/ui/dropdown-menu';
 import { buildAutoChartFromSql } from '@/components/@dory/ui/ai/utils/auto-charts';
+import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
 
 import type { CopilotActionExecutor } from '../copilot/action-bridge';
@@ -249,9 +249,50 @@ function buildToolExecutionSummary(parts: any[], locale: 'zh' | 'en'): string | 
     return items.join(locale === 'zh' ? '，' : ', ');
 }
 
+type ProcessVisualStatus = 'running' | 'completed' | 'error';
+
+function getProcessVisualStatus(part: any): ProcessVisualStatus {
+    if (part?.type === 'tool-error' || part?.state === 'output-error') {
+        return 'error';
+    }
+
+    if (part?.type === 'tool-result' || part?.type === 'tool_result' || (typeof part?.type === 'string' && part.type.startsWith('tool-') && part.output)) {
+        return 'completed';
+    }
+
+    return 'running';
+}
+
+function getProcessStatusCopy(status: ProcessVisualStatus, locale: 'zh' | 'en') {
+    if (status === 'error') {
+        return {
+            label: locale === 'zh' ? '失败' : 'Error',
+            icon: <AlertTriangleIcon className="size-3.5" />,
+            badgeClassName: 'border-destructive/20 bg-destructive/[0.04] text-destructive',
+            dotClassName: 'bg-destructive',
+        };
+    }
+
+    if (status === 'running') {
+        return {
+            label: locale === 'zh' ? '执行中' : 'Running',
+            icon: <LoaderCircleIcon className="size-3.5 animate-spin" />,
+            badgeClassName: 'border-border bg-muted/40 text-muted-foreground',
+            dotClassName: 'bg-primary',
+        };
+    }
+
+    return {
+        label: locale === 'zh' ? '已完成' : 'Completed',
+        icon: <CheckCircle2Icon className="size-3.5" />,
+        badgeClassName: 'border-border bg-muted/30 text-muted-foreground',
+        dotClassName: 'bg-emerald-500',
+    };
+}
+
 const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, onManualExecute, mode = 'global', onExecuteAction }: MessageRendererProps) => {
     const t = useTranslations('Chatbot');
-    const processItems: Array<{ summary: string; content: ReactNode }> = [];
+    const processItems: Array<{ summary: string; content: ReactNode; status: ProcessVisualStatus }> = [];
     const contentItems: ReactNode[] = [];
     const sqlResults: SqlResultPart[] = [];
     const chartResults: ChartResultPart[] = [];
@@ -408,7 +449,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
         const defaultOpen = state !== 'output-available';
 
         return (
-            <Tool key={key} defaultOpen={defaultOpen}>
+            <Tool key={key} defaultOpen={defaultOpen} className="mb-0 rounded-[20px] border-border/60 bg-background/80 shadow-none">
                 <ToolHeader type="dynamic-tool" state={state} toolName={title} title={title} />
                 <ToolContent>
                     {input !== undefined ? <ToolInput input={input} /> : null}
@@ -416,6 +457,52 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
                 </ToolContent>
             </Tool>
         );
+    };
+
+    const hasLaterVisibleSqlSuccess = (currentIndex: number) =>
+        (message.parts ?? []).slice(currentIndex + 1).some((candidate: any) => {
+            if (!shouldRenderToolResult(candidate)) {
+                return false;
+            }
+
+            const nextSqlResult = getSqlResultFromPart(candidate, t('Errors.SqlExecutionFailed'));
+            return Boolean(nextSqlResult?.ok);
+        });
+
+    const hasLaterVisibleChartResult = (currentIndex: number) =>
+        (message.parts ?? []).slice(currentIndex + 1).some((candidate: any) => {
+            if (!shouldRenderToolResult(candidate)) {
+                return false;
+            }
+
+            return Boolean(getChartResultFromPart(candidate));
+        });
+
+    const shouldHideToolFailure = (part: any, index: number) => {
+        if (part?.type === 'tool-error' || part?.state === 'output-error') {
+            return true;
+        }
+
+        const sqlResult = getSqlResultFromPart(part, t('Errors.SqlExecutionFailed'));
+        if (sqlResult && !sqlResult.ok && hasLaterVisibleSqlSuccess(index)) {
+            return true;
+        }
+
+        return Boolean(sqlResult && !sqlResult.ok);
+    };
+
+    const shouldHideIntermediateSuccess = (part: any, index: number) => {
+        const sqlResult = getSqlResultFromPart(part, t('Errors.SqlExecutionFailed'));
+        if (sqlResult?.ok && hasLaterVisibleSqlSuccess(index)) {
+            return true;
+        }
+
+        const chartResult = getChartResultFromPart(part);
+        if (chartResult && hasLaterVisibleChartResult(index)) {
+            return true;
+        }
+
+        return false;
     };
 
     if (assistantMessage && message.parts?.some((part: any) => part.type === 'source-url')) {
@@ -445,6 +532,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
             }
             processItems.push({
                 summary: getToolStepSummary(part),
+                status: getProcessVisualStatus(part),
                 content: renderToolStateCard({ part, key: `${message.id}-tool-call-${i}` }),
             });
             return;
@@ -461,6 +549,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
             }
             processItems.push({
                 summary: getToolStepSummary(part),
+                status: getProcessVisualStatus(part),
                 content: renderToolStateCard({ part, key: `${message.id}-dynamic-tool-call-${i}` }),
             });
             return;
@@ -468,10 +557,6 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
 
         // tool-error
         if (part.type === 'tool-error') {
-            processItems.push({
-                summary: getToolStepSummary(part),
-                content: renderToolStateCard({ part, key: `${message.id}-tool-error-${i}` }),
-            });
             return;
         }
 
@@ -481,92 +566,100 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
 
         const chartResult = getChartResultFromPart(part);
         if (chartResult) {
+            if (shouldHideIntermediateSuccess(part, i)) {
+                return;
+            }
+
             chartResults.push(chartResult);
 
             processItems.push({
                 summary: getToolStepSummary(part),
-                content: renderToolStateCard({
-                    part,
-                    key: `${message.id}-tool-chart-${i}`,
-                    fallbackInput: inferToolArgsFromResult(part),
-                    resultContent: (
-                        <div className="p-4 pt-0">
-                            <ChartResultCard key={`${message.id}-chart-${i}`} result={chartResult} source="tool" />
-                        </div>
-                    ),
-                }),
+                status: getProcessVisualStatus(part),
+                content: (
+                    <div key={`${message.id}-tool-chart-${i}`} className="pt-1">
+                        <ChartResultCard key={`${message.id}-chart-${i}`} result={chartResult} source="tool" />
+                    </div>
+                ),
             });
             return;
         }
 
         const sqlResult = getSqlResultFromPart(part, t('Errors.SqlExecutionFailed'));
         if (sqlResult) {
+            if (shouldHideToolFailure(part, i)) {
+                return;
+            }
+            if (shouldHideIntermediateSuccess(part, i)) {
+                return;
+            }
+
             sqlResults.push(sqlResult);
 
             processItems.push({
                 summary: getToolStepSummary(part),
-                content: renderToolStateCard({
-                    part,
-                    key: `${message.id}-tool-sql-${i}`,
-                    fallbackInput: inferToolArgsFromResult(part),
-                    resultContent: (
-                        <div className="p-4 pt-0">
-                            <SqlResultCard
-                                key={`${message.id}-sql-${i}`}
-                                result={sqlResult}
-                                onCopy={onCopySql}
-                                onManualExecute={onManualExecute}
-                                mode={mode}
-                                manualPrimaryAction={
-                                    showCopilotSqlActions && sqlResult.manualExecution?.required && sqlResult.sql?.trim() ? (
+                status: getProcessVisualStatus(part),
+                content: (
+                    <div key={`${message.id}-tool-sql-${i}`} className="pt-1">
+                        <SqlResultCard
+                            key={`${message.id}-sql-${i}`}
+                            result={sqlResult}
+                            onCopy={onCopySql}
+                            onManualExecute={onManualExecute}
+                            mode={mode}
+                            manualPrimaryAction={
+                                showCopilotSqlActions && sqlResult.manualExecution?.required && sqlResult.sql?.trim() ? (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        className="h-9 rounded-full px-4 text-sm font-medium"
+                                        onClick={() => onExecuteAction?.({ type: 'sql.replace', sql: sqlResult.sql })}
+                                    >
+                                        {t('Tools.ReplaceSql')}
+                                    </Button>
+                                ) : undefined
+                            }
+                            manualMenuActions={
+                                showCopilotSqlActions && sqlResult.manualExecution?.required && sqlResult.sql?.trim() ? (
+                                    <DropdownMenuItem onClick={() => onExecuteAction?.({ type: 'sql.newTab', sql: sqlResult.sql })}>{t('Tools.NewTab')}</DropdownMenuItem>
+                                ) : undefined
+                            }
+                            footerActions={
+                                showCopilotSqlActions && !sqlResult.manualExecution?.required && sqlResult.sql?.trim() ? (
+                                    <>
                                         <Button
-                                            type="button"
                                             size="sm"
                                             className="h-9 rounded-full px-4 text-sm font-medium"
                                             onClick={() => onExecuteAction?.({ type: 'sql.replace', sql: sqlResult.sql })}
                                         >
                                             {t('Tools.ReplaceSql')}
                                         </Button>
-                                    ) : undefined
-                                }
-                                manualMenuActions={
-                                    showCopilotSqlActions && sqlResult.manualExecution?.required && sqlResult.sql?.trim() ? (
-                                        <DropdownMenuItem onClick={() => onExecuteAction?.({ type: 'sql.newTab', sql: sqlResult.sql })}>{t('Tools.NewTab')}</DropdownMenuItem>
-                                    ) : undefined
-                                }
-                                footerActions={
-                                    showCopilotSqlActions && !sqlResult.manualExecution?.required && sqlResult.sql?.trim() ? (
-                                        <>
-                                            <Button
-                                                size="sm"
-                                                className="h-9 rounded-full px-4 text-sm font-medium"
-                                                onClick={() => onExecuteAction?.({ type: 'sql.replace', sql: sqlResult.sql })}
-                                            >
-                                                {t('Tools.ReplaceSql')}
-                                            </Button>
-                                            <Button
-                                                size="sm"
-                                                variant="secondary"
-                                                className="h-9 rounded-full border-0 px-4 text-sm font-medium"
-                                                onClick={() => onExecuteAction?.({ type: 'sql.newTab', sql: sqlResult.sql })}
-                                            >
-                                                {t('Tools.NewTab')}
-                                            </Button>
-                                        </>
-                                    ) : null
-                                }
-                            />
-                        </div>
-                    ),
-                }),
+                                        <Button
+                                            size="sm"
+                                            variant="secondary"
+                                            className="h-9 rounded-full border-0 px-4 text-sm font-medium"
+                                            onClick={() => onExecuteAction?.({ type: 'sql.newTab', sql: sqlResult.sql })}
+                                        >
+                                            {t('Tools.NewTab')}
+                                        </Button>
+                                    </>
+                                ) : null
+                            }
+                        />
+                    </div>
+                ),
             });
             return;
         }
 
         const toolName = getToolName(part);
         if (toolName) {
+            if (shouldHideToolFailure(part, i)) {
+                return;
+            }
+
             processItems.push({
                 summary: getToolStepSummary(part),
+                status: getProcessVisualStatus(part),
                 content: renderToolStateCard({
                     part,
                     key: `${message.id}-tool-result-${i}`,
@@ -614,9 +707,10 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
                 const toolState = toolCallStateById.get(id);
                 return toolState ? !toolState.hasFinalState : false;
             });
+        const overallStatus = hasProcessError ? 'error' : hasRunningProcess ? 'running' : 'completed';
+        const overallStatusCopy = getProcessStatusCopy(overallStatus, locale);
         const processStatus =
             locale === 'zh' ? (hasProcessError ? '失败' : hasRunningProcess ? '执行中' : '已完成') : hasProcessError ? 'Error' : hasRunningProcess ? 'Running' : 'Completed';
-        const processBadgeVariant = hasProcessError ? 'destructive' : 'secondary';
         const toolExecutionSummary = buildToolExecutionSummary(message.parts ?? [], locale);
         const processSummary = buildAgentSummary(
             processItems.map(item => item.summary),
@@ -624,44 +718,34 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
         );
 
         contentItems.unshift(
-            <Collapsible
-                key={`${message.id}-agent-process`}
-                defaultOpen={hasProcessError || hasRunningProcess || processItems.length > 1}
-                className="group overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm"
-            >
-                <CollapsibleTrigger className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/40">
-                    <div className="flex min-w-0 items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                            <BotIcon className="size-4" />
-                        </div>
-                        <div className="flex min-w-0 flex-col gap-1">
-                            <div className="flex items-center gap-2">
-                                <span className="truncate font-medium text-sm">Agent</span>
-                                <Badge
-                                    variant={processBadgeVariant}
-                                    className={processBadgeVariant === 'secondary' ? 'rounded-full border-0 bg-muted px-2.5 text-muted-foreground' : 'rounded-full px-2.5'}
-                                >
-                                    {processStatus}
-                                </Badge>
-                            </div>
-                            <p className="truncate text-muted-foreground text-xs">{toolExecutionSummary ?? processSummary}</p>
-                        </div>
+            <Collapsible key={`${message.id}-agent-process`} defaultOpen={hasProcessError || hasRunningProcess || processItems.length > 1} className="group overflow-hidden">
+                <CollapsibleTrigger className="inline-flex max-w-full items-center gap-2 rounded-2xl border border-border/70 bg-muted/20 px-3 py-1.5 text-left transition-colors hover:bg-muted/35">
+                    <div className="flex min-w-0 items-center gap-2">
+                        <BotIcon className="size-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate text-[13px] text-foreground/80">{toolExecutionSummary ?? processSummary}</span>
+                        <Badge variant="outline" className={cn('hidden rounded-full border px-2 py-0 text-[10px] font-medium sm:inline-flex', overallStatusCopy.badgeClassName)}>
+                            {processStatus}
+                        </Badge>
+                        <span className="hidden text-muted-foreground text-[11px] sm:inline">{locale === 'zh' ? `${processItems.length} 步` : `${processItems.length} steps`}</span>
+                        <span className="text-muted-foreground">{overallStatusCopy.icon}</span>
                     </div>
-                    <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
+                    <ChevronDownIcon className="size-3.5 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
                 </CollapsibleTrigger>
-                <CollapsibleContent className="border-t border-border/70 bg-muted/20 px-4 py-4 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:animate-in data-[state=open]:slide-in-from-top-2">
+                <CollapsibleContent className="pt-3 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:animate-in data-[state=open]:slide-in-from-top-2">
                     <div className="space-y-3">
-                        {processItems.map((item, index) => (
-                            <div key={`${message.id}-process-step-${index}`} className="space-y-2">
-                                <div className="flex items-center gap-2 px-1">
-                                    <span className="text-muted-foreground text-[11px] font-medium uppercase tracking-[0.18em]">
-                                        {locale === 'zh' ? `步骤 ${index + 1}` : `Step ${index + 1}`}
-                                    </span>
-                                    <span className="text-foreground text-sm">{item.summary}</span>
+                        {processItems.map((item, index) => {
+                            const stepStatusCopy = getProcessStatusCopy(item.status, locale);
+
+                            return (
+                                <div key={`${message.id}-process-step-${index}`} className="space-y-1.5">
+                                    <div className="flex flex-wrap items-center gap-2 text-[13px]">
+                                        <span className={cn('h-1.5 w-1.5 rounded-full', stepStatusCopy.dotClassName)} />
+                                        <span className="text-foreground/85">{item.summary}</span>
+                                    </div>
+                                    <div className="min-w-0 pl-3.5">{item.content}</div>
                                 </div>
-                                {item.content}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </CollapsibleContent>
             </Collapsible>,
@@ -684,7 +768,6 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
         return null;
     }
 
-    const showActions = assistantMessage && message.parts?.some((p: any) => p.type === 'text');
     const isAssistant = message.role === 'assistant';
 
     return (

@@ -25,7 +25,7 @@ interface SmartCodeBlockProps {
     maxHeightClassName?: string;
     theme?: SyntaxHighlighterProps['style'];
     className?: string;
-    variant?: 'default' | 'soft';
+    variant?: 'default' | 'soft' | 'bare';
     forceThemeMode?: 'light' | 'dark';
     onCopy?: () => void;
 }
@@ -148,9 +148,7 @@ export function SmartCodeBlock({
             <div
                 className={cn(
                     'relative group overflow-hidden',
-                    variant === 'soft'
-                        ? 'rounded-xl bg-muted/50'
-                        : 'rounded-lg border bg-muted/40',
+                    variant === 'soft' ? 'rounded-xl bg-muted/50' : variant === 'bare' ? 'rounded-lg bg-transparent' : 'rounded-lg border bg-muted/40',
                     maxHeightClassName,
                 )}
             >
@@ -160,7 +158,7 @@ export function SmartCodeBlock({
                     variant={variant === 'soft' ? 'ghost' : 'outline'}
                     className={cn(
                         'absolute right-2 top-2 z-10 h-7 w-7 rounded-full bg-background/80 shadow-sm',
-                        variant === 'soft' ? 'border-0' : 'border',
+                        variant === 'soft' || variant === 'bare' ? 'border-0' : 'border',
                         'opacity-0 transition-opacity group-hover:opacity-100',
                         copied && 'opacity-100',
                     )}
@@ -172,7 +170,7 @@ export function SmartCodeBlock({
                 <div
                     className={cn(
                         'relative overflow-auto',
-                        variant === 'soft' ? 'rounded-xl bg-transparent p-4' : 'rounded-lg bg-card p-3',
+                        variant === 'soft' ? 'rounded-xl bg-transparent p-4' : variant === 'bare' ? 'rounded-lg bg-transparent px-3 py-2.5' : 'rounded-lg bg-card p-3',
                         maxHeightClassName,
                     )}
                 >
