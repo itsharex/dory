@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { ScrollArea } from '@/registry/new-york-v4/ui/scroll-area';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
@@ -50,7 +50,10 @@ export default function ChatSessionSidebar({
 }: ChatSessionSidebarProps) {
     const submittedRef = useRef(false);
     const [popoverOpen, setPopoverOpen] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [activeSearchIndex, setActiveSearchIndex] = useState(0);
     const t = useTranslations('Chatbot');
+    const locale = useLocale();
 
     useEffect(() => {
         submittedRef.current = false;
@@ -69,6 +72,143 @@ export default function ChatSessionSidebar({
         }
     };
 
+    const getSessionTimestamp = (session: ChatSessionItem) => {
+        const raw = session.lastMessageAt ?? session.updatedAt ?? session.createdAt;
+        if (!raw) return null;
+        const date = new Date(raw);
+        return Number.isNaN(date.getTime()) ? null : date;
+    };
+
+    const labels = {
+        today: locale.startsWith('zh') ? '今天' : 'Today',
+        last7Days: locale.startsWith('zh') ? '最近 7 天' : 'Last 7 Days',
+        earlier: locale.startsWith('zh') ? '更早' : 'Earlier',
+    };
+
+    const highlightMatch = (text: string) => {
+        const query = searchQuery.trim();
+        if (!query) return text;
+
+        const lowerText = text.toLowerCase();
+        const lowerQuery = query.toLowerCase();
+        const matchIndex = lowerText.indexOf(lowerQuery);
+
+        if (matchIndex === -1) return text;
+
+        const before = text.slice(0, matchIndex);
+        const match = text.slice(matchIndex, matchIndex + query.length);
+        const after = text.slice(matchIndex + query.length);
+
+        return (
+            <>
+                {before}
+                <mark className="rounded-sm bg-primary/15 px-0.5 text-inherit">{match}</mark>
+                {after}
+            </>
+        );
+    };
+
+    const getSessionGroupLabel = (session: ChatSessionItem) => {
+        const date = getSessionTimestamp(session);
+        if (!date) return labels.earlier;
+
+        const now = new Date();
+        const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const startOfSessionDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const diffDays = Math.floor((startOfToday.getTime() - startOfSessionDay.getTime()) / (24 * 60 * 60 * 1000));
+
+        if (diffDays <= 0) return labels.today;
+        if (diffDays < 7) return labels.last7Days;
+        return labels.earlier;
+    };
+
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const filteredSessions = useMemo(() => {
+        if (!normalizedQuery) {
+            return sessions;
+        }
+
+        return sessions
+            .map((session, index) => {
+                const title = (session.title ?? t('Sessions.Untitled')).toLowerCase();
+                return {
+                    session,
+                    index,
+                    matchIndex: title.indexOf(normalizedQuery),
+                };
+            })
+            .filter(item => item.matchIndex !== -1)
+            .sort((a, b) => {
+                const aStartsWith = a.matchIndex === 0;
+                const bStartsWith = b.matchIndex === 0;
+
+                if (aStartsWith !== bStartsWith) {
+                    return aStartsWith ? -1 : 1;
+                }
+
+                if (a.matchIndex !== b.matchIndex) {
+                    return a.matchIndex - b.matchIndex;
+                }
+
+                return a.index - b.index;
+            })
+            .map(item => item.session);
+    }, [normalizedQuery, sessions, t]);
+
+    const sessionGroups = useMemo(
+        () =>
+            filteredSessions.reduce<Array<{ label: string; items: ChatSessionItem[] }>>((groups, session) => {
+                const label = getSessionGroupLabel(session);
+                const lastGroup = groups.at(-1);
+                if (!lastGroup || lastGroup.label !== label) {
+                    groups.push({ label, items: [session] });
+                } else {
+                    lastGroup.items.push(session);
+                }
+                return groups;
+            }, []),
+        [filteredSessions],
+    );
+
+    useEffect(() => {
+        setActiveSearchIndex(0);
+    }, [normalizedQuery]);
+
+    useEffect(() => {
+        if (filteredSessions.length === 0) {
+            setActiveSearchIndex(0);
+            return;
+        }
+
+        setActiveSearchIndex(current => Math.min(current, filteredSessions.length - 1));
+    }, [filteredSessions]);
+
+    const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!normalizedQuery || filteredSessions.length === 0) {
+            return;
+        }
+
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setActiveSearchIndex(current => (current + 1) % filteredSessions.length);
+            return;
+        }
+
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            setActiveSearchIndex(current => (current - 1 + filteredSessions.length) % filteredSessions.length);
+            return;
+        }
+
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            const activeSession = filteredSessions[activeSearchIndex];
+            if (activeSession) {
+                handleSelect(activeSession.id);
+            }
+        }
+    };
+
     const renderSessionList = (listVariant: 'sidebar' | 'compact') => {
         if (loadingSessions) {
             return (
@@ -82,90 +222,110 @@ export default function ChatSessionSidebar({
             return <div className="p-4 text-sm text-muted-foreground">{t('Sessions.Empty')}</div>;
         }
 
+        if (filteredSessions.length === 0) {
+            return <div className="p-4 text-sm text-muted-foreground">{locale.startsWith('zh') ? '没有匹配的会话' : 'No matching sessions'}</div>;
+        }
+
         return (
-            <div className="p-2 space-y-1">
-                {sessions.map(session => {
-                    const isEditing = editingSessionId === session.id;
-                    const isRenamePending = renameSubmittingId === session.id;
-                    const isSelected = selectedSessionId === session.id;
-                    return (
-                        <div key={session.id} className={cn('group relative', listVariant === 'compact' ? 'rounded-md' : undefined)}>
-                            {isEditing ? (
-                                <div
-                                    className={cn(
-                                        'w-full rounded-md px-3 py-2 pr-8 text-left transition-colors bg-transparent',
-                                        isSelected ? (listVariant === 'compact' ? 'bg-primary/10' : 'bg-muted') : 'hover:bg-muted/60',
-                                    )}
-                                >
-                                    <Input
-                                        value={editingValue}
-                                        onChange={event => onRenameChange(event.target.value)}
-                                        autoFocus
-                                        placeholder={t('Sessions.RenamePlaceholder')}
-                                        className="h-7 text-sm border-none bg-transparent px-0 py-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                                        onKeyDown={event => {
-                                            if (event.key === 'Enter') {
-                                                event.preventDefault();
-                                                onRenameChange(editingValue.trim());
-                                                submitInlineRename();
-                                            } else if (event.key === 'Escape') {
-                                                submittedRef.current = true;
-                                                event.preventDefault();
-                                                onRenameCancel();
-                                            }
-                                        }}
-                                        onBlur={() => {
-                                            onRenameChange(editingValue.trim());
-                                            submitInlineRename();
-                                        }}
-                                    />
-                                </div>
-                            ) : (
-                                <>
-                                    <button
-                                        onClick={() => handleSelect(session.id)}
-                                        className={cn(
-                                            'w-full rounded-md px-3 py-2 text-left transition-colors pr-10',
-                                            isSelected
-                                                ? listVariant === 'compact'
-                                                    ? 'bg-primary/10 text-primary'
-                                                    : 'bg-muted'
-                                                : listVariant === 'compact'
-                                                  ? 'hover:bg-muted/70'
-                                                  : 'hover:bg-muted/60',
-                                        )}
-                                    >
-                                        <span className="truncate text-sm font-medium flex items-center gap-2">{session.title ?? t('Sessions.Untitled')}</span>
-                                        {isRenamePending ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : null}
-                                    </button>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={event => event.stopPropagation()}
+            <div className="space-y-3 p-2">
+                {sessionGroups.map(group => (
+                    <div key={group.label} className="space-y-1">
+                        <div className="px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">{group.label}</div>
+                        {group.items.map(session => {
+                            const isEditing = editingSessionId === session.id;
+                            const isRenamePending = renameSubmittingId === session.id;
+                            const isSelected = selectedSessionId === session.id;
+                            const isSearchActive = normalizedQuery.length > 0 && filteredSessions[activeSearchIndex]?.id === session.id;
+                            return (
+                                <div key={session.id} className={cn('group relative', listVariant === 'compact' ? 'rounded-md' : undefined)}>
+                                    {isEditing ? (
+                                        <div
+                                            className={cn(
+                                                'w-full rounded-md px-3 py-2 pr-8 text-left transition-colors bg-transparent',
+                                                isSelected ? (listVariant === 'compact' ? 'bg-primary/10' : 'bg-muted') : 'hover:bg-muted/60',
+                                            )}
+                                        >
+                                            <Input
+                                                value={editingValue}
+                                                onChange={event => onRenameChange(event.target.value)}
+                                                autoFocus
+                                                placeholder={t('Sessions.RenamePlaceholder')}
+                                                className="h-7 text-sm border-none bg-transparent px-0 py-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+                                                onKeyDown={event => {
+                                                    if (event.key === 'Enter') {
+                                                        event.preventDefault();
+                                                        onRenameChange(editingValue.trim());
+                                                        submitInlineRename();
+                                                    } else if (event.key === 'Escape') {
+                                                        submittedRef.current = true;
+                                                        event.preventDefault();
+                                                        onRenameCancel();
+                                                    }
+                                                }}
+                                                onBlur={() => {
+                                                    onRenameChange(editingValue.trim());
+                                                    submitInlineRename();
+                                                }}
+                                            />
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <button
+                                                onClick={() => handleSelect(session.id)}
+                                                title={session.title ?? t('Sessions.Untitled')}
                                                 className={cn(
-                                                    'absolute right-1.5 top-1.5 h-6 w-6 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto',
-                                                    listVariant === 'compact' ? 'bg-background/80 backdrop-blur' : undefined,
+                                                    'w-full rounded-md px-3 py-2 text-left transition-colors pr-10',
+                                                    isSearchActive && !isSelected
+                                                        ? 'bg-accent text-accent-foreground'
+                                                        : isSelected
+                                                          ? listVariant === 'compact'
+                                                              ? 'bg-primary/10 text-primary'
+                                                              : 'bg-muted'
+                                                          : listVariant === 'compact'
+                                                            ? 'hover:bg-muted/70'
+                                                            : 'hover:bg-muted/60',
                                                 )}
                                             >
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent side="right" align="start">
-                                            <DropdownMenuItem onSelect={() => onRenameStart(session.id)}>
-                                                <span>{t('Sessions.Rename')}</span>
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onSelect={() => onDelete(session.id)}>
-                                                <span>{t('Sessions.Delete')}</span>
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </>
-                            )}
-                        </div>
-                    );
-                })}
+                                                {(() => {
+                                                    const sessionTitle = session.title ?? t('Sessions.Untitled');
+                                                    return (
+                                                        <span className="flex min-w-0 items-center gap-2">
+                                                            <span className="truncate text-sm font-medium">{highlightMatch(sessionTitle)}</span>
+                                                            {isRenamePending ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-muted-foreground" /> : null}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </button>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        onClick={event => event.stopPropagation()}
+                                                        className={cn(
+                                                            'absolute right-1.5 top-1.5 h-6 w-6 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 focus:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto group-focus-within:pointer-events-auto',
+                                                            listVariant === 'compact' ? 'bg-background/80 backdrop-blur' : undefined,
+                                                        )}
+                                                    >
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent side="right" align="start">
+                                                    <DropdownMenuItem onSelect={() => onRenameStart(session.id)}>
+                                                        <span>{t('Sessions.Rename')}</span>
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem onSelect={() => onDelete(session.id)}>
+                                                        <span>{t('Sessions.Delete')}</span>
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                ))}
             </div>
         );
     };
@@ -210,6 +370,13 @@ export default function ChatSessionSidebar({
                                     </Button>
                                 </div>
                             </div>
+                            <Input
+                                value={searchQuery}
+                                onChange={event => setSearchQuery(event.target.value)}
+                                onKeyDown={handleSearchKeyDown}
+                                placeholder={locale.startsWith('zh') ? '搜索会话' : 'Search sessions'}
+                                className="mb-2 h-8"
+                            />
                             <ScrollArea className="max-h-72 pr-1">{renderSessionList('compact')}</ScrollArea>
                         </div>
                     </PopoverContent>
@@ -235,6 +402,15 @@ export default function ChatSessionSidebar({
                         {creatingSession ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusIcon className="h-4 w-4" />}
                     </Button>
                 </div>
+            </div>
+            <div className="border-b p-3">
+                <Input
+                    value={searchQuery}
+                    onChange={event => setSearchQuery(event.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder={locale.startsWith('zh') ? '搜索会话' : 'Search sessions'}
+                    className="h-8"
+                />
             </div>
             <ScrollArea className="min-h-0 flex-1">{renderSessionList('sidebar')}</ScrollArea>
         </aside>

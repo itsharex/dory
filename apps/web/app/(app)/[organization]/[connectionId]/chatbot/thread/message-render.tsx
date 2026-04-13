@@ -214,6 +214,41 @@ function buildAgentSummary(stepSummaries: string[], locale: 'zh' | 'en'): string
     return `${stepSummaries.length} steps: ${uniqueSteps.join(', ')}`;
 }
 
+function buildToolExecutionSummary(parts: any[], locale: 'zh' | 'en'): string | null {
+    const toolNames = parts
+        .map(part => {
+            if (typeof part?.toolName === 'string') return part.toolName;
+            if (typeof part?.type === 'string' && part.type.startsWith('tool-')) return part.type.replace(/^tool-/, '');
+            const result = part?.result ?? part?.output ?? part?.data;
+            if (result?.type === 'sql-result') return 'sqlRunner';
+            if (result?.type === 'chart') return 'chartBuilder';
+            return null;
+        })
+        .filter((name): name is string => Boolean(name));
+
+    if (toolNames.length === 0) return null;
+
+    const counts = toolNames.reduce<Record<string, number>>((acc, name) => {
+        acc[name] = (acc[name] ?? 0) + 1;
+        return acc;
+    }, {});
+
+    const items: string[] = [];
+    if (counts.sqlRunner) {
+        items.push(locale === 'zh' ? `${counts.sqlRunner} 次 SQL 查询` : `${counts.sqlRunner} SQL quer${counts.sqlRunner === 1 ? 'y' : 'ies'}`);
+    }
+    if (counts.chartBuilder) {
+        items.push(locale === 'zh' ? `${counts.chartBuilder} 次图表生成` : `${counts.chartBuilder} chart build${counts.chartBuilder === 1 ? '' : 's'}`);
+    }
+
+    Object.entries(counts).forEach(([name, count]) => {
+        if (name === 'sqlRunner' || name === 'chartBuilder') return;
+        items.push(locale === 'zh' ? `${count} 次${formatToolName(name)}` : `${count} ${formatToolName(name)}`);
+    });
+
+    return items.join(locale === 'zh' ? '，' : ', ');
+}
+
 const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, onManualExecute, mode = 'global', onExecuteAction }: MessageRendererProps) => {
     const t = useTranslations('Chatbot');
     const processItems: Array<{ summary: string; content: ReactNode }> = [];
@@ -582,6 +617,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
         const processStatus =
             locale === 'zh' ? (hasProcessError ? '失败' : hasRunningProcess ? '执行中' : '已完成') : hasProcessError ? 'Error' : hasRunningProcess ? 'Running' : 'Completed';
         const processBadgeVariant = hasProcessError ? 'destructive' : 'secondary';
+        const toolExecutionSummary = buildToolExecutionSummary(message.parts ?? [], locale);
         const processSummary = buildAgentSummary(
             processItems.map(item => item.summary),
             locale,
@@ -590,7 +626,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
         contentItems.unshift(
             <Collapsible
                 key={`${message.id}-agent-process`}
-                defaultOpen={hasProcessError || hasRunningProcess || processItems.length <= 1}
+                defaultOpen={hasProcessError || hasRunningProcess || processItems.length > 1}
                 className="group overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm"
             >
                 <CollapsibleTrigger className="flex w-full items-center justify-between gap-4 px-5 py-4 text-left transition-colors hover:bg-muted/40">
@@ -608,7 +644,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
                                     {processStatus}
                                 </Badge>
                             </div>
-                            <p className="truncate text-muted-foreground text-xs">{processSummary}</p>
+                            <p className="truncate text-muted-foreground text-xs">{toolExecutionSummary ?? processSummary}</p>
                         </div>
                     </div>
                     <ChevronDownIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
@@ -652,7 +688,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
     const isAssistant = message.role === 'assistant';
 
     return (
-        <div key={message.id} className="space-y-2 w-full">
+        <div key={message.id} className="w-full space-y-1.5">
             <Message from={message.role} className={isAssistant ? 'w-full' : undefined}>
                 <MessageContent className={isAssistant ? 'w-full max-w-none bg-transparent' : 'w-full'}>{contentItems}</MessageContent>
             </Message>
