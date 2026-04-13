@@ -93,7 +93,7 @@ export default function ChatBotPageContent({ variant = 'sidebar', mode = 'global
     const shouldRenderThread = mode === 'copilot' || Boolean(chat.selectedSessionId);
 
     return (
-        <div className="flex h-full relative">
+        <div className="relative flex h-full min-h-0 overflow-hidden">
             {compactMode ? (
                 <div className="absolute right-4 top-4 z-10 flex items-center gap-2">
                     {hasSessions && sessionSelector}
@@ -105,7 +105,7 @@ export default function ChatBotPageContent({ variant = 'sidebar', mode = 'global
                 hasSessions && sessionSelector
             )}
 
-            <main className="flex-1 min-w-0 flex relative mt-10">
+            <main className="relative mt-10 flex min-h-0 min-w-0 flex-1">
                 {shouldRenderThread ? (
                     <ChatBotComp
                         key={mode === 'copilot' ? (copilotEnvelope?.meta?.tabId ?? 'copilot') : chat.selectedSessionId}
@@ -120,10 +120,7 @@ export default function ChatBotPageContent({ variant = 'sidebar', mode = 'global
                         copilotEnvelope={copilotEnvelope}
                     />
                 ) : (
-                    <ChatWelcome
-                        onSend={handleWelcomeSend}
-                        disabled={chat.creatingSession}
-                    />
+                    <ChatWelcome onSend={handleWelcomeSend} disabled={chat.creatingSession} />
                 )}
             </main>
 

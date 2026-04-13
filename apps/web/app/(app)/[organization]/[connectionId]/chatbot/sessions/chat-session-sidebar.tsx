@@ -79,11 +79,7 @@ export default function ChatSessionSidebar({
         }
 
         if (sessions.length === 0) {
-            return (
-                <div className="p-4 text-sm text-muted-foreground">
-                    {t('Sessions.Empty')}
-                </div>
-            );
+            return <div className="p-4 text-sm text-muted-foreground">{t('Sessions.Empty')}</div>;
         }
 
         return (
@@ -93,22 +89,12 @@ export default function ChatSessionSidebar({
                     const isRenamePending = renameSubmittingId === session.id;
                     const isSelected = selectedSessionId === session.id;
                     return (
-                        <div
-                            key={session.id}
-                            className={cn(
-                                'group relative',
-                                listVariant === 'compact' ? 'rounded-md' : undefined,
-                            )}
-                        >
+                        <div key={session.id} className={cn('group relative', listVariant === 'compact' ? 'rounded-md' : undefined)}>
                             {isEditing ? (
                                 <div
                                     className={cn(
                                         'w-full rounded-md px-3 py-2 pr-8 text-left transition-colors bg-transparent',
-                                        isSelected
-                                            ? listVariant === 'compact'
-                                                ? 'bg-primary/10'
-                                                : 'bg-muted'
-                                            : 'hover:bg-muted/60',
+                                        isSelected ? (listVariant === 'compact' ? 'bg-primary/10' : 'bg-muted') : 'hover:bg-muted/60',
                                     )}
                                 >
                                     <Input
@@ -145,16 +131,12 @@ export default function ChatSessionSidebar({
                                                     ? 'bg-primary/10 text-primary'
                                                     : 'bg-muted'
                                                 : listVariant === 'compact'
-                                                    ? 'hover:bg-muted/70'
-                                                    : 'hover:bg-muted/60',
+                                                  ? 'hover:bg-muted/70'
+                                                  : 'hover:bg-muted/60',
                                         )}
                                     >
-                                        <span className="truncate text-sm font-medium flex items-center gap-2">
-                                            {session.title ?? t('Sessions.Untitled')}
-                                        </span>
-                                        {isRenamePending ? (
-                                            <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                                        ) : null}
+                                        <span className="truncate text-sm font-medium flex items-center gap-2">{session.title ?? t('Sessions.Untitled')}</span>
+                                        {isRenamePending ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : null}
                                     </button>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
@@ -188,10 +170,7 @@ export default function ChatSessionSidebar({
         );
     };
 
-    const selectedTitle =
-        sessions.find(item => item.id === selectedSessionId)?.title ??
-        sessions[0]?.title ??
-        t('Sessions.SelectPlaceholder');
+    const selectedTitle = sessions.find(item => item.id === selectedSessionId)?.title ?? sessions[0]?.title ?? t('Sessions.SelectPlaceholder');
 
     if (variant === 'compact') {
         return (
@@ -204,11 +183,7 @@ export default function ChatSessionSidebar({
                             className="max-w-[260px] justify-between gap-2 rounded-lg border-muted-foreground/20 bg-background/80 text-sm font-medium shadow-sm"
                         >
                             <span className="truncate">{selectedTitle}</span>
-                            {loadingSessions ? (
-                                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                            ) : (
-                                <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                            )}
+                            {loadingSessions ? <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                         </Button>
                     </PopoverTrigger>
                     <PopoverContent align="end" className="w-72 p-0">
@@ -217,13 +192,7 @@ export default function ChatSessionSidebar({
                                 <span className="text-xs font-medium text-muted-foreground">{t('Sessions.Title')}</span>
                                 <div className="flex items-center gap-1">
                                     {onRefresh ? (
-                                        <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={onRefresh}
-                                            className="h-7 w-7"
-                                            title={t('Sessions.Refresh')}
-                                        >
+                                        <Button variant="ghost" size="icon" onClick={onRefresh} className="h-7 w-7" title={t('Sessions.Refresh')}>
                                             <RefreshCw className="h-4 w-4" />
                                         </Button>
                                     ) : null}
@@ -245,14 +214,7 @@ export default function ChatSessionSidebar({
                         </div>
                     </PopoverContent>
                 </Popover>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={onCreate}
-                    disabled={creatingSession}
-                    className="h-8 w-8"
-                    title={t('Sessions.New')}
-                >
+                <Button variant="ghost" size="icon" onClick={onCreate} disabled={creatingSession} className="h-8 w-8" title={t('Sessions.New')}>
                     {creatingSession ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusIcon className="h-4 w-4" />}
                 </Button>
             </div>
@@ -260,18 +222,12 @@ export default function ChatSessionSidebar({
     }
 
     return (
-        <aside className="w-72 border-r flex flex-col bg-background">
+        <aside className="flex h-full min-h-0 w-72 flex-col overflow-hidden border-r bg-background">
             <div className="p-4 flex items-center justify-between gap-2 border-b">
                 <span className="text-sm font-semibold text-muted-foreground">{t('Sessions.Title')}</span>
                 <div className="flex items-center gap-1">
                     {onRefresh ? (
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={onRefresh}
-                            className="h-8 w-8"
-                            title={t('Sessions.Refresh')}
-                        >
+                        <Button variant="ghost" size="icon" onClick={onRefresh} className="h-8 w-8" title={t('Sessions.Refresh')}>
                             <RefreshCw className="h-4 w-4" />
                         </Button>
                     ) : null}
@@ -280,7 +236,7 @@ export default function ChatSessionSidebar({
                     </Button>
                 </div>
             </div>
-            <ScrollArea className="flex-1">{renderSessionList('sidebar')}</ScrollArea>
+            <ScrollArea className="min-h-0 flex-1">{renderSessionList('sidebar')}</ScrollArea>
         </aside>
     );
 }

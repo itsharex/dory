@@ -44,6 +44,65 @@ type ChatBotCompProps = {
     onExecuteAction?: CopilotActionExecutor;
 };
 
+function isToolLikePart(part: any) {
+    if (!part || typeof part !== 'object') return false;
+    if (part.type === 'tool-call' || part.type === 'tool_call') return true;
+    if (part.type === 'tool-result' || part.type === 'tool_result' || part.type === 'tool-error') return true;
+    return typeof part.type === 'string' && part.type.startsWith('tool-');
+}
+
+function aggregateConversationMessages(messages: UIMessage[]): UIMessage[] {
+    const aggregated: UIMessage[] = [];
+    let pendingTurn: UIMessage[] = [];
+
+    const flushPendingTurn = () => {
+        if (!pendingTurn.length) return;
+
+        const assistantMessages = pendingTurn.filter(message => message.role === 'assistant');
+        const finalAssistant =
+            [...assistantMessages].reverse().find(
+                message =>
+                    Array.isArray((message as any).parts) &&
+                    (message as any).parts.some((part: any) => {
+                        if (part?.type === 'text' && part.text?.trim()) return true;
+                        if (part?.type === 'reasoning' && part.text?.trim()) return true;
+                        if (part?.type === 'source-url') return true;
+                        return false;
+                    }),
+            ) ??
+            assistantMessages.at(-1) ??
+            pendingTurn.at(-1);
+
+        const toolParts = pendingTurn.flatMap(message => (Array.isArray((message as any).parts) ? (message as any).parts.filter((part: any) => isToolLikePart(part)) : []));
+
+        const finalParts = Array.isArray((finalAssistant as any)?.parts) ? (finalAssistant as any).parts.filter((part: any) => !isToolLikePart(part)) : [];
+
+        const mergedMessage: UIMessage = {
+            id: String(finalAssistant?.id ?? pendingTurn.at(-1)?.id ?? `aggregated-${aggregated.length}`),
+            role: 'assistant',
+            parts: [...toolParts, ...finalParts] as UIMessage['parts'],
+            ...(finalAssistant?.metadata ? { metadata: finalAssistant.metadata } : {}),
+        };
+
+        aggregated.push(mergedMessage);
+        pendingTurn = [];
+    };
+
+    messages.forEach(message => {
+        if (message.role === 'user') {
+            flushPendingTurn();
+            aggregated.push(message);
+            return;
+        }
+
+        pendingTurn.push(message);
+    });
+
+    flushPendingTurn();
+
+    return aggregated;
+}
+
 const ChatBotComp = ({
     sessionId,
     initialMessages,
@@ -98,6 +157,7 @@ const ChatBotComp = ({
     });
 
     const showGlobalLoader = status === 'submitted' || (status === 'streaming' && !hasAssistantContent);
+    const renderedMessages = useMemo(() => aggregateConversationMessages(messages as UIMessage[]), [messages]);
 
     useEffect(() => {
         if (sessionRef.current !== chatStateId) {
@@ -286,10 +346,7 @@ const ChatBotComp = ({
             },
         };
 
-        sendMessage(
-            { text: message.text || t('Input.SentWithAttachments'), files: message.files },
-            requestOptions,
-        );
+        sendMessage({ text: message.text || t('Input.SentWithAttachments'), files: message.files }, requestOptions);
 
         setInput('');
     };
@@ -300,14 +357,14 @@ const ChatBotComp = ({
 
     return (
         <div className="relative flex h-full w-full flex-col p-4">
-            <Conversation className="flex-1 min-h-0" contextRef={handleStickToBottomContextRef}>
-                <ConversationContent>
-                    {messages.map((message, messageIndex) => (
+            <Conversation className="min-h-0 flex-1" contextRef={handleStickToBottomContextRef}>
+                <ConversationContent className="mx-auto w-full max-w-5xl gap-6 px-2 pb-6 pt-2 lg:px-4 lg:pt-4">
+                    {renderedMessages.map((message, messageIndex) => (
                         <MessageRenderer
                             key={message.id}
                             message={message as any}
                             messageIndex={messageIndex}
-                            messages={messages as any}
+                            messages={renderedMessages as any}
                             status={status}
                             mode={mode}
                             onCopySql={handleCopySql}
