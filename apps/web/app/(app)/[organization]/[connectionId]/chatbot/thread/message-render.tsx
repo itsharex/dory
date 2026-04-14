@@ -213,6 +213,10 @@ function buildAgentSummary(stepSummaries: string[], locale: 'zh' | 'en'): string
     return `${stepSummaries.length} steps: ${uniqueSteps.join(', ')}`;
 }
 
+function getProcessNotesLabel(locale: 'zh' | 'en'): string {
+    return locale === 'zh' ? '过程说明' : 'Notes';
+}
+
 function buildToolExecutionSummary(parts: any[], locale: 'zh' | 'en'): string | null {
     const toolNames = parts
         .map(part => {
@@ -294,6 +298,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
     const doryUiT = useTranslations('DoryUI');
     const processItems: Array<{ summary: string; content: ReactNode; status: ProcessVisualStatus; actions?: ReactNode; defaultOpen?: boolean }> = [];
     const contentItems: ReactNode[] = [];
+    const foldedNarrativeParts: ReactNode[] = [];
     const sqlResults: SqlResultPart[] = [];
     const chartResults: ChartResultPart[] = [];
 
@@ -301,6 +306,11 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
     const isLatestAssistant = assistantMessage && messageIndex === messages.length - 1;
     const isStreaming = status !== 'ready';
     const locale = getMessageLocale(messages, message);
+    const textPartIndexes = (message.parts ?? [])
+        .map((part: any, index: number) => (part?.type === 'text' && typeof part.text === 'string' && part.text.trim() ? index : -1))
+        .filter((index: number) => index >= 0);
+    const finalTextPartIndex = textPartIndexes.at(-1) ?? -1;
+    const hasMultipleTextParts = textPartIndexes.length > 1;
 
     const userRequestedChart = didUserRequestChart(messages, messageIndex);
 
@@ -725,6 +735,10 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
         }
 
         if (part.type === 'text') {
+            if (assistantMessage && hasMultipleTextParts && i !== finalTextPartIndex) {
+                foldedNarrativeParts.push(<MessageResponse key={`${message.id}-folded-text-${i}`}>{part.text}</MessageResponse>);
+                return;
+            }
             contentItems.push(<MessageResponse key={`${message.id}-text-${i}`}>{part.text}</MessageResponse>);
             return;
         }
@@ -753,6 +767,19 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
     }
 
     if (processItems.length > 0) {
+        if (foldedNarrativeParts.length > 0) {
+            processItems.unshift({
+                summary: getProcessNotesLabel(locale),
+                status: 'completed',
+                defaultOpen: false,
+                content: (
+                    <div key={`${message.id}-process-notes`} className="space-y-3 pt-1">
+                        {foldedNarrativeParts}
+                    </div>
+                ),
+            });
+        }
+
         const hasProcessError = message.parts?.some((part: any) => part?.type === 'tool-error' || part?.state === 'output-error');
         const toolCallIds = Array.from(
             new Set((message.parts ?? []).map((part: any) => getToolCallId(part) ?? getToolResultId(part)).filter((id: any): id is string => typeof id === 'string')),
@@ -763,14 +790,16 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
                 const toolState = toolCallStateById.get(id);
                 return toolState ? !toolState.hasFinalState : false;
             });
+        const processDefaultOpen = hasProcessError || hasRunningProcess;
+        const processCollapsibleKey = `${message.id}-agent-process-${hasProcessError ? 'error' : hasRunningProcess ? 'running' : 'completed'}`;
         const toolExecutionSummary = buildToolExecutionSummary(message.parts ?? [], locale);
         const processSummary = buildAgentSummary(
             processItems.map(item => item.summary),
             locale,
         );
 
-        contentItems.unshift(
-            <Collapsible key={`${message.id}-agent-process`} defaultOpen={hasProcessError || hasRunningProcess || processItems.length > 1} className="group overflow-hidden">
+        const processNode = (
+            <Collapsible key={processCollapsibleKey} defaultOpen={processDefaultOpen} className="group overflow-hidden">
                 <CollapsibleTrigger className="inline-flex max-w-full items-center gap-1.5 rounded-lg py-1 text-left text-muted-foreground transition-colors hover:text-foreground/80">
                     <span className="truncate text-[13px] leading-5">
                         {toolExecutionSummary ?? processSummary}
@@ -812,8 +841,14 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
                         })}
                     </div>
                 </CollapsibleContent>
-            </Collapsible>,
+            </Collapsible>
         );
+
+        if (hasRunningProcess || hasProcessError) {
+            contentItems.push(processNode);
+        } else {
+            contentItems.unshift(processNode);
+        }
     }
 
     const hasToolParts = !!message.parts?.some((part: any) => {
