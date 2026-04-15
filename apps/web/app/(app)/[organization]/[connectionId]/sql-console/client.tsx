@@ -115,12 +115,6 @@ export default function SQLConsoleClient({
     const [confirmOpen, setConfirmOpen] = useState(false);
     const [pendingSavedQuery, setPendingSavedQuery] = useState<SavedQueryItem | null>(null);
 
-    useEffect(() => {
-        if (activeTab?.tabType === 'table' && showChatbot) {
-            setShowChatbot(false);
-        }
-    }, [activeTab?.tabType, setShowChatbot, showChatbot]);
-
     const ensureEditorRef = useCallback((tabId: string | undefined | null) => {
         if (!tabId) return null;
         if (!editorRefsByTab.current[tabId]) {
@@ -226,7 +220,7 @@ export default function SQLConsoleClient({
 
     useEffect(() => {
         const handler = (event: KeyboardEvent) => {
-            const isNewTabShortcut = event.key.toLowerCase() === 't' && (event.metaKey || event.ctrlKey);
+            const isNewTabShortcut = event.code === 'KeyL' && event.altKey && (event.metaKey || event.ctrlKey);
             if (!isNewTabShortcut) return;
             event.preventDefault();
             void addTab({ activate: true });

@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/registry/new-york-v4/ui/card';
 import { Button } from '@/registry/new-york-v4/ui/button';
-import { ScrollArea } from '@/registry/new-york-v4/ui/scroll-area';
 import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { TableIcon, BarChart3, AlertCircle, ChevronsUpDown, MoreHorizontal } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/registry/new-york-v4/ui/collapsible';
@@ -206,33 +205,37 @@ export const SqlResultBody = React.memo(function SqlResultBody({
                             embedded ? 'overflow-hidden rounded-lg border border-border/45 bg-background/70' : 'overflow-hidden rounded-xl border border-border/35 bg-muted/16'
                         }
                     >
-                        <ScrollArea className="max-h-56 w-full">
-                            <div className="w-full overflow-x-auto">
-                                <table className="w-full min-w-max text-sm">
-                                    <thead className={embedded ? 'sticky top-0 z-10 bg-muted/25' : 'sticky top-0 z-10 bg-muted/40'}>
-                                        <tr>
+                        <div className="h-[15rem] w-full overflow-auto">
+                            <table className="w-full min-w-max text-sm">
+                                <thead>
+                                    <tr>
+                                        {displayColumns.map(col => (
+                                            <th
+                                                key={col}
+                                                className={cn(
+                                                    'sticky top-0 z-10 h-10 border-b border-border/45 px-4 py-0 text-left text-[12px] font-medium text-muted-foreground',
+                                                    embedded ? 'bg-background' : 'bg-card',
+                                                )}
+                                            >
+                                                {col}
+                                            </th>
+                                        ))}
+                                    </tr>
+                                </thead>
+
+                                <tbody className="[&_tr:last-child_td]:border-b-0">
+                                    {previewRows.map((row, rowIndex) => (
+                                        <tr key={rowIndex} className="even:bg-muted/[0.16]">
                                             {displayColumns.map(col => (
-                                                <th key={col} className="border-b border-border/45 px-4 py-2 text-left text-[12px] font-medium text-muted-foreground">
-                                                    {col}
-                                                </th>
+                                                <td key={col} className="h-10 border-b border-border/35 px-4 py-0 align-middle">
+                                                    <span className="text-[12px] font-mono leading-6 text-foreground/80">{formatCellValue((row as any)[col])}</span>
+                                                </td>
                                             ))}
                                         </tr>
-                                    </thead>
-
-                                    <tbody>
-                                        {previewRows.map((row, rowIndex) => (
-                                            <tr key={rowIndex} className="even:bg-muted/[0.16]">
-                                                {displayColumns.map(col => (
-                                                    <td key={col} className="border-b border-border/35 px-4 py-2 align-top">
-                                                        <span className="text-[12px] font-mono leading-6 text-foreground/80">{formatCellValue((row as any)[col])}</span>
-                                                    </td>
-                                                ))}
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-                        </ScrollArea>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
 
                         {truncated && (
                             <div className="border-t border-border/40 px-4 py-2.5 text-[11px] text-muted-foreground">{t('SqlResult.Truncated', { count: previewRows.length })}</div>

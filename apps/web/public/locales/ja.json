@@ -99,7 +99,7 @@
             "ForgotPassword": "パスワードをお忘れですか？",
             "Submitting": "ログイン中…",
             "Submit": "ログイン",
-            "DemoEnter": "ゲストとして続行",
+            "DemoEnter": "デモアカウントでログイン",
             "OrContinueWith": "または次で続行",
             "LoginWithGithub": "GitHub でログイン",
             "LoginWithGoogle": "Google でログイン",
@@ -115,6 +115,10 @@
                 "Confirm": "ゲストワークスペースを作成",
                 "Cancel": "戻る",
                 "StartFailed": "ゲストワークスペースの開始に失敗しました"
+            },
+            "Demo": {
+                "Action": "デモアカウントでログイン",
+                "StartFailed": "デモアカウントでのログインに失敗しました"
             },
             "ContinueAgreement": "続行をクリックすると、次に同意したものとみなされます：",
             "Terms": "利用規約",
@@ -1012,9 +1016,14 @@
         },
         "Empty": {
             "Brand": "SQL Console",
+            "ActionRunSelection": "選択範囲を実行",
+            "ActionSave": "クエリを保存",
+            "ActionNewTab": "新しいタブ",
+            "ActionToggleCopilot": "Copilot を開く",
+            "ActionFormat": "SQL を整形",
             "ShortcutRunSelection": "選択範囲を実行: Cmd/Ctrl+Enter",
             "ShortcutSave": "クエリを保存: Cmd/Ctrl+S",
-            "ShortcutNewTab": "新しいタブ: Cmd/Ctrl+T",
+            "ShortcutNewTab": "新しいタブ: Cmd/Ctrl+Option/Alt+L",
             "ShortcutToggleCopilot": "Copilot を開く: Cmd/Ctrl+I",
             "ShortcutFormat": "SQL を整形: Shift+Cmd/Ctrl+F",
             "NewConsole": "新しいコンソール"

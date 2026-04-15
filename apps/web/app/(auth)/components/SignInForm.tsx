@@ -44,10 +44,11 @@ export function SignInForm({
     const [pwd, setPwd] = useState('');
     const [err, setErr] = useState<string | null>(null);
     const [msg, setMsg] = useState<string | null>(null);
-    const [guestLoading, setGuestLoading] = useState(false);
+    const [secondaryActionLoading, setSecondaryActionLoading] = useState(false);
     const { isOffline: isDesktopOffline } = useCloudFeatureAvailability();
     const { data: session, refetch: refetchSession } = authClient.useSession();
     const callbackURL = callbackURLOverride || searchParams?.get('callbackURL') || '/';
+    const canShowDemoOption = showDemoOption && runtime !== 'desktop';
 
     async function recoverAnonymousSessionIfNeeded() {
         if (!session?.user?.isAnonymous && !resumeAnonymousSession) {
@@ -272,7 +273,7 @@ export function SignInForm({
     async function onGuestContinue() {
         setErr(null);
         setMsg(null);
-        setGuestLoading(true);
+        setSecondaryActionLoading(true);
 
         try {
             if (resumeAnonymousSession) {
@@ -307,7 +308,33 @@ export function SignInForm({
         } catch (nextError) {
             setErr(nextError instanceof Error ? nextError.message : t('SignIn.Guest.StartFailed'));
         } finally {
-            setGuestLoading(false);
+            setSecondaryActionLoading(false);
+        }
+    }
+
+    async function onDemoContinue() {
+        setErr(null);
+        setMsg(null);
+        setSecondaryActionLoading(true);
+
+        try {
+            const response = await fetch('/api/auth/demo', {
+                method: 'POST',
+                credentials: 'include',
+            });
+            const payload = await response.json().catch(() => null);
+
+            if (!response.ok) {
+                throw new Error(typeof payload?.error === 'string' ? payload.error : t('SignIn.Demo.StartFailed'));
+            }
+
+            await refetchSession();
+            router.refresh();
+            router.push(callbackURL);
+        } catch (nextError) {
+            setErr(nextError instanceof Error ? nextError.message : t('SignIn.Demo.StartFailed'));
+        } finally {
+            setSecondaryActionLoading(false);
         }
     }
 
@@ -362,22 +389,37 @@ export function SignInForm({
                                     <InputPassword name="password" id="password" required value={pwd} onChange={e => setPwd(e.target.value)} autoComplete="current-password" />
                                 </div>
 
-                                <Button type="submit" className="w-full" disabled={loading || guestLoading}>
+                                <Button type="submit" className="w-full" disabled={loading || secondaryActionLoading}>
                                     {loading ? t('SignIn.Submitting') : t('SignIn.Submit')}
                                 </Button>
 
-                                {showGuestOption || showDemoOption ? (
+                                {showGuestOption ? (
                                     <Button
                                         type="button"
                                         className="w-full"
                                         variant="secondary"
-                                        disabled={loading || guestLoading}
+                                        disabled={loading || secondaryActionLoading}
                                         onClick={() => {
                                             void onGuestContinue();
                                         }}
                                         data-testid="guest-sign-in"
                                     >
-                                        {guestLoading ? t('SignIn.Submitting') : resumeAnonymousSession ? t('SignIn.Guest.ResumeAction') : t('SignIn.Guest.Action')}
+                                        {secondaryActionLoading ? t('SignIn.Submitting') : resumeAnonymousSession ? t('SignIn.Guest.ResumeAction') : t('SignIn.Guest.Action')}
+                                    </Button>
+                                ) : null}
+
+                                {canShowDemoOption ? (
+                                    <Button
+                                        type="button"
+                                        className="w-full"
+                                        variant="secondary"
+                                        disabled={loading || secondaryActionLoading}
+                                        onClick={() => {
+                                            void onDemoContinue();
+                                        }}
+                                        data-testid="demo-sign-in"
+                                    >
+                                        {secondaryActionLoading ? t('SignIn.Submitting') : t('SignIn.Demo.Action')}
                                     </Button>
                                 ) : null}
 

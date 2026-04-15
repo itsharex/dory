@@ -1,8 +1,12 @@
 import { getAuth } from '@/lib/auth';
+import { appendClearAnonymousRecoveryCookieHeader } from '@/lib/auth/anonymous-recovery';
+import { buildSessionOrganizationPatch } from '@/lib/auth/migration-state';
 import { getDBService } from '@/lib/database';
+import { getClient } from '@/lib/database/postgres/client';
+import { schema } from '@/lib/database/schema';
 import { proxyAuthRequest, shouldProxyAuthRequest } from '@/lib/auth/auth-proxy';
 import { ensureDemoConnection } from '@/lib/demo/ensure-demo-connection';
-import { createProvisionedOrganization } from '@/lib/auth/organization-provisioning';
+import { serializeSignedCookie } from 'better-call';
 import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'nodejs';
@@ -24,47 +28,6 @@ function slugifyOrganizationName(name: string) {
         .replace(/^-+|-+$/g, '');
 
     return normalized || 'workspace';
-}
-
-function getSetCookies(headers: Headers): string[] {
-    const anyHeaders = headers as unknown as { getSetCookie?: () => string[] };
-    if (typeof anyHeaders.getSetCookie === 'function') {
-        return anyHeaders.getSetCookie();
-    }
-
-    const raw = headers.get('set-cookie');
-    if (!raw) return [];
-    return [raw];
-}
-
-function rewriteSetCookie(value: string, isSecureRequest: boolean): string {
-    const parts = value.split(';');
-    const [nameValue, ...attrs] = parts;
-    const normalizedAttrs = attrs.map(attr => attr.trim());
-    const isClearingCookie = /=\s*$/.test(nameValue) || normalizedAttrs.some(attr => /^max-age=0$/i.test(attr)) || normalizedAttrs.some(attr => /^expires=/i.test(attr));
-
-    let rewrittenNameValue = nameValue;
-    if (!isSecureRequest && /^__Secure-/i.test(nameValue)) {
-        if (isClearingCookie) {
-            return '';
-        }
-        rewrittenNameValue = nameValue.replace(/^__Secure-/i, '');
-    }
-
-    const rewritten = normalizedAttrs
-        .filter(attr => !/^domain=/i.test(attr))
-        .map(attr => {
-            if (!isSecureRequest && /^secure$/i.test(attr)) {
-                return '';
-            }
-            if (!isSecureRequest && /^samesite=none$/i.test(attr)) {
-                return 'SameSite=Lax';
-            }
-            return attr;
-        })
-        .filter(Boolean);
-
-    return [rewrittenNameValue, ...rewritten].join('; ');
 }
 
 export async function POST(req: NextRequest) {
@@ -146,13 +109,35 @@ export async function POST(req: NextRequest) {
 
     const existingMemberships = await db.organizations.listByUser(userId);
     if (existingMemberships.length === 0) {
+        const now = new Date();
         const name = `${DEMO_USER.name}'s Workspace`;
-        await createProvisionedOrganization({
-            auth,
+        const slug = `${slugifyOrganizationName(name)}-${userId.slice(0, 8)}`;
+        const postgres = await getClient();
+
+        const insertedOrganizations = await postgres
+            .insert(schema.organizations)
+            .values({
+                name,
+                slug,
+                ownerUserId: userId,
+                provisioningKind: 'manual',
+                createdAt: now,
+                updatedAt: now,
+            })
+            .returning({ id: schema.organizations.id });
+
+        const organizationId = insertedOrganizations[0]?.id;
+        if (!organizationId) {
+            throw new Error(`failed_to_create_demo_organization_for_${userId}`);
+        }
+
+        await postgres.insert(schema.organizationMembers).values({
             userId,
-            name,
-            slug: `${slugifyOrganizationName(name)}-${userId.slice(0, 8)}`,
-            provisioningKind: 'manual',
+            organizationId,
+            role: 'owner',
+            status: 'active',
+            createdAt: now,
+            joinedAt: now,
         });
     }
 
@@ -166,24 +151,29 @@ export async function POST(req: NextRequest) {
         }
     }
 
-    const response = await auth.api.signInEmail({
-        headers: req.headers,
-        body: {
-            email: DEMO_USER.email,
-            password: DEMO_USER.password,
-        },
-        asResponse: true,
+    const session = await ctx.internalAdapter.createSession(userId, false);
+    if (!session) {
+        return NextResponse.json({ error: 'FAILED_TO_CREATE_SESSION' }, { status: 500 });
+    }
+
+    const activeOrganizationId = memberships[0]?.organizationId ?? null;
+    const sessionPatch = buildSessionOrganizationPatch({
+        activeOrganizationId,
     });
+    if (sessionPatch) {
+        await ctx.internalAdapter.updateSession(session.token, sessionPatch);
+    }
 
     const res = NextResponse.json({ ok: true });
-    const isSecureRequest = new URL(req.url).protocol === 'https:';
-    const setCookies = getSetCookies(response.headers)
-        .map(cookie => rewriteSetCookie(cookie, isSecureRequest))
-        .filter(Boolean);
+    const baseAttrs = ctx.authCookies.sessionToken.attributes ?? {};
+    const maxAge = ctx.sessionConfig?.expiresIn;
+    const sessionCookie = await serializeSignedCookie(ctx.authCookies.sessionToken.name, session.token, ctx.secret, {
+        ...baseAttrs,
+        ...(maxAge ? { maxAge } : {}),
+    });
 
-    for (const cookie of setCookies) {
-        res.headers.append('set-cookie', cookie);
-    }
+    res.headers.append('set-cookie', sessionCookie);
+    appendClearAnonymousRecoveryCookieHeader(res.headers, req.url);
 
     return res;
 }

@@ -103,7 +103,7 @@
             "ForgotPassword": "忘记密码？",
             "Submitting": "正在登录…",
             "Submit": "登录",
-            "DemoEnter": "以访客身份继续",
+            "DemoEnter": "以演示账号登录",
             "OrContinueWith": "或使用以下方式继续",
             "LoginWithGithub": "使用 GitHub 登录",
             "LoginWithGoogle": "使用 Google 登录",
@@ -119,6 +119,10 @@
                 "Confirm": "创建访客工作区",
                 "Cancel": "返回",
                 "StartFailed": "启动访客工作区失败"
+            },
+            "Demo": {
+                "Action": "以演示账号登录",
+                "StartFailed": "以演示账号登录失败"
             },
             "ContinueAgreement": "继续即表示你同意我们的",
             "Terms": "服务条款",
@@ -1025,9 +1029,14 @@
         },
         "Empty": {
             "Brand": "SQL 控制台",
+            "ActionRunSelection": "运行选中内容",
+            "ActionSave": "保存 SQL",
+            "ActionNewTab": "新建标签页",
+            "ActionToggleCopilot": "切换 Copilot",
+            "ActionFormat": "格式化 SQL",
             "ShortcutRunSelection": "运行选中内容：Cmd/Ctrl+Enter",
             "ShortcutSave": "保存 SQL：Cmd/Ctrl+S",
-            "ShortcutNewTab": "新建标签页：Cmd/Ctrl+T",
+            "ShortcutNewTab": "新建标签页：Cmd/Ctrl+Option/Alt+L",
             "ShortcutToggleCopilot": "切换 Copilot：Cmd/Ctrl+K",
             "ShortcutFormat": "格式化 SQL：Shift+Cmd/Ctrl+F",
             "NewConsole": "新建控制台",

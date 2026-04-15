@@ -28,6 +28,7 @@ interface SQLEditorProps {
     activeTab: UITabPayload | undefined;
     updateTab: (tabId: string, patch: Partial<UITabPayload>) => void;
     onRunQuery?: () => void;
+    onNewTab?: () => void;
 }
 
 export interface SQLEditorHandle {
@@ -37,7 +38,7 @@ export interface SQLEditorHandle {
     focusAtEnd?: () => void;
 }
 
-const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(({ activeTab, updateTab, onRunQuery }, ref) => {
+const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(({ activeTab, updateTab, onRunQuery, onNewTab }, ref) => {
     const { resolvedTheme } = useTheme();
     const currentConnection = useAtomValue(currentConnectionAtom);
     const editorSettings = useAtomValue(sqlEditorSettingsAtom);
@@ -63,6 +64,7 @@ const SQLEditor = forwardRef<SQLEditorHandle, SQLEditorProps>(({ activeTab, upda
         containerRef,
         onContentChange: handleContentChange,
         onRunQuery,
+        onNewTab,
         onFormat: () => formatHandlerRef.current?.(),
     });
 

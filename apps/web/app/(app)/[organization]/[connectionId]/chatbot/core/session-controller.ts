@@ -10,7 +10,7 @@ import posthog from 'posthog-js';
 
 import type { ChatSessionItem, ChatMode } from './types';
 import { normalizeSessionsForDisplay } from './utils';
-import { apiCreateSession, apiDeleteSession, apiFetchSessionDetail, apiFetchSessions, apiFetchCopilotSession, apiRenameSession } from './api';
+import { apiCreateSession, apiDeleteSession, apiFetchSessionDetail, apiFetchSessions, apiRenameSession } from './api';
 import type { CopilotEnvelopeV1 } from '../copilot/types/copilot-envelope';
 
 export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: CopilotEnvelopeV1 | null; enabled?: boolean }) {
@@ -26,7 +26,7 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
     const lastCopilotTabIdRef = useRef<string | null>(null);
 
     const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
-    const [loadingSessions, setLoadingSessions] = useState(true);
+    const [loadingSessions, setLoadingSessions] = useState(mode !== 'copilot');
     const [loadingMessages, setLoadingMessages] = useState(false);
 
     const [creatingSession, setCreatingSession] = useState(false);
@@ -109,7 +109,6 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
             return;
         }
 
-        const shouldSyncSession = lastCopilotTabIdRef.current !== copilotTabId || !selectedSessionRef.current;
         if (lastCopilotTabIdRef.current !== copilotTabId) {
             lastCopilotTabIdRef.current = copilotTabId;
             setSessions([]);
@@ -117,34 +116,8 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
             setInitialMessages([]);
         }
 
-        if (!shouldSyncSession) {
-            setLoadingSessions(false);
-            return;
-        }
-
-        setLoadingSessions(true);
-        try {
-            const session = await apiFetchCopilotSession({ tabId: copilotTabId, errorMessage: t('Errors.FetchCopilotSession') });
-            if (session?.id) {
-                setSelectedSessionId(session.id);
-                await fetchSessionDetail(session.id);
-            } else {
-                if (!selectedSessionRef.current) {
-                    setSelectedSessionId(null);
-                    setInitialMessages([]);
-                }
-            }
-        } catch (e: any) {
-            console.error('[chat] fetch copilot session failed', e);
-            toast.error(e?.message || t('Errors.FetchCopilotSession'));
-            if (!selectedSessionRef.current) {
-                setSelectedSessionId(null);
-                setInitialMessages([]);
-            }
-        } finally {
-            setLoadingSessions(false);
-        }
-    }, [mode, copilotTabId, fetchSessionDetail, t]);
+        setLoadingSessions(false);
+    }, [mode, copilotTabId]);
 
     useEffect(() => {
         if (!enabled) {
@@ -326,12 +299,15 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
 
     const handleRefreshSessions = useCallback(() => {
         if (mode === 'copilot') {
-            ensureCopilotSession().catch(() => undefined);
+            const currentId = selectedSessionRef.current;
+            if (currentId) {
+                fetchSessionDetail(currentId).catch(() => undefined);
+            }
             return;
         }
         const currentId = selectedSessionRef.current;
         fetchSessions(currentId).catch(() => undefined);
-    }, [mode, fetchSessions, ensureCopilotSession]);
+    }, [mode, fetchSessionDetail, fetchSessions]);
 
     return {
         // data

@@ -99,7 +99,7 @@
             "ForgotPassword": "Forgot your password?",
             "Submitting": "Signing in…",
             "Submit": "Login",
-            "DemoEnter": "Continue as guest",
+            "DemoEnter": "Sign in as demo",
             "OrContinueWith": "Or continue with",
             "LoginWithGithub": "Login with Github",
             "LoginWithGoogle": "Login with Google",
@@ -115,6 +115,10 @@
                 "Confirm": "Create guest workspace",
                 "Cancel": "Back",
                 "StartFailed": "Failed to start guest workspace"
+            },
+            "Demo": {
+                "Action": "Sign in as demo",
+                "StartFailed": "Failed to sign in as demo"
             },
             "ContinueAgreement": "By clicking continue, you agree to our",
             "Terms": "Terms of Service",
@@ -1023,9 +1027,14 @@
         },
         "Empty": {
             "Brand": "SQL Console",
+            "ActionRunSelection": "Run selection",
+            "ActionSave": "Save Query",
+            "ActionNewTab": "New tab",
+            "ActionToggleCopilot": "Open Copilot",
+            "ActionFormat": "Format SQL",
             "ShortcutRunSelection": "Run selection: Cmd/Ctrl+Enter",
             "ShortcutSave": "Save Query: Cmd/Ctrl+S",
-            "ShortcutNewTab": "New tab: Cmd/Ctrl+T",
+            "ShortcutNewTab": "New tab: Cmd/Ctrl+Option/Alt+L",
             "ShortcutToggleCopilot": "Open Copilot: Cmd/Ctrl+I",
             "ShortcutFormat": "Format SQL: Shift+Cmd/Ctrl+F",
             "NewConsole": "New console",

@@ -33,6 +33,7 @@ interface UseSqlMonacoEditorProps {
     containerRef: RefObject<HTMLDivElement | null>;
     onContentChange: ContentChangeHandler;
     onRunQuery?: () => void;
+    onNewTab?: () => void;
     onFormat?: () => void;
 }
 
@@ -402,6 +403,7 @@ export function useSqlMonacoEditor({
     containerRef,
     onContentChange,
     onRunQuery,
+    onNewTab,
     onFormat,
 }: UseSqlMonacoEditorProps) {
     const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -412,6 +414,7 @@ export function useSqlMonacoEditor({
     const databasesRef = useRef<any[]>([]);
     const schemasRef = useRef<any[]>([]);
     const onRunQueryRef = useRef(onRunQuery);
+    const onNewTabRef = useRef(onNewTab);
     const onFormatRef = useRef(onFormat);
     const editorThemeRef = useRef(editorTheme);
     const editorSettingsRef = useRef(editorSettings);
@@ -448,6 +451,10 @@ export function useSqlMonacoEditor({
     useEffect(() => {
         onRunQueryRef.current = onRunQuery;
     }, [onRunQuery]);
+
+    useEffect(() => {
+        onNewTabRef.current = onNewTab;
+    }, [onNewTab]);
 
     useEffect(() => {
         onFormatRef.current = onFormat;
@@ -535,6 +542,9 @@ export function useSqlMonacoEditor({
             editorRef.current = localEditor;
             localEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
                 onRunQueryRef.current?.();
+            });
+            localEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => {
+                onNewTabRef.current?.();
             });
             localEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, () => {
                 onFormatRef.current?.();

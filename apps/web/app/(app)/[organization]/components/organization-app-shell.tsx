@@ -5,7 +5,6 @@ import { SidebarInset, SidebarProvider } from '@/registry/new-york-v4/ui/sidebar
 import { SettingsProvider } from '../../components/settings/settings';
 import { AppContentShell } from './app-sidebar/app-content-shell';
 import { AppSidebar } from './app-sidebar/app-sidebar';
-import { OfflineModeBanner } from './offline-mode-banner';
 
 export function OrganizationAppShell({
     children,
@@ -42,11 +41,6 @@ export function OrganizationAppShell({
                         />
                         <SidebarInset className="flex min-h-0 flex-col" style={{ height: 'calc(100% - 1rem)', width: 'calc(100% - 248px)' }}>
                             <AppContentShell>
-                                {isOffline ? (
-                                    <div className="px-4 pt-4">
-                                        <OfflineModeBanner />
-                                    </div>
-                                ) : null}
                                 {children}
                             </AppContentShell>
                         </SidebarInset>

@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useCallback, useRef, useState } from 'react';
 import type { UIMessage } from 'ai';
 import { AlertTriangleIcon, CheckCircle2Icon, ChevronDownIcon, ChevronRightIcon, LoaderCircleIcon, MoreHorizontalIcon } from 'lucide-react';
 
@@ -17,6 +17,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { buildAutoChartFromSql } from '@/components/@dory/ui/ai/utils/auto-charts';
 import { cn } from '@/lib/utils';
 import { useTranslations } from 'next-intl';
+import { useStickToBottomContext } from 'use-stick-to-bottom';
 
 import type { CopilotActionExecutor } from '../copilot/action-bridge';
 import { SqlResultPart, SqlResultManualExecutionMode } from '@/components/@dory/ui/ai/sql-result/type';
@@ -34,6 +35,100 @@ type MessageRendererProps = {
     mode?: ChatMode;
     onExecuteAction?: CopilotActionExecutor;
 };
+
+function findScrollableAncestor(node: HTMLElement | null): HTMLElement | null {
+    let current = node?.parentElement ?? null;
+
+    while (current) {
+        const style = window.getComputedStyle(current);
+        const overflowY = style.overflowY;
+        const canScroll = overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay';
+
+        if (canScroll && current.scrollHeight > current.clientHeight) {
+            return current;
+        }
+
+        current = current.parentElement;
+    }
+
+    return document.scrollingElement instanceof HTMLElement ? document.scrollingElement : null;
+}
+
+function ProcessStepCollapsible({
+    item,
+    statusCopy,
+}: {
+    item: { key: string; summary: string; content: ReactNode; actions?: ReactNode; defaultOpen?: boolean };
+    statusCopy: ReturnType<typeof getProcessStatusCopy>;
+}) {
+    const [open, setOpen] = useState(item.defaultOpen ?? false);
+    const triggerRef = useRef<HTMLButtonElement | null>(null);
+    const stickToBottom = useStickToBottomContext();
+
+    const restoreScrollPosition = useCallback((scrollContainer: HTMLElement | null, scrollTop: number) => {
+        if (!scrollContainer) return;
+
+        scrollContainer.scrollTop = scrollTop;
+
+        requestAnimationFrame(() => {
+            scrollContainer.scrollTop = scrollTop;
+        });
+    }, []);
+
+    const handleOpenChange = useCallback(
+        (nextOpen: boolean) => {
+            const scrollContainer = stickToBottom.scrollRef.current ?? findScrollableAncestor(triggerRef.current);
+            const scrollTop = scrollContainer?.scrollTop ?? 0;
+
+            stickToBottom.stopScroll();
+            stickToBottom.targetScrollTop = () => scrollTop;
+            setOpen(nextOpen);
+
+            requestAnimationFrame(() => {
+                restoreScrollPosition(scrollContainer, scrollTop);
+
+                requestAnimationFrame(() => {
+                    restoreScrollPosition(scrollContainer, scrollTop);
+                    stickToBottom.targetScrollTop = null;
+                });
+            });
+        },
+        [restoreScrollPosition, stickToBottom],
+    );
+
+    return (
+        <Collapsible open={open} onOpenChange={handleOpenChange} className="group/step overflow-hidden">
+            <div className="px-1 py-1.5">
+                <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
+                        <CollapsibleTrigger
+                            ref={triggerRef}
+                            className="flex w-full items-center justify-between gap-2 text-left text-[12.5px] text-muted-foreground transition-colors hover:text-foreground/80"
+                            onMouseDown={event => {
+                                event.preventDefault();
+                            }}
+                        >
+                            <span className="inline-flex min-w-0 items-center gap-2">
+                                <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusCopy.dotClassName)} />
+                                <span className="truncate">{item.summary}</span>
+                                <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px]', statusCopy.badgeClassName)}>
+                                    {statusCopy.icon}
+                                    <span>{statusCopy.label}</span>
+                                </span>
+                                <ChevronRightIcon className="size-3.5 shrink-0 group-data-[state=open]/step:hidden" />
+                                <ChevronDownIcon className="hidden size-3.5 shrink-0 group-data-[state=open]/step:block" />
+                            </span>
+                            <span className="flex shrink-0 items-center gap-0.5">{item.actions}</span>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-2">
+                            <div className="min-w-0 pl-0.5">{item.content}</div>
+                        </CollapsibleContent>
+                    </div>
+                </div>
+            </div>
+        </Collapsible>
+    );
+}
 
 export function getSqlResultFromPart(part: any, fallbackMessage?: string): SqlResultPart | null {
     if (!part || typeof part !== 'object') return null;
@@ -453,7 +548,13 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
 
     const getToolDisplayTitle = (part: any) => {
         const summary = getToolStepSummary(part);
-        const toolLabel = formatToolName(getToolName(part));
+        const toolName = getToolName(part);
+
+        if (toolName === 'sqlRunner') {
+            return summary;
+        }
+
+        const toolLabel = formatToolName(toolName);
 
         return summary === toolLabel ? summary : `${summary} · ${toolLabel}`;
     };
@@ -853,32 +954,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
         const processNodes = processItems.map(item => {
             const statusCopy = getProcessStatusCopy(item.status, locale);
 
-            return (
-                <Collapsible key={item.key} defaultOpen={item.defaultOpen ?? false} className="group/step overflow-hidden">
-                    <div className="px-1 py-1.5">
-                        <div className="min-w-0">
-                            <div className="min-w-0 flex-1">
-                                <CollapsibleTrigger className="flex w-full items-center justify-between gap-2 text-left text-[12.5px] text-muted-foreground transition-colors hover:text-foreground/80">
-                                    <span className="inline-flex min-w-0 items-center gap-2">
-                                        <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', statusCopy.dotClassName)} />
-                                        <span className="truncate">{item.summary}</span>
-                                        <span className={cn('inline-flex shrink-0 items-center gap-1 rounded-full border px-1.5 py-0.5 text-[11px]', statusCopy.badgeClassName)}>
-                                            {statusCopy.icon}
-                                            <span>{statusCopy.label}</span>
-                                        </span>
-                                        <ChevronRightIcon className="size-3.5 shrink-0 group-data-[state=open]/step:hidden" />
-                                        <ChevronDownIcon className="hidden size-3.5 shrink-0 group-data-[state=open]/step:block" />
-                                    </span>
-                                    <span className="flex shrink-0 items-center gap-0.5">{item.actions}</span>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent className="pt-2">
-                                    <div className="min-w-0 pl-0.5">{item.content}</div>
-                                </CollapsibleContent>
-                            </div>
-                        </div>
-                    </div>
-                </Collapsible>
-            );
+            return <ProcessStepCollapsible key={item.key} item={item} statusCopy={statusCopy} />;
         });
 
         deferredToolItems.unshift(...processNodes);
