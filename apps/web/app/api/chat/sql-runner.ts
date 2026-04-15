@@ -1,6 +1,7 @@
 import { tool } from 'ai';
 import { z } from 'zod';
 import { ensureConnectionPoolForUser } from '../connection/utils';
+import { isReadOnlyQuery } from '../utils/sql-readonly';
 import { getDBService } from '@/lib/database';
 import { Locale } from '@/lib/i18n/routing';
 import { translateApi } from '@/app/api/utils/i18n';
@@ -51,7 +52,7 @@ export function createSqlRunnerTool({
             }
 
             
-            if (!/^(select|show|describe|desc|explain)\b/i.test(trimmed)) {
+            if (!isReadOnlyQuery(trimmed)) {
                 return buildErrorResult(
                     trimmed,
                     requestedDatabase,

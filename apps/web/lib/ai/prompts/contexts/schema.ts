@@ -74,6 +74,7 @@ export async function buildSchemaContext(options: SchemaContextOptions): Promise
 
         const lines: string[] = [];
 
+        lines.push(`Current SQL dialect: ${instance.dialect.id}`);
         lines.push(`Current database: ${resolvedDatabase}`);
         if (schema?.trim()) {
             lines.push(`Current schema: ${schema.trim()}`);
@@ -186,6 +187,7 @@ export async function buildSchemaContextForTables(options: {
         const dedupedTables = dedupeSchemaTables(tables);
         const lines: string[] = [];
 
+        lines.push(`Current SQL dialect: ${instance.dialect.id}`);
         lines.push('Below are the real columns for the tables referenced by the current SQL.');
         lines.push('Use only these columns unless the schema is clearly incomplete.');
         lines.push('');

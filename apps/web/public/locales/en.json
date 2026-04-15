@@ -1827,10 +1827,10 @@
                 }
             },
             "SqlRunner": {
-                "Description": "A tool to execute read-only SQL queries on ClickHouse / data warehouses.\nUsage:\n- Only accepts a single SELECT / SHOW / DESCRIBE / DESC / EXPLAIN statement; no INSERT/UPDATE/DELETE.\n- For questions about queries, aggregations, reports, or metrics, generate SQL first, call this tool, then answer from results.\n- If schema is unclear, call DESCRIBE or SHOW to explore first.",
+                "Description": "A tool to execute read-only SQL queries on the current database connection.\nUsage:\n- Only accepts a single SELECT / SHOW / DESCRIBE / DESC / EXPLAIN statement; no INSERT/UPDATE/DELETE.\n- For questions about queries, aggregations, reports, or metrics, generate SQL first, call this tool, then answer from results.\n- Always match the current database dialect.\n- If schema is unclear, prefer the provided schema context first, then use dialect-appropriate metadata queries to inspect it.\n- Do not use MySQL-only DESCRIBE / SHOW COLUMNS syntax on PostgreSQL.",
                 "SqlRequired": "SQL cannot be empty",
                 "MissingConnection": "Missing database connection info; unable to execute query.",
-                "ReadOnlyOnly": "Only read-only queries are allowed (SELECT/SHOW/DESCRIBE/EXPLAIN). Do not include write or update statements.",
+                "ReadOnlyOnly": "Only read-only queries are allowed (SELECT/SHOW/DESCRIBE/DESC/EXPLAIN/WITH/PRAGMA). Do not include write or update statements.",
                 "SelectAllNotAllowed": "SELECT * is not allowed in chatbot-generated SQL. Select only the columns needed for the answer.",
                 "OrderByIndexMissing": "This query may be expensive: ORDER BY uses column(s) {columns} on table {table}, and they are not confirmed to be indexed. Narrow the selected columns or inspect indexes first.",
                 "OrderByIndexUnknown": "This query may be expensive: ORDER BY uses column(s) {columns} on table {table}, but index support could not be confirmed. Narrow the selected columns or inspect indexes first.",

@@ -1813,10 +1813,10 @@
                 }
             },
             "SqlRunner": {
-                "Description": "Una herramienta para ejecutar consultas SQL de solo lectura en ClickHouse / almacenes de datos.\nUso:\n- Solo acepta una sentencia SELECT / SHOW / DESCRIBE / DESC / EXPLAIN; no INSERT/UPDATE/DELETE.\n- Para preguntas sobre consultas, agregaciones, informes o métricas, genera primero el SQL, llama a esta herramienta y responde con base en los resultados.\n- Si el esquema no está claro, llama antes a DESCRIBE o SHOW para explorarlo.",
+                "Description": "Una herramienta para ejecutar consultas SQL de solo lectura en la conexión actual de base de datos.\nUso:\n- Solo acepta una sentencia SELECT / SHOW / DESCRIBE / DESC / EXPLAIN; no INSERT/UPDATE/DELETE.\n- Para preguntas sobre consultas, agregaciones, informes o métricas, genera primero el SQL, llama a esta herramienta y responde con base en los resultados.\n- Debe respetar el dialecto actual de la base de datos.\n- Si el esquema no está claro, usa primero el contexto de esquema proporcionado y luego consultas de metadatos apropiadas para ese dialecto.\n- No uses la sintaxis exclusiva de MySQL DESCRIBE / SHOW COLUMNS en PostgreSQL.",
                 "SqlRequired": "El SQL no puede estar vacío",
                 "MissingConnection": "Falta información de conexión a la base de datos; no se puede ejecutar la consulta.",
-                "ReadOnlyOnly": "Solo se permiten consultas de solo lectura (SELECT/SHOW/DESCRIBE/EXPLAIN). No incluyas sentencias de escritura o actualización.",
+                "ReadOnlyOnly": "Solo se permiten consultas de solo lectura (SELECT/SHOW/DESCRIBE/DESC/EXPLAIN/WITH/PRAGMA). No incluyas sentencias de escritura o actualización.",
                 "SelectAllNotAllowed": "No se permite usar SELECT * en el SQL generado por el chatbot. Selecciona solo las columnas necesarias para responder.",
                 "OrderByIndexMissing": "Esta consulta puede ser costosa: ORDER BY usa la(s) columna(s) {columns} en la tabla {table}, y no se confirmó que tengan índice. Reduce las columnas seleccionadas o revisa los índices primero.",
                 "OrderByIndexUnknown": "Esta consulta puede ser costosa: ORDER BY usa la(s) columna(s) {columns} en la tabla {table}, pero no se pudo confirmar si tienen índice. Reduce las columnas seleccionadas o revisa los índices primero.",

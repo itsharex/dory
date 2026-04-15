@@ -160,7 +160,8 @@ export function generateDemoSqlite(targetPath: string): boolean {
 
     const db = new Database(targetPath);
     try {
-        db.pragma('journal_mode = WAL');
+        // Keep the bundled demo database portable for read-only/serverless deployments.
+        db.pragma('journal_mode = DELETE');
         createTables(db);
         seedUsers(db);
         seedOrders(db);

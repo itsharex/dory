@@ -25,9 +25,10 @@ interface SmartCodeBlockProps {
     maxHeightClassName?: string;
     theme?: SyntaxHighlighterProps['style'];
     className?: string;
-    variant?: 'default' | 'soft';
+    variant?: 'default' | 'soft' | 'bare' | 'codex';
     forceThemeMode?: 'light' | 'dark';
     onCopy?: () => void;
+    actions?: React.ReactNode;
 }
 
 export function SmartCodeBlock({
@@ -41,6 +42,7 @@ export function SmartCodeBlock({
     variant = 'default',
     forceThemeMode,
     onCopy,
+    actions,
 }: SmartCodeBlockProps) {
     const [copied, setCopied] = React.useState(false);
     const { resolvedTheme } = useTheme();
@@ -142,37 +144,60 @@ export function SmartCodeBlock({
         );
 
     return (
-        <div className={cn('flex flex-col gap-2', className)}>
+        <div className={cn('flex flex-col gap-1.5', className)}>
             {label && <span className="text-xs font-medium text-muted-foreground">{label}</span>}
 
             <div
                 className={cn(
                     'relative group overflow-hidden',
-                    variant === 'soft'
-                        ? 'rounded-xl bg-muted/50'
-                        : 'rounded-lg border bg-muted/40',
+                    variant === 'codex'
+                        ? 'rounded-none bg-muted/38'
+                        : variant === 'soft'
+                          ? 'rounded-xl bg-muted/50'
+                          : variant === 'bare'
+                            ? 'rounded-lg bg-transparent'
+                            : 'rounded-lg border bg-muted/40',
                     maxHeightClassName,
                 )}
             >
-                <Button
-                    type="button"
-                    size="icon"
-                    variant={variant === 'soft' ? 'ghost' : 'outline'}
+                <div
                     className={cn(
-                        'absolute right-2 top-2 z-10 h-7 w-7 rounded-full bg-background/80 shadow-sm',
-                        variant === 'soft' ? 'border-0' : 'border',
+                        'absolute right-1 top-1 z-10 flex items-center gap-0.5',
                         'opacity-0 transition-opacity group-hover:opacity-100',
-                        copied && 'opacity-100',
+                        (copied || actions) && 'opacity-100',
                     )}
-                    onClick={handleCopy}
                 >
-                    {copied ? <Check className="h-2 w-2 text-xs" /> : <Copy className="h-2 w-2 text-xs" />}
-                </Button>
+                    <Button
+                        type="button"
+                        size="icon"
+                        variant={variant === 'soft' || variant === 'codex' ? 'ghost' : 'outline'}
+                        className={cn(
+                            variant === 'bare'
+                                ? 'h-5 w-5 rounded-full bg-background/68 shadow-sm backdrop-blur-[2px]'
+                                : 'h-6 w-6 rounded-full bg-background/68 shadow-sm backdrop-blur-[2px]',
+                            variant === 'soft' || variant === 'bare' || variant === 'codex' ? 'border-0' : 'border',
+                        )}
+                        onClick={handleCopy}
+                    >
+                        {copied ? (
+                            <Check className={variant === 'bare' ? 'h-2.5 w-2.5' : 'h-2 w-2 text-xs'} />
+                        ) : (
+                            <Copy className={variant === 'bare' ? 'h-2.5 w-2.5' : 'h-2 w-2 text-xs'} />
+                        )}
+                    </Button>
+                    {actions}
+                </div>
 
                 <div
                     className={cn(
                         'relative overflow-auto',
-                        variant === 'soft' ? 'rounded-xl bg-transparent p-4' : 'rounded-lg bg-card p-3',
+                        variant === 'codex'
+                            ? 'rounded-none bg-transparent px-5 py-4'
+                            : variant === 'soft'
+                              ? 'rounded-xl bg-transparent p-4'
+                              : variant === 'bare'
+                                ? 'rounded-lg bg-transparent px-2 py-1.5'
+                                : 'rounded-lg bg-card p-3',
                         maxHeightClassName,
                     )}
                 >

@@ -2,6 +2,7 @@ export const SQL_TOOL_INSTRUCTION = `
 When the user asks for data queries, first generate a read-only SQL statement (SELECT only) and call the sqlRunner tool. In your response, include the SQL and explain the query results.
 
 SQL generation rules:
+- Always match the SQL syntax to the current database dialect from the provided connection/schema context.
 - Never use SELECT * in generated SQL. Always select only the columns needed to answer the question.
 - For "latest N rows", "top N recent rows", or any ORDER BY ... LIMIT query on a large table, prefer the minimum necessary columns first.
 - Before relying on ORDER BY on a timestamp or sort field, check whether the field appears to be indexed from the provided schema/index context.
@@ -12,8 +13,11 @@ export const SQL_RUNNER_GUIDE = `
 About the sqlRunner tool
 
 - For questions related to data querying, aggregation, reporting, metrics, monitoring, or comparisons, follow these steps:
-  1) Based on the current database context (database / table / schema), write read-only SQL for ClickHouse or the data warehouse (prefer SELECT).
-  2) If table structure is unclear, generate DESCRIBE / SHOW statements and use sqlRunner to inspect schema before writing the final query.
+  1) Based on the current database context (dialect / database / schema / table), write read-only SQL for the active database engine (prefer SELECT).
+  2) Use the provided schema context first. If table structure is still unclear, inspect schema with dialect-appropriate read-only queries before writing the final query.
+     - PostgreSQL: prefer information_schema.columns, pg_catalog, or other PostgreSQL-compatible metadata queries. Do not use MySQL-only DESCRIBE / SHOW COLUMNS syntax.
+     - MySQL / MariaDB: DESCRIBE, SHOW COLUMNS, and information_schema are acceptable.
+     - SQLite: use PRAGMA table_info(...) when needed.
   3) Never use SELECT *. Only project the columns needed for the answer.
   4) For ORDER BY ... LIMIT queries, especially "latest N" requests, check the provided index context before assuming the sort is cheap.
   5) If the sort field is not confirmed indexed, or index support is unknown, tell the user the query may be heavy and prefer a narrower query first.

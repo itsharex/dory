@@ -152,7 +152,6 @@ export default function SSHConnectionForm(props: { form: UseFormReturn<any> }) {
                                     <input
                                         ref={fileInputRef}
                                         type="file"
-                                        accept=".pem,.key,.pub,.ppk"
                                         className="hidden"
                                         onChange={handleFileSelect}
                                     />

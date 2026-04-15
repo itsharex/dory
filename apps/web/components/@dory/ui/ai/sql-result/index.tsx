@@ -9,22 +9,26 @@ import { TableIcon, BarChart3, AlertCircle, ChevronsUpDown, MoreHorizontal } fro
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/registry/new-york-v4/ui/collapsible';
 
 import { toast } from 'sonner';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from '@/registry/new-york-v4/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
 
 import { ChartResultCard, ChartResultPart } from '../charts-result';
 import { buildAutoChartFromSql } from '../utils/auto-charts';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/registry/new-york-v4/ui/tooltip';
 import { useTranslations } from 'next-intl';
-import { SqlResultPart, SqlResultCardProps } from './type';
+import { SqlResultPart, SqlResultBodyProps, SqlResultCardProps } from './type';
 import { SmartCodeBlock } from '@/components/@dory/ui/code-block/code-block';
 import { getSqlResultActionStyles } from './style';
+import { cn } from '@/lib/utils';
 
+export function SqlStatementBlock({ sql, onCopy, actions, className }: { sql: string; onCopy: (sql: string) => void; actions?: React.ReactNode; className?: string }) {
+    if (!sql.trim()) return null;
+
+    return (
+        <div className={cn('w-full', className)}>
+            <SmartCodeBlock value={sql} maxHeightClassName="max-h-36" variant="bare" onCopy={() => onCopy(sql)} actions={actions} />
+        </div>
+    );
+}
 
 function formatCellValue(value: unknown): string {
     if (value === null || value === undefined) return 'NULL';
@@ -51,11 +55,7 @@ function buildCsvFromPreview(displayColumns: string[], rows: Array<Record<string
     if (!displayColumns.length || !rows.length) return null;
 
     const header = displayColumns.map(col => escapeCsvValue(col)).join(',');
-    const body = rows.map(row =>
-        displayColumns
-            .map(col => escapeCsvValue(formatCellValue((row as any)[col])))
-            .join(','),
-    );
+    const body = rows.map(row => displayColumns.map(col => escapeCsvValue(formatCellValue((row as any)[col]))).join(','));
 
     return [header, ...body].join('\n');
 }
@@ -77,7 +77,6 @@ function computeDisplayColumns(
     }
     return [];
 }
-
 
 function formatTimestamp(timestamp?: string) {
     if (!timestamp) return null;
@@ -107,57 +106,28 @@ function buildFollowUpPrompt(result: SqlResultPart, t: (key: string, values?: Re
     return t('SqlResult.FollowUp.SuccessPrompt', { sql, metaLine });
 }
 
-export const SqlResultCard = React.memo(function SqlResultCard({
+export const SqlResultBody = React.memo(function SqlResultBody({
     result,
-    onCopy,
     onManualExecute,
     onFollowUp,
     footerActions,
     manualPrimaryAction,
     manualMenuActions,
     mode = 'global',
-}: SqlResultCardProps) {
+    embedded = false,
+}: SqlResultBodyProps) {
     const t = useTranslations('DoryUI');
     const { sql, database, ok, manualExecution, previewRows = [], columns, rowCount, truncated, durationMs, error, timestamp } = result;
-
+    const requiresManualExecution = manualExecution?.required === true;
     const [chartResult, setChartResult] = useState<ChartResultPart | null>(null);
     const [chartError, setChartError] = useState<string | null>(null);
-    const [open, setOpen] = useState(true);
 
-    const displayColumns = useMemo(
-        () => computeDisplayColumns(columns, previewRows, t('SqlResult.ColumnPlaceholder')),
-        [columns, previewRows, t],
-    );
+    const displayColumns = useMemo(() => computeDisplayColumns(columns, previewRows, t('SqlResult.ColumnPlaceholder')), [columns, previewRows, t]);
 
     const csvPreview = useMemo(() => buildCsvFromPreview(displayColumns, previewRows), [displayColumns, previewRows]);
     const canExportCsv = Boolean(csvPreview);
-    const runLabel = t('SqlResult.Actions.Run');
-    const requiresManualExecution = manualExecution?.required === true;
-    const statusText = ok
-        ? t('SqlResult.Status.Success')
-        : requiresManualExecution
-            ? t('SqlResult.Status.Blocked')
-            : t('SqlResult.Status.Failed');
-    const statusDotClass = ok ? 'text-muted-foreground' : 'text-destructive/70';
-
     const canVisualize = ok && previewRows.length > 0;
     const formattedTimestamp = useMemo(() => formatTimestamp(timestamp), [timestamp]);
-    const metaInfoItems = useMemo(() => {
-        const items: string[] = [];
-        if (database) {
-            items.push(t('SqlResult.Meta.Database', { database }));
-        }
-        if (typeof rowCount === 'number') {
-            items.push(t('SqlResult.Meta.RowCount', { rowCount }));
-        }
-        if (typeof durationMs === 'number') {
-            items.push(t('SqlResult.Meta.Duration', { durationMs }));
-        }
-        if (formattedTimestamp) {
-            items.push(t('SqlResult.Meta.Timestamp', { timestamp: formattedTimestamp }));
-        }
-        return items;
-    }, [database, durationMs, formattedTimestamp, rowCount, t]);
     const handleDownloadCsv = useCallback(() => {
         if (!csvPreview) return;
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -203,7 +173,6 @@ export const SqlResultCard = React.memo(function SqlResultCard({
     useEffect(() => {
         setChartResult(null);
         setChartError(null);
-        setOpen(true);
     }, [result]);
 
     const handleGenerateChart = () => {
@@ -228,14 +197,249 @@ export const SqlResultCard = React.memo(function SqlResultCard({
 
     const actionStyles = useMemo(() => getSqlResultActionStyles(mode), [mode]);
 
+    const resultBody = (
+        <CardContent className={embedded ? 'space-y-2.5 px-0 pb-0 pt-0' : 'space-y-2.5 px-0 pb-0 pt-1'}>
+            {ok ? (
+                previewRows.length > 0 ? (
+                    <div
+                        className={
+                            embedded ? 'overflow-hidden rounded-lg border border-border/45 bg-background/70' : 'overflow-hidden rounded-xl border border-border/35 bg-muted/16'
+                        }
+                    >
+                        <ScrollArea className="max-h-56 w-full">
+                            <div className="w-full overflow-x-auto">
+                                <table className="w-full min-w-max text-sm">
+                                    <thead className={embedded ? 'sticky top-0 z-10 bg-muted/25' : 'sticky top-0 z-10 bg-muted/40'}>
+                                        <tr>
+                                            {displayColumns.map(col => (
+                                                <th key={col} className="border-b border-border/45 px-4 py-2 text-left text-[12px] font-medium text-muted-foreground">
+                                                    {col}
+                                                </th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+
+                                    <tbody>
+                                        {previewRows.map((row, rowIndex) => (
+                                            <tr key={rowIndex} className="even:bg-muted/[0.16]">
+                                                {displayColumns.map(col => (
+                                                    <td key={col} className="border-b border-border/35 px-4 py-2 align-top">
+                                                        <span className="text-[12px] font-mono leading-6 text-foreground/80">{formatCellValue((row as any)[col])}</span>
+                                                    </td>
+                                                ))}
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </ScrollArea>
+
+                        {truncated && (
+                            <div className="border-t border-border/40 px-4 py-2.5 text-[11px] text-muted-foreground">{t('SqlResult.Truncated', { count: previewRows.length })}</div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="text-sm text-muted-foreground">{t('SqlResult.NoRows')}</div>
+                )
+            ) : (
+                <div className="space-y-2">
+                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
+                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive/60" />
+                        <span>
+                            {requiresManualExecution
+                                ? t('SqlResult.Notice.ReadOnlyRestriction')
+                                : t('SqlResult.ExecutionFailed', { error: error?.message ?? t('SqlResult.UnknownError') })}
+                        </span>
+                    </div>
+                </div>
+            )}
+
+            {requiresManualExecution || (!requiresManualExecution && footerActions) ? (
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    {requiresManualExecution
+                        ? (manualPrimaryAction ?? (
+                              <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-9 rounded-full px-4 text-sm font-medium"
+                                  onClick={() => onManualExecute({ sql, database, mode: 'editor' })}
+                              >
+                                  {t('SqlResult.Actions.OpenInEditor')}
+                              </Button>
+                          ))
+                        : null}
+                    {!requiresManualExecution ? footerActions : null}
+                </div>
+            ) : null}
+
+            {!requiresManualExecution && !footerActions && onFollowUp ? (
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <Button type="button" size="sm" variant="secondary" className="h-9 rounded-full px-4 text-sm font-medium" onClick={handleFollowUpClick}>
+                        {t('SqlResult.FollowUp.Button')}
+                    </Button>
+                </div>
+            ) : null}
+
+            {!requiresManualExecution && footerActions && onFollowUp ? (
+                <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                    <Button type="button" size="sm" variant="secondary" className="h-9 rounded-full px-4 text-sm font-medium" onClick={handleFollowUpClick}>
+                        {t('SqlResult.FollowUp.Button')}
+                    </Button>
+                </div>
+            ) : null}
+
+            {chartError && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <AlertCircle className="h-3.5 w-3.5 text-muted-foreground/70" />
+                    {chartError}
+                </div>
+            )}
+        </CardContent>
+    );
+
     return (
         <>
-            <Collapsible open={open} onOpenChange={setOpen} className="mt-3">
-                <Card className="gap-0 rounded-2xl border border-border/70 bg-card py-0 shadow-sm">
-                    <CardHeader className="space-y-3 px-5 py-4">
+            {resultBody}
+            {chartResult && <ChartResultCard result={chartResult} source="auto" onFollowUp={onFollowUp} />}
+        </>
+    );
+});
+
+export const SqlResultCard = React.memo(function SqlResultCard({
+    result,
+    onCopy,
+    onManualExecute,
+    onFollowUp,
+    footerActions,
+    manualPrimaryAction,
+    manualMenuActions,
+    mode = 'global',
+    hideHeader = false,
+    codeActions,
+    embedded = false,
+}: SqlResultCardProps) {
+    const t = useTranslations('DoryUI');
+    const { sql, database, ok, manualExecution, rowCount, durationMs, timestamp, previewRows = [], columns } = result;
+    const requiresManualExecution = manualExecution?.required === true;
+    const shouldDefaultOpen = !ok || requiresManualExecution;
+    const [open, setOpen] = useState(shouldDefaultOpen);
+    const actionStyles = useMemo(() => getSqlResultActionStyles(mode), [mode]);
+    const statusText = ok ? t('SqlResult.Status.Success') : requiresManualExecution ? t('SqlResult.Status.Blocked') : t('SqlResult.Status.Failed');
+    const statusDotClass = ok ? 'text-muted-foreground' : 'text-destructive/70';
+    const formattedTimestamp = useMemo(() => formatTimestamp(timestamp), [timestamp]);
+    const displayColumns = useMemo(() => computeDisplayColumns(columns, previewRows, t('SqlResult.ColumnPlaceholder')), [columns, previewRows, t]);
+    const csvPreview = useMemo(() => buildCsvFromPreview(displayColumns, previewRows), [displayColumns, previewRows]);
+    const canExportCsv = Boolean(csvPreview);
+    const canVisualize = ok && previewRows.length > 0;
+    const metaInfoItems = useMemo(() => {
+        const items: string[] = [];
+        if (database) {
+            items.push(t('SqlResult.Meta.Database', { database }));
+        }
+        if (typeof rowCount === 'number') {
+            items.push(t('SqlResult.Meta.RowCount', { rowCount }));
+        }
+        if (typeof durationMs === 'number') {
+            items.push(t('SqlResult.Meta.Duration', { durationMs }));
+        }
+        if (formattedTimestamp) {
+            items.push(t('SqlResult.Meta.Timestamp', { timestamp: formattedTimestamp }));
+        }
+        return items;
+    }, [database, durationMs, formattedTimestamp, rowCount, t]);
+    const runLabel = t('SqlResult.Actions.Run');
+
+    const handleGenerateChart = useCallback(() => {
+        const nextChart = buildAutoChartFromSql(result, {
+            title: t('SqlResult.AutoChart.Title'),
+            description: t('SqlResult.AutoChart.Description'),
+        });
+        if (!nextChart) {
+            toast.error(t('SqlResult.ChartUnavailable'));
+            return;
+        }
+    }, [result, t]);
+
+    const handleFollowUpClick = useCallback(() => {
+        if (!onFollowUp) return;
+        const prompt = buildFollowUpPrompt(result, t as any);
+        onFollowUp(prompt);
+    }, [onFollowUp, result, t]);
+
+    const handleDownloadCsv = useCallback(() => {
+        if (!csvPreview) return;
+        const timestampValue = new Date().toISOString().replace(/[:.]/g, '-');
+        const fileName = `sql-result-${timestampValue}.csv`;
+        const blob = new Blob([csvPreview], { type: 'text/csv;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const anchor = document.createElement('a');
+        anchor.href = url;
+        anchor.download = fileName;
+        anchor.click();
+        URL.revokeObjectURL(url);
+    }, [csvPreview]);
+
+    const handleCopyResults = useCallback(async () => {
+        if (!csvPreview) return;
+        try {
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(csvPreview);
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = csvPreview;
+                ta.setAttribute('readonly', 'true');
+                ta.style.position = 'fixed';
+                ta.style.top = '0';
+                ta.style.left = '0';
+                ta.style.opacity = '0';
+                ta.style.pointerEvents = 'none';
+                document.body.appendChild(ta);
+                ta.select();
+                try {
+                    document.execCommand('copy');
+                } finally {
+                    document.body.removeChild(ta);
+                }
+            }
+            toast.success(t('SqlResult.Actions.ResultsCopied'));
+        } catch (error) {
+            console.error(error);
+            toast.error(t('Errors.CopySqlFailed'));
+        }
+    }, [csvPreview, t]);
+
+    useEffect(() => {
+        setOpen(shouldDefaultOpen);
+    }, [result, shouldDefaultOpen]);
+
+    if (hideHeader) {
+        return (
+            <div className={embedded ? 'space-y-2' : 'mt-1 space-y-2'}>
+                <SqlResultBody
+                    result={result}
+                    onManualExecute={onManualExecute}
+                    onFollowUp={onFollowUp}
+                    footerActions={footerActions}
+                    manualPrimaryAction={manualPrimaryAction}
+                    manualMenuActions={manualMenuActions}
+                    mode={mode}
+                    embedded={embedded}
+                />
+            </div>
+        );
+    }
+
+    return (
+        <>
+            <Collapsible open={open} onOpenChange={setOpen} className="mt-1">
+                <Card className="gap-0 border-0 bg-transparent py-0 shadow-none">
+                    <CardHeader className="space-y-2 px-0 py-0">
                         <div className="flex items-center justify-between gap-3">
                             <CardTitle className="flex min-w-0 flex-wrap items-center gap-2 text-sm font-medium">
-                                <Badge variant="secondary" className="rounded-full border-0 bg-muted px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                                <Badge
+                                    variant="secondary"
+                                    className="rounded-full border-0 bg-muted/55 px-2.5 py-1 text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground"
+                                >
                                     {t('SqlResult.Title')}
                                 </Badge>
                                 {metaInfoItems.length > 0 ? (
@@ -283,19 +487,13 @@ export const SqlResultCard = React.memo(function SqlResultCard({
                                         </DropdownMenuItem>
                                         {manualMenuActions}
                                         {requiresManualExecution ? (
-                                            <DropdownMenuItem onClick={() => onManualExecute({ sql, database, mode: 'run' })}>
-                                                {runLabel}
-                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => onManualExecute({ sql, database, mode: 'run' })}>{runLabel}</DropdownMenuItem>
                                         ) : null}
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={handleGenerateChart} disabled={!canVisualize}>
                                             {t('SqlResult.ChartTooltip')}
                                         </DropdownMenuItem>
-                                        {onFollowUp ? (
-                                            <DropdownMenuItem onClick={handleFollowUpClick}>
-                                                {t('SqlResult.FollowUp.Button')}
-                                            </DropdownMenuItem>
-                                        ) : null}
+                                        {onFollowUp ? <DropdownMenuItem onClick={handleFollowUpClick}>{t('SqlResult.FollowUp.Button')}</DropdownMenuItem> : null}
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem onClick={handleDownloadCsv} disabled={!canExportCsv}>
                                             {t('SqlResult.Actions.DownloadCsv')}
@@ -319,146 +517,31 @@ export const SqlResultCard = React.memo(function SqlResultCard({
                                                 </Button>
                                             </CollapsibleTrigger>
                                         </TooltipTrigger>
-                                        <TooltipContent side="bottom">
-                                            {open ? t('SqlResult.Collapse') : t('SqlResult.Expand')}
-                                        </TooltipContent>
+                                        <TooltipContent side="bottom">{open ? t('SqlResult.Collapse') : t('SqlResult.Expand')}</TooltipContent>
                                     </Tooltip>
                                 </TooltipProvider>
                             </div>
                         </div>
 
-
                         <CollapsibleContent className="space-y-2">
-                            <SmartCodeBlock
-                                value={sql}
-                                maxHeightClassName="max-h-36"
-                                variant="soft"
-                                onCopy={() => onCopy(sql)}
-                            />
+                            <SqlStatementBlock sql={sql} onCopy={onCopy} actions={codeActions} />
                         </CollapsibleContent>
                     </CardHeader>
 
                     <CollapsibleContent>
-                        <CardContent className="space-y-3 px-5 pb-4">
-                            {ok ? (
-                                previewRows.length > 0 ? (
-                                    <div className="overflow-hidden rounded-xl bg-muted/40">
-                                        <ScrollArea className="h-56 w-full">
-                                            <div className="w-full overflow-x-auto">
-                                                <table className="w-full min-w-max text-sm">
-                                                    <thead className="sticky top-0 z-10 bg-muted/80 backdrop-blur">
-                                                        <tr>
-                                                            {displayColumns.map(col => (
-                                                                <th
-                                                                    key={col}
-                                                                    className="border-b border-border/70 px-4 py-3 text-left text-xs font-medium text-muted-foreground"
-                                                                >
-                                                                    {col}
-                                                                </th>
-                                                            ))}
-                                                        </tr>
-                                                    </thead>
-
-                                                    <tbody>
-                                                        {previewRows.map((row, rowIndex) => (
-                                                            <tr key={rowIndex} className="even:bg-muted/20">
-                                                                {displayColumns.map(col => (
-                                                                <td
-                                                                    key={col}
-                                                                    className="border-b border-border/60 px-4 py-3 align-top"
-                                                                >
-                                                                        <span className="text-[12px] font-mono leading-6 text-foreground/80">
-                                                                            {formatCellValue((row as any)[col])}
-                                                                        </span>
-                                                                    </td>
-                                                                ))}
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
-                                            </div>
-                                        </ScrollArea>
-
-                                        {truncated && (
-                                            <div className="border-t border-border/60 px-4 py-3 text-[11px] text-muted-foreground">
-                                                {t('SqlResult.Truncated', { count: previewRows.length })}
-                                            </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <div className="text-sm text-muted-foreground">{t('SqlResult.NoRows')}</div>
-                                )
-                            ) : (
-                                <div className="space-y-3">
-                                    <div className="flex items-start gap-2 text-sm text-muted-foreground">
-                                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive/70" />
-                                        <span>
-                                            {requiresManualExecution
-                                                ? t('SqlResult.Notice.ReadOnlyRestriction')
-                                                : t('SqlResult.ExecutionFailed', { error: error?.message ?? t('SqlResult.UnknownError') })}
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
-
-                            {(requiresManualExecution || (!requiresManualExecution && footerActions)) ? (
-                                <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                                    {requiresManualExecution ? (
-                                        manualPrimaryAction ?? (
-                                            <Button
-                                                type="button"
-                                                size="sm"
-                                                className="h-9 rounded-full px-4 text-sm font-medium"
-                                                onClick={() => onManualExecute({ sql, database, mode: 'editor' })}
-                                            >
-                                                {t('SqlResult.Actions.OpenInEditor')}
-                                            </Button>
-                                        )
-                                    ) : null}
-                                    {!requiresManualExecution ? footerActions : null}
-                                </div>
-                            ) : null}
-
-                            {!requiresManualExecution && !footerActions && onFollowUp ? (
-                                <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="secondary"
-                                        className="h-9 rounded-full px-4 text-sm font-medium"
-                                        onClick={handleFollowUpClick}
-                                    >
-                                        {t('SqlResult.FollowUp.Button')}
-                                    </Button>
-                                </div>
-                            ) : null}
-
-                            {!requiresManualExecution && footerActions && onFollowUp ? (
-                                <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="secondary"
-                                        className="h-9 rounded-full px-4 text-sm font-medium"
-                                        onClick={handleFollowUpClick}
-                                    >
-                                        {t('SqlResult.FollowUp.Button')}
-                                    </Button>
-                                </div>
-                            ) : null}
-
-                            {chartError && (
-                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                    <AlertCircle className="h-3.5 w-3.5 text-muted-foreground/70" />
-                                    {chartError}
-                                </div>
-                            )}
-                        </CardContent>
+                        <SqlResultBody
+                            result={result}
+                            onManualExecute={onManualExecute}
+                            onFollowUp={onFollowUp}
+                            footerActions={footerActions}
+                            manualPrimaryAction={manualPrimaryAction}
+                            manualMenuActions={manualMenuActions}
+                            mode={mode}
+                            embedded={embedded}
+                        />
                     </CollapsibleContent>
                 </Card>
             </Collapsible>
-
-            {chartResult && <ChartResultCard result={chartResult} source="auto" onFollowUp={onFollowUp} />}
         </>
     );
 });

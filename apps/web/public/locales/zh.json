@@ -1829,10 +1829,10 @@
                 }
             },
             "SqlRunner": {
-                "Description": "在 ClickHouse / 数据仓库上执行只读 SQL 查询的工具。\n功能说明：\n- 只接受单条 SELECT / SHOW / DESCRIBE / DESC / EXPLAIN 语句，不允许 INSERT/UPDATE/DELETE 等写入操作。\n- 当用户问题涉及查询、统计、聚合、报表、指标分析时，请先生成 SQL 并调用本工具，再根据结果回答。\n- 如果不确定表结构，可以先调用 DESCRIBE 或 SHOW 等语句探查。",
+                "Description": "在当前数据库连接上执行只读 SQL 查询的工具。\n功能说明：\n- 只接受单条 SELECT / SHOW / DESCRIBE / DESC / EXPLAIN 语句，不允许 INSERT/UPDATE/DELETE 等写入操作。\n- 当用户问题涉及查询、统计、聚合、报表、指标分析时，请先生成 SQL 并调用本工具，再根据结果回答。\n- 必须匹配当前数据库方言。\n- 如果不确定表结构，优先使用已提供的 schema context，再使用符合当前方言的元数据查询探查。\n- 在 PostgreSQL 上不要使用 MySQL 专属的 DESCRIBE / SHOW COLUMNS 语法。",
                 "SqlRequired": "SQL 语句不能为空",
                 "MissingConnection": "缺少数据库连接信息，无法执行查询。",
-                "ReadOnlyOnly": "目前仅允许执行只读查询（SELECT/SHOW/DESCRIBE/EXPLAIN），请勿包含写入或更新语句。",
+                "ReadOnlyOnly": "目前仅允许执行只读查询（SELECT/SHOW/DESCRIBE/DESC/EXPLAIN/WITH/PRAGMA），请勿包含写入或更新语句。",
                 "SelectAllNotAllowed": "chatbot 生成的 SQL 不允许使用 SELECT *，请只选择回答问题所需的列。",
                 "OrderByIndexMissing": "这个查询可能较重：表 {table} 上用于 ORDER BY 的列 {columns} 未确认有索引。请先缩小查询列范围，或先检查索引。",
                 "OrderByIndexUnknown": "这个查询可能较重：表 {table} 上用于 ORDER BY 的列 {columns} 无法确认是否有索引。请先缩小查询列范围，或先检查索引。",

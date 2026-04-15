@@ -44,6 +44,26 @@ type ChatBotCompProps = {
     onExecuteAction?: CopilotActionExecutor;
 };
 
+function isToolCallPart(part: any) {
+    if (!part || typeof part !== 'object') return false;
+    if (part.type === 'tool-call' || part.type === 'tool_call') return true;
+    return typeof part.type === 'string' && part.type.startsWith('tool-') && part.input && part.state === 'input-available';
+}
+
+function getToolPartKey(part: any, fallback: string) {
+    if (!part || typeof part !== 'object') return fallback;
+    if (typeof part.callId === 'string') return part.callId;
+    if (typeof part.toolCallId === 'string') return part.toolCallId;
+    return fallback;
+}
+
+type PersistedToolCallSnapshot = {
+    key: string;
+    messageId: string;
+    part: any;
+    firstSeenOrder: number;
+};
+
 const ChatBotComp = ({
     sessionId,
     initialMessages,
@@ -84,6 +104,7 @@ const ChatBotComp = ({
     const appliedInitialRef = useRef<string | null>(null);
     const sessionRef = useRef<string>(chatStateId);
     const activityRef = useRef(false);
+    const [persistedToolCalls, setPersistedToolCalls] = useState<PersistedToolCallSnapshot[]>([]);
 
     const hasAssistantContent = messages.some(m => {
         if (m.role !== 'assistant') return false;
@@ -98,11 +119,37 @@ const ChatBotComp = ({
     });
 
     const showGlobalLoader = status === 'submitted' || (status === 'streaming' && !hasAssistantContent);
+    const renderedMessages = useMemo(() => {
+        return (messages as UIMessage[]).map(message => {
+            if (message.role !== 'assistant' || !Array.isArray((message as any).parts)) {
+                return message;
+            }
+
+            const currentToolCallKeys = new Set(
+                (message.parts ?? []).map((part: any, index: number) => (isToolCallPart(part) ? getToolPartKey(part, `${message.id}:live:${index}`) : null)).filter(Boolean),
+            );
+
+            const persistedParts = persistedToolCalls
+                .filter(snapshot => snapshot.messageId === String(message.id) && !currentToolCallKeys.has(snapshot.key))
+                .sort((a, b) => a.firstSeenOrder - b.firstSeenOrder)
+                .map(snapshot => snapshot.part);
+
+            if (persistedParts.length === 0) {
+                return message;
+            }
+
+            return {
+                ...message,
+                parts: [...persistedParts, ...(message.parts ?? [])],
+            };
+        });
+    }, [messages, persistedToolCalls]);
 
     useEffect(() => {
         if (sessionRef.current !== chatStateId) {
             sessionRef.current = chatStateId;
             appliedInitialRef.current = null;
+            setPersistedToolCalls([]);
         }
 
         const key = initialMessages.map(message => message.id).join('|');
@@ -111,6 +158,44 @@ const ChatBotComp = ({
             appliedInitialRef.current = key;
         }
     }, [chatStateId, initialMessages, setMessages]);
+
+    useEffect(() => {
+        setPersistedToolCalls(previous => {
+            const next = [...previous];
+            const existingKeys = new Set(previous.map(snapshot => snapshot.key));
+            let changed = false;
+
+            (messages as UIMessage[]).forEach(message => {
+                (message.parts ?? []).forEach((part: any, index: number) => {
+                    if (!isToolCallPart(part)) {
+                        return;
+                    }
+
+                    const key = getToolPartKey(part, `${message.id}:seen:${index}`);
+                    if (existingKeys.has(key)) {
+                        return;
+                    }
+
+                    next.push({
+                        key,
+                        messageId: String(message.id),
+                        part,
+                        firstSeenOrder: next.length,
+                    });
+                    existingKeys.add(key);
+                    changed = true;
+                });
+            });
+
+            const liveMessageIds = new Set((messages as UIMessage[]).map(message => String(message.id)));
+            const filtered = next.filter(snapshot => liveMessageIds.has(snapshot.messageId));
+            if (filtered.length !== next.length) {
+                changed = true;
+            }
+
+            return changed ? filtered : previous;
+        });
+    }, [messages]);
 
     useEffect(() => {
         if (status === 'submitted' || status === 'streaming') {
@@ -237,7 +322,7 @@ const ChatBotComp = ({
 
         const tabId = mode === 'copilot' ? (copilotEnvelope?.meta?.tabId ?? null) : null;
         if (mode === 'copilot' && !tabId) return;
-        const connectionId = copilotEnvelope?.meta?.connectionId ?? currentConnection?.connection.id ?? null;
+        const connectionId = copilotEnvelope?.meta?.connectionId ?? params?.connectionId ?? currentConnection?.connection.id ?? null;
 
         const databaseForContext =
             mode === 'copilot'
@@ -286,10 +371,7 @@ const ChatBotComp = ({
             },
         };
 
-        sendMessage(
-            { text: message.text || t('Input.SentWithAttachments'), files: message.files },
-            requestOptions,
-        );
+        sendMessage({ text: message.text || t('Input.SentWithAttachments'), files: message.files }, requestOptions);
 
         setInput('');
     };
@@ -300,14 +382,14 @@ const ChatBotComp = ({
 
     return (
         <div className="relative flex h-full w-full flex-col p-4">
-            <Conversation className="flex-1 min-h-0" contextRef={handleStickToBottomContextRef}>
-                <ConversationContent>
-                    {messages.map((message, messageIndex) => (
+            <Conversation className="min-h-0 flex-1" contextRef={handleStickToBottomContextRef}>
+                <ConversationContent className="mx-auto w-full max-w-5xl gap-2 px-2 pb-6 pt-2 lg:px-4 lg:pt-4">
+                    {renderedMessages.map((message, messageIndex) => (
                         <MessageRenderer
                             key={message.id}
                             message={message as any}
                             messageIndex={messageIndex}
-                            messages={messages as any}
+                            messages={renderedMessages as any}
                             status={status}
                             mode={mode}
                             onCopySql={handleCopySql}
