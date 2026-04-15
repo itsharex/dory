@@ -9,6 +9,7 @@ import { DEFAULT_PGLITE_DB_PATH, DESKTOP_PGLITE_DB_PATH } from '@/shared/data/ap
 import { ensureFileUrl } from '@/lib/database/pglite/url';
 import { isDesktopRuntime } from '@/lib/runtime/runtime';
 import { resolveDemoSqlitePath } from '@/lib/demo/paths';
+import { resetPgliteClient } from '../lib/database/postgres/client/pglite';
 
 
 async function ensureDirForFile(filePath: string) {
@@ -54,6 +55,10 @@ export async function bootstrap() {
 
     if (dbType === 'pglite') {
         await bootstrapPglite();
+        // Close the PGlite client so the Postgres WASM process shuts down cleanly.
+        // Without this, the WASM runtime calls exit(99) when the Node process drains,
+        // which propagates as exit code 99 and prevents the next process (server.js) from starting.
+        await resetPgliteClient();
     } else {
         console.log('[bootstrap] skip bootstrap');
     }
