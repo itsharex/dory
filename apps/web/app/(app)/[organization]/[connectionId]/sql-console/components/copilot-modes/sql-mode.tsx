@@ -218,7 +218,13 @@ export function SqlMode({
                         <Group orientation="vertical" className="h-full min-h-0">
                             <Panel id="editor-panel" defaultSize="25%" minSize="15%" className="min-h-0">
                                 <div className="flex flex-col h-full border-b min-h-0">
-                                    <SQLEditor ref={editorRef} activeTab={activeTab} updateTab={updateTab} onRunQuery={handleRunQuery} />
+                                    <SQLEditor
+                                        ref={editorRef}
+                                        activeTab={activeTab}
+                                        updateTab={updateTab}
+                                        onRunQuery={handleRunQuery}
+                                        onNewTab={() => void addTab({ activate: true })}
+                                    />
                                 </div>
                             </Panel>
 

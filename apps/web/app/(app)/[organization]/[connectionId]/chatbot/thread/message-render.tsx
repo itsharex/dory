@@ -453,7 +453,13 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
 
     const getToolDisplayTitle = (part: any) => {
         const summary = getToolStepSummary(part);
-        const toolLabel = formatToolName(getToolName(part));
+        const toolName = getToolName(part);
+
+        if (toolName === 'sqlRunner') {
+            return summary;
+        }
+
+        const toolLabel = formatToolName(toolName);
 
         return summary === toolLabel ? summary : `${summary} · ${toolLabel}`;
     };

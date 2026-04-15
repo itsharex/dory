@@ -14,7 +14,7 @@ export const panelSizeAtom = atomWithStorage('panelSize', defaultSize);
 
 const booleanStorage = createJSONStorage<boolean>(() => localStorage);
 const numberStorage = createJSONStorage<number>(() => localStorage);
-export const copilotPanelOpenAtom = atomWithStorage<boolean>('sqlConsole.copilotPanelOpen', false, booleanStorage);
+export const copilotPanelOpenAtom = atomWithStorage<boolean>('sqlConsole.copilotPanelOpen', true, booleanStorage);
 export const copilotPanelWidthAtom = atomWithStorage<number>('sqlConsole.copilotPanelWidth', 30, numberStorage);
 
 export const currentTabResultAtom = atom<TabResult[]>([]);

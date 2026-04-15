@@ -307,7 +307,9 @@ export function useSQLTabs() {
             setActiveTabId(tabId);
         }
 
-        await saveTabToServer(tabId, newTab);
+        void saveTabToServer(tabId, newTab).catch(err => {
+            console.error('save new tab error', err);
+        });
         return tabId;
     };
 
@@ -345,7 +347,9 @@ export function useSQLTabs() {
         setSessionIdMap(prev => ({ ...prev, [tabId]: '' }));
         setActiveTabId(tabId);
 
-        await saveTabToServer(tabId, newTab);
+        void saveTabToServer(tabId, newTab).catch(err => {
+            console.error('save new table tab error', err);
+        });
         return newTab;
     };
 

@@ -1016,9 +1016,14 @@
         },
         "Empty": {
             "Brand": "SQL Console",
+            "ActionRunSelection": "Ejecutar selección",
+            "ActionSave": "Guardar consulta",
+            "ActionNewTab": "Nueva pestaña",
+            "ActionToggleCopilot": "Abrir Copilot",
+            "ActionFormat": "Formatear SQL",
             "ShortcutRunSelection": "Ejecutar selección: Cmd/Ctrl+Enter",
             "ShortcutSave": "Guardar consulta: Cmd/Ctrl+S",
-            "ShortcutNewTab": "Nueva pestaña: Cmd/Ctrl+T",
+            "ShortcutNewTab": "Nueva pestaña: Cmd/Ctrl+Option/Alt+L",
             "ShortcutToggleCopilot": "Abrir Copilot: Cmd/Ctrl+I",
             "ShortcutFormat": "Formatear SQL: Shift+Cmd/Ctrl+F",
             "NewConsole": "Nueva consola"
