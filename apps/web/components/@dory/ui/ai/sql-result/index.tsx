@@ -206,7 +206,7 @@ export const SqlResultBody = React.memo(function SqlResultBody({
                             embedded ? 'overflow-hidden rounded-lg border border-border/45 bg-background/70' : 'overflow-hidden rounded-xl border border-border/35 bg-muted/16'
                         }
                     >
-                        <ScrollArea className="h-56 w-full">
+                        <ScrollArea className="max-h-56 w-full">
                             <div className="w-full overflow-x-auto">
                                 <table className="w-full min-w-max text-sm">
                                     <thead className={embedded ? 'sticky top-0 z-10 bg-muted/25' : 'sticky top-0 z-10 bg-muted/40'}>

@@ -406,6 +406,134 @@ async function handleChatRequest(req: NextRequest) {
                     }
                 }
 
+                if (!toolCalls.length && sqlToolEnabled && tools.sqlRunner?.execute) {
+                    const sqlFallback = extractReadOnlySqlFromAssistantMessage(assistantMessage);
+
+                    if (sqlFallback) {
+                        const syntheticToolCall: CollectedToolCall = {
+                            toolCallId: newEntityId(),
+                            toolName: 'sqlRunner',
+                            input: {
+                                sql: sqlFallback,
+                                database: database ?? undefined,
+                            },
+                        };
+
+                        writer.write({
+                            type: 'tool-input-available',
+                            toolCallId: syntheticToolCall.toolCallId,
+                            toolName: syntheticToolCall.toolName,
+                            input: syntheticToolCall.input,
+                        } as UIMessageChunk);
+
+                        let toolOutput: unknown = null;
+                        let toolErrorText: string | null = null;
+
+                        try {
+                            toolOutput = await tools.sqlRunner.execute(syntheticToolCall.input);
+                        } catch (err) {
+                            toolErrorText = err instanceof Error ? err.message : String(err);
+                        }
+
+                        if (toolErrorText) {
+                            writer.write({
+                                type: 'tool-output-error',
+                                toolCallId: syntheticToolCall.toolCallId,
+                                errorText: toolErrorText,
+                            } as UIMessageChunk);
+                        } else {
+                            writer.write({
+                                type: 'tool-output-available',
+                                toolCallId: syntheticToolCall.toolCallId,
+                                output: toolOutput,
+                            } as UIMessageChunk);
+                        }
+
+                        const toolResultMessage = toolErrorText
+                            ? ({
+                                  role: 'tool',
+                                  content: [
+                                      {
+                                          type: 'tool-result',
+                                          toolCallId: syntheticToolCall.toolCallId,
+                                          toolName: syntheticToolCall.toolName,
+                                          output: {
+                                              type: 'error-text',
+                                              value: toolErrorText,
+                                          },
+                                      },
+                                  ],
+                              } as ModelMessage)
+                            : buildToolResultModelMessage(syntheticToolCall, toolOutput);
+
+                        nextMessages = [...nextMessages, buildToolCallModelMessage(syntheticToolCall), toolResultMessage];
+                        step += 1;
+
+                        if (db && userId && organizationId && chatId) {
+                            const toolMessageId = newEntityId();
+                            try {
+                                const ok =
+                                    toolOutput && typeof toolOutput === 'object' && 'ok' in (toolOutput as Record<string, unknown>)
+                                        ? Boolean((toolOutput as Record<string, unknown>).ok)
+                                        : toolErrorText === null;
+
+                                await db.chat.appendMessage({
+                                    organizationId,
+                                    sessionId: chatId,
+                                    userId,
+                                    message: {
+                                        id: toolMessageId,
+                                        organizationId,
+                                        sessionId: chatId,
+                                        userId: null,
+                                        connectionId: connectionId ?? null,
+                                        role: 'tool',
+                                        parts: [
+                                            {
+                                                type: 'tool_result',
+                                                callId: syntheticToolCall.toolCallId,
+                                                ok,
+                                                result: toolErrorText === null ? toolOutput : undefined,
+                                                error: toolErrorText ?? undefined,
+                                            },
+                                        ] as any,
+                                        metadata: null,
+                                        createdAt: new Date(),
+                                    },
+                                });
+
+                                existedMessageIds.add(toolMessageId);
+                            } catch (err) {
+                                console.error('[chat] persist synthetic tool result failed', err);
+                            }
+                        }
+
+                        if (toolOutput && isManualExecutionRequiredSqlResult(toolOutput)) {
+                            return;
+                        }
+
+                        try {
+                            nextResponse = await fetchCloudUiMessageStream({
+                                url: cloudUrl,
+                                payload: {
+                                    ...baseCloudPayload,
+                                    messages: nextMessages,
+                                },
+                                headers: cloudHeaders,
+                            });
+                        } catch (error) {
+                            console.error('[chat] cloud stream unavailable', error);
+                            writer.write({
+                                type: 'error',
+                                errorText: 'AI_SERVICE_UNAVAILABLE',
+                            } as UIMessageChunk);
+                            return;
+                        }
+
+                        continue;
+                    }
+                }
+
                 if (!toolCalls.length) {
                     return;
                 }
@@ -629,6 +757,48 @@ function buildToolResultModelMessage(toolCall: CollectedToolCall, output: unknow
             },
         ],
     } as ModelMessage;
+}
+
+function extractReadOnlySqlFromAssistantMessage(message: UIMessage | null): string | null {
+    if (!message || message.role !== 'assistant' || !Array.isArray(message.parts)) {
+        return null;
+    }
+
+    const text = message.parts
+        .filter((part: any) => part?.type === 'text' && typeof part.text === 'string')
+        .map((part: any) => part.text)
+        .join('\n')
+        .trim();
+
+    if (!text) {
+        return null;
+    }
+
+    const fencedMatch = text.match(/```(?:sql)?\s*([\s\S]*?)```/i);
+    const candidate = fencedMatch?.[1]?.trim() ?? text;
+
+    if (!candidate) {
+        return null;
+    }
+
+    const normalized = candidate.replace(/^\s*sql\s*/i, '').trim();
+
+    if (!looksLikeStandaloneSql(normalized)) {
+        return null;
+    }
+
+    return normalized;
+}
+
+function looksLikeStandaloneSql(text: string): boolean {
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    if (!/^(select|show|describe|desc|explain|with|pragma)\b/i.test(trimmed)) return false;
+
+    const lines = trimmed.split('\n').map(line => line.trim()).filter(Boolean);
+    if (lines.length > 12) return false;
+
+    return !/[。！？]/.test(trimmed) && !/^[-*]\s/m.test(trimmed);
 }
 
 function resolveCloudBaseUrl(req: NextRequest): string {

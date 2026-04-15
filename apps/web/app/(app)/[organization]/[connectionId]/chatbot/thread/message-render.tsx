@@ -134,6 +134,9 @@ function didUserRequestChart(messages: UIMessage[], messageIndex: number): boole
 function formatToolName(toolName: string | null | undefined, fallback = 'Tool'): string {
     if (!toolName) return fallback;
 
+    if (toolName === 'sqlRunner') return 'SQL Runner';
+    if (toolName === 'chartBuilder') return 'Chart Builder';
+
     const normalized = toolName
         .replace(/^tool[-_]/, '')
         .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -149,7 +152,12 @@ function summarizeSqlStep(sql: string): string {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
     if (!normalized) return 'Run SQL';
+    if (normalized.includes('pragma table_info') || normalized.includes('information_schema.columns') || normalized.startsWith('describe ')) return 'Inspect schema';
     if (normalized.includes('from sqlite_master')) return 'List tables';
+    if (normalized.includes('datetime(') && normalized.includes('timestamp')) return 'Validate timestamp parsing';
+    if ((normalized.includes('max(timestamp)') || normalized.includes('min(timestamp)')) && normalized.includes('from')) return 'Check time range';
+    if (normalized.includes('order by timestamp desc')) return 'Review recent rows';
+    if (/where\s+.*level\s*=\s*['"]?error['"]?/i.test(normalized)) return 'Filter error logs';
     if (normalized.includes('count(*)')) return 'Count rows';
     if (normalized.startsWith('select')) return 'Query data';
     if (normalized.startsWith('insert')) return 'Insert data';
@@ -181,7 +189,12 @@ function localizeStepLabel(step: string, locale: 'zh' | 'en'): string {
 
     const map: Record<string, string> = {
         'Run SQL': '执行 SQL',
+        'Inspect schema': '检查表结构',
         'List tables': '读取数据表',
+        'Validate timestamp parsing': '验证时间字段解析',
+        'Check time range': '检查时间范围',
+        'Review recent rows': '查看最近记录',
+        'Filter error logs': '筛选错误日志',
         'Count rows': '统计行数',
         'Query data': '查询数据',
         'Insert data': '插入数据',
@@ -250,7 +263,9 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
     const t = useTranslations('Chatbot');
     const doryUiT = useTranslations('DoryUI');
     const processItems: Array<{ key: string; summary: string; content: ReactNode; status: ProcessVisualStatus; actions?: ReactNode; defaultOpen?: boolean }> = [];
-    const contentItems: ReactNode[] = [];
+    const leadingContentItems: ReactNode[] = [];
+    const narrativeContentItems: ReactNode[] = [];
+    const deferredToolItems: ReactNode[] = [];
     const foldedNarrativeParts: ReactNode[] = [];
     const sqlResults: SqlResultPart[] = [];
     const chartResults: ChartResultPart[] = [];
@@ -266,6 +281,29 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
     const hasMultipleTextParts = textPartIndexes.length > 1;
 
     const userRequestedChart = didUserRequestChart(messages, messageIndex);
+    const renderTextPart = (text: string, key: string) => {
+        if (message.role === 'user') {
+            const shouldKeepSingleLine = !text.includes('\n') && text.trim().length <= 24;
+
+            return (
+                <div key={key} className={cn('max-w-full leading-7 text-foreground', shouldKeepSingleLine ? 'whitespace-nowrap' : 'whitespace-pre-wrap break-words')}>
+                    {text}
+                </div>
+            );
+        }
+
+        return <MessageResponse key={key}>{text}</MessageResponse>;
+    };
+    const pushNarrativeContent = (node: ReactNode) => {
+        narrativeContentItems.push(node);
+    };
+    const pushDeferredToolContent = (node: ReactNode) => {
+        deferredToolItems.push(
+            <div className="py-1.5" key={`tool-block-${message.id}-${deferredToolItems.length}`}>
+                {node}
+            </div>,
+        );
+    };
 
     const showCopilotSqlActions = mode === 'copilot' && typeof onExecuteAction === 'function';
     const getToolCallId = (part: any) => {
@@ -413,6 +451,13 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
         return localizeStepLabel(formatToolName(toolName, 'Run tool'), locale);
     };
 
+    const getToolDisplayTitle = (part: any) => {
+        const summary = getToolStepSummary(part);
+        const toolLabel = formatToolName(getToolName(part));
+
+        return summary === toolLabel ? summary : `${summary} · ${toolLabel}`;
+    };
+
     const renderToolStateCard = ({
         part,
         key,
@@ -428,8 +473,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
         resultContent?: ReactNode;
         forceState?: 'input-available' | 'output-available' | 'output-error';
     }) => {
-        const toolName = getToolName(part);
-        const title = formatToolName(toolName);
+        const title = getToolDisplayTitle(part);
         const state =
             forceState ??
             (part?.type === 'tool-error' || part?.state === 'output-error'
@@ -507,7 +551,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
 
     if (assistantMessage && message.parts?.some((part: any) => part.type === 'source-url')) {
         const sourceParts = message.parts.filter((part: any) => part.type === 'source-url');
-        contentItems.push(
+        leadingContentItems.push(
             <Sources key={`${message.id}-sources`}>
                 <SourcesTrigger count={sourceParts.length} />
                 {sourceParts.map((part: any, i: number) => (
@@ -532,7 +576,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
             if (toolName === 'sqlRunner') {
                 const sqlResult = pairedResult?.part ? getSqlResultFromPart(pairedResult.part, t('Errors.SqlExecutionFailed')) : null;
                 const sql = typeof part?.input?.sql === 'string' ? part.input.sql : '';
-                contentItems.push(
+                pushDeferredToolContent(
                     renderToolStateCard({
                         part,
                         key: `${message.id}-tool-call-${i}`,
@@ -611,7 +655,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
             if (toolName === 'sqlRunner') {
                 const sqlResult = pairedResult?.part ? getSqlResultFromPart(pairedResult.part, t('Errors.SqlExecutionFailed')) : null;
                 const sql = typeof part?.input?.sql === 'string' ? part.input.sql : '';
-                contentItems.push(
+                pushDeferredToolContent(
                     renderToolStateCard({
                         part,
                         key: `${message.id}-dynamic-tool-call-${i}`,
@@ -682,7 +726,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
 
             sqlResults.push(sqlResult);
 
-            contentItems.push(
+            pushDeferredToolContent(
                 renderToolStateCard({
                     part,
                     key: `${message.id}-tool-sql-${i}`,
@@ -761,16 +805,16 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
 
         if (part.type === 'text') {
             if (assistantMessage && hasMultipleTextParts && i !== finalTextPartIndex) {
-                foldedNarrativeParts.push(<MessageResponse key={`${message.id}-folded-text-${i}`}>{part.text}</MessageResponse>);
+                foldedNarrativeParts.push(renderTextPart(part.text, `${message.id}-folded-text-${i}`));
                 return;
             }
-            contentItems.push(<MessageResponse key={`${message.id}-text-${i}`}>{part.text}</MessageResponse>);
+            pushNarrativeContent(renderTextPart(part.text, `${message.id}-text-${i}`));
             return;
         }
 
         // reasoning
         if (part.type === 'reasoning') {
-            contentItems.push(
+            pushNarrativeContent(
                 <Reasoning
                     key={`${message.id}-reasoning-${i}`}
                     className="w-full"
@@ -787,7 +831,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
     if (userRequestedChart && chartResults.length === 0 && sqlResults.length > 0) {
         const autoChart = buildAutoChartFromSql(sqlResults[0]);
         if (autoChart) {
-            contentItems.push(<ChartResultCard key={`${message.id}-auto-chart`} result={autoChart} source="auto" />);
+            pushDeferredToolContent(<ChartResultCard key={`${message.id}-auto-chart`} result={autoChart} source="auto" />);
         }
     }
 
@@ -837,7 +881,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
             );
         });
 
-        contentItems.unshift(...processNodes);
+        deferredToolItems.unshift(...processNodes);
     }
 
     const hasToolParts = !!message.parts?.some((part: any) => {
@@ -848,8 +892,19 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
         return typeof part.type === 'string' && part.type.startsWith('tool-');
     });
 
-    if (assistantMessage && contentItems.length === 0 && (!isLatestAssistant || !isStreaming) && !hasToolParts) {
-        contentItems.push(<AssistantFallbackCard key={`${message.id}-fallback`} />);
+    if (assistantMessage && narrativeContentItems.length === 0 && (!isLatestAssistant || !isStreaming) && !hasToolParts) {
+        pushNarrativeContent(<AssistantFallbackCard key={`${message.id}-fallback`} />);
+    }
+
+    const contentItems: ReactNode[] = [...leadingContentItems];
+
+    if (narrativeContentItems.length > 0) {
+        const [firstNarrativeItem, ...remainingNarrativeItems] = narrativeContentItems;
+        contentItems.push(firstNarrativeItem);
+        contentItems.push(...deferredToolItems);
+        contentItems.push(...remainingNarrativeItems);
+    } else {
+        contentItems.push(...deferredToolItems);
     }
 
     if (contentItems.length === 0) {
@@ -861,7 +916,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
     return (
         <div key={message.id} className="w-full space-y-1.5">
             <Message from={message.role} className={isAssistant ? 'w-full' : undefined}>
-                <MessageContent className={isAssistant ? 'w-full max-w-none bg-transparent' : 'w-full'}>{contentItems}</MessageContent>
+                <MessageContent className={isAssistant ? 'w-full max-w-none bg-transparent' : undefined}>{contentItems}</MessageContent>
             </Message>
 
             {/* {showActions && (

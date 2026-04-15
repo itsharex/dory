@@ -322,7 +322,7 @@ const ChatBotComp = ({
 
         const tabId = mode === 'copilot' ? (copilotEnvelope?.meta?.tabId ?? null) : null;
         if (mode === 'copilot' && !tabId) return;
-        const connectionId = copilotEnvelope?.meta?.connectionId ?? currentConnection?.connection.id ?? null;
+        const connectionId = copilotEnvelope?.meta?.connectionId ?? params?.connectionId ?? currentConnection?.connection.id ?? null;
 
         const databaseForContext =
             mode === 'copilot'
