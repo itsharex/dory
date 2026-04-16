@@ -57,7 +57,14 @@ export async function apiFetchSessionDetail(sessionId: string, options?: { error
     return { detail, messages };
 }
 
-export async function apiCreateSession(params: { mode: ChatMode; connectionId: string; errorMessage?: string; copilotNotSupportedMessage?: string }) {
+export async function apiCreateSession(params: {
+    mode: ChatMode;
+    connectionId: string;
+    activeDatabase?: string | null;
+    activeSchema?: string | null;
+    errorMessage?: string;
+    copilotNotSupportedMessage?: string;
+}) {
     if (params.mode === 'copilot') {
         throw new Error(params.copilotNotSupportedMessage ?? 'Copilot sessions cannot be created manually.');
     }
@@ -69,6 +76,8 @@ export async function apiCreateSession(params: { mode: ChatMode; connectionId: s
         body: JSON.stringify({
             type: 'global',
             connectionId: params.connectionId,
+            activeDatabase: params.activeDatabase ?? null,
+            activeSchema: params.activeSchema ?? null,
         }),
     });
 

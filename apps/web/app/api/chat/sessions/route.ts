@@ -92,7 +92,7 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, session, us
     const locale = await getApiLocale();
     console.log('POST /api/chat/sessions called', userId, organizationId);
 
-    let payload: { type?: string; connectionId?: string } | null = null;
+    let payload: { type?: string; connectionId?: string; activeDatabase?: string | null; activeSchema?: string | null } | null = null;
     try {
         payload = await req.json();
     } catch {
@@ -101,6 +101,8 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, session, us
 
     const type = payload?.type ?? 'global';
     const connectionId = payload?.connectionId ?? null;
+    const activeDatabase = payload?.activeDatabase ?? null;
+    const activeSchema = payload?.activeSchema ?? null;
 
     if (type !== 'global') {
         return NextResponse.json(
@@ -129,6 +131,8 @@ export const POST = withUserAndOrganizationHandler(async ({ req, db, session, us
             organizationId,
             userId,
             connectionId,
+            activeDatabase,
+            activeSchema,
             title: null,
             metadata: null,
         });

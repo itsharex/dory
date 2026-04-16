@@ -315,6 +315,12 @@ const ChatBotComp = ({
         });
     }, [activeSchema, sidebarConfig, tables]);
 
+    const resolvedActiveDatabase = activeDatabase || currentConnection?.connection?.database || null;
+    const resolvedActiveSchema =
+        sidebarConfig.supportsSchemas
+            ? activeSchema || (resolvedActiveDatabase ? (sidebarConfig.defaultSchemaName ?? null) : null)
+            : null;
+
     const submitPrompt = async (message: PromptInputMessage) => {
         const hasText = Boolean(message.text);
         const hasAttachments = Boolean(message.files?.length);
@@ -327,10 +333,13 @@ const ChatBotComp = ({
         const databaseForContext =
             mode === 'copilot'
                 ? copilotEnvelope?.surface === 'sql'
-                    ? (copilotEnvelope.context.baseline.database ?? activeDatabase ?? null)
-                    : (copilotEnvelope?.context.database ?? activeDatabase ?? null)
-                : activeDatabase || null;
-        const schemaForContext = mode === 'copilot' ? (copilotEnvelope?.surface === 'table' ? (copilotEnvelope.context.table.schema ?? null) : null) : activeSchema || null;
+                    ? (copilotEnvelope.context.baseline.database ?? resolvedActiveDatabase)
+                    : (copilotEnvelope?.context.database ?? resolvedActiveDatabase)
+                : resolvedActiveDatabase;
+        const schemaForContext =
+            mode === 'copilot'
+                ? (copilotEnvelope?.surface === 'table' ? (copilotEnvelope.context.table.schema ?? null) : null)
+                : resolvedActiveSchema;
 
         const tableForContext = mode === 'copilot' ? (copilotEnvelope?.surface === 'table' ? (copilotEnvelope.context.table.name ?? null) : null) : selectedTable || null;
 

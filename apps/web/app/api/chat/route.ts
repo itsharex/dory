@@ -156,6 +156,17 @@ async function handleChatRequest(req: NextRequest) {
                     userId,
                 });
                 if (existed) {
+                    await db.chat.updateSession({
+                        organizationId,
+                        sessionId: chatId,
+                        userId,
+                        patch: {
+                            connectionId: connectionId ?? null,
+                            activeDatabase: database ?? null,
+                            activeSchema: activeSchema ?? null,
+                            metadata: sessionMetadata ?? null,
+                        },
+                    });
                     sessionTitle = existed.title ?? null;
                 } else {
                     const s = await db.chat.createGlobalSession({

@@ -7,11 +7,14 @@ import type { UIMessage } from 'ai';
 import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
 import posthog from 'posthog-js';
+import { useAtomValue } from 'jotai';
 
 import type { ChatSessionItem, ChatMode } from './types';
 import { normalizeSessionsForDisplay } from './utils';
 import { apiCreateSession, apiDeleteSession, apiFetchSessionDetail, apiFetchSessions, apiRenameSession } from './api';
 import type { CopilotEnvelopeV1 } from '../copilot/types/copilot-envelope';
+import { activeDatabaseAtom, activeSchemaAtom, currentConnectionAtom } from '@/shared/stores/app.store';
+import { getSidebarConfig } from '../../../components/sql-console-sidebar/sidebar-config';
 
 export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: CopilotEnvelopeV1 | null; enabled?: boolean }) {
     const { mode, copilotEnvelope, enabled = true } = params;
@@ -19,6 +22,15 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
     const t = useTranslations('Chatbot');
     const routeParams = useParams<{ connectionId: string }>();
     const connectionId = routeParams.connectionId;
+    const activeDatabase = useAtomValue(activeDatabaseAtom);
+    const activeSchema = useAtomValue(activeSchemaAtom);
+    const currentConnection = useAtomValue(currentConnectionAtom);
+    const sidebarConfig = useMemo(() => getSidebarConfig(currentConnection?.connection?.type), [currentConnection?.connection?.type]);
+    const resolvedActiveDatabase = activeDatabase || currentConnection?.connection?.database || null;
+    const resolvedActiveSchema =
+        sidebarConfig.supportsSchemas
+            ? activeSchema || (resolvedActiveDatabase ? (sidebarConfig.defaultSchemaName ?? null) : null)
+            : null;
 
     const [sessions, setSessions] = useState<ChatSessionItem[]>([]);
     const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -156,7 +168,13 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
         if (creatingSession) return;
         setCreatingSession(true);
         try {
-            const created = await apiCreateSession({ mode: 'global', connectionId, errorMessage: t('Errors.CreateSession') });
+            const created = await apiCreateSession({
+                mode: 'global',
+                connectionId,
+                activeDatabase: resolvedActiveDatabase,
+                activeSchema: resolvedActiveSchema,
+                errorMessage: t('Errors.CreateSession'),
+            });
             if (created?.id) {
                 posthog.capture('chat_session_created', { session_id: created.id });
                 setSelectedSessionId(created.id);
@@ -173,7 +191,7 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
         } finally {
             setCreatingSession(false);
         }
-    }, [mode, creatingSession, connectionId, fetchSessions, t]);
+    }, [mode, creatingSession, connectionId, fetchSessions, resolvedActiveDatabase, resolvedActiveSchema, t]);
 
     const handleSessionSelect = useCallback(
         (sessionId: string) => {

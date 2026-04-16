@@ -107,6 +107,7 @@ export default function SQLConsoleClient({
     const [showChatbot, setShowChatbot] = useAtom(copilotPanelOpenAtom);
     const [chatWidth, setChatWidth] = useAtom(copilotPanelWidthAtom);
     const selectionByTab = useAtomValue(editorSelectionByTabAtom);
+    const shouldShowChatbot = activeTab?.tabType === 'sql' ? showChatbot : false;
     const normalizedChatWidth = useMemo(
         () => clamp(chatWidth ?? INITIAL_LAYOUT.copilot.defaultWidth, INITIAL_LAYOUT.copilot.minWidth, INITIAL_LAYOUT.copilot.maxWidth),
         [chatWidth],
@@ -357,7 +358,7 @@ export default function SQLConsoleClient({
                                                             setActiveTabId={setActiveTabId}
                                                             addTab={addTab}
                                                             updateTab={updateTab}
-                                                            showChatbot={showChatbot}
+                                                            showChatbot={false}
                                                             chatWidth={normalizedChatWidth}
                                                             setChatWidth={setClampedChatWidth}
                                                             runQuery={runQueryWithRef}
@@ -375,7 +376,7 @@ export default function SQLConsoleClient({
                                                             runQuery={runQueryWithRef}
                                                             cancelQuery={cancelQuery}
                                                             runningTabs={runningTabs}
-                                                            showChatbot={showChatbot}
+                                                            showChatbot={shouldShowChatbot}
                                                             chatWidth={normalizedChatWidth}
                                                             setChatWidth={setClampedChatWidth}
                                                             onCloseChatbot={closeChatbotPanel}
@@ -397,13 +398,13 @@ export default function SQLConsoleClient({
                     {activeTab?.tabType === 'sql' && (
                         <Button
                             size="icon"
-                            variant={showChatbot ? 'default' : 'ghost'}
+                            variant={shouldShowChatbot ? 'default' : 'ghost'}
                             className="group h-8 w-8"
                             onClick={toggleChatbotPanel}
-                            title={showChatbot ? t('Copilot.ToggleClose') : t('Copilot.ToggleOpen')}
+                            title={shouldShowChatbot ? t('Copilot.ToggleClose') : t('Copilot.ToggleOpen')}
                             aria-label={t('Copilot.ToggleAria')}
                         >
-                            <Sparkles className={cn('h-5 w-5 transition-colors', showChatbot ? 'text-background' : 'text-muted-foreground group-hover:text-[#9460FF]')} />
+                            <Sparkles className={cn('h-5 w-5 transition-colors', shouldShowChatbot ? 'text-background' : 'text-muted-foreground group-hover:text-[#9460FF]')} />
                             <span className="sr-only">{t('Copilot.ToggleLabel')}</span>
                         </Button>
                     )}
