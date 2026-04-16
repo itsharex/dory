@@ -1,9 +1,10 @@
 'use client';
 
 import { useDeferredValue, useEffect, useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { Loader2, RefreshCw, Search } from 'lucide-react';
 import { useAtom, useAtomValue } from 'jotai';
 import { useTranslations } from 'next-intl';
+import { Button } from '@/registry/new-york-v4/ui/button';
 import { Input } from '@/registry/new-york-v4/ui/input';
 import { useDatabases } from '@/hooks/use-databases';
 import { useTables } from '@/hooks/use-tables';
@@ -19,6 +20,7 @@ import { buildScopedTableKey, getInitialDatabase, isHiddenDatabase, matchesFilte
 
 export function SQLConsoleSidebar({ onOpenTableTab, onSelectTable, selectedTable, selectedDatabase, onSelectDatabase }: SQLConsoleSidebarProps) {
     const [localFilter, setFilter] = useState('');
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const deferredFilter = useDeferredValue(localFilter);
     const [activeDatabase, setActiveDatabase] = useAtom(activeDatabaseAtom);
     const currentConnection = useAtomValue(currentConnectionAtom);
@@ -48,8 +50,8 @@ export function SQLConsoleSidebar({ onOpenTableTab, onSelectTable, selectedTable
         onSelectDatabase?.(initialDatabase);
     }, [activeDatabase, currentConnection?.connection?.database, databaseOptions, onSelectDatabase, setActiveDatabase, sidebarConfig]);
 
-    const { tables } = useTables(activeDatabase);
-    const { schemas } = useSchemas(activeDatabase, sidebarConfig.supportsSchemas);
+    const { tables, refresh: refreshTables } = useTables(activeDatabase);
+    const { schemas, refresh: refreshSchemas } = useSchemas(activeDatabase, sidebarConfig.supportsSchemas);
     const { refresh: getTableColumns } = useColumns();
 
     const [activeSchema, setActiveSchema] = useState('');
@@ -108,6 +110,26 @@ export function SQLConsoleSidebar({ onOpenTableTab, onSelectTable, selectedTable
         onSelectDatabase?.(database);
     };
 
+    const handleRefresh = async () => {
+        if (!activeDatabase || isRefreshing) {
+            return;
+        }
+
+        setIsRefreshing(true);
+        setExpandedTableKeys(new Set());
+        setColumnsByTableKey({});
+        setLoadingTableKeys(new Set());
+
+        try {
+            await Promise.all([
+                refreshTables(),
+                sidebarConfig.supportsSchemas ? refreshSchemas() : Promise.resolve(),
+            ]);
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
+
     const toggleTableExpansion = async (table: SidebarTableItem) => {
         const scopedTableKey = table.key;
 
@@ -155,9 +177,24 @@ export function SQLConsoleSidebar({ onOpenTableTab, onSelectTable, selectedTable
 
             {sidebarConfig.supportsSchemas && <SchemaSelect value={activeSchema} schemas={schemaOptions} onChange={setActiveSchema} />}
 
-            <div className="relative">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input value={localFilter} onChange={e => setFilter(e.target.value)} placeholder={t('Filter tables')} className="pl-8 h-8" aria-label={t('Filter tables')} />
+            <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                    <Search className="absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input value={localFilter} onChange={e => setFilter(e.target.value)} placeholder={t('Filter tables')} className="h-8 pl-8" aria-label={t('Filter tables')} />
+                </div>
+
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="icon-sm"
+                    className="h-8 w-8 shrink-0"
+                    onClick={() => void handleRefresh()}
+                    disabled={!activeDatabase || isRefreshing}
+                    aria-label={t('Refresh tables')}
+                    title={t('Refresh tables')}
+                >
+                    {isRefreshing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                </Button>
             </div>
 
             <TableList
