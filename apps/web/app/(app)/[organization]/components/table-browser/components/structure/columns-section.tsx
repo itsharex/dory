@@ -46,29 +46,37 @@ export function ColumnsSection({ tableName, loading, loadingTags = false, column
                     const summary = row.original.semanticSummary;
 
                     const content = (
-                        <OverflowTooltip
-                            text={row.original.name}
-                            className="block max-w-[200px] font-medium truncate"
-                            disableTooltip   
-                        >
-                            {row.original.name}
-                        </OverflowTooltip>
+                        <div className="flex max-w-50 items-center gap-1.5">
+                            <OverflowTooltip
+                                text={row.original.name}
+                                className="block min-w-0 flex-1 truncate font-medium"
+                                disableTooltip
+                            >
+                                {row.original.name}
+                            </OverflowTooltip>
+                            {summary ? (
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <button
+                                            type="button"
+                                            aria-label="AI explanation"
+                                            className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#9460FF]/14 text-[10px] leading-none font-semibold text-[#9460FF] shadow-[inset_0_0_0_1px_rgba(148,96,255,0.24)] transition-colors hover:bg-[#9460FF]/22"
+                                        >
+                                            !
+                                        </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs text-xs leading-snug">
+                                        <div className="flex items-start gap-1.5">
+                                            <AISparkIcon />
+                                            <div>{summary}</div>
+                                        </div>
+                                    </TooltipContent>
+                                </Tooltip>
+                            ) : null}
+                        </div>
                     );
 
-                    if (!summary) return content;
-
-                    return (
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <span className="inline-block cursor-help">{content}</span>
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs text-xs leading-snug">
-                                <div className='flex items-center'>
-                                    <AISparkIcon /> <div>{summary}</div>
-                                </div>
-                            </TooltipContent>
-                        </Tooltip>
-                    );
+                    return content;
                 },
 
             },
@@ -80,7 +88,7 @@ export function ColumnsSection({ tableName, loading, loadingTags = false, column
                     loading ? (
                         <Skeleton className="h-4 w-28" />
                     ) : (
-                        <OverflowTooltip text={row.original.type} className="block max-w-[160px] truncate text-sm">
+                        <OverflowTooltip text={row.original.type} className="block max-w-40 truncate text-sm">
                             {row.original.type}
                         </OverflowTooltip>
                     ),
@@ -108,7 +116,7 @@ export function ColumnsSection({ tableName, loading, loadingTags = false, column
                     ) : (
                         <OverflowTooltip
                             text={row.original.defaultValue ?? undefined}
-                            className="block max-w-[140px] truncate text-sm"
+                            className="block max-w-35 truncate text-sm"
                         >
                             {row.original.defaultValue ?? '—'}
                         </OverflowTooltip>
@@ -153,7 +161,7 @@ export function ColumnsSection({ tableName, loading, loadingTags = false, column
                     }
 
                     const content = (
-                        <div className="flex flex-wrap gap-1 max-w-[220px]">
+                        <div className="flex max-w-55 flex-wrap gap-1">
                             {tags.map(tag => (
                                 <Badge
                                     key={tag}

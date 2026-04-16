@@ -15,6 +15,10 @@ const GC_TIME = STALE_TIME * 2;
 export const tableQueryKeys = {
     columns: (connectionId?: string, databaseName?: string, tableName?: string) =>
         ['table-columns', connectionId, databaseName, tableName] as const,
+    structureColumns: (connectionId?: string, databaseName?: string, tableName?: string) =>
+        ['table-structure-columns', connectionId, databaseName, tableName] as const,
+    columnInsights: (connectionId?: string, databaseName?: string, tableName?: string) =>
+        ['table-column-insights', connectionId, databaseName, tableName] as const,
     properties: (connectionId?: string, databaseName?: string, tableName?: string) =>
         ['table-properties', connectionId, databaseName, tableName] as const,
     stats: (connectionId?: string, databaseName?: string, tableName?: string) =>
@@ -38,6 +42,24 @@ function normalizeColumns(raw: any[]): ColumnInfo[] {
     return normalized.filter(col => col.name);
 }
 
+type ColumnInsights = {
+    tags: Record<string, string[]>;
+    summaries: Record<string, string | null>;
+};
+
+async function fetchBaseColumns({
+    databaseName,
+    tableName,
+    fetchColumns,
+}: {
+    databaseName: string;
+    tableName: string;
+    fetchColumns: (database: string, table: string) => Promise<any[] | undefined>;
+}) {
+    const raw = await fetchColumns(databaseName, tableName);
+    return normalizeColumns(raw ?? []);
+}
+
 async function fetchSemanticColumns({
     columns,
     databaseName,
@@ -56,7 +78,12 @@ async function fetchSemanticColumns({
     const tagMap: Record<string, string[]> = {};
     const summaryMap: Record<string, string | null> = {};
 
-    if (!connectionId) return columns;
+    if (!connectionId) {
+        return {
+            tags: tagMap,
+            summaries: summaryMap,
+        } satisfies ColumnInsights;
+    }
 
     try {
         const tagsResponse = await authFetch('/api/ai/schema-tags', {
@@ -111,10 +138,18 @@ async function fetchSemanticColumns({
         console.error('Failed to load schema tags/explanations', error);
     }
 
+    return {
+        tags: tagMap,
+        summaries: summaryMap,
+    } satisfies ColumnInsights;
+}
+
+function applySemanticColumns(columns: ColumnInfo[], insights: ColumnInsights) {
     return columns.map(col => {
         const key = col.name.toLowerCase();
-        const tags = tagMap[key] ?? [];
-        const summary = summaryMap[key] ?? col.comment ?? null;
+        const tags = insights.tags[key] ?? [];
+        const summary = insights.summaries[key] ?? col.comment ?? null;
+
         return {
             ...col,
             semanticTags: tags,
@@ -143,11 +178,14 @@ export function useTableColumnsQuery({
         gcTime: GC_TIME,
         refetchOnWindowFocus: false,
         queryFn: async ({ signal }) => {
-            const raw = await fetchColumns(databaseName as string, tableName as string);
-            const normalized = normalizeColumns(raw ?? []);
+            const normalized = await fetchBaseColumns({
+                databaseName: databaseName as string,
+                tableName: tableName as string,
+                fetchColumns,
+            });
             if (!normalized.length) return { columns: [] as ColumnInfo[] };
 
-            const enriched = await fetchSemanticColumns({
+            const insights = await fetchSemanticColumns({
                 columns: normalized,
                 databaseName: databaseName as string,
                 tableName: tableName as string,
@@ -156,7 +194,68 @@ export function useTableColumnsQuery({
                 signal,
             });
 
-            return { columns: enriched };
+            return { columns: applySemanticColumns(normalized, insights) };
+        },
+    });
+}
+
+export function useTableStructureColumnsQuery({
+    databaseName,
+    tableName,
+    connectionId,
+}: {
+    databaseName?: string;
+    tableName?: string;
+    connectionId?: string;
+}) {
+    const { refresh: fetchColumns } = useColumns();
+
+    return useQuery({
+        queryKey: tableQueryKeys.structureColumns(connectionId, databaseName, tableName),
+        enabled: Boolean(connectionId && databaseName && tableName),
+        staleTime: STALE_TIME,
+        gcTime: GC_TIME,
+        refetchOnWindowFocus: false,
+        queryFn: async () => {
+            const normalized = await fetchBaseColumns({
+                databaseName: databaseName as string,
+                tableName: tableName as string,
+                fetchColumns,
+            });
+
+            return { columns: normalized };
+        },
+    });
+}
+
+export function useTableColumnInsightsQuery({
+    databaseName,
+    tableName,
+    connectionId,
+    dbType,
+    columns,
+}: {
+    databaseName?: string;
+    tableName?: string;
+    connectionId?: string;
+    dbType?: string;
+    columns: ColumnInfo[];
+}) {
+    return useQuery({
+        queryKey: tableQueryKeys.columnInsights(connectionId, databaseName, tableName),
+        enabled: Boolean(connectionId && databaseName && tableName && columns.length),
+        staleTime: STALE_TIME,
+        gcTime: GC_TIME,
+        refetchOnWindowFocus: false,
+        queryFn: async ({ signal }) => {
+            return fetchSemanticColumns({
+                columns,
+                databaseName: databaseName as string,
+                tableName: tableName as string,
+                connectionId,
+                dbType,
+                signal,
+            });
         },
     });
 }
