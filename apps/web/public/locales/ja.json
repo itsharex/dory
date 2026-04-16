@@ -335,6 +335,7 @@
         "Schemas": "スキーマ",
         "No results": "結果が見つかりません",
         "Filter tables": "テーブルを絞り込み",
+        "Refresh tables": "テーブルを再読み込み",
         "No matching tables found": "一致するテーブルが見つかりません",
         "Collapse": "折りたたむ",
         "Expand": "展開",

@@ -79,7 +79,7 @@ export function DataPreviewPaginationBar({
                         value={String(pageSize)}
                         onValueChange={(value) => onPageSizeChange(Number(value))}
                     >
-                        <SelectTrigger className="h-6 w-[70px] text-xs">
+                        <SelectTrigger className="h-6 min-w-22 shrink-0 text-xs">
                             <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

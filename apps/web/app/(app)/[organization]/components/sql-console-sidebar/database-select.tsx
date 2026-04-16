@@ -45,7 +45,7 @@ export function DatabaseSelect({ value, databases, onChange, className }: Databa
                             <Database className="h-4 w-4 shrink-0" />
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <span className="max-w-[220px] truncate text-sm">{selected ? selected.label : t('Select database')}</span>
+                                    <span className="max-w-55 truncate text-sm">{selected ? selected.label : t('Select database')}</span>
                                 </TooltipTrigger>
                                 <TooltipContent side="right">{selected ? selected.label : t('Select database')}</TooltipContent>
                             </Tooltip>
@@ -65,7 +65,7 @@ export function DatabaseSelect({ value, databases, onChange, className }: Databa
                                         <Database className="h-4 w-4 shrink-0" />
                                         <Tooltip>
                                             <TooltipTrigger asChild>
-                                                <span className="max-w-[200px] truncate text-sm">{database.label}</span>
+                                                <span className="max-w-50 truncate text-sm">{database.label}</span>
                                             </TooltipTrigger>
                                             <TooltipContent side="right">{database.label}</TooltipContent>
                                         </Tooltip>
