@@ -373,6 +373,7 @@ const ChatBotComp = ({
                 activeSchema: schemaForContext,
                 table: tableForContext,
                 connectionId,
+                connectionType: currentConnection?.connection?.type ?? null,
                 mode,
                 tabId,
                 copilotEnvelope,

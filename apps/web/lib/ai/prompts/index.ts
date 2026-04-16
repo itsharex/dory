@@ -10,7 +10,7 @@ import { buildFixSqlErrorPrompt } from './tasks/sql.fix';
 import { buildOptimizePerformancePrompt } from './tasks/sql.optimize';
 import { buildRewriteSqlPrompt } from './tasks/sql.rewrite';
 import { buildTabTitlePrompt } from './tasks/sql.title';
-import { CHART_BUILDER_GUIDE, SQL_RUNNER_GUIDE, SQL_TOOL_INSTRUCTION } from './tasks/sql.tools';
+import { buildDialectSqlPrompt, CHART_BUILDER_GUIDE, SQL_RUNNER_GUIDE, SQL_TOOL_INSTRUCTION } from './tasks/sql.tools';
 import { CHART_BUILDER_TOOL_DESCRIPTION } from './tasks/sql.chart-builder';
 
 export * from './types';
@@ -73,4 +73,5 @@ export {
     buildRewriteSqlPrompt,
     buildOptimizePerformancePrompt,
     buildTabTitlePrompt,
+    buildDialectSqlPrompt,
 };

@@ -1,3 +1,5 @@
+import type { ConnectionType } from '@/types/connections';
+
 export const SQL_TOOL_INSTRUCTION = `
 When the user asks for data queries, first generate a read-only SQL statement (SELECT only) and call the sqlRunner tool. In your response, include the SQL and explain the query results.
 
@@ -35,6 +37,53 @@ About the sqlRunner tool
 
 - Do not fabricate query results. If the query cannot be executed or data is insufficient, say you are not sure or that there is not enough data.
 `.trim();
+
+export function buildDialectSqlPrompt(connectionType?: ConnectionType | null): string {
+    const normalizedType = connectionType === 'neon' ? 'postgres' : connectionType;
+
+    const commonRules = [SQL_TOOL_INSTRUCTION, SQL_RUNNER_GUIDE];
+
+    const dialectRules: string[] = [];
+
+    if (normalizedType === 'postgres') {
+        dialectRules.push(`
+PostgreSQL-specific rules
+
+- Use PostgreSQL syntax only.
+- Do not query non-existent MySQL-style metadata objects such as information_schema.indexes.
+- If you need metadata, prefer the provided schema context first.
+- For table/column metadata, use PostgreSQL-compatible sources only, such as information_schema.columns, pg_catalog, or pg_indexes.
+- For ORDER BY ... LIMIT requests, do not write ad-hoc index-inspection SQL before the main query. Write the target read-only query first and let sqlRunner assess execution risk.
+- If sqlRunner says a sort may be expensive, do not loop on metadata discovery queries unless the user explicitly asks for index analysis.
+`.trim());
+    } else if (normalizedType === 'mysql' || normalizedType === 'mariadb') {
+        dialectRules.push(`
+MySQL-specific rules
+
+- Use MySQL-compatible syntax only.
+- DESCRIBE, SHOW COLUMNS, information_schema.statistics, and other MySQL metadata queries are acceptable when needed.
+- Prefer the provided schema context before issuing metadata queries.
+`.trim());
+    } else if (normalizedType === 'sqlite') {
+        dialectRules.push(`
+SQLite-specific rules
+
+- Use SQLite syntax only.
+- Prefer PRAGMA table_info(...), PRAGMA index_list(...), and PRAGMA index_info(...) for metadata when needed.
+- Do not use PostgreSQL pg_catalog queries or MySQL information_schema queries.
+`.trim());
+    } else if (normalizedType === 'clickhouse' || normalizedType === 'doris') {
+        dialectRules.push(`
+${normalizedType === 'clickhouse' ? 'ClickHouse' : 'Doris'}-specific rules
+
+- Use ${normalizedType === 'clickhouse' ? 'ClickHouse' : 'Doris'} syntax only.
+- Do not invent PostgreSQL or MySQL system catalogs unless they are supported by this engine.
+- Prefer the provided schema context before issuing metadata queries.
+`.trim());
+    }
+
+    return [...commonRules, ...dialectRules].filter(Boolean).join('\n\n');
+}
 
 export const CHART_BUILDER_GUIDE = `
 About charts and the chartBuilder tool

@@ -284,19 +284,14 @@ async function validateSqlPerformance(params: {
         columns: orderByColumns,
     });
 
-    if (indexCoverage === 'covered') {
+    if (indexCoverage === 'covered' || indexCoverage === 'unknown') {
         return null;
     }
-
-    const messageKey =
-        indexCoverage === 'missing'
-            ? 'Api.Chat.SqlRunner.OrderByIndexMissing'
-            : 'Api.Chat.SqlRunner.OrderByIndexUnknown';
 
     return buildErrorResult(
         sql,
         database,
-        t(messageKey, {
+        t('Api.Chat.SqlRunner.OrderByIndexMissing', {
             columns: orderByColumns.join(', '),
             table: sortableQuery.table,
         }),
