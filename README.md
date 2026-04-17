@@ -160,6 +160,7 @@ Native ClickHouse user and role management UI.
 | ---------- | ------------------- |
 | ClickHouse | ✅ Deeply integrated |
 | PostgreSQL | ✅ Supported         |
+| Neon       | ✅ Supported         |
 | MySQL      | ✅ Supported         |
 | MariaDB    | ✅ Supported         |  |
 | SQLite     | ✅ Supported (Beta)  |
