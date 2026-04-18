@@ -9,10 +9,12 @@ import { ChartView } from './chart-view';
 import { type AggregatedChartData, ALL_SERIES_KEY, CHART_COLOR_PRESETS, type ChartColorPreset, type ChartRow, type ChartState, type ChartType, type MetricOption, NONE_VALUE } from './chart-shared';
 import { buildEqualsFilterFromCell } from '../../vtable/filter';
 import { type ColumnFilter } from '../../vtable/type';
+import type { ResultSetStatsV1 } from '@/lib/client/type';
 
 type ChartsProps = {
     rows: ChartRow[];
     columnsRaw?: unknown;
+    resultStats?: ResultSetStatsV1 | null;
     className?: string;
     onApplyFilters?: (filters: ColumnFilter[], options?: { append?: boolean }) => void;
     onResetState?: () => void;
@@ -31,6 +33,7 @@ type ColumnProfile = {
     metricScore: number;
     isBooleanLike: boolean;
     isIdLike: boolean;
+    semanticRole?: string;
 };
 
 type SuggestedChartState = {
@@ -264,10 +267,11 @@ function getColumnType(columnsRaw: unknown, columnName: string) {
     }
 
     const matched = columnsRaw.find(column => column && typeof column === 'object' && 'name' in column && String((column as { name?: unknown }).name ?? '') === columnName) as
-        | { type?: unknown }
+        | { type?: unknown; normalizedType?: unknown }
         | undefined;
 
-    return matched?.type == null ? null : String(matched.type);
+    const result = matched?.normalizedType ?? matched?.type;
+    return result == null ? null : String(result);
 }
 
 function inferSingleValueRange(value: unknown, valueType: 'number' | 'date') {
@@ -366,7 +370,7 @@ function buildMetricOptions(columnProfiles: ColumnProfile[]) {
     return options;
 }
 
-function analyzeColumns(columnNames: string[], rows: ChartRow[]) {
+function analyzeColumns(columnNames: string[], rows: ChartRow[], columnsRaw?: unknown) {
     return columnNames.map<ColumnProfile>(columnName => {
         let nonNullCount = 0;
         let numericCount = 0;
@@ -398,16 +402,26 @@ function analyzeColumns(columnNames: string[], rows: ChartRow[]) {
 
         const normalizedName = columnName.toLowerCase();
         const dateNameHint = /(date|time|day|week|month|year|created|updated|timestamp|_at$|at$)/.test(normalizedName);
-        const metricNameHint = /(revenue|sales|amount|total|count|users?|sessions?|orders?|duration|value|score|price|cost|profit|qty|quantity|size|avg|average)/.test(normalizedName);
+        const metricNameHint = /(^|[_\W])(revenue|sales|amount|total|count|users?|sessions?|orders?|duration|value|score|price|cost|profit|qty|quantity|size|avg|average)([_\W]|$)/.test(normalizedName);
         const idNameHint = /(^id$|_id$|^id_|identifier|uuid|guid|parent_id$)/.test(normalizedName);
         const dateRatio = nonNullCount > 0 ? dateCount / nonNullCount : 0;
         const numericRatio = nonNullCount > 0 ? numericCount / nonNullCount : 0;
         const booleanRatio = nonNullCount > 0 ? booleanLikeCount / nonNullCount : 0;
+        const matchedColumn = Array.isArray(columnsRaw)
+            ? (columnsRaw.find(column => column && typeof column === 'object' && 'name' in column && String((column as { name?: unknown }).name ?? '') === columnName) as
+                  | {
+                        normalizedType?: unknown;
+                        semanticRole?: unknown;
+                    }
+                  | undefined)
+            : undefined;
+        const normalizedType = String(matchedColumn?.normalizedType ?? '');
+        const semanticRole = matchedColumn?.semanticRole == null ? undefined : String(matchedColumn.semanticRole);
 
         let kind: ColumnKind = 'category';
-        if ((dateNameHint && dateRatio >= 0.4) || dateRatio >= 0.8) {
+        if (semanticRole === 'time' || normalizedType === 'date' || normalizedType === 'datetime' || (dateNameHint && dateRatio >= 0.4) || dateRatio >= 0.8) {
             kind = 'date';
-        } else if (numericRatio >= 0.8) {
+        } else if (semanticRole === 'measure' || normalizedType === 'integer' || normalizedType === 'number' || numericRatio >= 0.8) {
             kind = 'numeric';
         }
 
@@ -417,7 +431,8 @@ function analyzeColumns(columnNames: string[], rows: ChartRow[]) {
             distinctCount: distinctValues.size,
             metricScore: (metricNameHint ? 10 : 0) + (kind === 'numeric' ? 1 : 0) - (idNameHint ? 5 : 0),
             isBooleanLike: kind === 'numeric' && booleanRatio >= 0.95,
-            isIdLike: kind === 'numeric' && idNameHint,
+            isIdLike: semanticRole === 'identifier' || (kind === 'numeric' && idNameHint),
+            semanticRole,
         };
     });
 }
@@ -438,7 +453,30 @@ function pickBestCategoryColumn(columnProfiles: ColumnProfile[]) {
         })[0];
 }
 
-function getSuggestedState(columnProfiles: ColumnProfile[]): SuggestedChartState {
+function getSuggestedState(columnProfiles: ColumnProfile[], resultStats?: ResultSetStatsV1 | null): SuggestedChartState {
+    const summary = resultStats?.summary;
+    const primaryTimeColumn = summary?.primaryTimeColumn ?? undefined;
+    const primaryMeasureColumn = summary?.primaryMeasureColumns?.[0];
+    const primaryDimensionColumn = summary?.primaryDimensionColumns?.[0];
+
+    if (summary?.recommendedChart === 'line' && primaryTimeColumn) {
+        return {
+            chartType: 'line',
+            xKey: primaryTimeColumn,
+            yKey: primaryMeasureColumn ? `sum:${primaryMeasureColumn}` : 'count',
+            groupKey: NONE_VALUE,
+        };
+    }
+
+    if (summary?.recommendedChart === 'bar' && primaryDimensionColumn) {
+        return {
+            chartType: 'bar',
+            xKey: primaryDimensionColumn,
+            yKey: primaryMeasureColumn ? `sum:${primaryMeasureColumn}` : 'count',
+            groupKey: NONE_VALUE,
+        };
+    }
+
     const dateColumn = columnProfiles.find(profile => profile.kind === 'date');
     const metricColumn = pickBestMetricColumn(columnProfiles);
     const categoryColumn = pickBestCategoryColumn(columnProfiles);
@@ -862,11 +900,11 @@ function isMetricKeyCompatibleWithColumns(metricKey: string, columnNames: string
     return column ? columnNames.includes(column) : true;
 }
 
-export function Charts({ rows, columnsRaw, className, onApplyFilters, onResetState, stateKey, initialState, onStateChange, stateSyncEnabled = true }: ChartsProps) {
+export function Charts({ rows, columnsRaw, resultStats, className, onApplyFilters, onResetState, stateKey, initialState, onStateChange, stateSyncEnabled = true }: ChartsProps) {
     const { resolvedTheme } = useTheme();
     const columnNames = useMemo(() => getColumnNames(columnsRaw, rows), [columnsRaw, rows]);
-    const columnProfiles = useMemo(() => analyzeColumns(columnNames, rows), [columnNames, rows]);
-    const suggestedState = useMemo(() => getSuggestedState(columnProfiles), [columnProfiles]);
+    const columnProfiles = useMemo(() => analyzeColumns(columnNames, rows, columnsRaw), [columnNames, columnsRaw, rows]);
+    const suggestedState = useMemo(() => getSuggestedState(columnProfiles, resultStats), [columnProfiles, resultStats]);
     const mergedInitialState = useMemo(() => mergeChartState(suggestedState, initialState), [initialState, suggestedState]);
     const hasPersistedState = Boolean(initialState && (initialState.xKey || initialState.yKey || initialState.groupKey || initialState.chartType));
     const lastAppliedStateKeyRef = React.useRef<string | undefined>(stateKey);

@@ -8,6 +8,13 @@
       "when": 1769399838967,
       "tag": "0000_luxuriant_lenny_balinger",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776498850532,
+      "tag": "0001_wild_machine_man",
+      "breakpoints": true
     }
   ]
 }

@@ -18,6 +18,10 @@ export interface VTableProps {
     onRemoveFilter?: (col: string) => void;
     onClearAllFilters?: () => void;
     showFiltersBar?: boolean;
+    initialSort?: { column: string; direction: 'asc' | 'desc' } | null;
+    selectedRowIndexes?: number[];
+    onSortChange?: (sort: { column: string; direction: 'asc' | 'desc' } | null) => void;
+    onSelectedRowIndexesChange?: (rowIndexes: number[]) => void;
 }
 
 export type ColWidths = Record<string, number>;

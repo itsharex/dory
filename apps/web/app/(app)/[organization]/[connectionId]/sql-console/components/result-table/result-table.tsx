@@ -33,10 +33,61 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { useVTableFilters, VTableFilters } from './vtable/VTableFilters';
 import { Tabs, TabsList, TabsTrigger } from '@/registry/new-york-v4/ui/tabs';
+import type { ColumnFilter } from './vtable/type';
+import type { ResultSetViewState } from '@/lib/client/type';
 /* =================================== constants =================================== */
 
 const MAX_ROWS_HINT = 5_000_000; // UI hint only
 const OVERVIEW_SET = -1;
+
+function serializeViewFilters(filters: ColumnFilter[]): NonNullable<ResultSetViewState['filters']> {
+    return filters.map(filter => ({
+        column: filter.col,
+        op: filter.op,
+        value:
+            filter.kind === 'range'
+                ? {
+                      from: filter.value,
+                      to: filter.valueTo,
+                      rangeValueType: filter.rangeValueType,
+                  }
+                : {
+                      value: filter.value,
+                      caseSensitive: filter.caseSensitive ?? false,
+                  },
+    }));
+}
+
+function deserializeViewFilters(filters: ResultSetViewState['filters']): ColumnFilter[] {
+    return (filters ?? []).map(filter => {
+        const payload = filter.value;
+        if (filter.op === 'range' && payload && typeof payload === 'object') {
+            const range = payload as { from?: unknown; to?: unknown; rangeValueType?: unknown };
+            return {
+                col: String(filter.column),
+                kind: 'range',
+                op: 'range',
+                value: range.from == null ? undefined : String(range.from),
+                valueTo: range.to == null ? undefined : String(range.to),
+                rangeValueType: range.rangeValueType === 'date' ? 'date' : 'number',
+            };
+        }
+
+        const scalar = payload && typeof payload === 'object' ? (payload as { value?: unknown; caseSensitive?: unknown }) : null;
+        const rawValue = scalar ? scalar.value : payload;
+        const isNumeric =
+            typeof rawValue === 'number' ||
+            (typeof rawValue === 'string' && rawValue.trim() !== '' && Number.isFinite(Number(rawValue)) && !['contains', 'equals', 'startsWith', 'endsWith', 'empty', 'notEmpty', 'regex'].includes(filter.op));
+
+        return {
+            col: String(filter.column),
+            kind: isNumeric ? 'number' : 'string',
+            op: filter.op as any,
+            value: rawValue == null ? undefined : String(rawValue),
+            caseSensitive: scalar?.caseSensitive === true,
+        };
+    });
+}
 
 /* =================================== component =================================== */
 
@@ -61,7 +112,7 @@ export function ResultTable() {
     const sessionIdFromAtom = useAtomValue(activeSessionIdAtom);
     const sessionId = sessionIdFromAtom ?? (typeof window !== 'undefined' ? (localStorage.getItem(`sqlconsole:sessionId:${tabId}`) ?? undefined) : undefined);
 
-    const { dbReady, listResultSetIndices, listResultSetsMeta, getResultRows, clearResults, dataVersion, getSession } = useDB();
+    const { dbReady, listResultSetIndices, listResultSetsMeta, getResultRows, clearResults, dataVersion, getSession, updateResultSetViewState } = useDB();
 
     // Session status
     const [sessionStatus, setSessionStatus] = useState<'running' | 'success' | 'error' | 'canceled' | null>(null);
@@ -123,6 +174,9 @@ export function ResultTable() {
     const shouldShowLimitNotice = isResult && limited;
 
     const [query, setQuery] = useState('');
+    const [sortState, setSortState] = useState<{ column: string; direction: 'asc' | 'desc' } | null>(null);
+    const [selectedRowIndexes, setSelectedRowIndexes] = useState<number[]>([]);
+    const hydratedViewStateKeyRef = useRef<string | null>(null);
     const [chartStatesByKey, setChartStatesByKey] = useAtom(chartStatesByKeyAtom);
     const [chartStateVersionByTab, setChartStateVersionByTab] = useState<Record<string, number>>({});
     const [chartSnapshotsBySet, setChartSnapshotsBySet] = useState<Record<number, { rows: Array<{ rowData: Record<string, unknown> }>; columnsRaw?: unknown }>>({});
@@ -240,10 +294,36 @@ export function ResultTable() {
         setColumnFilter,
         removeFilter,
         clearAllFilters,
+        replaceFilters,
     } = useVTableFilters({
         results: filteredResults,
         storageKey,
+        disableStorage: true,
     });
+
+    useEffect(() => {
+        if (!sessionId || activeSet < 0) {
+            hydratedViewStateKeyRef.current = null;
+            setQuery('');
+            setSortState(null);
+            setSelectedRowIndexes([]);
+            replaceFilters([]);
+            return;
+        }
+
+        const viewStateKey = `${sessionId}:${activeSet}`;
+        if (hydratedViewStateKeyRef.current === viewStateKey) {
+            return;
+        }
+
+        hydratedViewStateKeyRef.current = viewStateKey;
+        const viewState = (sessionMetas.viewState ?? null) as ResultSetViewState | null;
+
+        setQuery(viewState?.searchText ?? '');
+        setSortState(viewState?.sorts?.[0] ?? null);
+        setSelectedRowIndexes(viewState?.selectedRowIndexes ?? []);
+        replaceFilters(deserializeViewFilters(viewState?.filters));
+    }, [activeSet, replaceFilters, sessionId, sessionMetas.viewState]);
 
     useEffect(() => {
         if (activeSet < 0) {
@@ -261,6 +341,27 @@ export function ResultTable() {
             },
         }));
     }, [activeSet, columnFilteredResults, localDataLoading, sessionMetas.columns, tabId]);
+
+    useEffect(() => {
+        if (!sessionId || activeSet < 0) {
+            return;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            void updateResultSetViewState(sessionId, activeSet, {
+                searchText: query || undefined,
+                sorts: sortState ? [sortState] : undefined,
+                filters: activeFilters.length > 0 ? serializeViewFilters(activeFilters) : undefined,
+                hiddenColumns: [],
+                pinnedColumns: [],
+                selectedRowIndexes: selectedRowIndexes.length > 0 ? selectedRowIndexes : undefined,
+            });
+        }, 250);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [activeFilters, activeSet, query, selectedRowIndexes, sessionId, sortState, updateResultSetViewState]);
 
     const stats = useMemo(
         () => ({
@@ -806,6 +907,10 @@ export function ResultTable() {
                                 onRemoveFilter={removeFilter}
                                 onClearAllFilters={clearAllFilters}
                                 showFiltersBar={false}
+                                initialSort={sortState}
+                                selectedRowIndexes={selectedRowIndexes}
+                                onSortChange={setSortState}
+                                onSelectedRowIndexesChange={setSelectedRowIndexes}
                             />
                         </div>
                         <InspectorPanel
@@ -840,6 +945,7 @@ export function ResultTable() {
                                             key={`${setChartStateKey}:${setVersion}`}
                                             rows={snapshot.rows}
                                             columnsRaw={snapshot.columnsRaw}
+                                            resultStats={setIndex === activeSet ? sessionMetas.stats : undefined}
                                             stateKey={setChartStateKey}
                                             initialState={setInitialState}
                                             stateSyncEnabled={visible ? !localDataLoading[tabId] : false}

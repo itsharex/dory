@@ -24,6 +24,22 @@ const PRIMARY_SELECTION_SUBTLE_CLASS = 'bg-primary/6 text-foreground';
 const PRIMARY_SELECTION_SOFT_CLASS = 'bg-primary/8 text-foreground';
 const PRIMARY_SELECTION_RING_CLASS = 'ring-1 ring-inset ring-primary/40';
 
+function areNumberArraysEqual(left: number[] | undefined, right: number[] | undefined) {
+    if (left === right) return true;
+    if (!left || !right) return !left && !right;
+    if (left.length !== right.length) return false;
+    return left.every((value, index) => value === right[index]);
+}
+
+function areSortStatesEqual(
+    left: { column: string; direction: 'asc' | 'desc' } | null | undefined,
+    right: { column: string; direction: 'asc' | 'desc' } | null | undefined,
+) {
+    if (!left && !right) return true;
+    if (!left || !right) return false;
+    return left.column === right.column && left.direction === right.direction;
+}
+
 function getSampleRowIndices(start: number, stop: number, limit: number) {
     if (stop < start) return [];
 
@@ -56,6 +72,10 @@ export default function VTable({
     onRemoveFilter: onRemoveExternalFilter,
     onClearAllFilters: onClearAllExternalFilters,
     showFiltersBar = true,
+    initialSort = null,
+    selectedRowIndexes,
+    onSortChange,
+    onSelectedRowIndexesChange,
 }: VTableProps) {
     if (!results || results.length === 0) return null;
     const t = useTranslations('SqlConsole');
@@ -193,8 +213,8 @@ export default function VTable({
         return set;
     }, [columnsRaw]);
 
-    const [sortBy, setSortBy] = useState<string | null>(null);
-    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+    const [sortBy, setSortBy] = useState<string | null>(initialSort?.column ?? null);
+    const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(initialSort?.direction ?? 'asc');
     const sortedResults = useMemo(() => {
         if (!sortBy) return filteredResults;
         const isNumericCol = numericColumns.has(sortBy);
@@ -293,6 +313,23 @@ export default function VTable({
         });
     }, [onStatsChange, sortedResults.length, results]);
 
+    useEffect(() => {
+        if (!initialSort) {
+            if (sortBy !== null) {
+                setSortBy(null);
+                setSortDirection('asc');
+            }
+            return;
+        }
+
+        if (sortBy !== initialSort.column) {
+            setSortBy(initialSort.column);
+        }
+        if (sortDirection !== initialSort.direction) {
+            setSortDirection(initialSort.direction);
+        }
+    }, [initialSort, sortBy, sortDirection]);
+
     const handleSort = useCallback(
         (col: string) => {
             if (sortBy === col) setSortDirection(p => (p === 'asc' ? 'desc' : 'asc'));
@@ -304,7 +341,7 @@ export default function VTable({
         [sortBy],
     );
 
-    const [selectedRowIds, setSelectedRowIds] = useState<Set<number>>(new Set());
+    const [selectedRowIds, setSelectedRowIds] = useState<Set<number>>(() => new Set(selectedRowIndexes ?? []));
     const [selectionAnchor, setSelectionAnchor] = useState<number | null>(null);
     const [selectedCells, setSelectedCells] = useState<Set<CellKey>>(new Set());
     const [cellAnchor, setCellAnchor] = useState<{ row: number; col: string } | null>(null);
@@ -318,6 +355,39 @@ export default function VTable({
 
     const gridContainerRef = useRef<HTMLDivElement | null>(null);
     const gridRef = useRef<MultiGrid | null>(null);
+    const lastEmittedSortRef = useRef<{ column: string; direction: 'asc' | 'desc' } | null>(null);
+    const lastEmittedSelectedRowsRef = useRef<number[]>(selectedRowIndexes ?? []);
+
+    useEffect(() => {
+        if (!selectedRowIndexes) {
+            return;
+        }
+        const normalized = [...selectedRowIndexes].sort((left, right) => left - right);
+        const current = [...selectedRowIds].sort((left, right) => left - right);
+        if (areNumberArraysEqual(normalized, current)) {
+            return;
+        }
+        setSelectedRowIds(new Set(normalized));
+    }, [selectedRowIds, selectedRowIndexes]);
+
+    useEffect(() => {
+        const nextSort = sortBy ? { column: sortBy, direction: sortDirection } : null;
+        if (areSortStatesEqual(lastEmittedSortRef.current, nextSort)) {
+            return;
+        }
+        lastEmittedSortRef.current = nextSort;
+        onSortChange?.(nextSort);
+    }, [onSortChange, sortBy, sortDirection]);
+
+    useEffect(() => {
+        const nextRows = [...selectedRowIds].sort((left, right) => left - right);
+        if (areNumberArraysEqual(lastEmittedSelectedRowsRef.current, nextRows)) {
+            return;
+        }
+        lastEmittedSelectedRowsRef.current = nextRows;
+        onSelectedRowIndexesChange?.(nextRows);
+    }, [onSelectedRowIndexesChange, selectedRowIds]);
+
     const syncHeaderHorizontalScroll = useCallback((deltaX: number) => {
         const grid = gridRef.current as
             | (MultiGrid & {
