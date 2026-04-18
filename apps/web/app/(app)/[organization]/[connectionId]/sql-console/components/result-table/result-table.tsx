@@ -482,10 +482,10 @@ export function ResultTable() {
 
         const key = makeCacheKey(tabId, sessionId, activeSet);
 
-        // Cache short-circuit (same dataVersion)
+        // Cache short-circuit. Metadata updates can bump surrounding state without changing rows.
         if (key) {
             const cached = RESULTS_CACHE.get(key);
-            if (cached && cached.dataVersion === dataVersion) {
+            if (cached?.fullyLoaded) {
                 hydrateFromCache(key, {
                     setResults,
                     resultsRef,

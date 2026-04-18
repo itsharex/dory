@@ -212,10 +212,8 @@ export function useDB() {
                 })
                 .where(and(eq(queryResultSet.sessionId, sessionId), eq(queryResultSet.setIndex, setIndex)))
                 .execute();
-
-            bumpDataVersion();
         },
-        [bumpDataVersion],
+        [],
     );
 
 
@@ -720,8 +718,6 @@ export function useDB() {
                     })
                     .where(and(eq(queryResultSet.sessionId, params.sessionId), eq(queryResultSet.setIndex, params.setIndex)))
                     .execute();
-
-                bumpDataVersion();
             } catch (error) {
                 console.warn('[useDB.profileAndPersistResultSet] failed', {
                     sessionId: params.sessionId,
@@ -730,7 +726,7 @@ export function useDB() {
                 });
             }
         },
-        [bumpDataVersion],
+        [],
     );
 
     // ============ One-shot persist: apply backend response (recommended) ============
