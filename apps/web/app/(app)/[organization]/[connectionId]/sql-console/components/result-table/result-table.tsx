@@ -26,6 +26,7 @@ import { DebugPanel, DebugPayload } from './components/DebugPanel';
 import { makeSetUserPickedAtom, makeActiveSetAtom, makeAutoSetActiveSetAtom, makeSetActiveSetAtom, makeUserPickedAtom } from './stores/active-set.atoms';
 import { useAutoJumpToLastResult } from './hooks/useAutoJumpToLastResult';
 import { SQLErrorAlert } from './components/SQLErrorAlert';
+import { ResultOverviewPanel } from './ResultOverviewPanel';
 import { VTableSearchBar } from './components/TableSearchBar';
 import { Charts } from './components/charts';
 import { useTranslations } from 'next-intl';
@@ -94,7 +95,7 @@ function deserializeViewFilters(filters: ResultSetViewState['filters']): ColumnF
 export function ResultTable() {
     const t = useTranslations('SqlConsole');
     const [viewModesByKey, setViewModesByKey] = useAtom(viewModesByTabAtom);
-    const [currentViewMode, setCurrentViewMode] = useState<'table' | 'charts'>('table');
+    const [currentViewMode, setCurrentViewMode] = useState<'overview' | 'table' | 'charts'>('table');
     const [inspectorOpen, setInspectorOpen] = useState(false);
     const [inspectorMode, setInspectorMode] = useState<'cell' | 'row' | null>(null);
     const [inspectorPayload, setInspectorPayload] = useState<any>(null);
@@ -826,7 +827,7 @@ export function ResultTable() {
                         <Tabs
                             value={currentViewMode}
                             onValueChange={value => {
-                                if (value === 'table' || value === 'charts') {
+                                if (value === 'overview' || value === 'table' || value === 'charts') {
                                     setCurrentViewMode(value);
                                     setViewModesByKey(prev => {
                                         if (prev[viewModeKey] === value) return prev;
@@ -846,29 +847,36 @@ export function ResultTable() {
                                     <TabsTrigger value="charts" className="h-6 px-3 text-xs cursor-pointer">
                                         {t('Results.Charts')}
                                     </TabsTrigger>
+                                    <TabsTrigger value="overview" className="h-6 px-3 text-xs cursor-pointer">
+                                        Summary
+                                    </TabsTrigger>
                                 </TabsList>
                             </div>
                         </Tabs>
-                        <div className="flex min-w-0 flex-1 flex-row">
-                            <VTableSearchBar
-                                query={query}
-                                className="w-96 max-w-full"
-                                onQueryChange={setQuery}
-                                onClearQuery={() => setQuery('')}
-                                filteredCount={stats.filteredCount}
-                                totalCount={stats.totalCount}
-                            />
-                            <VTableFilters
-                                activeFilters={activeFilters}
-                                columnsRaw={sessionMetas.columns ?? []}
-                                onUpsertFilter={setColumnFilter}
-                                onRemoveFilter={removeFilter}
-                                onClearAllFilters={clearAllFilters}
-                                className="border-0 bg-transparent px-0 py-0"
-                            />
-                        </div>
+                        {currentViewMode === 'table' ? (
+                            <div className="flex min-w-0 flex-1 flex-row">
+                                <VTableSearchBar
+                                    query={query}
+                                    className="w-96 max-w-full"
+                                    onQueryChange={setQuery}
+                                    onClearQuery={() => setQuery('')}
+                                    filteredCount={stats.filteredCount}
+                                    totalCount={stats.totalCount}
+                                />
+                                <VTableFilters
+                                    activeFilters={activeFilters}
+                                    columnsRaw={sessionMetas.columns ?? []}
+                                    onUpsertFilter={setColumnFilter}
+                                    onRemoveFilter={removeFilter}
+                                    onClearAllFilters={clearAllFilters}
+                                    className="border-0 bg-transparent px-0 py-0"
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex-1" />
+                        )}
                         <div className="flex items-center gap-1.5 mr-2">
-                            {isResult && (
+                            {isResult && currentViewMode === 'table' && (
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button
@@ -892,7 +900,9 @@ export function ResultTable() {
                         </div>
                     </div>
                 </div>
-                {currentViewMode === 'table' ? (
+                {currentViewMode === 'overview' ? (
+                    <ResultOverviewPanel stats={sessionMetas.stats} columns={sessionMetas.columns} rowCount={results.length} />
+                ) : currentViewMode === 'table' ? (
                     <>
                         <div className="flex-1 min-h-0">
                             <VTable

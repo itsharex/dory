@@ -5,6 +5,6 @@ export const chartStatesByKeyAtom = atomWithStorage<Record<string, ChartState>>(
     getOnInit: true,
 });
 
-export const viewModesByTabAtom = atomWithStorage<Record<string, 'table' | 'charts'>>('sqlconsole:result-table:view-modes:v1', {}, undefined, {
+export const viewModesByTabAtom = atomWithStorage<Record<string, 'overview' | 'table' | 'charts'>>('sqlconsole:result-table:view-modes:v1', {}, undefined, {
     getOnInit: true,
 });
