@@ -258,6 +258,10 @@ const ChatBotComp = ({
 
     const initialPromptSubmittedRef = useRef(false);
     useEffect(() => {
+        initialPromptSubmittedRef.current = false;
+    }, [chatStateId, initialPrompt]);
+
+    useEffect(() => {
         if (initialPrompt && !initialPromptSubmittedRef.current && status === 'ready') {
             initialPromptSubmittedRef.current = true;
             handleSubmit({ text: initialPrompt, files: [] });

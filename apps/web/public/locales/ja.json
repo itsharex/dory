@@ -1348,6 +1348,100 @@
             "WaitingForResults": "結果を待機中...",
             "DownloadCsvTitle": "CSV をダウンロード"
         },
+        "Insights": {
+            "Title": "Insights",
+            "Subtitle": "現在の結果セットを人向けに説明する軽量レイヤーです。",
+            "Loading": "現在の結果セットを解析しています...",
+            "Kinds": {
+                "SingleValue": "単一値",
+                "TimeSeries": "時系列",
+                "AggregatedTable": "集計テーブル",
+                "DetailTable": "明細テーブル",
+                "Unknown": "不明"
+            },
+            "Charts": {
+                "Table": "表で確認向き",
+                "Bar": "棒グラフ向き",
+                "Line": "折れ線グラフ向き",
+                "Pie": "円グラフ向き",
+                "Metric": "メトリック向き",
+                "Scatter": "散布図向き",
+                "Unknown": "探索向き"
+            },
+            "QuickSummary": {
+                "SectionTitle": "Quick Summary",
+                "Title": "{kind} · {rows} rows · {columns} columns · {chartStatus}",
+                "ChartReady": "グラフ向き",
+                "ExplorationReady": "探索向き",
+                "TimeDetail": "主要な時間列: {column}（{grain}）",
+                "ChartHint": "次に見るなら: {chart}"
+            },
+            "TimeGrain": {
+                "Detail": "{grain}",
+                "EventLevel": "イベント粒度",
+                "second": "秒粒度",
+                "minute": "分粒度",
+                "hour": "時間粒度",
+                "day": "日粒度",
+                "week": "週粒度",
+                "month": "月粒度",
+                "quarter": "四半期粒度",
+                "year": "年粒度"
+            },
+            "KeyInsights": {
+                "SectionTitle": "Key Insights",
+                "Description": "結果プロファイルから生成した平易な要点です。",
+                "Empty": "まだ明確な傾向は見えていません。フィルタやチャートを試してください。"
+            },
+            "Messages": {
+                "PrimaryCategory": "{column} は {value} が中心で、およそ {share} を占めます。",
+                "RiskCategory": "{column} の中で {value} が約 {share} を占めており、優先的に確認する価値があります。",
+                "TopDimension": "{value} は {column} の中でも特に多い値の一つです（{count} rows）。",
+                "TopMessage": "よく見られる内容は「{value}」です（{count} rows）。",
+                "TimeTrend": "{column} を軸に時系列で見ると、急増や変化を見つけやすい結果です。",
+                "MeasureSpread": "{column} にはばらつきがあり、p50 は {p50} 前後、p95 は {p95} 前後です。",
+                "HighCardinality": "{column} は高カーディナリティに見えるため、要約よりフィルタ用途に向いています。"
+            },
+            "KeyColumns": {
+                "SectionTitle": "Key Columns",
+                "Time": "Time",
+                "Measure": "Measure",
+                "Dimensions": "Dimensions",
+                "Identifier": "Identifier",
+                "Empty": "未検出"
+            },
+            "RecommendedActions": {
+                "SectionTitle": "Recommended Actions",
+                "Description": "次の分析ステップを入力済みの状態で Copilot を開きます。"
+            },
+            "Actions": {
+                "TimeErrorTrend": "error の時系列を見る",
+                "ServiceErrorBreakdown": "service 別に error を見る",
+                "TopMessages": "主要な messages を確認する",
+                "ExplainResult": "この結果を説明する"
+            },
+            "ActionPrompts": {
+                "CurrentResult": "現在の結果",
+                "TimeErrorTrend": "現在の結果と SQL（{sql}）をもとに、{timeColumn} を使って error の時系列傾向を見る次のクエリ案を提案してください。どう集計すべきかも説明してください。",
+                "ServiceErrorBreakdown": "現在の結果と SQL（{sql}）をもとに、{serviceColumn} ごとに error を分解して見る次のクエリ案を提案してください。実用的にまとめてください。",
+                "TopMessages": "現在の結果と SQL（{sql}）をもとに、{messageColumn} の上位値を確認する次のクエリ案を提案してください。適した表示方法も添えてください。",
+                "ExplainResult": "現在の結果と SQL（{sql}）をもとに、この結果が何を意味するか、何が目立つか、次に何を聞くべきかを平易に説明してください。"
+            },
+            "Profile": {
+                "Title": "Profile (Advanced)",
+                "Description": "Insights の元になった詳細シグナルと列統計です。",
+                "SignalsTitle": "Quick Signals",
+                "NullRatio": "Null 比率",
+                "DuplicateRows": "重複行",
+                "ChartReadiness": "グラフ向き",
+                "RowCount": "行数",
+                "Yes": "はい",
+                "No": "いいえ",
+                "HighlightedColumns": "主要な列ロール",
+                "ColumnStatsTitle": "Column Stats",
+                "ColumnStatLine": "Distinct {distinct} · Null {nulls}"
+            }
+        },
         "Overview": {
             "Status": "状態",
             "Sql": "SQL",

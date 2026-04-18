@@ -1352,6 +1352,100 @@
             "WaitingForResults": "等待结果中...",
             "DownloadCsvTitle": "下载 CSV"
         },
+        "Insights": {
+            "Title": "Insights",
+            "Subtitle": "面向当前结果集的轻量解释层。",
+            "Loading": "正在分析当前结果集...",
+            "Kinds": {
+                "SingleValue": "单值结果",
+                "TimeSeries": "时间序列",
+                "AggregatedTable": "聚合结果",
+                "DetailTable": "明细结果",
+                "Unknown": "未知"
+            },
+            "Charts": {
+                "Table": "适合先看表格",
+                "Bar": "适合柱状图",
+                "Line": "适合折线图",
+                "Pie": "适合饼图",
+                "Metric": "适合指标卡",
+                "Scatter": "适合散点图",
+                "Unknown": "适合继续探索"
+            },
+            "QuickSummary": {
+                "SectionTitle": "Quick Summary",
+                "Title": "{kind} · {rows} 行 · {columns} 列 · {chartStatus}",
+                "ChartReady": "适合做图",
+                "ExplorationReady": "适合继续探索",
+                "TimeDetail": "主要时间列：{column}（{grain}）",
+                "ChartHint": "建议下一步视图：{chart}"
+            },
+            "TimeGrain": {
+                "Detail": "{grain}",
+                "EventLevel": "事件级",
+                "second": "秒级",
+                "minute": "分钟级",
+                "hour": "小时级",
+                "day": "天级",
+                "week": "周级",
+                "month": "月级",
+                "quarter": "季度级",
+                "year": "年级"
+            },
+            "KeyInsights": {
+                "SectionTitle": "Key Insights",
+                "Description": "基于结果画像生成的人话结论。",
+                "Empty": "暂时没有特别明显的模式，可以先试试筛选或图表。"
+            },
+            "Messages": {
+                "PrimaryCategory": "{column} 主要由 {value} 构成，约占 {share}。",
+                "RiskCategory": "{column} 中 {value} 约占 {share}，建议优先排查这一部分。",
+                "TopDimension": "{value} 是 {column} 中最活跃的值之一（约 {count} 行）。",
+                "TopMessage": "常见内容之一是“{value}”（约 {count} 行）。",
+                "TimeTrend": "这份结果很适合围绕 {column} 做时间趋势分析，用来识别峰值和变化。",
+                "MeasureSpread": "{column} 的分布有一定跨度，p50 约为 {p50}，p95 约为 {p95}。",
+                "HighCardinality": "{column} 看起来是高基数字段，更适合拿来筛选，而不是直接做结论摘要。"
+            },
+            "KeyColumns": {
+                "SectionTitle": "Key Columns",
+                "Time": "Time",
+                "Measure": "Measure",
+                "Dimensions": "Dimensions",
+                "Identifier": "Identifier",
+                "Empty": "未识别"
+            },
+            "RecommendedActions": {
+                "SectionTitle": "Recommended Actions",
+                "Description": "打开 Copilot，并预填下一步分析方向。"
+            },
+            "Actions": {
+                "TimeErrorTrend": "按时间分析 error 趋势",
+                "ServiceErrorBreakdown": "按 service 拆解 error",
+                "TopMessages": "查看高频 messages",
+                "ExplainResult": "解释这个结果"
+            },
+            "ActionPrompts": {
+                "CurrentResult": "当前结果",
+                "TimeErrorTrend": "基于当前结果和 SQL（{sql}），建议下一条用于分析 {timeColumn} 时间维度上 error 趋势的查询，并说明应该按什么分组、为什么这样做。",
+                "ServiceErrorBreakdown": "基于当前结果和 SQL（{sql}），建议下一条用于按 {serviceColumn} 拆解 error 分布的查询，结论尽量直接可执行。",
+                "TopMessages": "基于当前结果和 SQL（{sql}），建议下一条用于查看 {messageColumn} 高频值的查询，并说明更适合用什么图表或表格视图。",
+                "ExplainResult": "请用自然语言解释这个结果说明了什么、哪些点最值得关注、下一步应该继续问什么。基于当前结果和 SQL（{sql}）回答。"
+            },
+            "Profile": {
+                "Title": "Profile (Advanced)",
+                "Description": "用于生成 Insights 的详细信号和列统计。",
+                "SignalsTitle": "Quick Signals",
+                "NullRatio": "空值占比",
+                "DuplicateRows": "重复行占比",
+                "ChartReadiness": "适合做图",
+                "RowCount": "行数",
+                "Yes": "是",
+                "No": "否",
+                "HighlightedColumns": "关键列角色",
+                "ColumnStatsTitle": "Column Stats",
+                "ColumnStatLine": "去重值 {distinct} · 空值 {nulls}"
+            }
+        },
         "Overview": {
             "Status": "状态",
             "Sql": "SQL",

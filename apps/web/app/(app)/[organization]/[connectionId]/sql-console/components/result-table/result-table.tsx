@@ -78,7 +78,10 @@ function deserializeViewFilters(filters: ResultSetViewState['filters']): ColumnF
         const rawValue = scalar ? scalar.value : payload;
         const isNumeric =
             typeof rawValue === 'number' ||
-            (typeof rawValue === 'string' && rawValue.trim() !== '' && Number.isFinite(Number(rawValue)) && !['contains', 'equals', 'startsWith', 'endsWith', 'empty', 'notEmpty', 'regex'].includes(filter.op));
+            (typeof rawValue === 'string' &&
+                rawValue.trim() !== '' &&
+                Number.isFinite(Number(rawValue)) &&
+                !['contains', 'equals', 'startsWith', 'endsWith', 'empty', 'notEmpty', 'regex'].includes(filter.op));
 
         return {
             col: String(filter.column),
@@ -848,7 +851,7 @@ export function ResultTable() {
                                         {t('Results.Charts')}
                                     </TabsTrigger>
                                     <TabsTrigger value="overview" className="h-6 px-3 text-xs cursor-pointer">
-                                        Summary
+                                        {t('Insights.Title')}
                                     </TabsTrigger>
                                 </TabsList>
                             </div>
@@ -901,7 +904,7 @@ export function ResultTable() {
                     </div>
                 </div>
                 {currentViewMode === 'overview' ? (
-                    <ResultOverviewPanel stats={sessionMetas.stats} columns={sessionMetas.columns} rowCount={results.length} />
+                    <ResultOverviewPanel stats={sessionMetas.stats} columns={sessionMetas.columns} rowCount={results.length} sqlText={sessionMetas.sqlText} />
                 ) : currentViewMode === 'table' ? (
                     <>
                         <div className="flex-1 min-h-0">
@@ -939,7 +942,8 @@ export function ResultTable() {
                     <div className="flex min-h-0 flex-1">
                         {chartSetIndices.map(setIndex => {
                             const setChartStateKey = tabId ? `tab:${tabId}:set:${setIndex}` : 'unknown';
-                            const snapshot = chartSnapshotsBySet[setIndex] ?? (setIndex === activeSet ? { rows: columnFilteredResults, columnsRaw: sessionMetas.columns } : undefined);
+                            const snapshot =
+                                chartSnapshotsBySet[setIndex] ?? (setIndex === activeSet ? { rows: columnFilteredResults, columnsRaw: sessionMetas.columns } : undefined);
                             if (!snapshot) {
                                 return null;
                             }

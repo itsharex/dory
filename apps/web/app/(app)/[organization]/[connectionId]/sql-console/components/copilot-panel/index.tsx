@@ -16,6 +16,7 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { activeDatabaseAtom, currentConnectionAtom } from '@/shared/stores/app.store';
 import { currentSessionMetaAtom } from '../result-table/stores/result-table.atoms';
+import { copilotPromptRequestAtom } from '../result-table/stores/copilot-prompt.atoms';
 import { copilotActionRequestAtom, editorSelectionByTabAtom } from '../../sql-console.store';
 import type { SQLEditorHandle } from '../sql-editor';
 import AskTab, { type ActionsState } from './ask';
@@ -45,6 +46,7 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
     const sessionMeta = useAtomValue(currentSessionMetaAtom);
     const selectionByTab = useAtomValue(editorSelectionByTabAtom);
     const [actionRequest, setActionRequest] = useAtom(copilotActionRequestAtom);
+    const [promptRequest, setPromptRequest] = useAtom(copilotPromptRequestAtom);
 
     const [subTab, setSubTab] = useState<SubTabKey>('ask');
     const [actionsState, setActionsState] = useState<ActionsState | null>(null);
@@ -284,6 +286,12 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
         }
     }, [actionRequest?.id]);
 
+    useEffect(() => {
+        if (promptRequest?.id) {
+            setSubTab('ask');
+        }
+    }, [promptRequest?.id]);
+
     return (
         <div className="flex h-full min-h-0 flex-col border-t">
             <div className="flex-1 min-h-0">
@@ -325,6 +333,11 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                                     chat={chat}
                                     copilotEnvelope={copilotEnvelope}
                                     actionsState={actionsState}
+                                    initialPrompt={promptRequest?.prompt ?? null}
+                                    onInitialPromptConsumed={() => {
+                                        if (!promptRequest?.id) return;
+                                        setPromptRequest(prev => (prev?.id === promptRequest.id ? null : prev));
+                                    }}
                                     onExecuteAction={onExecuteAction}
                                     onGoToActions={() => setSubTab('action')}
                                 />
