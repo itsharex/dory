@@ -1402,7 +1402,11 @@
                 "TopMessage": "A common message is “{value}” ({count} rows).",
                 "TimeTrend": "This result is well-suited for a time trend on {column} to spot spikes and shifts.",
                 "MeasureSpread": "{column} shows a noticeable spread, with p50 around {p50} and p95 around {p95}.",
-                "HighCardinality": "{column} looks high-cardinality, so it is better used for filtering than headline summaries."
+                "HighCardinality": "{column} looks high-cardinality, so it is better used for filtering than headline summaries.",
+                "SpikePattern": "{bucket} stands out as a spike, reaching {value} versus a typical level near {baseline}.",
+                "DropPattern": "{bucket} drops below the usual level, landing at {value} versus a baseline near {baseline}.",
+                "OutlierPattern": "{column} contains extreme values, including a sample around {value}.",
+                "CorrelationPattern": "{left} and {right} tend to move together in this sample (correlation {correlation})."
             },
             "KeyColumns": {
                 "SectionTitle": "Key Columns",
@@ -1420,6 +1424,7 @@
                 "TimeErrorTrend": "Analyze error trend over time",
                 "ServiceErrorBreakdown": "Break down errors by service",
                 "TopMessages": "Review top messages",
+                "PatternFollowUp": "Follow up on this pattern",
                 "ExplainResult": "Explain this result"
             },
             "ActionPrompts": {
@@ -1427,7 +1432,12 @@
                 "TimeErrorTrend": "Use the current result and SQL ({sql}) to suggest the next query for tracking error trends over time with {timeColumn}. Explain what to group by and why.",
                 "ServiceErrorBreakdown": "Use the current result and SQL ({sql}) to suggest the next query for breaking down errors by {serviceColumn}. Keep the recommendation focused and practical.",
                 "TopMessages": "Use the current result and SQL ({sql}) to suggest the next query for reviewing top values in {messageColumn}. Mention the best chart or table view to use.",
+                "PatternFollowUp": "Use the current result and SQL ({sql}) to investigate this pattern: {pattern}. Focus on columns {columns}. Suggest the next query and explain why it should help.",
                 "ExplainResult": "Explain what this result means in plain language, what stands out, and what to ask next. Base your answer on the current result and SQL ({sql})."
+            },
+            "Source": {
+                "Llm": "Rewritten with AI",
+                "Rules": "Based on rule analysis"
             },
             "Profile": {
                 "Title": "Profile (Advanced)",

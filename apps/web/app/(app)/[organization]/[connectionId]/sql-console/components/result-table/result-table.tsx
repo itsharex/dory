@@ -93,6 +93,13 @@ function deserializeViewFilters(filters: ResultSetViewState['filters']): ColumnF
     });
 }
 
+function areNumberArraysEqual(left: number[] | undefined, right: number[] | undefined) {
+    if (left === right) return true;
+    if (!left || !right) return !left && !right;
+    if (left.length !== right.length) return false;
+    return left.every((value, index) => value === right[index]);
+}
+
 /* =================================== component =================================== */
 
 export function ResultTable() {
@@ -181,6 +188,7 @@ export function ResultTable() {
     const [sortState, setSortState] = useState<{ column: string; direction: 'asc' | 'desc' } | null>(null);
     const [selectedRowIndexes, setSelectedRowIndexes] = useState<number[]>([]);
     const hydratedViewStateKeyRef = useRef<string | null>(null);
+    const persistedViewStateRef = useRef<string | null>(null);
     const [chartStatesByKey, setChartStatesByKey] = useAtom(chartStatesByKeyAtom);
     const [chartStateVersionByTab, setChartStateVersionByTab] = useState<Record<string, number>>({});
     const [chartSnapshotsBySet, setChartSnapshotsBySet] = useState<Record<number, { rows: Array<{ rowData: Record<string, unknown> }>; columnsRaw?: unknown }>>({});
@@ -322,6 +330,14 @@ export function ResultTable() {
 
         hydratedViewStateKeyRef.current = viewStateKey;
         const viewState = (sessionMetas.viewState ?? null) as ResultSetViewState | null;
+        persistedViewStateRef.current = JSON.stringify({
+            searchText: viewState?.searchText ?? undefined,
+            sorts: viewState?.sorts?.[0] ? [viewState.sorts[0]] : undefined,
+            filters: viewState?.filters ?? undefined,
+            hiddenColumns: [],
+            pinnedColumns: [],
+            selectedRowIndexes: viewState?.selectedRowIndexes?.length ? viewState.selectedRowIndexes : undefined,
+        });
 
         setQuery(viewState?.searchText ?? '');
         setSortState(viewState?.sorts?.[0] ?? null);
@@ -352,14 +368,20 @@ export function ResultTable() {
         }
 
         const timeoutId = window.setTimeout(() => {
-            void updateResultSetViewState(sessionId, activeSet, {
+            const nextViewState = {
                 searchText: query || undefined,
                 sorts: sortState ? [sortState] : undefined,
                 filters: activeFilters.length > 0 ? serializeViewFilters(activeFilters) : undefined,
                 hiddenColumns: [],
                 pinnedColumns: [],
                 selectedRowIndexes: selectedRowIndexes.length > 0 ? selectedRowIndexes : undefined,
-            });
+            };
+            const serialized = JSON.stringify(nextViewState);
+            if (persistedViewStateRef.current === serialized) {
+                return;
+            }
+            persistedViewStateRef.current = serialized;
+            void updateResultSetViewState(sessionId, activeSet, nextViewState);
         }, 250);
 
         return () => {
@@ -376,6 +398,14 @@ export function ResultTable() {
     );
 
     const onStatsChange = useCallback(() => {}, []);
+    const handleSelectedRowIndexesChange = useCallback((next: number[]) => {
+        setSelectedRowIndexes(prev => {
+            if (areNumberArraysEqual(prev, next)) {
+                return prev;
+            }
+            return next;
+        });
+    }, []);
 
     /* ---------- Reset on Tab switch ---------- */
     useEffect(() => {
@@ -904,7 +934,13 @@ export function ResultTable() {
                     </div>
                 </div>
                 {currentViewMode === 'overview' ? (
-                    <ResultOverviewPanel stats={sessionMetas.stats} columns={sessionMetas.columns} rowCount={results.length} sqlText={sessionMetas.sqlText} />
+                    <ResultOverviewPanel
+                        stats={sessionMetas.stats}
+                        columns={sessionMetas.columns}
+                        rowCount={results.length}
+                        sqlText={sessionMetas.sqlText}
+                        rows={results.slice(0, 2000).map(result => result.rowData as Record<string, unknown>)}
+                    />
                 ) : currentViewMode === 'table' ? (
                     <>
                         <div className="flex-1 min-h-0">
@@ -923,7 +959,7 @@ export function ResultTable() {
                                 initialSort={sortState}
                                 selectedRowIndexes={selectedRowIndexes}
                                 onSortChange={setSortState}
-                                onSelectedRowIndexesChange={setSelectedRowIndexes}
+                                onSelectedRowIndexesChange={handleSelectedRowIndexesChange}
                             />
                         </div>
                         <InspectorPanel

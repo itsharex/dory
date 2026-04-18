@@ -363,12 +363,15 @@ export default function VTable({
             return;
         }
         const normalized = [...selectedRowIndexes].sort((left, right) => left - right);
-        const current = [...selectedRowIds].sort((left, right) => left - right);
-        if (areNumberArraysEqual(normalized, current)) {
-            return;
-        }
-        setSelectedRowIds(new Set(normalized));
-    }, [selectedRowIds, selectedRowIndexes]);
+        setSelectedRowIds(prev => {
+            const current = [...prev].sort((left, right) => left - right);
+            if (areNumberArraysEqual(normalized, current)) {
+                return prev;
+            }
+            return new Set(normalized);
+        });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedRowIndexes]);
 
     useEffect(() => {
         const nextSort = sortBy ? { column: sortBy, direction: sortDirection } : null;

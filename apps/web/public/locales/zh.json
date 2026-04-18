@@ -1404,7 +1404,11 @@
                 "TopMessage": "常见内容之一是“{value}”（约 {count} 行）。",
                 "TimeTrend": "这份结果很适合围绕 {column} 做时间趋势分析，用来识别峰值和变化。",
                 "MeasureSpread": "{column} 的分布有一定跨度，p50 约为 {p50}，p95 约为 {p95}。",
-                "HighCardinality": "{column} 看起来是高基数字段，更适合拿来筛选，而不是直接做结论摘要。"
+                "HighCardinality": "{column} 看起来是高基数字段，更适合拿来筛选，而不是直接做结论摘要。",
+                "SpikePattern": "{bucket} 出现了明显峰值，达到 {value}，而常态大约在 {baseline} 附近。",
+                "DropPattern": "{bucket} 明显低于平时水平，只有 {value}，而常态大约在 {baseline} 附近。",
+                "OutlierPattern": "{column} 中存在极端值，样本里可见约 {value} 的高值。",
+                "CorrelationPattern": "在当前样本中，{left} 和 {right} 呈现同向变化趋势（相关系数 {correlation}）。"
             },
             "KeyColumns": {
                 "SectionTitle": "Key Columns",
@@ -1422,6 +1426,7 @@
                 "TimeErrorTrend": "按时间分析 error 趋势",
                 "ServiceErrorBreakdown": "按 service 拆解 error",
                 "TopMessages": "查看高频 messages",
+                "PatternFollowUp": "继续分析这个模式",
                 "ExplainResult": "解释这个结果"
             },
             "ActionPrompts": {
@@ -1429,7 +1434,12 @@
                 "TimeErrorTrend": "基于当前结果和 SQL（{sql}），建议下一条用于分析 {timeColumn} 时间维度上 error 趋势的查询，并说明应该按什么分组、为什么这样做。",
                 "ServiceErrorBreakdown": "基于当前结果和 SQL（{sql}），建议下一条用于按 {serviceColumn} 拆解 error 分布的查询，结论尽量直接可执行。",
                 "TopMessages": "基于当前结果和 SQL（{sql}），建议下一条用于查看 {messageColumn} 高频值的查询，并说明更适合用什么图表或表格视图。",
+                "PatternFollowUp": "基于当前结果和 SQL（{sql}），进一步分析这个模式：{pattern}。重点围绕这些列 {columns}，给出下一条查询建议，并说明为什么这样查。",
                 "ExplainResult": "请用自然语言解释这个结果说明了什么、哪些点最值得关注、下一步应该继续问什么。基于当前结果和 SQL（{sql}）回答。"
+            },
+            "Source": {
+                "Llm": "已用 AI 改写",
+                "Rules": "基于规则分析"
             },
             "Profile": {
                 "Title": "Profile (Advanced)",

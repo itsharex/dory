@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useSetAtom } from 'jotai';
 import { useLocale, useTranslations } from 'next-intl';
 import { Sparkles, Sigma, Lightbulb, BarChart3, CalendarRange, ChevronDown, Binary, Hash } from 'lucide-react';
@@ -10,9 +10,11 @@ import { Button } from '@/registry/new-york-v4/ui/button';
 import { Separator } from '@/registry/new-york-v4/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/registry/new-york-v4/ui/collapsible';
 import type { ResultColumnMeta, ResultSetStatsV1 } from '@/lib/client/type';
-import { buildInsights, type InsightAction } from '@/lib/client/result-set-insights';
+import { buildInsights, buildInsightRewriteRequest, type InsightAction, type InsightRewriteResponse } from '@/lib/client/result-set-insights';
 import { copilotPanelOpenAtom } from '../../sql-console.store';
 import { copilotPromptRequestAtom } from './stores/copilot-prompt.atoms';
+
+const insightRewriteCache = new Map<string, InsightRewriteResponse | null>();
 
 function formatRatio(value?: number | null, digits = 1) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -83,26 +85,50 @@ function KeyColumnGroup(props: { label: string; values: string[]; emptyLabel: st
     );
 }
 
-export function ResultOverviewPanel(props: { stats?: ResultSetStatsV1 | null; columns?: ResultColumnMeta[] | null; rowCount?: number; sqlText?: string | null }) {
-    const { stats, columns, rowCount, sqlText } = props;
+export function ResultOverviewPanel(props: {
+    stats?: ResultSetStatsV1 | null;
+    columns?: ResultColumnMeta[] | null;
+    rowCount?: number;
+    sqlText?: string | null;
+    rows?: Array<Record<string, unknown>> | null;
+}) {
+    const { stats, columns, rowCount, sqlText, rows } = props;
     const t = useTranslations('SqlConsole');
     const locale = useLocale();
     const setCopilotPanelOpen = useSetAtom(copilotPanelOpenAtom);
     const setCopilotPromptRequest = useSetAtom(copilotPromptRequestAtom);
+    const [rewritten, setRewritten] = useState<InsightRewriteResponse | null>(null);
 
     const summary = stats?.summary ?? null;
     const profiledColumns = columns ?? [];
-
-    const insightView = useMemo(
+    const rewriteRequest = useMemo(
         () =>
-            buildInsights({
+            buildInsightRewriteRequest({
                 stats,
                 columns,
                 sqlText,
+                rows,
                 locale,
                 t: (key, values) => t(key as any, values),
             }),
-        [columns, locale, sqlText, stats, t],
+        [columns, locale, rows, sqlText, stats, t],
+    );
+    const rewriteCacheKey = useMemo(() => (rewriteRequest ? JSON.stringify(rewriteRequest) : null), [rewriteRequest]);
+
+    const insightView = useMemo(
+        () =>
+            buildInsights(
+                {
+                    stats,
+                    columns,
+                    sqlText,
+                    rows,
+                    locale,
+                    t: (key, values) => t(key as any, values),
+                },
+                rewritten,
+            ),
+        [columns, locale, rewritten, rows, sqlText, stats, t],
     );
 
     const highlightedColumns = profiledColumns.filter(column => ['time', 'measure', 'dimension', 'identifier'].includes(column.semanticRole ?? '')).slice(0, 6);
@@ -118,6 +144,48 @@ export function ResultOverviewPanel(props: { stats?: ResultSetStatsV1 | null; co
             prompt: action.prompt,
         });
     };
+
+    useEffect(() => {
+        if (!rewriteRequest || !rewriteCacheKey) {
+            setRewritten(null);
+            return;
+        }
+
+        if (insightRewriteCache.has(rewriteCacheKey)) {
+            setRewritten(insightRewriteCache.get(rewriteCacheKey) ?? null);
+            return;
+        }
+
+        const controller = new AbortController();
+        let cancelled = false;
+
+        void (async () => {
+            try {
+                const response = await fetch('/api/ai/result-insights', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(rewriteRequest),
+                    signal: controller.signal,
+                });
+
+                const payload = (await response.json().catch(() => null)) as InsightRewriteResponse | null;
+                if (cancelled) return;
+                insightRewriteCache.set(rewriteCacheKey, payload ?? null);
+                setRewritten(payload ?? null);
+            } catch (error) {
+                if (controller.signal.aborted || cancelled) return;
+                insightRewriteCache.set(rewriteCacheKey, null);
+                setRewritten(null);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+            controller.abort();
+        };
+    }, [rewriteCacheKey, rewriteRequest]);
 
     return (
         <div className="flex h-full min-h-0 w-full bg-muted/20">
@@ -149,6 +217,7 @@ export function ResultOverviewPanel(props: { stats?: ResultSetStatsV1 | null; co
                             ) : (
                                 <div className="text-xs text-muted-foreground">{t('Insights.KeyInsights.Empty')}</div>
                             )}
+                            <div className="mt-3 text-[11px] text-muted-foreground">{insightView.source === 'llm' ? t('Insights.Source.Llm') : t('Insights.Source.Rules')}</div>
                         </div>
                     </Section>
 

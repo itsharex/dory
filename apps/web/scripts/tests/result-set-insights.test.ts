@@ -1,65 +1,28 @@
 import assert from 'node:assert/strict';
 import { profileResultSet } from '@/lib/client/result-set-ai';
-import { buildInsights } from '@/lib/client/result-set-insights';
+import { buildInsightDraft, buildInsightRewriteRequest, buildInsights } from '@/lib/client/result-set-insights';
 
 function translate(key: string, values?: Record<string, string | number>) {
     return `${key}${values ? ` ${JSON.stringify(values)}` : ''}`;
 }
 
-function testTimeSeriesInsights() {
+function testFactsAndPatternsForTimeSeries() {
+    const rows = [
+        { created_at: '2025-01-01T00:00:00.000Z', level: 'info', duration_ms: 10, queue_ms: 5 },
+        { created_at: '2025-01-01T01:00:00.000Z', level: 'info', duration_ms: 12, queue_ms: 7 },
+        { created_at: '2025-01-01T02:00:00.000Z', level: 'info', duration_ms: 11, queue_ms: 6 },
+        { created_at: '2025-01-01T03:00:00.000Z', level: 'error', duration_ms: 100, queue_ms: 60 },
+        { created_at: '2025-01-01T04:00:00.000Z', level: 'warn', duration_ms: 13, queue_ms: 8 },
+        { created_at: '2025-01-01T05:00:00.000Z', level: 'info', duration_ms: 14, queue_ms: 9 },
+    ];
+
     const profiled = profileResultSet({
-        sqlText: 'select created_at, level, duration_ms from logs',
+        sqlText: 'select created_at, level, duration_ms, queue_ms from logs',
         rawColumns: [
             { name: 'created_at', type: 'timestamp' },
             { name: 'level', type: 'text' },
             { name: 'duration_ms', type: 'numeric' },
-        ],
-        rows: [
-            { created_at: '2025-01-01T00:00:00.000Z', level: 'info', duration_ms: 100 },
-            { created_at: '2025-01-01T01:00:00.000Z', level: 'error', duration_ms: 450 },
-            { created_at: '2025-01-01T02:00:00.000Z', level: 'info', duration_ms: 900 },
-            { created_at: '2025-01-01T03:00:00.000Z', level: 'warn', duration_ms: 1200 },
-        ],
-        rowCount: 4,
-        limited: false,
-        limit: null,
-    });
-
-    const view = buildInsights({
-        stats: profiled.stats,
-        columns: profiled.columns,
-        sqlText: 'select created_at, level, duration_ms from logs',
-        locale: 'en',
-        t: translate,
-    });
-
-    assert.equal(view.keyColumns.time, 'created_at');
-    assert.ok(view.quickSummary.title.includes('Insights.QuickSummary.Title'));
-    assert.ok(view.insights.some(item => item.includes('Insights.Messages.TimeTrend')));
-    assert.ok(view.insights.some(item => item.includes('Insights.Messages.MeasureSpread')));
-}
-
-function testLogDistributionInsights() {
-    const rows = [
-        { timestamp: '2025-01-01T00:00:00.000Z', level: 'info', service: 'order-service', message: 'Request processed successfully' },
-        { timestamp: '2025-01-01T00:05:00.000Z', level: 'info', service: 'order-service', message: 'Request processed successfully' },
-        { timestamp: '2025-01-01T00:10:00.000Z', level: 'error', service: 'auth-service', message: 'User session failed' },
-        { timestamp: '2025-01-01T00:15:00.000Z', level: 'error', service: 'auth-service', message: 'User session failed' },
-        { timestamp: '2025-01-01T00:20:00.000Z', level: 'error', service: 'order-service', message: 'Payment timeout' },
-        { timestamp: '2025-01-01T00:25:00.000Z', level: 'info', service: 'billing-service', message: 'Invoice created' },
-        { timestamp: '2025-01-01T00:30:00.000Z', level: 'warn', service: 'order-service', message: 'Retry scheduled' },
-        { timestamp: '2025-01-01T00:35:00.000Z', level: 'info', service: 'order-service', message: 'Request processed successfully' },
-        { timestamp: '2025-01-01T00:40:00.000Z', level: 'info', service: 'order-service', message: 'Request processed successfully' },
-        { timestamp: '2025-01-01T00:45:00.000Z', level: 'info', service: 'billing-service', message: 'Invoice created' },
-    ];
-
-    const profiled = profileResultSet({
-        sqlText: 'select * from logs',
-        rawColumns: [
-            { name: 'timestamp', type: 'timestamp' },
-            { name: 'level', type: 'text' },
-            { name: 'service', type: 'text' },
-            { name: 'message', type: 'text' },
+            { name: 'queue_ms', type: 'numeric' },
         ],
         rows,
         rowCount: rows.length,
@@ -67,59 +30,102 @@ function testLogDistributionInsights() {
         limit: null,
     });
 
-    const view = buildInsights({
+    const draft = buildInsightDraft({
         stats: profiled.stats,
         columns: profiled.columns,
-        sqlText: 'select * from logs',
+        sqlText: 'select created_at, level, duration_ms, queue_ms from logs',
+        rows,
         locale: 'en',
         t: translate,
     });
 
-    assert.ok(view.insights.some(item => item.includes('Insights.Messages.PrimaryCategory')));
-    assert.ok(view.insights.some(item => item.includes('Insights.Messages.RiskCategory')));
-    assert.ok(view.insights.some(item => item.includes('Insights.Messages.TopMessage')));
-    assert.equal(view.recommendedActions[0]?.id, 'time-error-trend');
+    assert.equal(draft.keyColumns.time, 'created_at');
+    assert.ok(draft.facts.some(fact => fact.type === 'trend_candidate'));
+    assert.ok(draft.facts.some(fact => fact.type === 'measure_spread'));
+    assert.ok(draft.patterns.some(pattern => pattern.kind === 'spike'));
+    assert.ok(draft.patterns.some(pattern => pattern.kind === 'correlation'));
+    assert.ok(draft.recommendedActions.length >= 3);
 }
 
-function testNoTimeColumnDoesNotSuggestTrend() {
+function testRiskSignalThreshold() {
+    const rows = [
+        { level: 'info', service: 'orders' },
+        { level: 'info', service: 'orders' },
+        { level: 'info', service: 'orders' },
+        { level: 'error', service: 'auth' },
+        { level: 'error', service: 'auth' },
+    ];
+
     const profiled = profileResultSet({
-        sqlText: 'select service, count(*) as total from logs group by service',
+        sqlText: 'select level, service from logs',
+        rawColumns: [
+            { name: 'level', type: 'text' },
+            { name: 'service', type: 'text' },
+        ],
+        rows,
+        rowCount: rows.length,
+        limited: false,
+        limit: null,
+    });
+
+    const draft = buildInsightDraft({
+        stats: profiled.stats,
+        columns: profiled.columns,
+        sqlText: 'select level, service from logs',
+        rows,
+        locale: 'en',
+        t: translate,
+    });
+
+    assert.ok(draft.facts.some(fact => fact.type === 'risk_signal'));
+    assert.ok(draft.recommendedActions.some(action => action.id === 'service-error-breakdown'));
+}
+
+function testNoTimeColumnSkipsTrendRewritePrompt() {
+    const rows = [
+        { service: 'orders', total: 10 },
+        { service: 'auth', total: 4 },
+        { service: 'billing', total: 2 },
+    ];
+
+    const profiled = profileResultSet({
+        sqlText: 'select service, total from x',
         rawColumns: [
             { name: 'service', type: 'text' },
             { name: 'total', type: 'integer' },
         ],
-        rows: [
-            { service: 'order-service', total: 20 },
-            { service: 'auth-service', total: 5 },
-        ],
-        rowCount: 2,
+        rows,
+        rowCount: rows.length,
         limited: false,
         limit: null,
     });
 
-    const view = buildInsights({
+    const rewriteRequest = buildInsightRewriteRequest({
         stats: profiled.stats,
         columns: profiled.columns,
-        sqlText: 'select service, count(*) as total from logs group by service',
+        sqlText: 'select service, total from x',
+        rows,
         locale: 'en',
         t: translate,
     });
 
-    assert.ok(!view.insights.some(item => item.includes('Insights.Messages.TimeTrend')));
-    assert.ok(!view.recommendedActions.some(action => action.id === 'time-error-trend'));
+    assert.ok(rewriteRequest);
+    assert.ok(!rewriteRequest?.facts.some(fact => fact.type === 'trend_candidate'));
 }
 
-function testLowErrorRatioDoesNotTriggerRisk() {
-    const rows = Array.from({ length: 20 }, (_, index) => ({
-        level: index === 0 ? 'error' : 'info',
-        service: index === 0 ? 'auth-service' : 'order-service',
-    }));
+function testRulesFallbackView() {
+    const rows = [
+        { timestamp: '2025-01-01T00:00:00.000Z', message: 'ok', duration_ms: 10 },
+        { timestamp: '2025-01-01T01:00:00.000Z', message: 'ok', duration_ms: 12 },
+        { timestamp: '2025-01-01T02:00:00.000Z', message: 'slow', duration_ms: 100 },
+    ];
 
     const profiled = profileResultSet({
-        sqlText: 'select level, service from logs',
+        sqlText: 'select timestamp, message, duration_ms from logs',
         rawColumns: [
-            { name: 'level', type: 'text' },
-            { name: 'service', type: 'text' },
+            { name: 'timestamp', type: 'timestamp' },
+            { name: 'message', type: 'text' },
+            { name: 'duration_ms', type: 'numeric' },
         ],
         rows,
         rowCount: rows.length,
@@ -130,52 +136,20 @@ function testLowErrorRatioDoesNotTriggerRisk() {
     const view = buildInsights({
         stats: profiled.stats,
         columns: profiled.columns,
-        sqlText: 'select level, service from logs',
+        sqlText: 'select timestamp, message, duration_ms from logs',
+        rows,
         locale: 'en',
         t: translate,
     });
 
-    assert.ok(!view.insights.some(item => item.includes('Insights.Messages.RiskCategory')));
+    assert.equal(view.source, 'rules');
+    assert.ok(view.insights.length >= 2);
+    assert.ok(view.advancedPatterns !== undefined);
 }
 
-function testInsightCap() {
-    const profiled = profileResultSet({
-        sqlText: 'select timestamp, level, service, message, duration_ms from logs',
-        rawColumns: [
-            { name: 'timestamp', type: 'timestamp' },
-            { name: 'level', type: 'text' },
-            { name: 'service', type: 'text' },
-            { name: 'message', type: 'text' },
-            { name: 'duration_ms', type: 'numeric' },
-        ],
-        rows: [
-            { timestamp: '2025-01-01T00:00:00.000Z', level: 'error', service: 'auth-service', message: 'Failed login', duration_ms: 1200 },
-            { timestamp: '2025-01-01T00:05:00.000Z', level: 'error', service: 'auth-service', message: 'Failed login', duration_ms: 1400 },
-            { timestamp: '2025-01-01T00:10:00.000Z', level: 'info', service: 'order-service', message: 'Request processed', duration_ms: 90 },
-            { timestamp: '2025-01-01T00:15:00.000Z', level: 'warn', service: 'billing-service', message: 'Retry scheduled', duration_ms: 600 },
-            { timestamp: '2025-01-01T00:20:00.000Z', level: 'info', service: 'order-service', message: 'Request processed', duration_ms: 110 },
-        ],
-        rowCount: 5,
-        limited: false,
-        limit: null,
-    });
-
-    const view = buildInsights({
-        stats: profiled.stats,
-        columns: profiled.columns,
-        sqlText: 'select timestamp, level, service, message, duration_ms from logs',
-        locale: 'en',
-        t: translate,
-    });
-
-    assert.ok(view.insights.length >= 3);
-    assert.ok(view.insights.length <= 5);
-}
-
-testTimeSeriesInsights();
-testLogDistributionInsights();
-testNoTimeColumnDoesNotSuggestTrend();
-testLowErrorRatioDoesNotTriggerRisk();
-testInsightCap();
+testFactsAndPatternsForTimeSeries();
+testRiskSignalThreshold();
+testNoTimeColumnSkipsTrendRewritePrompt();
+testRulesFallbackView();
 
 console.log('result-set-insights tests passed');

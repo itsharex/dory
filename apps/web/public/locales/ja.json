@@ -1400,7 +1400,11 @@
                 "TopMessage": "よく見られる内容は「{value}」です（{count} rows）。",
                 "TimeTrend": "{column} を軸に時系列で見ると、急増や変化を見つけやすい結果です。",
                 "MeasureSpread": "{column} にはばらつきがあり、p50 は {p50} 前後、p95 は {p95} 前後です。",
-                "HighCardinality": "{column} は高カーディナリティに見えるため、要約よりフィルタ用途に向いています。"
+                "HighCardinality": "{column} は高カーディナリティに見えるため、要約よりフィルタ用途に向いています。",
+                "SpikePattern": "{bucket} は明確なスパイクで、通常水準 {baseline} に対して {value} まで上がっています。",
+                "DropPattern": "{bucket} は通常水準 {baseline} を下回り、{value} まで落ちています。",
+                "OutlierPattern": "{column} には極端な値があり、サンプルでは {value} 付近が見られます。",
+                "CorrelationPattern": "このサンプルでは {left} と {right} が一緒に動く傾向があります（相関 {correlation}）。"
             },
             "KeyColumns": {
                 "SectionTitle": "Key Columns",
@@ -1418,6 +1422,7 @@
                 "TimeErrorTrend": "error の時系列を見る",
                 "ServiceErrorBreakdown": "service 別に error を見る",
                 "TopMessages": "主要な messages を確認する",
+                "PatternFollowUp": "このパターンを追う",
                 "ExplainResult": "この結果を説明する"
             },
             "ActionPrompts": {
@@ -1425,7 +1430,12 @@
                 "TimeErrorTrend": "現在の結果と SQL（{sql}）をもとに、{timeColumn} を使って error の時系列傾向を見る次のクエリ案を提案してください。どう集計すべきかも説明してください。",
                 "ServiceErrorBreakdown": "現在の結果と SQL（{sql}）をもとに、{serviceColumn} ごとに error を分解して見る次のクエリ案を提案してください。実用的にまとめてください。",
                 "TopMessages": "現在の結果と SQL（{sql}）をもとに、{messageColumn} の上位値を確認する次のクエリ案を提案してください。適した表示方法も添えてください。",
+                "PatternFollowUp": "現在の結果と SQL（{sql}）をもとに、このパターンをさらに調べてください: {pattern}。対象列は {columns} です。次に試すクエリと理由を提案してください。",
                 "ExplainResult": "現在の結果と SQL（{sql}）をもとに、この結果が何を意味するか、何が目立つか、次に何を聞くべきかを平易に説明してください。"
+            },
+            "Source": {
+                "Llm": "AI で書き換え済み",
+                "Rules": "ルール分析ベース"
             },
             "Profile": {
                 "Title": "Profile (Advanced)",

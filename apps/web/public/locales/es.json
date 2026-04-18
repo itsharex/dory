@@ -1400,7 +1400,11 @@
                 "TopMessage": "Un mensaje frecuente es “{value}” ({count} filas).",
                 "TimeTrend": "Este resultado encaja bien con una tendencia temporal sobre {column} para detectar picos y cambios.",
                 "MeasureSpread": "{column} muestra dispersión visible, con p50 cerca de {p50} y p95 cerca de {p95}.",
-                "HighCardinality": "{column} parece tener alta cardinalidad, por lo que sirve mejor para filtrar que para resumir."
+                "HighCardinality": "{column} parece tener alta cardinalidad, por lo que sirve mejor para filtrar que para resumir.",
+                "SpikePattern": "{bucket} destaca como un pico, con {value} frente a una línea base cercana a {baseline}.",
+                "DropPattern": "{bucket} cae por debajo del nivel habitual, con {value} frente a una base cercana a {baseline}.",
+                "OutlierPattern": "{column} contiene valores extremos, incluido un valor de muestra cercano a {value}.",
+                "CorrelationPattern": "En esta muestra, {left} y {right} tienden a moverse juntos (correlación {correlation})."
             },
             "KeyColumns": {
                 "SectionTitle": "Key Columns",
@@ -1418,6 +1422,7 @@
                 "TimeErrorTrend": "Analizar tendencia de errores en el tiempo",
                 "ServiceErrorBreakdown": "Desglosar errores por service",
                 "TopMessages": "Revisar messages principales",
+                "PatternFollowUp": "Seguir este patrón",
                 "ExplainResult": "Explicar este resultado"
             },
             "ActionPrompts": {
@@ -1425,7 +1430,12 @@
                 "TimeErrorTrend": "Usa el resultado y SQL actuales ({sql}) para proponer la siguiente consulta que analice la tendencia de errores en el tiempo con {timeColumn}. Explica cómo conviene agrupar los datos y por qué.",
                 "ServiceErrorBreakdown": "Usa el resultado y SQL actuales ({sql}) para proponer la siguiente consulta que descomponga los errores por {serviceColumn}. Mantén la recomendación concreta y útil.",
                 "TopMessages": "Usa el resultado y SQL actuales ({sql}) para proponer la siguiente consulta que revise los valores principales de {messageColumn}. Indica también la mejor vista para revisar el resultado.",
+                "PatternFollowUp": "Usa el resultado y SQL actuales ({sql}) para investigar este patrón: {pattern}. Enfócate en las columnas {columns} y sugiere la siguiente consulta con una breve justificación.",
                 "ExplainResult": "Explica en lenguaje natural qué significa este resultado, qué destaca y qué conviene preguntar después. Basa la respuesta en el resultado y SQL actuales ({sql})."
+            },
+            "Source": {
+                "Llm": "Reescrito con IA",
+                "Rules": "Basado en análisis por reglas"
             },
             "Profile": {
                 "Title": "Profile (Advanced)",
