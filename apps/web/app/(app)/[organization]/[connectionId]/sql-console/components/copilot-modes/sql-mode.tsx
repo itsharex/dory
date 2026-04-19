@@ -155,6 +155,7 @@ export function SqlMode({
     return (
         <div className="flex flex-1 flex-col min-h-0 mr-10">
             <Group
+                key={showChatbot ? 'sql-with-copilot' : 'sql-without-copilot'}
                 orientation="horizontal"
                 className="h-full min-h-0"
                 onLayoutChange={(layout: Layout) => {
