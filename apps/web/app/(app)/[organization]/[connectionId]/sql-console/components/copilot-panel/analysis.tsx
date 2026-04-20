@@ -41,10 +41,6 @@ function PanelSection(props: { title: string; icon: React.ReactNode; children: R
     );
 }
 
-function suggestionButtonTone(selected: boolean) {
-    return selected ? 'default' : 'outline';
-}
-
 function findResultRefFromSession(session: AnalysisSession): AnalysisResultRef | null {
     const artifact = session.outcome?.artifacts.find(item => item.type === 'result_ref');
     return artifact?.type === 'result_ref' ? artifact.resultRef : null;
@@ -360,7 +356,12 @@ export default function AnalysisTab(props: AnalysisTabProps) {
                                 const isRunning = runningSuggestionId === suggestion.id;
 
                                 return (
-                                    <div key={suggestion.id} className="rounded-xl border bg-background/90 p-3">
+                                    <button
+                                        key={suggestion.id}
+                                        type="button"
+                                        className={`w-full rounded-xl border bg-background/90 p-3 text-left transition-colors ${selected ? 'border-primary/60 bg-primary/5' : 'hover:border-primary/30'}`}
+                                        onClick={() => handleSelectSuggestion(suggestion)}
+                                    >
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
                                                 <div className="text-sm font-medium text-foreground">{suggestion.title}</div>
@@ -371,15 +372,20 @@ export default function AnalysisTab(props: AnalysisTabProps) {
                                             </Badge>
                                         </div>
                                         <div className="mt-3 flex items-center gap-2">
-                                            <Button variant={suggestionButtonTone(selected)} size="sm" className="h-8 text-xs" onClick={() => handleSelectSuggestion(suggestion)}>
-                                                Focus
-                                            </Button>
-                                            <Button size="sm" className="h-8 text-xs" onClick={() => handleRunSuggestion(suggestion)} disabled={isRunning}>
+                                            <Button
+                                                size="sm"
+                                                className="h-8 text-xs"
+                                                onClick={event => {
+                                                    event.stopPropagation();
+                                                    void handleRunSuggestion(suggestion);
+                                                }}
+                                                disabled={isRunning}
+                                            >
                                                 {isRunning ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
                                                 Run
                                             </Button>
                                         </div>
-                                    </div>
+                                    </button>
                                 );
                             })}
                         </div>
