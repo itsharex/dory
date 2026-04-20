@@ -11,8 +11,11 @@ import { Separator } from '@/registry/new-york-v4/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/registry/new-york-v4/ui/collapsible';
 import type { ResultColumnMeta, ResultSetStatsV1 } from '@/lib/client/type';
 import { buildInsights, buildInsightRewriteRequest, type InsightAction, type InsightRewriteResponse } from '@/lib/client/result-set-insights';
-import { copilotPanelOpenAtom } from '../../sql-console.store';
+import { useAtomValue } from 'jotai';
+import { activeSessionIdAtom, copilotAnalysisRequestAtom, copilotPanelOpenAtom, copilotPanelTabAtom } from '../../sql-console.store';
 import { copilotPromptRequestAtom } from './stores/copilot-prompt.atoms';
+import { makeActiveSetAtom } from './stores/active-set.atoms';
+import { activeTabIdAtom } from '@/shared/stores/app.store';
 
 const insightRewriteCache = new Map<string, InsightRewriteResponse | null>();
 
@@ -96,7 +99,12 @@ export function ResultOverviewPanel(props: {
     const t = useTranslations('SqlConsole');
     const locale = useLocale();
     const setCopilotPanelOpen = useSetAtom(copilotPanelOpenAtom);
+    const setCopilotPanelTab = useSetAtom(copilotPanelTabAtom);
     const setCopilotPromptRequest = useSetAtom(copilotPromptRequestAtom);
+    const setCopilotAnalysisRequest = useSetAtom(copilotAnalysisRequestAtom);
+    const activeTabId = useAtomValue(activeTabIdAtom);
+    const activeSessionId = useAtomValue(activeSessionIdAtom);
+    const activeSet = useAtomValue(useMemo(() => makeActiveSetAtom(activeTabId, activeSessionId), [activeSessionId, activeTabId]));
     const [rewritten, setRewritten] = useState<InsightRewriteResponse | null>(null);
 
     const summary = stats?.summary ?? null;
@@ -134,11 +142,29 @@ export function ResultOverviewPanel(props: {
     const highlightedColumns = profiledColumns.filter(column => ['time', 'measure', 'dimension', 'identifier'].includes(column.semanticRole ?? '')).slice(0, 6);
 
     const handleAction = (action: InsightAction) => {
+        if (action.kind === 'analysis-suggestion') {
+            setCopilotPanelOpen(true);
+            setCopilotPanelTab('analysis');
+            setCopilotAnalysisRequest({
+                id: `${action.suggestionId}-${Date.now()}`,
+                suggestionId: action.suggestionId,
+                sourceResultRef:
+                    activeSessionId && typeof activeSet === 'number' && activeSet >= 0
+                        ? {
+                              sessionId: activeSessionId,
+                              setIndex: activeSet,
+                          }
+                        : undefined,
+            });
+            return;
+        }
+
         if (action.kind !== 'copilot-prompt') {
             return;
         }
 
         setCopilotPanelOpen(true);
+        setCopilotPanelTab('ask');
         setCopilotPromptRequest({
             id: `${action.id}-${Date.now()}`,
             prompt: action.prompt,

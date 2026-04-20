@@ -1,5 +1,6 @@
 import { TabResult } from '@/lib/client/type';
 import type { ActionIntent } from '@/lib/copilot/action/types';
+import type { AnalysisWorkspaceState, AnalysisResultRef } from '@/lib/analysis/types';
 import { activeTabIdAtom } from '@/shared/stores/app.store';
 import { atom } from 'jotai';
 import { atomWithStorage, createJSONStorage } from 'jotai/utils';
@@ -16,6 +17,7 @@ const booleanStorage = createJSONStorage<boolean>(() => localStorage);
 const numberStorage = createJSONStorage<number>(() => localStorage);
 export const copilotPanelOpenAtom = atomWithStorage<boolean>('sqlConsole.copilotPanelOpen', true, booleanStorage);
 export const copilotPanelWidthAtom = atomWithStorage<number>('sqlConsole.copilotPanelWidth', 30, numberStorage);
+export const copilotPanelTabAtom = atomWithStorage<'ask' | 'action' | 'context' | 'analysis'>('sqlConsole.copilotPanelTab', 'ask', createJSONStorage(() => localStorage));
 
 export const currentTabResultAtom = atom<TabResult[]>([]);
 
@@ -62,3 +64,55 @@ export const activeSessionIdAtom = atom<string | undefined>(get => {
 
 export const runningTabsAtom = atom<Record<string, 'idle' | 'running' | 'success' | 'error' | 'canceled'>>({});
 export const localDataLoadingAtom = atom<Record<string, boolean>>({});
+
+export type CopilotAnalysisRequest = {
+    id: string;
+    suggestionId: string;
+    sourceResultRef?: AnalysisResultRef;
+};
+
+export const copilotAnalysisRequestAtom = atom<CopilotAnalysisRequest | null>(null);
+
+export const analysisWorkspaceStateAtom = atomWithStorage<Record<string, AnalysisWorkspaceState>>('sqlConsole.analysisWorkspaceState', {}, createJSONStorage(() => localStorage));
+
+function makeAnalysisWorkspaceKey(tabId?: string | null, sessionId?: string | null, setIndex?: number | null) {
+    if (!tabId || !sessionId || typeof setIndex !== 'number' || setIndex < 0) return null;
+    return `${tabId}:${sessionId}#${setIndex}`;
+}
+
+export const upsertAnalysisWorkspaceAtom = atom(
+    null,
+    (
+        get,
+        set,
+        payload: {
+            tabId: string;
+            sessionId: string;
+            setIndex: number;
+            patch: Partial<AnalysisWorkspaceState> | ((prev: AnalysisWorkspaceState | null) => AnalysisWorkspaceState);
+        },
+    ) => {
+        const key = makeAnalysisWorkspaceKey(payload.tabId, payload.sessionId, payload.setIndex);
+        if (!key) return;
+        const current = get(analysisWorkspaceStateAtom);
+        const prev = current[key] ?? null;
+        const next =
+            typeof payload.patch === 'function'
+                ? payload.patch(prev)
+                : {
+                      currentFocus: prev?.currentFocus,
+                      suggestions: prev?.suggestions ?? [],
+                      sessions: prev?.sessions ?? [],
+                      lastSelectedSessionId: prev?.lastSelectedSessionId,
+                      ...payload.patch,
+                  };
+        set(analysisWorkspaceStateAtom, {
+            ...current,
+            [key]: next,
+        });
+    },
+);
+
+export function analysisWorkspaceKeyFor(tabId?: string | null, sessionId?: string | null, setIndex?: number | null) {
+    return makeAnalysisWorkspaceKey(tabId, sessionId, setIndex);
+}

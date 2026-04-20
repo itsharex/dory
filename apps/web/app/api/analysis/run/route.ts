@@ -1,0 +1,110 @@
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { withUserAndOrganizationHandler } from '@/app/api/utils/with-organization-handler';
+import { ensureConnection } from '@/lib/utils/ensure-connection';
+import { ResponseUtil } from '@/lib/result';
+import { runAnalysis } from '@/lib/server/analysis/run-analysis';
+import { ErrorCodes } from '@/lib/errors';
+
+export const runtime = 'nodejs';
+
+const resultContextSchema = z.object({
+    resultSetId: z.object({
+        sessionId: z.string().min(1),
+        setIndex: z.number().int().min(0),
+    }),
+    sqlText: z.string().optional(),
+    databaseName: z.string().nullable().optional(),
+    tableRefs: z.array(
+        z.object({
+            database: z.string().optional(),
+            table: z.string().min(1),
+            confidence: z.enum(['high', 'medium', 'low']),
+        }),
+    ),
+    rowCount: z.number().int().min(0),
+    columns: z.array(
+        z.object({
+            name: z.string().min(1),
+            dataType: z.string().min(1),
+            semanticType: z.enum(['time', 'dimension', 'measure', 'identifier']).optional(),
+        }),
+    ),
+});
+
+const insightSchema = z.object({
+    signals: z.array(z.object({}).passthrough()),
+    findings: z.array(
+        z.object({
+            id: z.string(),
+            title: z.string(),
+            summary: z.string(),
+            severity: z.enum(['info', 'warning', 'critical']),
+            confidence: z.enum(['high', 'medium', 'low']),
+        }),
+    ),
+    narrative: z.string(),
+    recommendedActions: z.array(z.object({}).passthrough()),
+});
+
+const bodySchema = z.object({
+    context: z.object({
+        connectionId: z.string().min(1),
+        databaseName: z.string().nullable().optional(),
+        resultRef: z.object({
+            sessionId: z.string().min(1),
+            setIndex: z.number().int().min(0),
+        }),
+        resultContext: resultContextSchema,
+        insight: insightSchema,
+    }),
+    trigger: z.discriminatedUnion('type', [
+        z.object({
+            type: z.literal('suggestion'),
+            suggestionId: z.string().min(1),
+        }),
+        z.object({
+            type: z.literal('followup'),
+            sourceSessionId: z.string().min(1),
+            suggestionId: z.string().min(1),
+        }),
+    ]),
+    tabId: z.string().min(1).optional(),
+});
+
+export const POST = withUserAndOrganizationHandler(async ({ req, organizationId }) => {
+    const parsed = bodySchema.safeParse(await req.json().catch(() => null));
+    if (!parsed.success) {
+        return NextResponse.json(
+            ResponseUtil.error({
+                code: ErrorCodes.VALIDATION_ERROR,
+                message: parsed.error.issues[0]?.message ?? 'Invalid analysis request.',
+            }),
+            { status: 400 },
+        );
+    }
+
+    const ensured = await ensureConnection(req, {
+        organizationId,
+    });
+    if ('response' in ensured) {
+        return ensured.response;
+    }
+
+    const result = await runAnalysis({
+        request: {
+            context: parsed.data.context as any,
+            trigger: parsed.data.trigger,
+        },
+        connection: ensured,
+        connectionId: parsed.data.context.connectionId,
+        tabId: parsed.data.tabId ?? null,
+    });
+
+    return NextResponse.json(
+        ResponseUtil.success(result),
+        {
+            status: 200,
+        },
+    );
+});

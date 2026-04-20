@@ -39,8 +39,8 @@ export type InsightAction =
     | {
           id: 'time-error-trend' | 'service-error-breakdown' | 'top-messages' | 'pattern-follow-up';
           label: string;
-          kind: 'copilot-prompt';
-          prompt: string;
+          kind: 'analysis-suggestion';
+          suggestionId: 'time-error-trend' | 'service-error-breakdown' | 'top-messages' | 'pattern-follow-up';
       }
     | {
           id: 'explain-result';
@@ -83,6 +83,23 @@ export type InsightViewModel = {
     recommendedActions: InsightAction[];
     source: 'rules' | 'llm';
     advancedPatterns?: InsightPattern[];
+};
+
+export type InsightStructuredSignal = InsightFact | InsightPattern;
+
+export type InsightStructuredFinding = {
+    id: string;
+    title: string;
+    summary: string;
+    severity: 'info' | 'warning' | 'critical';
+    confidence: 'high' | 'medium' | 'low';
+};
+
+export type StructuredInsightView = {
+    signals: InsightStructuredSignal[];
+    findings: InsightStructuredFinding[];
+    narrative: string;
+    recommendedActions: InsightAction[];
 };
 
 export type InsightRewriteRequest = {
@@ -577,16 +594,12 @@ export function detectAdvancedPatterns(context: InsightRuleContext): InsightPatt
 }
 
 function actionFromPattern(context: InsightRuleContext, pattern: InsightPattern): InsightAction {
-    const { t, sqlText } = context;
+    const { t } = context;
     return {
         id: 'pattern-follow-up',
         label: t('Insights.Actions.PatternFollowUp'),
-        kind: 'copilot-prompt',
-        prompt: t('Insights.ActionPrompts.PatternFollowUp', {
-            pattern: pattern.summary,
-            columns: pattern.columns.join(', '),
-            sql: sqlText?.trim() || t('Insights.ActionPrompts.CurrentResult'),
-        }),
+        kind: 'analysis-suggestion',
+        suggestionId: 'pattern-follow-up',
     };
 }
 
@@ -604,11 +617,8 @@ function buildRecommendedActions(context: InsightRuleContext, keyColumns: Insigh
         actions.push({
             id: 'time-error-trend',
             label: t('Insights.Actions.TimeErrorTrend'),
-            kind: 'copilot-prompt',
-            prompt: t('Insights.ActionPrompts.TimeErrorTrend', {
-                timeColumn: keyColumns.time,
-                sql: sqlText?.trim() || t('Insights.ActionPrompts.CurrentResult'),
-            }),
+            kind: 'analysis-suggestion',
+            suggestionId: 'time-error-trend',
         });
     }
 
@@ -616,11 +626,8 @@ function buildRecommendedActions(context: InsightRuleContext, keyColumns: Insigh
         actions.push({
             id: 'service-error-breakdown',
             label: t('Insights.Actions.ServiceErrorBreakdown'),
-            kind: 'copilot-prompt',
-            prompt: t('Insights.ActionPrompts.ServiceErrorBreakdown', {
-                serviceColumn,
-                sql: sqlText?.trim() || t('Insights.ActionPrompts.CurrentResult'),
-            }),
+            kind: 'analysis-suggestion',
+            suggestionId: 'service-error-breakdown',
         });
     }
 
@@ -628,11 +635,8 @@ function buildRecommendedActions(context: InsightRuleContext, keyColumns: Insigh
         actions.push({
             id: 'top-messages',
             label: t('Insights.Actions.TopMessages'),
-            kind: 'copilot-prompt',
-            prompt: t('Insights.ActionPrompts.TopMessages', {
-                messageColumn,
-                sql: sqlText?.trim() || t('Insights.ActionPrompts.CurrentResult'),
-            }),
+            kind: 'analysis-suggestion',
+            suggestionId: 'top-messages',
         });
     }
 
@@ -785,5 +789,54 @@ export function buildInsightRewriteRequest(context: InsightRuleContext): Insight
         facts: draft.facts,
         patterns: draft.patterns,
         sampleRows: sampleRows(context.rows).slice(0, 30),
+    };
+}
+
+function confidenceBucket(value: number): 'high' | 'medium' | 'low' {
+    if (value >= 0.8) return 'high';
+    if (value >= 0.55) return 'medium';
+    return 'low';
+}
+
+function findingSeverity(source: InsightFact | InsightPattern): 'info' | 'warning' | 'critical' {
+    if ('severity' in source) {
+        if (source.severity === 'risk') return 'critical';
+        if (source.severity === 'warning') return 'warning';
+        return 'info';
+    }
+
+    if ('kind' in source && (source.kind === 'spike' || source.kind === 'outlier')) return 'warning';
+    return 'info';
+}
+
+export function buildStructuredInsightView(params: {
+    context: InsightRuleContext;
+    draft?: InsightDraft;
+    view?: InsightViewModel;
+}): StructuredInsightView {
+    const draft = params.draft ?? buildInsightDraft(params.context);
+    const view = params.view ?? buildInsights(params.context);
+    const findingSources = [...draft.patterns, ...draft.facts];
+    const findings = findingSources
+        .map(source => {
+            const summary = 'kind' in source ? patternToInsight(params.context, source) : factToInsight(params.context, source);
+            if (!summary) return null;
+
+            return {
+                id: source.id,
+                title: summary,
+                summary,
+                severity: findingSeverity(source),
+                confidence: confidenceBucket(source.confidence),
+            } satisfies InsightStructuredFinding;
+        })
+        .filter((item): item is InsightStructuredFinding => !!item)
+        .slice(0, 5);
+
+    return {
+        signals: [...draft.facts, ...draft.patterns],
+        findings,
+        narrative: [view.quickSummary.title, view.quickSummary.subtitle, ...view.insights].filter(Boolean).join(' '),
+        recommendedActions: view.recommendedActions,
     };
 }

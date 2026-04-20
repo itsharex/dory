@@ -17,10 +17,11 @@ import { Button } from '@/registry/new-york-v4/ui/button';
 import { activeDatabaseAtom, currentConnectionAtom } from '@/shared/stores/app.store';
 import { currentSessionMetaAtom } from '../result-table/stores/result-table.atoms';
 import { copilotPromptRequestAtom } from '../result-table/stores/copilot-prompt.atoms';
-import { copilotActionRequestAtom, editorSelectionByTabAtom } from '../../sql-console.store';
+import { copilotActionRequestAtom, copilotAnalysisRequestAtom, copilotPanelTabAtom, editorSelectionByTabAtom } from '../../sql-console.store';
 import type { SQLEditorHandle } from '../sql-editor';
 import AskTab, { type ActionsState } from './ask';
 import ContextTab from './context';
+import AnalysisTab from './analysis';
 
 // ✅ shadcn Tabs
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/registry/new-york-v4/ui/tabs';
@@ -37,7 +38,7 @@ type CopilotPanelProps = {
     editorRef?: React.MutableRefObject<SQLEditorHandle | null>;
 };
 
-type SubTabKey = 'ask' | 'action' | 'context';
+type SubTabKey = 'ask' | 'action' | 'context' | 'analysis';
 
 export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, addTab, setActiveTabId, onClose, editorRef }: CopilotPanelProps) {
     const t = useTranslations('SqlConsole');
@@ -46,9 +47,11 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
     const sessionMeta = useAtomValue(currentSessionMetaAtom);
     const selectionByTab = useAtomValue(editorSelectionByTabAtom);
     const [actionRequest, setActionRequest] = useAtom(copilotActionRequestAtom);
+    const [analysisRequest, setAnalysisRequest] = useAtom(copilotAnalysisRequestAtom);
     const [promptRequest, setPromptRequest] = useAtom(copilotPromptRequestAtom);
+    const [panelTab, setPanelTab] = useAtom(copilotPanelTabAtom);
 
-    const [subTab, setSubTab] = useState<SubTabKey>('ask');
+    const [subTab, setSubTab] = useState<SubTabKey>(panelTab);
     const [actionsState, setActionsState] = useState<ActionsState | null>(null);
     const [copilotEnvelope, setCopilotEnvelope] = useState<CopilotEnvelopeV1 | null>(null);
     const activeTabCoreFields = activeTab
@@ -292,6 +295,18 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
         }
     }, [promptRequest?.id]);
 
+    useEffect(() => {
+        if (analysisRequest?.id) {
+            setSubTab('analysis');
+        }
+    }, [analysisRequest?.id]);
+
+    useEffect(() => {
+        if (panelTab !== subTab) {
+            setPanelTab(subTab);
+        }
+    }, [panelTab, setPanelTab, subTab]);
+
     return (
         <div className="flex h-full min-h-0 flex-col border-t">
             <div className="flex-1 min-h-0">
@@ -306,7 +321,15 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                         <Loader2 className="h-5 w-5 animate-spin" />
                     </div>
                 ) : (
-                    <Tabs value={subTab} onValueChange={v => setSubTab(v as SubTabKey)} className="flex h-full min-h-0 flex-col">
+                    <Tabs
+                        value={subTab}
+                        onValueChange={v => {
+                            const next = v as SubTabKey;
+                            setSubTab(next);
+                            setPanelTab(next);
+                        }}
+                        className="flex h-full min-h-0 flex-col"
+                    >
                         <div className="flex items-center justify-between border-b px-4 py-3">
                             <TabsList className="h-8">
                                 <TabsTrigger value="ask" className="h-7 px-3 text-xs">
@@ -317,6 +340,9 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                                 </TabsTrigger>
                                 <TabsTrigger value="context" className="h-7 px-3 text-xs">
                                     {t('Copilot.Panel.TabContext')}
+                                </TabsTrigger>
+                                <TabsTrigger value="analysis" className="h-7 px-3 text-xs">
+                                    Analysis
                                 </TabsTrigger>
                             </TabsList>
                             {onClose ? (
@@ -363,6 +389,16 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                         <TabsContent value="context" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden" forceMount>
                             <Activity mode={subTab === 'context' ? 'visible' : 'hidden'}>
                                 <ContextTab copilotEnvelope={copilotEnvelope} sessionMeta={sessionMeta} activeTabCoreFields={activeTabCoreFields} />
+                            </Activity>
+                        </TabsContent>
+
+                        <TabsContent value="analysis" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden" forceMount>
+                            <Activity mode={subTab === 'analysis' ? 'visible' : 'hidden'}>
+                                <AnalysisTab
+                                    tabId={activeTabId}
+                                    connectionId={tabConnectionId ?? currentConnection?.connection.id ?? null}
+                                    databaseName={activeDatabase || null}
+                                />
                             </Activity>
                         </TabsContent>
                     </Tabs>
