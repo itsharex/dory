@@ -96,7 +96,7 @@ AI that understands your database — not just text completion.
 - Supports multi-table joins and subqueries  
 
 ---
-<img" alt="image" src="https://github.com/user-attachments/assets/c1775613-5773-4552-a188-90442f8f82ad" />
+<img alt="image" src="https://github.com/user-attachments/assets/c1775613-5773-4552-a188-90442f8f82ad" />
 
 ### ✍️ Intelligent SQL Editor
 
