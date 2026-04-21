@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { profileResultSet } from '@/lib/client/result-set-ai';
-import { buildInsightDraft, buildInsightRewriteRequest, buildInsights } from '@/lib/client/result-set-insights';
+import { buildInsightDraft, buildInsightRewriteRequest, buildInsights, buildStructuredInsightView } from '@/lib/client/result-set-insights';
 
 function translate(key: string, values?: Record<string, string | number>) {
     return `${key}${values ? ` ${JSON.stringify(values)}` : ''}`;
@@ -78,7 +78,7 @@ function testRiskSignalThreshold() {
     });
 
     assert.ok(draft.facts.some(fact => fact.type === 'risk_signal'));
-    assert.ok(draft.recommendedActions.some(action => action.id === 'service-error-breakdown'));
+    assert.ok(draft.recommendedActions.some(action => action.id === 'group-by-service' || action.id === 'analyze-source'));
 }
 
 function testNoTimeColumnSkipsTrendRewritePrompt() {
@@ -147,9 +147,65 @@ function testRulesFallbackView() {
     assert.ok(view.advancedPatterns !== undefined);
 }
 
+function testStructuredInsightCardAndActionLabels() {
+    const rows = [
+        { service: 'service A', total_rows: 22 },
+        { service: 'service B', total_rows: 21 },
+        { service: 'service C', total_rows: 3 },
+        { service: 'service D', total_rows: 2 },
+    ];
+
+    const profiled = profileResultSet({
+        sqlText: 'select service, total_rows from x',
+        rawColumns: [
+            { name: 'service', type: 'text' },
+            { name: 'total_rows', type: 'integer' },
+        ],
+        rows,
+        rowCount: rows.length,
+        limited: false,
+        limit: null,
+    });
+
+    const draft = buildInsightDraft({
+        stats: profiled.stats,
+        columns: profiled.columns,
+        sqlText: 'select service, total_rows from x',
+        rows,
+        locale: 'en',
+        t: translate,
+    });
+    const view = buildInsights({
+        stats: profiled.stats,
+        columns: profiled.columns,
+        sqlText: 'select service, total_rows from x',
+        rows,
+        locale: 'en',
+        t: translate,
+    });
+    const structured = buildStructuredInsightView({
+        context: {
+            stats: profiled.stats,
+            columns: profiled.columns,
+            sqlText: 'select service, total_rows from x',
+            rows,
+            locale: 'en',
+            t: translate,
+        },
+        draft,
+        view,
+    });
+
+    assert.ok(structured.card.headline.includes('OutlierHeadline'));
+    assert.ok(structured.card.summaryLines.length >= 1);
+    assert.ok(draft.recommendedActions.some(action => action.label.includes('InspectOutliers')));
+    assert.ok(!draft.recommendedActions.some(action => action.label === 'Run'));
+}
+
 testFactsAndPatternsForTimeSeries();
 testRiskSignalThreshold();
 testNoTimeColumnSkipsTrendRewritePrompt();
 testRulesFallbackView();
+testStructuredInsightCardAndActionLabels();
 
 console.log('result-set-insights tests passed');

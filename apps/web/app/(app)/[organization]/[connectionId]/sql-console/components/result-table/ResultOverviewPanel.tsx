@@ -10,7 +10,7 @@ import { Button } from '@/registry/new-york-v4/ui/button';
 import { Separator } from '@/registry/new-york-v4/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/registry/new-york-v4/ui/collapsible';
 import type { ResultColumnMeta, ResultSetStatsV1 } from '@/lib/client/type';
-import { buildInsights, buildInsightRewriteRequest, type InsightAction, type InsightRewriteResponse } from '@/lib/client/result-set-insights';
+import { buildInsights, buildInsightRewriteRequest, buildStructuredInsightView, type InsightAction, type InsightRewriteResponse } from '@/lib/client/result-set-insights';
 import { useAtomValue } from 'jotai';
 import { activeSessionIdAtom, copilotAnalysisRequestAtom, copilotPanelOpenAtom, copilotPanelTabAtom } from '../../sql-console.store';
 import { copilotPromptRequestAtom } from './stores/copilot-prompt.atoms';
@@ -138,6 +138,21 @@ export function ResultOverviewPanel(props: {
             ),
         [columns, locale, rewritten, rows, sqlText, stats, t],
     );
+    const structuredInsight = useMemo(
+        () =>
+            buildStructuredInsightView({
+                context: {
+                    stats,
+                    columns,
+                    sqlText,
+                    rows,
+                    locale,
+                    t: (key, values) => t(key as any, values),
+                },
+                view: insightView,
+            }),
+        [columns, insightView, locale, rows, sqlText, stats, t],
+    );
 
     const highlightedColumns = profiledColumns.filter(column => ['time', 'measure', 'dimension', 'identifier'].includes(column.semanticRole ?? '')).slice(0, 6);
 
@@ -230,19 +245,19 @@ export function ResultOverviewPanel(props: {
                     </Section>
 
                     <Section title={t('Insights.KeyInsights.SectionTitle')} icon={<Lightbulb className="h-3.5 w-3.5" />} description={t('Insights.KeyInsights.Description')}>
-                        <div className="rounded-xl border bg-background/90 p-3">
-                            {insightView.insights.length > 0 ? (
-                                <div className="space-y-2">
-                                    {insightView.insights.map(insight => (
-                                        <div key={insight} className="flex items-start gap-2 text-sm text-foreground">
-                                            <span className="mt-[2px] text-muted-foreground">•</span>
-                                            <span>{insight}</span>
+                        <div className="rounded-xl border bg-background/90 p-4">
+                            <div className="text-sm font-semibold text-foreground">{structuredInsight.card.headline}</div>
+                            <div className="mt-3 space-y-2">
+                                {structuredInsight.card.summaryLines.length > 0 ? (
+                                    structuredInsight.card.summaryLines.map(line => (
+                                        <div key={line} className="text-sm text-foreground">
+                                            {line}
                                         </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-xs text-muted-foreground">{t('Insights.KeyInsights.Empty')}</div>
-                            )}
+                                    ))
+                                ) : (
+                                    <div className="text-xs text-muted-foreground">{t('Insights.KeyInsights.Empty')}</div>
+                                )}
+                            </div>
                             <div className="mt-3 text-[11px] text-muted-foreground">{insightView.source === 'llm' ? t('Insights.Source.Llm') : t('Insights.Source.Rules')}</div>
                         </div>
                     </Section>
@@ -266,7 +281,7 @@ export function ResultOverviewPanel(props: {
                         description={t('Insights.RecommendedActions.Description')}
                     >
                         <div className="flex flex-wrap gap-2">
-                            {insightView.recommendedActions.map(action => (
+                            {structuredInsight.recommendedActions.map(action => (
                                 <Button key={action.id} variant="outline" size="sm" className="h-8 rounded-full px-3 text-xs" onClick={() => handleAction(action)}>
                                     {action.label}
                                 </Button>

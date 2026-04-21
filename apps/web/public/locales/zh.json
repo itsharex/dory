@@ -1394,8 +1394,18 @@
             },
             "KeyInsights": {
                 "SectionTitle": "Key Insights",
-                "Description": "基于结果画像生成的人话结论。",
+                "Description": "问题卡片 + 可执行动作入口。",
                 "Empty": "暂时没有特别明显的模式，可以先试试筛选或图表。"
+            },
+            "Card": {
+                "CurrentResult": "当前结果",
+                "OutlierHeadline": "⚠️ {column} 存在异常高值",
+                "OutlierMaxLine": "最大值 {value} 明显偏高。",
+                "LongTailLine": "分布存在长尾，p50 为 {p50}，p95 为 {p95}。",
+                "RiskHeadline": "⚠️ {column} 里风险项比较集中",
+                "RiskLine": "“{value}”占了 {share}，建议先从这里查起。",
+                "DimensionHeadline": "⚠️ {column} 里有内容特别集中",
+                "DimensionLine": "“{value}”出现得最多，值得先看它为什么这么高。"
             },
             "Messages": {
                 "PrimaryCategory": "{column} 主要由 {value} 构成，约占 {share}。",
@@ -1420,12 +1430,16 @@
             },
             "RecommendedActions": {
                 "SectionTitle": "Recommended Actions",
-                "Description": "打开 Copilot，并预填下一步分析方向。"
+                "Description": "直接触发预定义分析动作。"
             },
             "Actions": {
-                "TimeErrorTrend": "按时间分析 error 趋势",
-                "ServiceErrorBreakdown": "按 service 拆解 error",
-                "TopMessages": "查看高频 messages",
+                "InspectOutliers": "查看异常样本",
+                "AnalyzeSource": "分析来源",
+                "ViewDistribution": "查看分布",
+                "GroupByService": "按 {column} 分组分析",
+                "ViewTimeTrend": "查看时间趋势",
+                "FilterOutliers": "过滤异常数据",
+                "TopMessages": "看哪些内容最多",
                 "PatternFollowUp": "继续分析这个模式",
                 "ExplainResult": "解释这个结果"
             },
@@ -1454,6 +1468,46 @@
                 "HighlightedColumns": "关键列角色",
                 "ColumnStatsTitle": "Column Stats",
                 "ColumnStatLine": "去重值 {distinct} · 空值 {nulls}"
+            },
+            "Analysis": {
+                "Empty": "先选择一个结果，再开始分析。",
+                "CurrentInsightTitle": "当前问题",
+                "CurrentInsightDescription": "这次结果里最值得先看的点。",
+                "AvailableActionsTitle": "可执行分析",
+                "AvailableActionsDescription": "选择一个方向，我来继续往下查。",
+                "ProcessTitle": "分析过程",
+                "ProcessDescription": "我会把每一步怎么查、查到了什么列出来。",
+                "ResultTitle": "分析结果",
+                "ResultDescription": "这里会放结论和最值得关注的样本。",
+                "NextActionsTitle": "下一步",
+                "NextActionsDescription": "如果还想继续，可以从这些方向接着查。",
+                "HistoryTitle": "历史记录",
+                "HistoryDescription": "这次结果已经跑过的分析。",
+                "RunningTitle": "正在分析：{title}",
+                "RunningDescription": "正在往下查，结果出来后会更新在这里。",
+                "ResultPending": "分析完成后，结论会显示在这里。",
+                "RecordHighlightsTitle": "重点样本",
+                "OpenResult": "打开结果",
+                "NoNextActions": "暂时没有推荐的下一步。",
+                "Starting": "正在分析…",
+                "ClickToRun": "开始分析",
+                "StepLabel": "{index}. {title}",
+                "Kinds": {
+                    "trend": "趋势",
+                    "topk": "高频",
+                    "drilldown": "拆解",
+                    "distribution": "分布",
+                    "compare": "对比"
+                },
+                "StepStatus": {
+                    "pending": "待执行",
+                    "running": "执行中",
+                    "done": "已完成",
+                    "error": "错误"
+                },
+                "Errors": {
+                    "RunFailed": "分析执行失败。"
+                }
             }
         },
         "Overview": {

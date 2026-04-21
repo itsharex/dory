@@ -37,10 +37,26 @@ export type InsightPattern = {
 
 export type InsightAction =
     | {
-          id: 'time-error-trend' | 'service-error-breakdown' | 'top-messages' | 'pattern-follow-up';
+          id:
+              | 'inspect-outliers'
+              | 'analyze-source'
+              | 'view-distribution'
+              | 'group-by-service'
+              | 'view-time-trend'
+              | 'filter-outliers'
+              | 'top-messages'
+              | 'pattern-follow-up';
           label: string;
           kind: 'analysis-suggestion';
-          suggestionId: 'time-error-trend' | 'service-error-breakdown' | 'top-messages' | 'pattern-follow-up';
+          suggestionId:
+              | 'inspect-outliers'
+              | 'analyze-source'
+              | 'view-distribution'
+              | 'group-by-service'
+              | 'view-time-trend'
+              | 'filter-outliers'
+              | 'top-messages'
+              | 'pattern-follow-up';
       }
     | {
           id: 'explain-result';
@@ -96,6 +112,10 @@ export type InsightStructuredFinding = {
 };
 
 export type StructuredInsightView = {
+    card: {
+        headline: string;
+        summaryLines: string[];
+    };
     signals: InsightStructuredSignal[];
     findings: InsightStructuredFinding[];
     narrative: string;
@@ -608,26 +628,68 @@ function buildRecommendedActions(context: InsightRuleContext, keyColumns: Insigh
     const actions: InsightAction[] = [];
     const serviceColumn = keyColumns.dimensions.find(name => looksLike(name, SERVICE_NAME_HINTS));
     const messageColumn = keyColumns.dimensions.find(name => looksLike(name, MESSAGE_NAME_HINTS));
+    const primaryMeasure = keyColumns.measures[0];
+    const hasRiskSignal = facts.some(fact => fact.type === 'risk_signal');
+    const hasOutlier = patterns.some(pattern => pattern.kind === 'outlier');
+    const hasTimePattern = patterns.some(pattern => pattern.kind === 'spike' || pattern.kind === 'drop');
 
     if (patterns[0]) {
         actions.push(actionFromPattern(context, patterns[0]));
     }
 
-    if (keyColumns.time && (facts.some(fact => fact.type === 'risk_signal') || patterns.some(pattern => pattern.kind === 'spike'))) {
+    if (primaryMeasure && (hasOutlier || facts.some(fact => fact.type === 'measure_spread'))) {
         actions.push({
-            id: 'time-error-trend',
-            label: t('Insights.Actions.TimeErrorTrend'),
+            id: 'inspect-outliers',
+            label: t('Insights.Actions.InspectOutliers'),
             kind: 'analysis-suggestion',
-            suggestionId: 'time-error-trend',
+            suggestionId: 'inspect-outliers',
         });
     }
 
-    if (serviceColumn && facts.some(fact => fact.type === 'risk_signal')) {
+    if (serviceColumn) {
         actions.push({
-            id: 'service-error-breakdown',
-            label: t('Insights.Actions.ServiceErrorBreakdown'),
+            id: 'group-by-service',
+            label: t('Insights.Actions.GroupByService', {
+                column: serviceColumn,
+            }),
             kind: 'analysis-suggestion',
-            suggestionId: 'service-error-breakdown',
+            suggestionId: 'group-by-service',
+        });
+    }
+
+    if (serviceColumn || hasRiskSignal) {
+        actions.push({
+            id: 'analyze-source',
+            label: t('Insights.Actions.AnalyzeSource'),
+            kind: 'analysis-suggestion',
+            suggestionId: 'analyze-source',
+        });
+    }
+
+    if (primaryMeasure) {
+        actions.push({
+            id: 'view-distribution',
+            label: t('Insights.Actions.ViewDistribution'),
+            kind: 'analysis-suggestion',
+            suggestionId: 'view-distribution',
+        });
+    }
+
+    if (keyColumns.time && (hasRiskSignal || hasTimePattern || !!primaryMeasure)) {
+        actions.push({
+            id: 'view-time-trend',
+            label: t('Insights.Actions.ViewTimeTrend'),
+            kind: 'analysis-suggestion',
+            suggestionId: 'view-time-trend',
+        });
+    }
+
+    if (primaryMeasure) {
+        actions.push({
+            id: 'filter-outliers',
+            label: t('Insights.Actions.FilterOutliers'),
+            kind: 'analysis-suggestion',
+            suggestionId: 'filter-outliers',
         });
     }
 
@@ -650,7 +712,7 @@ function buildRecommendedActions(context: InsightRuleContext, keyColumns: Insigh
     });
 
     const deduped = actions.filter((action, index) => actions.findIndex(candidate => candidate.id === action.id) === index);
-    return deduped.slice(0, 4);
+    return deduped.slice(0, 6);
 }
 
 function factToInsight(context: InsightRuleContext, fact: InsightFact) {
@@ -809,6 +871,77 @@ function findingSeverity(source: InsightFact | InsightPattern): 'info' | 'warnin
     return 'info';
 }
 
+function buildInsightCard(params: { context: InsightRuleContext; draft: InsightDraft; view: InsightViewModel; findings: InsightStructuredFinding[] }) {
+    const { context, draft, findings } = params;
+    const { locale, t } = context;
+    const primaryMeasure = draft.keyColumns.measures[0];
+    const outlierPattern = draft.patterns.find(pattern => pattern.kind === 'outlier');
+    const spreadFact = draft.facts.find(fact => fact.type === 'measure_spread');
+    const riskFact = draft.facts.find(fact => fact.type === 'risk_signal');
+    const topDimensionFact = draft.facts.find(fact => fact.type === 'top_dimension' || fact.type === 'dominant_category');
+
+    if (primaryMeasure && (outlierPattern || spreadFact)) {
+        const headline = t('Insights.Card.OutlierHeadline', {
+            column: primaryMeasure,
+        });
+        const summaryLines: string[] = [];
+        if (outlierPattern && typeof outlierPattern.metrics.value === 'number') {
+            summaryLines.push(
+                t('Insights.Card.OutlierMaxLine', {
+                    value: formatNumber(locale, outlierPattern.metrics.value),
+                }),
+            );
+        }
+        if (spreadFact && typeof spreadFact.metrics?.p95 === 'number' && typeof spreadFact.metrics?.p50 === 'number') {
+            summaryLines.push(
+                t('Insights.Card.LongTailLine', {
+                    p50: formatNumber(locale, spreadFact.metrics.p50),
+                    p95: formatNumber(locale, spreadFact.metrics.p95),
+                }),
+            );
+        }
+
+        return {
+            headline,
+            summaryLines: summaryLines.slice(0, 2),
+        };
+    }
+
+    if (riskFact) {
+        return {
+            headline: t('Insights.Card.RiskHeadline', {
+                column: String(riskFact.columns?.[0] ?? t('Insights.Card.CurrentResult')),
+            }),
+            summaryLines: [
+                t('Insights.Card.RiskLine', {
+                    value: String(riskFact.metrics?.value ?? ''),
+                    share: formatPercent(locale, typeof riskFact.metrics?.share === 'number' ? riskFact.metrics.share : null),
+                }),
+            ],
+        };
+    }
+
+    if (topDimensionFact) {
+        return {
+            headline: t('Insights.Card.DimensionHeadline', {
+                column: String(topDimensionFact.columns?.[0] ?? t('Insights.Card.CurrentResult')),
+            }),
+            summaryLines: [
+                topDimensionFact.metrics?.value
+                    ? t('Insights.Card.DimensionLine', {
+                          value: String(topDimensionFact.metrics.value),
+                      })
+                    : findings[0]?.summary ?? draft.quickSummary.subtitle ?? draft.quickSummary.title,
+            ].filter(Boolean),
+        };
+    }
+
+    return {
+        headline: findings[0]?.title ?? draft.quickSummary.title,
+        summaryLines: [draft.quickSummary.subtitle ?? findings[0]?.summary ?? t('Insights.KeyInsights.Empty')].filter(Boolean),
+    };
+}
+
 export function buildStructuredInsightView(params: {
     context: InsightRuleContext;
     draft?: InsightDraft;
@@ -834,6 +967,12 @@ export function buildStructuredInsightView(params: {
         .slice(0, 5);
 
     return {
+        card: buildInsightCard({
+            context: params.context,
+            draft,
+            view,
+            findings,
+        }),
         signals: [...draft.facts, ...draft.patterns],
         findings,
         narrative: [view.quickSummary.title, view.quickSummary.subtitle, ...view.insights].filter(Boolean).join(' '),

@@ -1390,8 +1390,18 @@
             },
             "KeyInsights": {
                 "SectionTitle": "Key Insights",
-                "Description": "Conclusiones en lenguaje natural generadas a partir del perfil del resultado.",
+                "Description": "Tarjetas de problema con acciones ejecutables.",
                 "Empty": "Aún no destaca un patrón claro. Prueba con filtros o gráficos."
+            },
+            "Card": {
+                "CurrentResult": "resultado actual",
+                "OutlierHeadline": "Advertencia: {column} tiene valores inusualmente altos",
+                "OutlierMaxLine": "El valor máximo llega a {value}, lo que parece inusualmente alto.",
+                "LongTailLine": "La distribución tiene cola larga, con p50 en {p50} y p95 en {p95}.",
+                "RiskHeadline": "Advertencia: {column} muestra una concentración riesgosa",
+                "RiskLine": "{value} representa aproximadamente {share} del resultado actual.",
+                "DimensionHeadline": "Advertencia: {column} está muy concentrada",
+                "DimensionLine": "{value} destaca como el segmento dominante."
             },
             "Messages": {
                 "PrimaryCategory": "{column} está dominada por {value}, con cerca de {share}.",
@@ -1416,12 +1426,16 @@
             },
             "RecommendedActions": {
                 "SectionTitle": "Recommended Actions",
-                "Description": "Abre Copilot con el siguiente paso de análisis ya preparado."
+                "Description": "Inicia directamente un análisis predefinido desde este insight."
             },
             "Actions": {
-                "TimeErrorTrend": "Analizar tendencia de errores en el tiempo",
-                "ServiceErrorBreakdown": "Desglosar errores por service",
-                "TopMessages": "Revisar messages principales",
+                "InspectOutliers": "Ver muestras anómalas",
+                "AnalyzeSource": "Analizar origen",
+                "ViewDistribution": "Ver distribución",
+                "GroupByService": "Agrupar por {column}",
+                "ViewTimeTrend": "Ver tendencia temporal",
+                "FilterOutliers": "Filtrar filas anómalas",
+                "TopMessages": "Ver valores principales",
                 "PatternFollowUp": "Seguir este patrón",
                 "ExplainResult": "Explicar este resultado"
             },
@@ -1450,6 +1464,46 @@
                 "HighlightedColumns": "Roles de columnas clave",
                 "ColumnStatsTitle": "Column Stats",
                 "ColumnStatLine": "Distinct {distinct} · Null {nulls}"
+            },
+            "Analysis": {
+                "Empty": "Selecciona un resultado para empezar el análisis.",
+                "CurrentInsightTitle": "Insight actual",
+                "CurrentInsightDescription": "El problema activo y sus puntos de entrada listos para ejecutar.",
+                "AvailableActionsTitle": "Acciones disponibles",
+                "AvailableActionsDescription": "Elige una acción para iniciar inmediatamente el siguiente paso de análisis.",
+                "ProcessTitle": "Proceso de análisis",
+                "ProcessDescription": "Flujo de ejecución explicable para el análisis seleccionado.",
+                "ResultTitle": "Resultado del análisis",
+                "ResultDescription": "Hallazgos estructurados y destacados de apoyo.",
+                "NextActionsTitle": "Siguientes acciones",
+                "NextActionsDescription": "Continúa la cadena de análisis con otra acción predefinida.",
+                "HistoryTitle": "Historial",
+                "HistoryDescription": "Sesiones de análisis recientes para la cadena actual de resultados.",
+                "RunningTitle": "Analizando: {title}",
+                "RunningDescription": "Ejecutando la acción de análisis seleccionada.",
+                "ResultPending": "Los resultados del análisis aparecerán aquí tras la ejecución.",
+                "RecordHighlightsTitle": "Registros principales",
+                "OpenResult": "Abrir resultado",
+                "NoNextActions": "Todavía no hay acciones de seguimiento disponibles.",
+                "Starting": "Iniciando análisis...",
+                "ClickToRun": "Haz clic para ejecutar",
+                "StepLabel": "Paso {index}. {title}",
+                "Kinds": {
+                    "trend": "Tendencia",
+                    "topk": "Valores frecuentes",
+                    "drilldown": "Desglose",
+                    "distribution": "Distribución",
+                    "compare": "Comparar"
+                },
+                "StepStatus": {
+                    "pending": "Pendiente",
+                    "running": "En ejecución",
+                    "done": "Completado",
+                    "error": "Error"
+                },
+                "Errors": {
+                    "RunFailed": "No se pudo ejecutar el análisis."
+                }
             }
         },
         "Overview": {

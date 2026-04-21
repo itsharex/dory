@@ -1392,8 +1392,18 @@
             },
             "KeyInsights": {
                 "SectionTitle": "Key Insights",
-                "Description": "Plain-language takeaways generated from the result profile.",
+                "Description": "Problem-first insight cards with executable next steps.",
                 "Empty": "No clear pattern stands out yet. Try filtering or charting this result."
+            },
+            "Card": {
+                "CurrentResult": "current result",
+                "OutlierHeadline": "Warning: {column} contains unusually high values",
+                "OutlierMaxLine": "The maximum value reaches {value}, which looks unusually high.",
+                "LongTailLine": "The distribution shows a long tail, with p50 at {p50} and p95 at {p95}.",
+                "RiskHeadline": "Warning: {column} shows a risky concentration",
+                "RiskLine": "{value} takes about {share} of the current result.",
+                "DimensionHeadline": "Warning: {column} is highly concentrated",
+                "DimensionLine": "{value} stands out as the dominant segment."
             },
             "Messages": {
                 "PrimaryCategory": "{column} is led by {value} at about {share}.",
@@ -1418,12 +1428,16 @@
             },
             "RecommendedActions": {
                 "SectionTitle": "Recommended Actions",
-                "Description": "Open Copilot with the next analysis step prefilled."
+                "Description": "Start a predefined analysis directly from this insight."
             },
             "Actions": {
-                "TimeErrorTrend": "Analyze error trend over time",
-                "ServiceErrorBreakdown": "Break down errors by service",
-                "TopMessages": "Review top messages",
+                "InspectOutliers": "View anomalous samples",
+                "AnalyzeSource": "Analyze source",
+                "ViewDistribution": "View distribution",
+                "GroupByService": "Group by {column}",
+                "ViewTimeTrend": "View time trend",
+                "FilterOutliers": "Filter anomalous rows",
+                "TopMessages": "View top values",
                 "PatternFollowUp": "Follow up on this pattern",
                 "ExplainResult": "Explain this result"
             },
@@ -1452,6 +1466,46 @@
                 "HighlightedColumns": "Key column roles",
                 "ColumnStatsTitle": "Column Stats",
                 "ColumnStatLine": "Distinct {distinct} · Null {nulls}"
+            },
+            "Analysis": {
+                "Empty": "Select a result to start analysis.",
+                "CurrentInsightTitle": "Current Insight",
+                "CurrentInsightDescription": "The active issue and its ready-to-run entry points.",
+                "AvailableActionsTitle": "Available Actions",
+                "AvailableActionsDescription": "Choose an action to start the next analysis step immediately.",
+                "ProcessTitle": "Analysis Process",
+                "ProcessDescription": "Explainable execution flow for the selected analysis.",
+                "ResultTitle": "Analysis Result",
+                "ResultDescription": "Structured findings and supporting highlights.",
+                "NextActionsTitle": "Next Actions",
+                "NextActionsDescription": "Continue the analysis chain with another predefined action.",
+                "HistoryTitle": "History",
+                "HistoryDescription": "Recent analysis sessions for the current result chain.",
+                "RunningTitle": "Analyzing: {title}",
+                "RunningDescription": "Running the selected analysis action.",
+                "ResultPending": "Analysis results will appear here after execution.",
+                "RecordHighlightsTitle": "Top records",
+                "OpenResult": "Open result",
+                "NoNextActions": "No follow-up actions are available yet.",
+                "Starting": "Starting analysis...",
+                "ClickToRun": "Click to run now",
+                "StepLabel": "Step {index}. {title}",
+                "Kinds": {
+                    "trend": "Trend",
+                    "topk": "Top values",
+                    "drilldown": "Breakdown",
+                    "distribution": "Distribution",
+                    "compare": "Compare"
+                },
+                "StepStatus": {
+                    "pending": "Pending",
+                    "running": "Running",
+                    "done": "Done",
+                    "error": "Error"
+                },
+                "Errors": {
+                    "RunFailed": "Failed to run analysis."
+                }
             }
         },
         "Overview": {

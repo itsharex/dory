@@ -1390,8 +1390,18 @@
             },
             "KeyInsights": {
                 "SectionTitle": "Key Insights",
-                "Description": "結果プロファイルから生成した平易な要点です。",
+                "Description": "問題カードと実行可能なアクションです。",
                 "Empty": "まだ明確な傾向は見えていません。フィルタやチャートを試してください。"
+            },
+            "Card": {
+                "CurrentResult": "現在の結果",
+                "OutlierHeadline": "警告: {column} に異常に高い値があります",
+                "OutlierMaxLine": "最大値は {value} で、明らかに高すぎる可能性があります。",
+                "LongTailLine": "分布はロングテールで、p50 は {p50}、p95 は {p95} です。",
+                "RiskHeadline": "警告: {column} にリスク集中があります",
+                "RiskLine": "{value} は現在の結果の約 {share} を占めます。",
+                "DimensionHeadline": "警告: {column} は強く集中しています",
+                "DimensionLine": "{value} が支配的なセグメントとして目立ちます。"
             },
             "Messages": {
                 "PrimaryCategory": "{column} は {value} が中心で、およそ {share} を占めます。",
@@ -1416,12 +1426,16 @@
             },
             "RecommendedActions": {
                 "SectionTitle": "Recommended Actions",
-                "Description": "次の分析ステップを入力済みの状態で Copilot を開きます。"
+                "Description": "この Insight から定義済み分析を直接開始します。"
             },
             "Actions": {
-                "TimeErrorTrend": "error の時系列を見る",
-                "ServiceErrorBreakdown": "service 別に error を見る",
-                "TopMessages": "主要な messages を確認する",
+                "InspectOutliers": "異常サンプルを見る",
+                "AnalyzeSource": "原因を分析する",
+                "ViewDistribution": "分布を見る",
+                "GroupByService": "{column} でグループ分析",
+                "ViewTimeTrend": "時系列を見る",
+                "FilterOutliers": "異常行を絞り込む",
+                "TopMessages": "上位値を見る",
                 "PatternFollowUp": "このパターンを追う",
                 "ExplainResult": "この結果を説明する"
             },
@@ -1450,6 +1464,46 @@
                 "HighlightedColumns": "主要な列ロール",
                 "ColumnStatsTitle": "Column Stats",
                 "ColumnStatLine": "Distinct {distinct} · Null {nulls}"
+            },
+            "Analysis": {
+                "Empty": "分析を始めるには結果を選択してください。",
+                "CurrentInsightTitle": "現在の Insight",
+                "CurrentInsightDescription": "現在の問題と、すぐ実行できる入り口です。",
+                "AvailableActionsTitle": "利用可能なアクション",
+                "AvailableActionsDescription": "アクションを選ぶと次の分析ステップをすぐ開始します。",
+                "ProcessTitle": "分析プロセス",
+                "ProcessDescription": "選択した分析の説明可能な実行フローです。",
+                "ResultTitle": "分析結果",
+                "ResultDescription": "構造化された発見と補助ハイライトです。",
+                "NextActionsTitle": "次のアクション",
+                "NextActionsDescription": "別の定義済みアクションで分析チェーンを続けます。",
+                "HistoryTitle": "履歴",
+                "HistoryDescription": "現在の結果チェーンに対する最近の分析セッションです。",
+                "RunningTitle": "分析中: {title}",
+                "RunningDescription": "選択した分析アクションを実行しています。",
+                "ResultPending": "分析結果は実行後にここへ表示されます。",
+                "RecordHighlightsTitle": "主要レコード",
+                "OpenResult": "結果を開く",
+                "NoNextActions": "まだフォローアップアクションはありません。",
+                "Starting": "分析を開始しています...",
+                "ClickToRun": "クリックして実行",
+                "StepLabel": "Step {index}. {title}",
+                "Kinds": {
+                    "trend": "トレンド",
+                    "topk": "頻出値",
+                    "drilldown": "内訳",
+                    "distribution": "分布",
+                    "compare": "比較"
+                },
+                "StepStatus": {
+                    "pending": "待機中",
+                    "running": "実行中",
+                    "done": "完了",
+                    "error": "エラー"
+                },
+                "Errors": {
+                    "RunFailed": "分析を実行できませんでした。"
+                }
             }
         },
         "Overview": {

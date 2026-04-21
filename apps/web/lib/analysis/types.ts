@@ -29,11 +29,21 @@ export type ResultContext = {
 
 export type AnalysisSuggestionKind = 'drilldown' | 'trend' | 'distribution' | 'topk' | 'compare';
 
+export type AnalysisStepTemplate = {
+    id: string;
+    title: string;
+};
+
 export type AnalysisSuggestion = {
     id: string;
     kind: AnalysisSuggestionKind;
     title: string;
     description: string;
+    label: string;
+    goal: string;
+    resultTitle: string;
+    stepTemplates: AnalysisStepTemplate[];
+    followupPolicy: 'chain';
     intent: {
         type: 'generate_sql' | 'build_chart' | 'explain';
         payload: Record<string, unknown>;
@@ -72,6 +82,18 @@ export type AnalysisArtifact =
 
 export type AnalysisOutcome = {
     summary: string;
+    headline: string;
+    keyFindings: string[];
+    recordHighlights: Array<{
+        label: string;
+        value: string;
+        note?: string;
+    }>;
+    sections: Array<{
+        id: string;
+        title: string;
+        items: string[];
+    }>;
     artifacts: AnalysisArtifact[];
     followups: AnalysisSuggestion[];
 };
