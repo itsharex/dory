@@ -2,12 +2,11 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { ArrowLeft, BarChart3, ChevronDown, Clipboard, FileText, Loader2, Play, Sparkles } from 'lucide-react';
+import { ArrowLeft, BarChart3, Clipboard, FileText, Loader2, Play, Sparkles } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { Button } from '@/registry/new-york-v4/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/registry/new-york-v4/ui/collapsible';
 import { useDB } from '@/lib/client/use-pglite';
 import { buildInsightDraft, buildInsights, buildStructuredInsightView } from '@/lib/client/result-set-insights';
 import { buildAnalysisSuggestions, buildAnalysisSummaryFromDraft } from '@/lib/analysis/suggestions';
@@ -22,21 +21,70 @@ type AnalysisRow = Record<string, unknown>;
 
 function PanelSection(props: { title: string; icon: React.ReactNode; children: React.ReactNode; description?: string }) {
     return (
-        <Collapsible defaultOpen asChild>
-            <section className="flex flex-col gap-3">
-                <CollapsibleTrigger className="group flex w-full items-start justify-between gap-3 text-left">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                            {props.icon}
-                            <span>{props.title}</span>
-                        </div>
-                        {props.description ? <div className="text-xs text-muted-foreground">{props.description}</div> : null}
+        <section className="flex flex-col gap-3">
+            <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    {props.icon}
+                    <span>{props.title}</span>
+                </div>
+                {props.description ? <div className="text-xs leading-relaxed text-muted-foreground">{props.description}</div> : null}
+            </div>
+            {props.children}
+        </section>
+    );
+}
+
+function PrimaryConclusion(props: { headline: string; summary?: string; why?: string; t: ReturnType<typeof useTranslations> }) {
+    return (
+        <div className="rounded-lg border bg-background px-4 py-3">
+            <div className="text-base font-semibold leading-snug text-foreground">{props.headline}</div>
+            {props.summary ? <div className="mt-2 text-sm leading-relaxed text-muted-foreground">{props.summary}</div> : null}
+            {props.why ? (
+                <div className="mt-3 rounded-md bg-muted/40 px-3 py-2">
+                    <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{props.t('Insights.Analysis.WhyRunTitle')}</div>
+                    <div className="mt-1 text-sm leading-relaxed text-foreground">{props.why}</div>
+                </div>
+            ) : null}
+        </div>
+    );
+}
+
+function KeyFindingList(props: { findings: string[]; t: ReturnType<typeof useTranslations> }) {
+    if (!props.findings.length) return null;
+
+    return (
+        <div className="space-y-2">
+            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{props.t('Insights.Analysis.KeyFindingsTitle')}</div>
+            <div className="space-y-2">
+                {props.findings.map((item, index) => (
+                    <div key={item} className="grid grid-cols-[1.5rem_1fr] gap-2 rounded-lg border bg-muted/30 px-3 py-2">
+                        <div className="flex h-6 w-6 items-center justify-center rounded-full bg-background text-xs font-medium text-muted-foreground">{index + 1}</div>
+                        <div className="text-sm leading-relaxed text-foreground">{item}</div>
                     </div>
-                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-                </CollapsibleTrigger>
-                <CollapsibleContent>{props.children}</CollapsibleContent>
-            </section>
-        </Collapsible>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function RecordHighlightList(props: { records: NonNullable<AnalysisSession['outcome']>['recordHighlights']; t: ReturnType<typeof useTranslations> }) {
+    if (!props.records.length) return null;
+
+    return (
+        <div className="space-y-2">
+            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{props.t('Insights.Analysis.RecordHighlightsTitle')}</div>
+            <div className="space-y-2">
+                {props.records.slice(0, 5).map(item => (
+                    <div key={`${item.label}:${item.value}`} className="rounded-lg border bg-muted/30 px-3 py-2">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 text-sm font-medium leading-snug text-foreground">{item.label}</div>
+                            <div className="shrink-0 text-sm font-semibold tabular-nums text-foreground">{item.value}</div>
+                        </div>
+                        {item.note ? <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.note}</div> : null}
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 }
 
@@ -580,6 +628,35 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
     }
 
     if (selectedSession) {
+        if (selectedSession.status === 'running') {
+            return (
+                <div className="flex min-h-full flex-col">
+                    <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleBackToActions}>
+                                <ArrowLeft className="h-4 w-4" />
+                            </Button>
+                            <div className="min-w-0">
+                                <div className="truncate text-sm font-semibold text-foreground">{selectedSession.title}</div>
+                                <div className="mt-0.5 truncate text-xs text-muted-foreground">{t('Insights.Analysis.RunningDescription')}</div>
+                            </div>
+                        </div>
+                        <Badge variant="outline" className="shrink-0 text-[10px] uppercase">
+                            {t('Insights.Analysis.LoadingStatus')}
+                        </Badge>
+                    </div>
+
+                    <div className="flex flex-1 items-center justify-center px-6 py-16">
+                        <div className="flex flex-col items-center gap-3 text-center">
+                            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                            <div className="text-sm font-medium text-foreground">{t('Insights.Analysis.LoadingTitle')}</div>
+                            <div className="max-w-72 text-xs leading-relaxed text-muted-foreground">{t('Insights.Analysis.LoadingDescription')}</div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         return (
             <div className="flex min-h-full flex-col">
                 <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
@@ -589,9 +666,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                         </Button>
                         <div className="min-w-0">
                             <div className="truncate text-sm font-semibold text-foreground">{selectedSession.title}</div>
-                            <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                                {selectedSession.status === 'running' ? t('Insights.Analysis.RunningDescription') : t('Insights.Analysis.ActionPageSubtitle')}
-                            </div>
+                            <div className="mt-0.5 truncate text-xs text-muted-foreground">{t('Insights.Analysis.ActionPageSubtitle')}</div>
                         </div>
                     </div>
                     <Badge variant="outline" className="shrink-0 text-[10px] uppercase">
@@ -604,9 +679,14 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                         <PanelSection
                             title={t('Insights.Analysis.ConclusionTitle')}
                             icon={<Sparkles className="h-3.5 w-3.5 text-muted-foreground" />}
-                            description={selectedSessionSuggestion?.goal ?? selectedSession.outcome?.headline ?? selectedSession.title}
+                            description={t('Insights.Analysis.ConclusionDescription')}
                         >
-                            <div className="rounded-lg border bg-background px-4 py-3 text-xs text-muted-foreground">{insightBundle.structured.narrative}</div>
+                            <PrimaryConclusion
+                                headline={selectedSession.outcome?.headline ?? selectedSession.title}
+                                summary={selectedSession.outcome?.summary ?? insightBundle.structured.narrative}
+                                why={selectedSessionSuggestion?.goal}
+                                t={t}
+                            />
                         </PanelSection>
 
                         <PanelSection
@@ -617,53 +697,31 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                             <div className="rounded-lg border bg-background px-4 py-3">
                                 {selectedSession.outcome ? (
                                     <div className="space-y-4">
-                                        <div>
-                                            <div className="text-sm font-semibold text-foreground">{selectedSession.outcome.headline}</div>
-                                            <div className="mt-1 text-xs text-muted-foreground">{selectedSession.outcome.summary}</div>
-                                        </div>
+                                        <KeyFindingList findings={selectedSession.outcome.keyFindings} t={t} />
 
-                                        {selectedSession.outcome.keyFindings.length ? (
-                                            <div className="space-y-1">
-                                                {selectedSession.outcome.keyFindings.map(item => (
-                                                    <div key={item} className="text-sm text-foreground">
-                                                        {item}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : null}
+                                        <RecordHighlightList records={selectedSession.outcome.recordHighlights} t={t} />
 
-                                        {selectedSession.outcome.recordHighlights.length ? (
+                                        {selectedSession.outcome.sections.length ? (
                                             <div className="space-y-2">
-                                                <div className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                                                    {t('Insights.Analysis.RecordHighlightsTitle')}
+                                                <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                                                    {t('Insights.Analysis.SupportingDetailsTitle')}
                                                 </div>
-                                                {selectedSession.outcome.recordHighlights.map(item => (
-                                                    <div
-                                                        key={`${item.label}:${item.value}`}
-                                                        className="flex items-start justify-between gap-3 rounded-lg border bg-muted/40 px-3 py-2"
-                                                    >
-                                                        <div className="min-w-0">
-                                                            <div className="text-sm font-medium text-foreground">{item.label}</div>
-                                                            {item.note ? <div className="mt-1 text-xs text-muted-foreground">{item.note}</div> : null}
-                                                        </div>
-                                                        <div className="text-sm text-foreground">{item.value}</div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : null}
-
-                                        {selectedSession.outcome.sections.map(section => (
-                                            <div key={section.id} className="space-y-2">
-                                                <div className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{section.title}</div>
-                                                <div className="space-y-1">
-                                                    {section.items.map(item => (
-                                                        <div key={item} className="text-sm text-foreground">
-                                                            {item}
+                                                <div className="space-y-2">
+                                                    {selectedSession.outcome.sections.map(section => (
+                                                        <div key={section.id} className="rounded-lg border bg-muted/30 px-3 py-2">
+                                                            <div className="text-sm font-medium text-foreground">{section.title}</div>
+                                                            <div className="mt-1 space-y-1">
+                                                                {section.items.slice(0, 4).map(item => (
+                                                                    <div key={item} className="text-xs leading-relaxed text-muted-foreground">
+                                                                        {item}
+                                                                    </div>
+                                                                ))}
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>
                                             </div>
-                                        ))}
+                                        ) : null}
 
                                         <CompactAnalysisVisual
                                             rows={analysisRows}
