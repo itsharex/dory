@@ -128,7 +128,7 @@ export function ResultOverviewPanel(props: {
     const handleAction = (action: InsightAction) => {
         if (action.kind === 'analysis-suggestion') {
             setCopilotPanelOpen(true);
-            setCopilotPanelTab('analysis');
+            setCopilotPanelTab('action');
             setCopilotAnalysisRequest({
                 id: `${action.suggestionId}-${Date.now()}`,
                 suggestionId: action.suggestionId,

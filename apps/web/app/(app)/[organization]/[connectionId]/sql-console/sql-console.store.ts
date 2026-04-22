@@ -17,7 +17,11 @@ const booleanStorage = createJSONStorage<boolean>(() => localStorage);
 const numberStorage = createJSONStorage<number>(() => localStorage);
 export const copilotPanelOpenAtom = atomWithStorage<boolean>('sqlConsole.copilotPanelOpen', true, booleanStorage);
 export const copilotPanelWidthAtom = atomWithStorage<number>('sqlConsole.copilotPanelWidth', 30, numberStorage);
-export const copilotPanelTabAtom = atomWithStorage<'ask' | 'action' | 'context' | 'analysis'>('sqlConsole.copilotPanelTab', 'ask', createJSONStorage(() => localStorage));
+export const copilotPanelTabAtom = atomWithStorage<'ask' | 'action' | 'context'>(
+    'sqlConsole.copilotPanelTab',
+    'ask',
+    createJSONStorage(() => localStorage),
+);
 
 export const currentTabResultAtom = atom<TabResult[]>([]);
 
@@ -73,7 +77,11 @@ export type CopilotAnalysisRequest = {
 
 export const copilotAnalysisRequestAtom = atom<CopilotAnalysisRequest | null>(null);
 
-export const analysisWorkspaceStateAtom = atomWithStorage<Record<string, AnalysisWorkspaceState>>('sqlConsole.analysisWorkspaceState', {}, createJSONStorage(() => localStorage));
+export const analysisWorkspaceStateAtom = atomWithStorage<Record<string, AnalysisWorkspaceState>>(
+    'sqlConsole.analysisWorkspaceState',
+    {},
+    createJSONStorage(() => localStorage),
+);
 
 function makeAnalysisWorkspaceKey(tabId?: string | null, sessionId?: string | null, setIndex?: number | null) {
     if (!tabId || !sessionId || typeof setIndex !== 'number' || setIndex < 0) return null;

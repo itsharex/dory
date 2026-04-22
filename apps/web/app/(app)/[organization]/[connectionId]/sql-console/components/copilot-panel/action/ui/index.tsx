@@ -12,6 +12,7 @@ import { CopilotFixInput } from '@/app/(app)/[organization]/[connectionId]/chatb
 import { useTranslations } from 'next-intl';
 import { isMissingAiEnvError } from '@/lib/ai/errors';
 import { USE_CLOUD_AI } from '@/app/config/app';
+import AnalysisActions from '../../analysis';
 
 type ApplySqlResult = {
     previousSql: string;
@@ -26,16 +27,17 @@ type ApplySqlMeta = {
 
 export type ActionTabProps = {
     input: CopilotFixInput | null;
-    onApplySql?: (
-        sql: string,
-        meta?: ApplySqlMeta,
-    ) => Promise<ApplySqlResult | void> | ApplySqlResult | void;
+    onApplySql?: (sql: string, meta?: ApplySqlMeta) => Promise<ApplySqlResult | void> | ApplySqlResult | void;
     onExecuted?: (payload: { intent: ActionIntent; result: ActionResult }) => void;
     autoRun?: { intent: ActionIntent; requestId: string } | null;
     onAutoRunHandled?: (requestId: string) => void;
+    analysisRequestId?: string | null;
+    tabId?: string;
+    connectionId?: string | null;
+    databaseName?: string | null;
 };
 
-export function ActionTab({ input, onApplySql, onExecuted, autoRun, onAutoRunHandled }: ActionTabProps) {
+export function ActionTab({ input, onApplySql, onExecuted, autoRun, onAutoRunHandled, analysisRequestId, tabId, connectionId, databaseName }: ActionTabProps) {
     const t = useTranslations('SqlConsole') as any;
     const suppressMissingAiEnv = USE_CLOUD_AI;
     const [result, setResult] = useState<ActionResult | null>(null);
@@ -43,12 +45,10 @@ export function ActionTab({ input, onApplySql, onExecuted, autoRun, onAutoRunHan
     const [runError, setRunError] = useState<string | null>(null);
     const [lastIntent, setLastIntent] = useState<ActionIntent | null>(null);
     const [showResultPanel, setShowResultPanel] = useState(false);
+    const [analysisDetailOpen, setAnalysisDetailOpen] = useState(false);
     const [undoSnapshot, setUndoSnapshot] = useState<ApplySqlResult | null>(null);
     const localizedActions = useMemo(() => getLocalizedQuickActions(t), [t]);
-    const selectedActionTitle = useMemo(
-        () => localizedActions.find(action => action.intent === lastIntent)?.title ?? null,
-        [lastIntent, localizedActions],
-    );
+    const selectedActionTitle = useMemo(() => localizedActions.find(action => action.intent === lastIntent)?.title ?? null, [lastIntent, localizedActions]);
 
     const quickActions = useMemo<QuickActionListItem[]>(() => {
         if (!input) {
@@ -102,11 +102,7 @@ export function ActionTab({ input, onApplySql, onExecuted, autoRun, onAutoRunHan
                 onExecuted?.({ intent: action.intent, result: r });
             } catch (e: any) {
                 if (isMissingAiEnvError(e) || e?.code === 'MISSING_AI_ENV') {
-                    setRunError(
-                        suppressMissingAiEnv
-                            ? t('Copilot.Actions.RunFailed')
-                            : t('Copilot.Actions.MissingAiEnv'),
-                    );
+                    setRunError(suppressMissingAiEnv ? t('Copilot.Actions.RunFailed') : t('Copilot.Actions.MissingAiEnv'));
                 } else {
                     setRunError(e?.message ?? t('Copilot.Actions.RunFailed'));
                 }
@@ -144,6 +140,17 @@ export function ActionTab({ input, onApplySql, onExecuted, autoRun, onAutoRunHan
             onAutoRunHandled?.(autoRun.requestId);
         });
     }, [autoRun, handleSelect, onAutoRunHandled, quickActions, t]);
+
+    useEffect(() => {
+        if (!analysisRequestId) return;
+        setResult(null);
+        setRunError(null);
+        setRunning(false);
+        setLastIntent(null);
+        setShowResultPanel(false);
+        setAnalysisDetailOpen(false);
+        setUndoSnapshot(null);
+    }, [analysisRequestId]);
 
     const handleBack = useCallback(() => {
         setResult(null);
@@ -206,11 +213,18 @@ export function ActionTab({ input, onApplySql, onExecuted, autoRun, onAutoRunHan
     }
 
     return (
-        <QuickActionList
-            items={quickActions}
-            onSelect={handleSelect}
-            // loading={running}
-            // errorMessage={runError}
-        />
+        <div className="flex h-full min-h-0 flex-col overflow-auto">
+            <div className={analysisDetailOpen ? 'hidden' : 'shrink-0 border-b'}>
+                <QuickActionList
+                    items={quickActions}
+                    onSelect={handleSelect}
+                    // loading={running}
+                    // errorMessage={runError}
+                />
+            </div>
+            <div className="min-h-0 flex-1">
+                <AnalysisActions tabId={tabId} connectionId={connectionId} databaseName={databaseName} onDetailStateChange={setAnalysisDetailOpen} />
+            </div>
+        </div>
     );
 }

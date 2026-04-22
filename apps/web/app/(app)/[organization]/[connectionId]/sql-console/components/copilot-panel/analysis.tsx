@@ -2,14 +2,12 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { CheckCircle2, ChevronDown, CircleAlert, FileText, Loader2, Sparkles, ListTree, BarChart3, ArrowRight } from 'lucide-react';
+import { ArrowLeft, BarChart3, ChevronDown, Clipboard, FileText, Loader2, Play, Sparkles } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/registry/new-york-v4/ui/collapsible';
-import { ScrollArea } from '@/registry/new-york-v4/ui/scroll-area';
-import { Separator } from '@/registry/new-york-v4/ui/separator';
 import { useDB } from '@/lib/client/use-pglite';
 import { buildInsightDraft, buildInsights, buildStructuredInsightView } from '@/lib/client/result-set-insights';
 import { buildAnalysisSuggestions, buildAnalysisSummaryFromDraft } from '@/lib/analysis/suggestions';
@@ -19,6 +17,8 @@ import type { AnalysisResultRef, AnalysisSession, AnalysisStep, AnalysisSuggesti
 import { analysisWorkspaceKeyFor, analysisWorkspaceStateAtom, copilotAnalysisRequestAtom, sessionIdByTabAtom, upsertAnalysisWorkspaceAtom } from '../../sql-console.store';
 import { currentSessionMetaAtom } from '../result-table/stores/result-table.atoms';
 import { makeActiveSetAtom, upsertActiveSetAtom } from '../result-table/stores/active-set.atoms';
+
+type AnalysisRow = Record<string, unknown>;
 
 function PanelSection(props: { title: string; icon: React.ReactNode; children: React.ReactNode; description?: string }) {
     return (
@@ -43,6 +43,80 @@ function PanelSection(props: { title: string; icon: React.ReactNode; children: R
 function findResultRefFromSession(session: AnalysisSession): AnalysisResultRef | null {
     const artifact = session.outcome?.artifacts.find(item => item.type === 'result_ref');
     return artifact?.type === 'result_ref' ? artifact.resultRef : null;
+}
+
+function findSqlFromSession(session: AnalysisSession): string | null {
+    const artifact = session.outcome?.artifacts.find(item => item.type === 'sql');
+    return artifact?.type === 'sql' ? artifact.sql : null;
+}
+
+function findSourceResultRefFromSession(session: AnalysisSession): AnalysisResultRef {
+    return session.contextRef;
+}
+
+function formatVisualValue(value: unknown) {
+    if (value == null) return '—';
+    if (typeof value === 'number') return Number.isInteger(value) ? value.toLocaleString() : value.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    if (typeof value === 'boolean') return value ? 'true' : 'false';
+    return String(value);
+}
+
+function firstNumericColumn(rows: AnalysisRow[]) {
+    const row = rows[0] ?? {};
+    return Object.keys(row).find(key => typeof row[key] === 'number') ?? null;
+}
+
+function firstLabelColumn(rows: AnalysisRow[], numericColumn: string | null) {
+    const row = rows[0] ?? {};
+    return Object.keys(row).find(key => key !== numericColumn) ?? null;
+}
+
+function CompactAnalysisVisual(props: { rows: AnalysisRow[]; kind?: AnalysisSuggestion['kind']; emptyLabel: string; title: string }) {
+    const { rows, kind, emptyLabel, title } = props;
+    const numericColumn = firstNumericColumn(rows);
+    const labelColumn = firstLabelColumn(rows, numericColumn);
+
+    if (!rows.length || !numericColumn) {
+        return <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">{emptyLabel}</div>;
+    }
+
+    const values = rows.slice(0, kind === 'trend' ? 12 : 6).map(row => ({
+        label: labelColumn ? formatVisualValue(row[labelColumn]) : '',
+        value: typeof row[numericColumn] === 'number' ? row[numericColumn] : 0,
+    }));
+    const max = Math.max(...values.map(item => Math.abs(item.value)), 1);
+
+    if (kind === 'distribution') {
+        return (
+            <div className="grid gap-2 sm:grid-cols-2">
+                {Object.entries(rows[0] ?? {})
+                    .slice(0, 6)
+                    .map(([key, value]) => (
+                        <div key={key} className="rounded-lg border bg-muted/30 px-3 py-2">
+                            <div className="text-[11px] text-muted-foreground">{key}</div>
+                            <div className="mt-1 truncate text-sm font-medium text-foreground">{formatVisualValue(value)}</div>
+                        </div>
+                    ))}
+            </div>
+        );
+    }
+
+    return (
+        <div className="rounded-lg border bg-muted/30 px-3 py-3">
+            <div className="mb-3 text-xs font-medium text-muted-foreground">{title}</div>
+            <div className="space-y-2">
+                {values.map((item, index) => (
+                    <div key={`${item.label}:${index}`} className="grid grid-cols-[minmax(72px,0.9fr)_minmax(80px,1.4fr)_auto] items-center gap-2">
+                        <div className="truncate text-xs text-muted-foreground">{item.label || `#${index + 1}`}</div>
+                        <div className="h-2 overflow-hidden rounded-full bg-background">
+                            <div className="h-full rounded-full bg-muted-foreground/50" style={{ width: `${Math.max(6, (Math.abs(item.value) / max) * 100)}%` }} />
+                        </div>
+                        <div className="text-right text-xs font-medium text-foreground">{formatVisualValue(item.value)}</div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 }
 
 function makeOptimisticSession(params: { suggestion: AnalysisSuggestion; resultRef: AnalysisResultRef; triggerId: string }): AnalysisSession {
@@ -70,13 +144,6 @@ function makeOptimisticSession(params: { suggestion: AnalysisSuggestion; resultR
     };
 }
 
-function statusIcon(step: AnalysisStep) {
-    if (step.status === 'done') return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-    if (step.status === 'error') return <CircleAlert className="h-4 w-4 text-destructive" />;
-    if (step.status === 'running') return <Loader2 className="h-4 w-4 animate-spin text-primary" />;
-    return <div className="h-4 w-4 rounded-full border border-muted-foreground/40" />;
-}
-
 function suggestionKindLabel(kind: AnalysisSuggestion['kind'], t: ReturnType<typeof useTranslations>) {
     return t(`Insights.Analysis.Kinds.${kind}` as any);
 }
@@ -96,14 +163,24 @@ function mergeAnalysisSessions(...sessionGroups: Array<AnalysisSession[] | undef
     return sessions;
 }
 
-type AnalysisTabProps = {
+function dedupeAnalysisSuggestions(suggestions: AnalysisSuggestion[]) {
+    const seen = new Set<string>();
+    return suggestions.filter(suggestion => {
+        if (seen.has(suggestion.id)) return false;
+        seen.add(suggestion.id);
+        return true;
+    });
+}
+
+type AnalysisActionsProps = {
     tabId?: string;
     connectionId?: string | null;
     databaseName?: string | null;
+    onDetailStateChange?: (open: boolean) => void;
 };
 
-export default function AnalysisTab(props: AnalysisTabProps) {
-    const { tabId, connectionId, databaseName } = props;
+export default function AnalysisActions(props: AnalysisActionsProps) {
+    const { tabId, connectionId, databaseName, onDetailStateChange } = props;
     const locale = useLocale();
     const t = useTranslations('SqlConsole');
     const { dbReady, getResultRows, applyServerResult } = useDB();
@@ -118,6 +195,7 @@ export default function AnalysisTab(props: AnalysisTabProps) {
     const workspaces = useAtomValue(analysisWorkspaceStateAtom);
     const upsertWorkspace = useSetAtom(upsertAnalysisWorkspaceAtom);
     const [sampleRows, setSampleRows] = useState<Array<Record<string, unknown>>>([]);
+    const [analysisRows, setAnalysisRows] = useState<AnalysisRow[]>([]);
     const [runningSuggestionId, setRunningSuggestionId] = useState<string | null>(null);
     const handledRequestIdsRef = useRef<Set<string>>(new Set());
 
@@ -218,15 +296,16 @@ export default function AnalysisTab(props: AnalysisTabProps) {
                     sessions: [],
                 };
 
+                const suggestions = dedupeAnalysisSuggestions(insightBundle.suggestions);
                 const selectedSuggestionId =
                     analysisRequest?.sourceResultRef?.sessionId === activeSessionId && analysisRequest?.sourceResultRef?.setIndex === activeSet
                         ? analysisRequest.suggestionId
-                        : (base.currentFocus?.suggestionId ?? insightBundle.suggestions[0]?.id);
-                const selectedSuggestion = insightBundle.suggestions.find(item => item.id === selectedSuggestionId) ?? insightBundle.suggestions[0];
+                        : (base.currentFocus?.suggestionId ?? suggestions[0]?.id);
+                const selectedSuggestion = suggestions.find(item => item.id === selectedSuggestionId) ?? suggestions[0];
 
                 return {
                     ...base,
-                    suggestions: insightBundle.suggestions,
+                    suggestions,
                     currentFocus: selectedSuggestion
                         ? {
                               suggestionId: selectedSuggestion.id,
@@ -238,16 +317,60 @@ export default function AnalysisTab(props: AnalysisTabProps) {
         });
     }, [activeSessionId, activeSet, analysisRequest, insightBundle, tabId, upsertWorkspace, workspaceKey]);
 
+    const workspaceSuggestions = useMemo(() => dedupeAnalysisSuggestions(workspace?.suggestions ?? []), [workspace?.suggestions]);
+
     const selectedSuggestion = useMemo(() => {
-        if (!workspace?.currentFocus?.suggestionId) return workspace?.suggestions?.[0] ?? null;
-        return workspace.suggestions.find(item => item.id === workspace.currentFocus?.suggestionId) ?? workspace.suggestions[0] ?? null;
-    }, [workspace]);
+        if (!workspace?.currentFocus?.suggestionId) return workspaceSuggestions[0] ?? null;
+        return workspaceSuggestions.find(item => item.id === workspace.currentFocus?.suggestionId) ?? workspaceSuggestions[0] ?? null;
+    }, [workspace, workspaceSuggestions]);
 
     const selectedSession = useMemo(() => {
-        if (!workspace?.sessions?.length) return null;
-        const selectedId = workspace.lastSelectedSessionId ?? workspace.sessions[workspace.sessions.length - 1]?.id;
-        return workspace.sessions.find(item => item.id === selectedId) ?? workspace.sessions[workspace.sessions.length - 1] ?? null;
-    }, [workspace]);
+        if (!workspace?.sessions?.length || !workspace.lastSelectedSessionId) return null;
+        const session = workspace.sessions.find(item => item.id === workspace.lastSelectedSessionId) ?? null;
+        if (!session) return null;
+        if (session.contextRef.sessionId !== activeSessionId || session.contextRef.setIndex !== activeSet) return null;
+        return session;
+    }, [activeSessionId, activeSet, workspace]);
+
+    useEffect(() => {
+        onDetailStateChange?.(!!selectedSession);
+
+        return () => {
+            onDetailStateChange?.(false);
+        };
+    }, [onDetailStateChange, selectedSession]);
+
+    const selectedSessionSuggestion = useMemo(() => {
+        if (!selectedSession) return selectedSuggestion;
+        const suggestionId = selectedSession.trigger.suggestionId;
+        return workspaceSuggestions.find(item => item.id === suggestionId) ?? selectedSuggestion;
+    }, [selectedSession, selectedSuggestion, workspaceSuggestions]);
+
+    const selectedSessionSql = useMemo(() => (selectedSession ? findSqlFromSession(selectedSession) : null), [selectedSession]);
+    const selectedSessionResultRef = useMemo(() => (selectedSession ? findResultRefFromSession(selectedSession) : null), [selectedSession]);
+    const selectedSourceResultRef = useMemo(() => (selectedSession ? findSourceResultRefFromSession(selectedSession) : null), [selectedSession]);
+
+    useEffect(() => {
+        let canceled = false;
+
+        (async () => {
+            if (!dbReady || !selectedSessionResultRef) {
+                if (!canceled) setAnalysisRows([]);
+                return;
+            }
+
+            const rows = await getResultRows(selectedSessionResultRef.sessionId, selectedSessionResultRef.setIndex, {
+                rowBudget: 80,
+                yieldUi: false,
+            }).catch(() => []);
+            if (canceled) return;
+            setAnalysisRows(rows.map(row => row.rowData as AnalysisRow));
+        })();
+
+        return () => {
+            canceled = true;
+        };
+    }, [dbReady, getResultRows, selectedSessionResultRef]);
 
     const handleSelectSuggestion = (suggestion: AnalysisSuggestion) => {
         if (!tabId || !activeSessionId || activeSet == null || activeSet < 0) return;
@@ -257,7 +380,7 @@ export default function AnalysisTab(props: AnalysisTabProps) {
             setIndex: activeSet,
             patch: prev => ({
                 ...(prev ?? { suggestions: [], sessions: [] }),
-                suggestions: prev?.suggestions ?? insightBundle?.suggestions ?? [],
+                suggestions: dedupeAnalysisSuggestions(prev?.suggestions ?? insightBundle?.suggestions ?? []),
                 sessions: prev?.sessions ?? [],
                 lastSelectedSessionId: prev?.lastSelectedSessionId,
                 currentFocus: {
@@ -268,9 +391,64 @@ export default function AnalysisTab(props: AnalysisTabProps) {
         });
     };
 
+    const handleBackToActions = () => {
+        if (!tabId || !activeSessionId || activeSet == null || activeSet < 0) return;
+        if (selectedSourceResultRef) {
+            setSessionIdByTab(prev => ({
+                ...prev,
+                [tabId]: selectedSourceResultRef.sessionId,
+            }));
+            try {
+                localStorage.setItem(`sqlconsole:sessionId:${tabId}`, selectedSourceResultRef.sessionId);
+            } catch {
+                // ignore local storage failures
+            }
+            setExplicitActiveSet({
+                tabId,
+                sessionId: selectedSourceResultRef.sessionId,
+                activeSet: selectedSourceResultRef.setIndex,
+            });
+        }
+        upsertWorkspace({
+            tabId,
+            sessionId: selectedSourceResultRef?.sessionId ?? activeSessionId,
+            setIndex: selectedSourceResultRef?.setIndex ?? activeSet,
+            patch: prev => ({
+                ...(prev ?? { suggestions: [], sessions: [] }),
+                suggestions: dedupeAnalysisSuggestions(prev?.suggestions ?? insightBundle?.suggestions ?? []),
+                sessions: prev?.sessions ?? [],
+                currentFocus: prev?.currentFocus,
+                lastSelectedSessionId: undefined,
+            }),
+        });
+    };
+
+    const handleOpenGeneratedResult = (ref: AnalysisResultRef | null) => {
+        if (!ref || !tabId) return;
+        setSessionIdByTab(prev => ({
+            ...prev,
+            [tabId]: ref.sessionId,
+        }));
+        try {
+            localStorage.setItem(`sqlconsole:sessionId:${tabId}`, ref.sessionId);
+        } catch {
+            // ignore local storage failures
+        }
+        setExplicitActiveSet({
+            tabId,
+            sessionId: ref.sessionId,
+            activeSet: ref.setIndex,
+        });
+    };
+
+    const handleCopyAnalysisSql = async (sql: string | null) => {
+        if (!sql?.trim()) return;
+        await navigator.clipboard.writeText(sql);
+        toast.success(t('Insights.Analysis.SqlCopied'));
+    };
+
     const persistAnalysisSession = (sourceSessionId: string, sourceSetIndex: number, session: AnalysisSession, optimisticId?: string) => {
         if (!tabId) return;
-        let sourceSessions: AnalysisSession[] = [];
 
         upsertWorkspace({
             tabId,
@@ -279,11 +457,10 @@ export default function AnalysisTab(props: AnalysisTabProps) {
             patch: prev => {
                 const existingSessions = (prev?.sessions ?? []).filter(item => item.id !== optimisticId);
                 const sessions = mergeAnalysisSessions(existingSessions, [session]);
-                sourceSessions = sessions;
 
                 return {
                     currentFocus: prev?.currentFocus,
-                    suggestions: prev?.suggestions ?? insightBundle?.suggestions ?? [],
+                    suggestions: dedupeAnalysisSuggestions(prev?.suggestions ?? insightBundle?.suggestions ?? []),
                     sessions,
                     lastSelectedSessionId: session.id,
                 };
@@ -304,9 +481,9 @@ export default function AnalysisTab(props: AnalysisTabProps) {
                           title: session.outcome.followups[0].title,
                       }
                     : prev?.currentFocus,
-                suggestions: session.outcome?.followups ?? prev?.suggestions ?? [],
-                sessions: mergeAnalysisSessions(prev?.sessions, sourceSessions.length ? sourceSessions : [session]),
-                lastSelectedSessionId: session.id,
+                suggestions: dedupeAnalysisSuggestions(session.outcome?.followups ?? prev?.suggestions ?? []),
+                sessions: mergeAnalysisSessions(prev?.sessions),
+                lastSelectedSessionId: undefined,
             }),
         });
     };
@@ -327,7 +504,7 @@ export default function AnalysisTab(props: AnalysisTabProps) {
             setIndex: activeSet,
             patch: prev => ({
                 ...(prev ?? { suggestions: [], sessions: [] }),
-                suggestions: prev?.suggestions ?? insightBundle?.suggestions ?? [],
+                suggestions: dedupeAnalysisSuggestions(prev?.suggestions ?? insightBundle?.suggestions ?? []),
                 sessions: [...(prev?.sessions ?? []).filter(item => item.id !== optimistic.id), optimistic],
                 lastSelectedSessionId: optimistic.id,
                 currentFocus: {
@@ -367,26 +544,13 @@ export default function AnalysisTab(props: AnalysisTabProps) {
                 },
             });
 
-            await applyServerResult(response.query);
-            persistAnalysisSession(activeSessionId, activeSet, response.session, optimisticId ?? undefined);
+            const sourceRef = {
+                sessionId: activeSessionId,
+                setIndex: activeSet,
+            };
 
-            const nextResultRef = findResultRefFromSession(response.session);
-            if (nextResultRef) {
-                setSessionIdByTab(prev => ({
-                    ...prev,
-                    [tabId]: nextResultRef.sessionId,
-                }));
-                try {
-                    localStorage.setItem(`sqlconsole:sessionId:${tabId}`, nextResultRef.sessionId);
-                } catch {
-                    // ignore local storage failures
-                }
-                setExplicitActiveSet({
-                    tabId,
-                    sessionId: nextResultRef.sessionId,
-                    activeSet: nextResultRef.setIndex,
-                });
-            }
+            await applyServerResult(response.query);
+            persistAnalysisSession(sourceRef.sessionId, sourceRef.setIndex, response.session, optimisticId ?? undefined);
         } catch (error) {
             toast.error(error instanceof Error ? error.message : t('Insights.Analysis.Errors.RunFailed'));
         } finally {
@@ -399,7 +563,7 @@ export default function AnalysisTab(props: AnalysisTabProps) {
         if (handledRequestIdsRef.current.has(analysisRequest.id)) return;
         if (analysisRequest.sourceResultRef?.sessionId !== activeSessionId || analysisRequest.sourceResultRef?.setIndex !== activeSet) return;
 
-        const suggestion = workspace.suggestions.find(item => item.id === analysisRequest.suggestionId);
+        const suggestion = workspaceSuggestions.find(item => item.id === analysisRequest.suggestionId);
         if (!suggestion) {
             setAnalysisRequest(null);
             return;
@@ -409,284 +573,183 @@ export default function AnalysisTab(props: AnalysisTabProps) {
         void handleRunSuggestion(suggestion, analysisRequest.id).finally(() => {
             setAnalysisRequest(null);
         });
-    }, [activeSessionId, activeSet, analysisRequest, setAnalysisRequest, workspace]);
+    }, [activeSessionId, activeSet, analysisRequest, setAnalysisRequest, workspace, workspaceSuggestions]);
 
     if (!activeSessionId || activeSet == null || activeSet < 0 || !insightBundle) {
         return <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">{t('Insights.Analysis.Empty')}</div>;
     }
 
-    return (
-        <div className="flex h-full min-h-0">
-            <ScrollArea className="h-full w-full">
-                <div className="flex flex-col gap-4 p-4">
-                    <PanelSection
-                        title={t('Insights.Analysis.CurrentInsightTitle')}
-                        icon={<Sparkles className="h-3.5 w-3.5 text-violet-400" />}
-                        description={t('Insights.Analysis.CurrentInsightDescription')}
-                    >
-                        <div className="rounded-lg border bg-background px-4 py-3">
-                            <div className="text-sm font-semibold text-foreground">{insightBundle.structured.card.headline}</div>
-                            <div className="mt-2 space-y-1">
-                                {insightBundle.structured.card.summaryLines.map(line => (
-                                    <div key={line} className="text-xs text-muted-foreground">
-                                        {line}
-                                    </div>
-                                ))}
+    if (selectedSession) {
+        return (
+            <div className="flex min-h-full flex-col">
+                <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={handleBackToActions}>
+                            <ArrowLeft className="h-4 w-4" />
+                        </Button>
+                        <div className="min-w-0">
+                            <div className="truncate text-sm font-semibold text-foreground">{selectedSession.title}</div>
+                            <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                                {selectedSession.status === 'running' ? t('Insights.Analysis.RunningDescription') : t('Insights.Analysis.ActionPageSubtitle')}
                             </div>
                         </div>
-                    </PanelSection>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 text-[10px] uppercase">
+                        {selectedSession.status}
+                    </Badge>
+                </div>
 
-                    {selectedSession ? (
-                        <>
-                            <PanelSection
-                                title={t('Insights.Analysis.ProcessTitle')}
-                                icon={<ListTree className="h-3.5 w-3.5 text-violet-400" />}
-                                description={t('Insights.Analysis.ProcessDescription')}
-                            >
-                                <div className="rounded-lg border bg-background px-4 py-3">
-                                    <div className="mb-3 flex items-start justify-between gap-3">
+                <div className="flex-1">
+                    <div className="flex flex-col gap-4 p-4">
+                        <PanelSection
+                            title={t('Insights.Analysis.ConclusionTitle')}
+                            icon={<Sparkles className="h-3.5 w-3.5 text-muted-foreground" />}
+                            description={selectedSessionSuggestion?.goal ?? selectedSession.outcome?.headline ?? selectedSession.title}
+                        >
+                            <div className="rounded-lg border bg-background px-4 py-3 text-xs text-muted-foreground">{insightBundle.structured.narrative}</div>
+                        </PanelSection>
+
+                        <PanelSection
+                            title={t('Insights.Analysis.ResultTitle')}
+                            icon={<FileText className="h-3.5 w-3.5 text-muted-foreground" />}
+                            description={t('Insights.Analysis.ResultDescription')}
+                        >
+                            <div className="rounded-lg border bg-background px-4 py-3">
+                                {selectedSession.outcome ? (
+                                    <div className="space-y-4">
                                         <div>
-                                            <div className="text-sm font-semibold text-foreground">
-                                                {selectedSession.status === 'running'
-                                                    ? t('Insights.Analysis.RunningTitle', { title: selectedSession.title })
-                                                    : selectedSession.title}
-                                            </div>
-                                            <div className="mt-1 text-xs text-muted-foreground">
-                                                {selectedSession.status === 'running'
-                                                    ? (selectedSuggestion?.goal ?? t('Insights.Analysis.RunningDescription'))
-                                                    : (selectedSession.outcome?.summary ?? t('Insights.Analysis.ResultPending'))}
-                                            </div>
+                                            <div className="text-sm font-semibold text-foreground">{selectedSession.outcome.headline}</div>
+                                            <div className="mt-1 text-xs text-muted-foreground">{selectedSession.outcome.summary}</div>
                                         </div>
-                                        <Badge variant="outline" className="text-[10px] uppercase">
-                                            {selectedSession.status}
-                                        </Badge>
-                                    </div>
-                                    <div className="space-y-2">
-                                        {selectedSession.steps.map((step, index) => (
-                                            <div key={step.id} className="flex items-start gap-3 rounded-lg border bg-muted/40 px-3 py-2.5">
-                                                <div className="mt-0.5">{statusIcon(step)}</div>
-                                                <div className="min-w-0 flex-1">
-                                                    <div className="text-sm font-medium text-foreground">
-                                                        {t('Insights.Analysis.StepLabel', {
-                                                            index: index + 1,
-                                                            title: step.title,
-                                                        })}
+
+                                        {selectedSession.outcome.keyFindings.length ? (
+                                            <div className="space-y-1">
+                                                {selectedSession.outcome.keyFindings.map(item => (
+                                                    <div key={item} className="text-sm text-foreground">
+                                                        {item}
                                                     </div>
-                                                    {step.error ? <div className="mt-1 text-xs text-destructive">{step.error}</div> : null}
+                                                ))}
+                                            </div>
+                                        ) : null}
+
+                                        {selectedSession.outcome.recordHighlights.length ? (
+                                            <div className="space-y-2">
+                                                <div className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
+                                                    {t('Insights.Analysis.RecordHighlightsTitle')}
                                                 </div>
-                                                <div className="text-[11px] text-muted-foreground">{t(`Insights.Analysis.StepStatus.${step.status}` as any)}</div>
+                                                {selectedSession.outcome.recordHighlights.map(item => (
+                                                    <div
+                                                        key={`${item.label}:${item.value}`}
+                                                        className="flex items-start justify-between gap-3 rounded-lg border bg-muted/40 px-3 py-2"
+                                                    >
+                                                        <div className="min-w-0">
+                                                            <div className="text-sm font-medium text-foreground">{item.label}</div>
+                                                            {item.note ? <div className="mt-1 text-xs text-muted-foreground">{item.note}</div> : null}
+                                                        </div>
+                                                        <div className="text-sm text-foreground">{item.value}</div>
+                                                    </div>
+                                                ))}
                                             </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            </PanelSection>
+                                        ) : null}
 
-                            <PanelSection
-                                title={t('Insights.Analysis.ResultTitle')}
-                                icon={<FileText className="h-3.5 w-3.5 text-violet-400" />}
-                                description={t('Insights.Analysis.ResultDescription')}
-                            >
-                                <div className="rounded-lg border bg-background px-4 py-3">
-                                    {selectedSession.outcome ? (
-                                        <div className="space-y-4">
-                                            <div>
-                                                <div className="text-sm font-semibold text-foreground">{selectedSession.outcome.headline}</div>
-                                                <div className="mt-1 text-xs text-muted-foreground">{selectedSession.outcome.summary}</div>
-                                            </div>
-
-                                            {selectedSession.outcome.keyFindings.length ? (
+                                        {selectedSession.outcome.sections.map(section => (
+                                            <div key={section.id} className="space-y-2">
+                                                <div className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{section.title}</div>
                                                 <div className="space-y-1">
-                                                    {selectedSession.outcome.keyFindings.map(item => (
+                                                    {section.items.map(item => (
                                                         <div key={item} className="text-sm text-foreground">
                                                             {item}
                                                         </div>
                                                     ))}
                                                 </div>
-                                            ) : null}
+                                            </div>
+                                        ))}
 
-                                            {selectedSession.outcome.recordHighlights.length ? (
-                                                <div className="space-y-2">
-                                                    <div className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">
-                                                        {t('Insights.Analysis.RecordHighlightsTitle')}
-                                                    </div>
-                                                    {selectedSession.outcome.recordHighlights.map(item => (
-                                                        <div
-                                                            key={`${item.label}:${item.value}`}
-                                                            className="flex items-start justify-between gap-3 rounded-lg border bg-muted/40 px-3 py-2"
-                                                        >
-                                                            <div className="min-w-0">
-                                                                <div className="text-sm font-medium text-foreground">{item.label}</div>
-                                                                {item.note ? <div className="mt-1 text-xs text-muted-foreground">{item.note}</div> : null}
-                                                            </div>
-                                                            <div className="text-sm text-foreground">{item.value}</div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : null}
+                                        <CompactAnalysisVisual
+                                            rows={analysisRows}
+                                            kind={selectedSessionSuggestion?.kind}
+                                            title={t('Insights.Analysis.VisualResultTitle')}
+                                            emptyLabel={t('Insights.Analysis.VisualResultEmpty')}
+                                        />
+                                    </div>
+                                ) : (
+                                    <div className="text-xs text-muted-foreground">{t('Insights.Analysis.ResultPending')}</div>
+                                )}
+                            </div>
+                        </PanelSection>
 
-                                            {selectedSession.outcome.sections.map(section => (
-                                                <div key={section.id} className="space-y-2">
-                                                    <div className="text-xs font-medium uppercase tracking-[0.08em] text-muted-foreground">{section.title}</div>
-                                                    <div className="space-y-1">
-                                                        {section.items.map(item => (
-                                                            <div key={item} className="text-sm text-foreground">
-                                                                {item}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            ))}
-
-                                            {findResultRefFromSession(selectedSession) ? (
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-8 text-xs"
-                                                    onClick={() => {
-                                                        const ref = findResultRefFromSession(selectedSession);
-                                                        if (!ref || !tabId) return;
-                                                        setSessionIdByTab(prev => ({
-                                                            ...prev,
-                                                            [tabId]: ref.sessionId,
-                                                        }));
-                                                        try {
-                                                            localStorage.setItem(`sqlconsole:sessionId:${tabId}`, ref.sessionId);
-                                                        } catch {
-                                                            // ignore local storage failures
-                                                        }
-                                                        setExplicitActiveSet({
-                                                            tabId,
-                                                            sessionId: ref.sessionId,
-                                                            activeSet: ref.setIndex,
-                                                        });
-                                                    }}
-                                                >
-                                                    {t('Insights.Analysis.OpenResult')}
-                                                    <ArrowRight className="ml-2 h-3.5 w-3.5" />
-                                                </Button>
-                                            ) : null}
-                                        </div>
-                                    ) : (
-                                        <div className="text-xs text-muted-foreground">{t('Insights.Analysis.ResultPending')}</div>
-                                    )}
-                                </div>
-                            </PanelSection>
-
-                            <PanelSection
-                                title={t('Insights.Analysis.NextActionsTitle')}
-                                icon={<BarChart3 className="h-3.5 w-3.5 text-violet-400" />}
-                                description={t('Insights.Analysis.NextActionsDescription')}
-                            >
-                                <div className="flex flex-wrap gap-2 rounded-lg border bg-background px-4 py-3">
-                                    {(selectedSession.outcome?.followups ?? []).length ? (
-                                        (selectedSession.outcome?.followups ?? []).map(suggestion => (
+                        <PanelSection
+                            title={t('Insights.Analysis.GeneratedSqlTitle')}
+                            icon={<FileText className="h-3.5 w-3.5 text-muted-foreground" />}
+                            description={t('Insights.Analysis.GeneratedSqlDescription')}
+                        >
+                            <div className="rounded-lg border bg-background px-4 py-3">
+                                {selectedSessionSql ? (
+                                    <div className="space-y-3">
+                                        <pre className="max-h-64 overflow-auto rounded-lg bg-muted/40 p-3 text-xs leading-relaxed text-foreground">{selectedSessionSql}</pre>
+                                        <div className="flex flex-wrap gap-2">
+                                            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => void handleCopyAnalysisSql(selectedSessionSql)}>
+                                                <Clipboard className="mr-2 h-3.5 w-3.5" />
+                                                {t('Insights.Analysis.CopySql')}
+                                            </Button>
                                             <Button
-                                                key={suggestion.id}
                                                 variant="outline"
                                                 size="sm"
                                                 className="h-8 text-xs"
-                                                onClick={() => void handleRunSuggestion(suggestion)}
-                                                disabled={runningSuggestionId === suggestion.id}
+                                                onClick={() => handleOpenGeneratedResult(selectedSessionResultRef)}
+                                                disabled={!selectedSessionResultRef}
                                             >
-                                                {runningSuggestionId === suggestion.id ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : null}
-                                                {suggestion.label}
+                                                <Play className="mr-2 h-3.5 w-3.5" />
+                                                {t('Insights.Analysis.ApplyResult')}
                                             </Button>
-                                        ))
-                                    ) : (
-                                        <div className="text-xs text-muted-foreground">{t('Insights.Analysis.NoNextActions')}</div>
-                                    )}
-                                </div>
-                            </PanelSection>
-                        </>
-                    ) : (
-                        <PanelSection
-                            title={t('Insights.Analysis.AvailableActionsTitle')}
-                            icon={<BarChart3 className="h-3.5 w-3.5 text-violet-400" />}
-                            description={t('Insights.Analysis.AvailableActionsDescription')}
-                        >
-                            <div className="space-y-2">
-                                {workspace?.suggestions?.map(suggestion => {
-                                    const isRunning = runningSuggestionId === suggestion.id;
-
-                                    return (
-                                        <button
-                                            key={suggestion.id}
-                                            type="button"
-                                            className="flex w-full items-start gap-3 rounded-lg border bg-background px-4 py-3 text-left transition hover:border-primary/40 hover:bg-muted/40"
-                                            onClick={() => void handleRunSuggestion(suggestion)}
-                                        >
-                                            <span className="flex size-5 items-center justify-center text-muted-foreground">
-                                                {isRunning ? <Loader2 className="h-4 w-4 animate-spin text-primary" /> : <BarChart3 className="h-4 w-4 text-violet-400" />}
-                                            </span>
-                                            <div className="flex min-w-0 flex-1 flex-col gap-1">
-                                                <div className="flex items-start justify-between gap-3">
-                                                    <div className="min-w-0">
-                                                        <div className="text-sm font-medium text-foreground">{suggestion.label}</div>
-                                                        <div className="mt-1 text-xs text-muted-foreground">{suggestion.description}</div>
-                                                    </div>
-                                                    <Badge variant="outline" className="shrink-0 text-[10px]">
-                                                        {suggestionKindLabel(suggestion.kind, t)}
-                                                    </Badge>
-                                                </div>
-                                            </div>
-                                        </button>
-                                    );
-                                })}
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="text-xs text-muted-foreground">{t('Insights.Analysis.NoGeneratedSql')}</div>
+                                )}
                             </div>
                         </PanelSection>
-                    )}
-
-                    {workspace?.sessions?.length ? (
-                        <>
-                            <Separator />
-                            <PanelSection
-                                title={t('Insights.Analysis.HistoryTitle')}
-                                icon={<ListTree className="h-3.5 w-3.5" />}
-                                description={t('Insights.Analysis.HistoryDescription')}
-                            >
-                                <div className="space-y-2">
-                                    {workspace.sessions
-                                        .slice()
-                                        .reverse()
-                                        .map(session => (
-                                            <button
-                                                key={session.id}
-                                                type="button"
-                                                className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
-                                                    selectedSession?.id === session.id
-                                                        ? 'border-primary/60 bg-primary/5'
-                                                        : 'bg-background hover:border-primary/40 hover:bg-muted/40'
-                                                }`}
-                                                onClick={() => {
-                                                    if (!tabId || !activeSessionId || activeSet == null || activeSet < 0) return;
-                                                    upsertWorkspace({
-                                                        tabId,
-                                                        sessionId: activeSessionId,
-                                                        setIndex: activeSet,
-                                                        patch: prev => ({
-                                                            ...(prev ?? { suggestions: [], sessions: [] }),
-                                                            suggestions: prev?.suggestions ?? [],
-                                                            sessions: prev?.sessions ?? [],
-                                                            lastSelectedSessionId: session.id,
-                                                            currentFocus: prev?.currentFocus,
-                                                        }),
-                                                    });
-                                                }}
-                                            >
-                                                <div className="flex items-center justify-between gap-3">
-                                                    <div className="text-sm font-medium text-foreground">{session.title}</div>
-                                                    <Badge variant="outline" className="text-[10px] uppercase">
-                                                        {session.status}
-                                                    </Badge>
-                                                </div>
-                                            </button>
-                                        ))}
-                                </div>
-                            </PanelSection>
-                        </>
-                    ) : null}
+                    </div>
                 </div>
-            </ScrollArea>
+            </div>
+        );
+    }
+
+    return (
+        <div className="flex flex-col gap-4 p-4">
+            <div className="space-y-1">
+                <div className="text-xs font-medium text-muted-foreground">{t('Insights.Analysis.AvailableActionsTitle')}</div>
+                <div className="text-xs text-muted-foreground">{t('Insights.Analysis.AvailableActionsDescription')}</div>
+            </div>
+            <div className="space-y-2">
+                {workspaceSuggestions.map(suggestion => {
+                    const isRunning = runningSuggestionId === suggestion.id;
+
+                    return (
+                        <button
+                            key={suggestion.id}
+                            type="button"
+                            className="flex w-full items-start gap-3 rounded-lg border bg-background px-4 py-3 text-left transition hover:border-primary/40 hover:bg-muted/40"
+                            onClick={() => void handleRunSuggestion(suggestion)}
+                        >
+                            <span className="flex size-5 items-center justify-center text-muted-foreground">
+                                {isRunning ? <Loader2 className="h-4 w-4 animate-spin text-violet-400" /> : <BarChart3 className="h-4 w-4 text-violet-400" />}
+                            </span>
+                            <div className="flex min-w-0 flex-1 flex-col gap-1">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <div className="text-sm font-medium text-foreground">{suggestion.label}</div>
+                                        <div className="mt-1 text-xs text-muted-foreground">{suggestion.description}</div>
+                                    </div>
+                                    <Badge variant="outline" className="shrink-0 text-[10px]">
+                                        {suggestionKindLabel(suggestion.kind, t)}
+                                    </Badge>
+                                </div>
+                            </div>
+                        </button>
+                    );
+                })}
+            </div>
         </div>
     );
 }

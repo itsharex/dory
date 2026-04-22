@@ -21,7 +21,6 @@ import { copilotActionRequestAtom, copilotAnalysisRequestAtom, copilotPanelTabAt
 import type { SQLEditorHandle } from '../sql-editor';
 import AskTab, { type ActionsState } from './ask';
 import ContextTab from './context';
-import AnalysisTab from './analysis';
 
 // ✅ shadcn Tabs
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/registry/new-york-v4/ui/tabs';
@@ -38,7 +37,7 @@ type CopilotPanelProps = {
     editorRef?: React.MutableRefObject<SQLEditorHandle | null>;
 };
 
-type SubTabKey = 'ask' | 'action' | 'context' | 'analysis';
+type SubTabKey = 'ask' | 'action' | 'context';
 
 export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, addTab, setActiveTabId, onClose, editorRef }: CopilotPanelProps) {
     const t = useTranslations('SqlConsole');
@@ -51,7 +50,7 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
     const [promptRequest, setPromptRequest] = useAtom(copilotPromptRequestAtom);
     const [panelTab, setPanelTab] = useAtom(copilotPanelTabAtom);
 
-    const [subTab, setSubTab] = useState<SubTabKey>(panelTab);
+    const [subTab, setSubTab] = useState<SubTabKey>(panelTab === 'ask' || panelTab === 'context' ? panelTab : 'action');
     const [actionsState, setActionsState] = useState<ActionsState | null>(null);
     const [copilotEnvelope, setCopilotEnvelope] = useState<CopilotEnvelopeV1 | null>(null);
     const activeTabCoreFields = activeTab
@@ -139,10 +138,8 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
     const actionInput: CopilotFixInput | null = useMemo(() => {
         const hasErrorMessage = typeof sessionErrorMessage === 'string' && !!sessionErrorMessage.trim();
         const selectedSql =
-            editorSelection && typeof tabContent === 'string' && editorSelection.end > editorSelection.start
-                ? tabContent.slice(editorSelection.start, editorSelection.end)
-                : '';
-        const editorSql = selectedSql.trim() ? selectedSql : (typeof tabContent === 'string' ? tabContent : '');
+            editorSelection && typeof tabContent === 'string' && editorSelection.end > editorSelection.start ? tabContent.slice(editorSelection.start, editorSelection.end) : '';
+        const editorSql = selectedSql.trim() ? selectedSql : typeof tabContent === 'string' ? tabContent : '';
         const sourceSql = sqlTextFromResult.trim() ? sqlTextFromResult : editorSql;
 
         if (!sourceSql.trim()) return null;
@@ -297,7 +294,7 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
 
     useEffect(() => {
         if (analysisRequest?.id) {
-            setSubTab('analysis');
+            setSubTab('action');
         }
     }, [analysisRequest?.id]);
 
@@ -341,9 +338,6 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                                 <TabsTrigger value="context" className="h-7 px-3 text-xs">
                                     {t('Copilot.Panel.TabContext')}
                                 </TabsTrigger>
-                                <TabsTrigger value="analysis" className="h-7 px-3 text-xs">
-                                    Analysis
-                                </TabsTrigger>
                             </TabsList>
                             {onClose ? (
                                 <Button size="icon" variant="ghost" className="h-8 w-8" onClick={onClose}>
@@ -381,6 +375,10 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                                     onAutoRunHandled={requestId => {
                                         setActionRequest(prev => (prev?.id === requestId ? null : prev));
                                     }}
+                                    analysisRequestId={analysisRequest?.id ?? null}
+                                    tabId={activeTabId}
+                                    connectionId={tabConnectionId ?? currentConnection?.connection.id ?? null}
+                                    databaseName={activeDatabase || null}
                                 />
                             </Activity>
                         </TabsContent>
@@ -389,16 +387,6 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                         <TabsContent value="context" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden" forceMount>
                             <Activity mode={subTab === 'context' ? 'visible' : 'hidden'}>
                                 <ContextTab copilotEnvelope={copilotEnvelope} sessionMeta={sessionMeta} activeTabCoreFields={activeTabCoreFields} />
-                            </Activity>
-                        </TabsContent>
-
-                        <TabsContent value="analysis" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden" forceMount>
-                            <Activity mode={subTab === 'analysis' ? 'visible' : 'hidden'}>
-                                <AnalysisTab
-                                    tabId={activeTabId}
-                                    connectionId={tabConnectionId ?? currentConnection?.connection.id ?? null}
-                                    databaseName={activeDatabase || null}
-                                />
                             </Activity>
                         </TabsContent>
                     </Tabs>
