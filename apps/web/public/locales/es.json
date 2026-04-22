@@ -1370,6 +1370,7 @@
             },
             "QuickSummary": {
                 "SectionTitle": "Quick Summary",
+                "Description": "La forma básica de este resultado.",
                 "Title": "{kind} · {rows} filas · {columns} columnas · {chartStatus}",
                 "ChartReady": "Listo para gráficos",
                 "ExplorationReady": "Listo para explorar",
@@ -1390,7 +1391,7 @@
             },
             "KeyInsights": {
                 "SectionTitle": "Key Insights",
-                "Description": "Tarjetas de problema con acciones ejecutables.",
+                "Description": "Lo que más conviene revisar primero en este resultado.",
                 "Empty": "Aún no destaca un patrón claro. Prueba con filtros o gráficos."
             },
             "Card": {
@@ -1418,6 +1419,7 @@
             },
             "KeyColumns": {
                 "SectionTitle": "Key Columns",
+                "Description": "Columnas que probablemente usarás después.",
                 "Time": "Time",
                 "Measure": "Measure",
                 "Dimensions": "Dimensions",
@@ -1426,7 +1428,7 @@
             },
             "RecommendedActions": {
                 "SectionTitle": "Recommended Actions",
-                "Description": "Inicia directamente un análisis predefinido desde este insight."
+                "Description": "Direcciones para seguir analizando desde aquí."
             },
             "Actions": {
                 "InspectOutliers": "Ver muestras anómalas",

@@ -123,7 +123,6 @@ type RawColumnMeta = {
     dbType?: unknown;
 };
 
-const PROFILE_ROW_LIMIT = 1000;
 const AI_SAMPLE_LIMIT = 100;
 const TOP_K_LIMIT = 8;
 const SAMPLE_VALUES_LIMIT = 5;
@@ -348,10 +347,9 @@ function inferSemanticRole(params: {
 }
 
 export function normalizeResultColumns(rawColumns: unknown, rows: Array<Record<string, unknown>>): ResultColumnMeta[] {
-    const rowSample = rows.slice(0, PROFILE_ROW_LIMIT);
     const rowKeys = new Set<string>();
 
-    for (const row of rowSample) {
+    for (const row of rows) {
         Object.keys(row ?? {}).forEach(key => rowKeys.add(key));
     }
 
@@ -361,7 +359,7 @@ export function normalizeResultColumns(rawColumns: unknown, rows: Array<Record<s
               const raw = column as RawColumnMeta;
               const name = String(raw.name ?? '').trim();
               if (!name) return acc;
-              const values = rowSample.map(row => row?.[name]).filter(value => value !== undefined);
+              const values = rows.map(row => row?.[name]).filter(value => value !== undefined);
               acc.push({
                   name,
                   displayName: raw.displayName == null ? undefined : String(raw.displayName),
@@ -377,7 +375,7 @@ export function normalizeResultColumns(rawColumns: unknown, rows: Array<Record<s
     const inferredColumns = [...rowKeys]
         .filter(name => !known.has(name))
         .map(name => {
-            const values = rowSample.map(row => row?.[name]).filter(value => value !== undefined);
+            const values = rows.map(row => row?.[name]).filter(value => value !== undefined);
             return {
                 name,
                 displayName: name,
@@ -398,7 +396,7 @@ export function profileResultSet(params: {
     limited: boolean;
     limit: number | null;
 }): { columns: ResultColumnMeta[]; stats: ResultSetStatsV1; sampleRows: Array<Record<string, unknown>> } {
-    const sourceRows = params.rows.slice(0, PROFILE_ROW_LIMIT).map(row => (isPlainObject(row) ? row : {}));
+    const sourceRows = params.rows.map(row => (isPlainObject(row) ? row : {}));
     const normalizedColumns = normalizeResultColumns(params.rawColumns, sourceRows);
     const columnProfiles: Record<string, ColumnProfile> = {};
 

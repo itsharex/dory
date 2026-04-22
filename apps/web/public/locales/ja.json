@@ -1370,6 +1370,7 @@
             },
             "QuickSummary": {
                 "SectionTitle": "Quick Summary",
+                "Description": "この結果の基本的な形です。",
                 "Title": "{kind} · {rows} rows · {columns} columns · {chartStatus}",
                 "ChartReady": "グラフ向き",
                 "ExplorationReady": "探索向き",
@@ -1390,7 +1391,7 @@
             },
             "KeyInsights": {
                 "SectionTitle": "Key Insights",
-                "Description": "問題カードと実行可能なアクションです。",
+                "Description": "この結果でまず見るべきポイントです。",
                 "Empty": "まだ明確な傾向は見えていません。フィルタやチャートを試してください。"
             },
             "Card": {
@@ -1418,6 +1419,7 @@
             },
             "KeyColumns": {
                 "SectionTitle": "Key Columns",
+                "Description": "次に使う可能性が高い列です。",
                 "Time": "Time",
                 "Measure": "Measure",
                 "Dimensions": "Dimensions",
@@ -1426,7 +1428,7 @@
             },
             "RecommendedActions": {
                 "SectionTitle": "Recommended Actions",
-                "Description": "この Insight から定義済み分析を直接開始します。"
+                "Description": "ここから続けて分析できる方向です。"
             },
             "Actions": {
                 "InspectOutliers": "異常サンプルを見る",

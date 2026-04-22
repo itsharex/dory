@@ -1372,6 +1372,7 @@
             },
             "QuickSummary": {
                 "SectionTitle": "Quick Summary",
+                "Description": "The basic shape of this result.",
                 "Title": "{kind} · {rows} rows · {columns} columns · {chartStatus}",
                 "ChartReady": "Chart-ready",
                 "ExplorationReady": "Exploration-ready",
@@ -1392,7 +1393,7 @@
             },
             "KeyInsights": {
                 "SectionTitle": "Key Insights",
-                "Description": "Problem-first insight cards with executable next steps.",
+                "Description": "What is most worth checking first in this result.",
                 "Empty": "No clear pattern stands out yet. Try filtering or charting this result."
             },
             "Card": {
@@ -1420,6 +1421,7 @@
             },
             "KeyColumns": {
                 "SectionTitle": "Key Columns",
+                "Description": "Columns you are most likely to use next.",
                 "Time": "Time",
                 "Measure": "Measure",
                 "Dimensions": "Dimensions",
@@ -1428,7 +1430,7 @@
             },
             "RecommendedActions": {
                 "SectionTitle": "Recommended Actions",
-                "Description": "Start a predefined analysis directly from this insight."
+                "Description": "Directions you can continue analyzing from here."
             },
             "Actions": {
                 "InspectOutliers": "View anomalous samples",
