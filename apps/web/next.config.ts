@@ -5,7 +5,26 @@ import path from 'path';
 
 const withNextIntl = createNextIntlPlugin('./lib/i18n/request.ts');
 
-const nextConfig: NextConfig = {
+type NextWebpackConfigShape = {
+    resolve: {
+        alias: Record<string, string>;
+        fallback?: Record<string, false>;
+    };
+    externals: Array<unknown>;
+    module: {
+        rules: Array<{
+            test: RegExp;
+            type: 'asset/resource';
+        }>;
+    };
+    plugins: Array<unknown>;
+};
+
+type NextWebpackOptionsShape = {
+    isServer: boolean;
+};
+
+const nextConfig = {
     output: 'standalone',
     serverExternalPackages: ['@electric-sql/pglite', 'pino', 'better-sqlite3', 'electron'],
     outputFileTracingIncludes: {
@@ -42,7 +61,7 @@ const nextConfig: NextConfig = {
         { source: '/ingest/:path*', destination: 'https://us.i.posthog.com/:path*' },
     ],
     skipTrailingSlashRedirect: true,
-    webpack(config, options) {
+    webpack(config: NextWebpackConfigShape, options: NextWebpackOptionsShape) {
         config.resolve.alias['jotai'] = path.resolve(__dirname, 'node_modules/jotai');
         if (options.isServer) {
             config.externals.push('ssh2', 'better-sqlite3');
@@ -85,7 +104,7 @@ const nextConfig: NextConfig = {
         }
         return config;
     },
-};
+} satisfies NextConfig;
 
 const withNextIntlConfig = withNextIntl(nextConfig);
 export default withNextIntlConfig;
