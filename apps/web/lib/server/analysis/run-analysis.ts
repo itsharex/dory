@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { BaseConnection } from '@/lib/connection/base/base-connection';
+import { routing, type Locale } from '@/lib/i18n/routing';
 import type {
     AnalysisOutcome,
     AnalysisQueryPayload,
@@ -12,6 +13,7 @@ import type {
     RunAnalysisRequest,
     RunAnalysisResponse,
 } from '@/lib/analysis/types';
+import { enhanceAnalysisSummaryWithAi } from './ai-summary';
 
 function nowIso() {
     return new Date().toISOString();
@@ -675,7 +677,15 @@ function markStep(steps: AnalysisStep[], stepId: string, patch: Partial<Analysis
     return steps.map(step => (step.id === stepId ? { ...step, ...patch } : step));
 }
 
-export async function runAnalysis(params: { request: RunAnalysisRequest; connection: BaseConnection; connectionId: string; tabId?: string | null }): Promise<RunAnalysisResponse> {
+export async function runAnalysis(params: {
+    request: RunAnalysisRequest;
+    connection: BaseConnection;
+    connectionId: string;
+    tabId?: string | null;
+    locale?: Locale;
+    organizationId?: string | null;
+    userId?: string | null;
+}): Promise<RunAnalysisResponse> {
     const analysisRunId = randomUUID();
     const resultSessionId = randomUUID();
     const createdAt = nowIso();
@@ -739,16 +749,34 @@ export async function runAnalysis(params: { request: RunAnalysisRequest; connect
             },
         });
 
-        const outcomeCore = spec.summarize({
+        const ruleOutcomeCore = spec.summarize({
             rows,
             columns,
             context: params.request.context.resultContext,
+        });
+        const rowCount = result.rowCount ?? rows.length;
+        const outcomeCore = await enhanceAnalysisSummaryWithAi({
+            locale: params.locale ?? routing.defaultLocale,
+            organizationId: params.organizationId ?? null,
+            userId: params.userId ?? null,
+            sql,
+            suggestion: {
+                title: spec.title,
+                goal: spec.goal,
+                description: spec.description,
+                resultTitle: spec.resultTitle,
+            },
+            context: params.request.context.resultContext,
+            columns,
+            rows,
+            rowCount,
+            fallback: ruleOutcomeCore,
         });
         const followups = spec.buildFollowups({
             context: params.request.context.resultContext,
             resultRef: { sessionId: resultSessionId, setIndex: 0 },
             columns,
-            rowCount: result.rowCount ?? rows.length,
+            rowCount,
             sqlText: sql,
         });
 
@@ -790,7 +818,7 @@ export async function runAnalysis(params: { request: RunAnalysisRequest; connect
                     sqlOp: parseSqlOp(sql),
                     title: makeTitle(sql),
                     columns,
-                    rowCount: result.rowCount ?? rows.length,
+                    rowCount,
                     limited: result.limited ?? false,
                     limit: result.limit ?? null,
                     affectedRows: null,

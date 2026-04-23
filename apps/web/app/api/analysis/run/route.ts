@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withUserAndOrganizationHandler } from '@/app/api/utils/with-organization-handler';
+import { getApiLocale } from '@/app/api/utils/i18n';
 import { ensureConnection } from '@/lib/utils/ensure-connection';
 import { ResponseUtil } from '@/lib/result';
 import { runAnalysis } from '@/lib/server/analysis/run-analysis';
@@ -76,7 +77,8 @@ const bodySchema = z.object({
     tabId: z.string().min(1).optional(),
 });
 
-export const POST = withUserAndOrganizationHandler(async ({ req, organizationId }) => {
+export const POST = withUserAndOrganizationHandler(async ({ req, organizationId, userId }) => {
+    const locale = await getApiLocale();
     const parsed = bodySchema.safeParse(await req.json().catch(() => null));
     if (!parsed.success) {
         return NextResponse.json(
@@ -103,12 +105,12 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId 
         connection: ensured,
         connectionId: parsed.data.context.connectionId,
         tabId: parsed.data.tabId ?? null,
+        locale,
+        organizationId,
+        userId,
     });
 
-    return NextResponse.json(
-        ResponseUtil.success(result),
-        {
-            status: 200,
-        },
-    );
+    return NextResponse.json(ResponseUtil.success(result), {
+        status: 200,
+    });
 });
