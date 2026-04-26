@@ -82,6 +82,35 @@ export function getChartResultFromPart(part: any): ChartResultPart | null {
     };
 }
 
+export function extractGeneratedSqlFromAssistantMessage(message: UIMessage | null): string | null {
+    if (!message || message.role !== 'assistant' || !Array.isArray(message.parts)) {
+        return null;
+    }
+
+    for (const part of message.parts) {
+        const sqlResult = getSqlResultFromPart(part);
+        if (sqlResult?.sql?.trim()) {
+            return sqlResult.sql.trim();
+        }
+    }
+
+    const text = message.parts
+        .filter((part: any) => part?.type === 'text' && typeof part.text === 'string')
+        .map((part: any) => part.text)
+        .join('\n')
+        .trim();
+
+    if (!text) {
+        return null;
+    }
+
+    const fencedMatch = text.match(/```(?:sql)?\s*([\s\S]*?)```/i);
+    const candidate = fencedMatch?.[1]?.trim() ?? text;
+    const normalized = candidate.replace(/^\s*sql\s*/i, '').trim();
+
+    return normalized || null;
+}
+
 export const normalizeSessionTitle = (title?: string | null, fallback?: string) => {
     const t = title?.trim();
     return t && t.length > 0 ? t : (fallback ?? DEFAULT_TITLE);

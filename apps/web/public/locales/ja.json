@@ -1039,6 +1039,22 @@
                 "Column": "{table} の列"
             }
         },
+        "InlineAsk": {
+            "Badge": "Ask AI",
+            "Placeholder": "やりたいことを入力してください...",
+            "EditorPlaceholder": "Press / to ask AI",
+            "EnterHint": "Enter で生成",
+            "EnterKeyLabel": "Enter",
+            "EscapeHint": "Esc でキャンセル",
+            "Generating": "SQL を生成しています...",
+            "Submit": "SQL を生成",
+            "Errors": {
+                "GenerateFailed": "SQL の生成に失敗しました。もう少し具体的に入力してください。"
+            },
+            "Success": {
+                "Applied": "SQL をエディターに反映しました"
+            }
+        },
         "ContextMenu": {
             "Copy": "コピー",
             "Paste": "貼り付け",

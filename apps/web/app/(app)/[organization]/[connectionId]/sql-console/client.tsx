@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Activity, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAtom, useAtomValue } from 'jotai';
+import { useAtom, useAtomValue, useSetAtom } from 'jotai';
 import { Group, Panel, Separator as PanelSeparator, type Layout } from 'react-resizable-panels';
 import { Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
@@ -19,7 +19,12 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from '@/registry/new-york-v4/ui/alert-dialog';
-import { copilotPanelOpenAtom, copilotPanelWidthAtom, editorSelectionByTabAtom } from './sql-console.store';
+import {
+    copilotPanelOpenAtom,
+    copilotPanelWidthAtom,
+    editorSelectionByTabAtom,
+    inlineSqlAskByTabAtom,
+} from './sql-console.store';
 
 import { SQLConsoleSidebar } from '../../components/sql-console-sidebar/sql-console-sidebar';
 import { SavedQueriesSidebar, type SavedQueryItem } from './components/saved-queries/saved-queries-sidebar';
@@ -107,6 +112,7 @@ export default function SQLConsoleClient({
     const [showChatbot, setShowChatbot] = useAtom(copilotPanelOpenAtom);
     const [chatWidth, setChatWidth] = useAtom(copilotPanelWidthAtom);
     const selectionByTab = useAtomValue(editorSelectionByTabAtom);
+    const setInlineAskByTab = useSetAtom(inlineSqlAskByTabAtom);
     const shouldShowChatbot = activeTab?.tabType === 'sql' ? showChatbot : false;
     const normalizedChatWidth = useMemo(
         () => clamp(chatWidth ?? INITIAL_LAYOUT.copilot.defaultWidth, INITIAL_LAYOUT.copilot.minWidth, INITIAL_LAYOUT.copilot.maxWidth),
@@ -189,6 +195,17 @@ export default function SQLConsoleClient({
             setChatWidth(normalizedChatWidth);
         }
     }, [chatWidth, normalizedChatWidth, setChatWidth]);
+
+    useEffect(() => {
+        const liveTabIds = new Set(tabs.map(tab => tab.tabId));
+        setInlineAskByTab(prev => {
+            const nextEntries = Object.entries(prev).filter(([tabId]) => liveTabIds.has(tabId));
+            if (nextEntries.length === Object.keys(prev).length) {
+                return prev;
+            }
+            return Object.fromEntries(nextEntries);
+        });
+    }, [setInlineAskByTab, tabs]);
 
     const handleLayoutChange = (layout: Layout) => {
         const next = [layout['left-panel'] ?? horizontalLayout[0], layout['middle-panel'] ?? horizontalLayout[1]];

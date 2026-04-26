@@ -1052,6 +1052,22 @@
                 "Column": "{table} column"
             }
         },
+        "InlineAsk": {
+            "Badge": "Ask AI",
+            "Placeholder": "Describe what you want...",
+            "EditorPlaceholder": "Press / to ask AI",
+            "EnterHint": "Enter to generate",
+            "EnterKeyLabel": "Enter",
+            "EscapeHint": "Esc to cancel",
+            "Generating": "Generating SQL...",
+            "Submit": "Generate SQL",
+            "Errors": {
+                "GenerateFailed": "Failed to generate SQL. Try a more specific prompt."
+            },
+            "Success": {
+                "Applied": "SQL written to the editor"
+            }
+        },
         "ContextMenu": {
             "Copy": "Copy",
             "Paste": "Paste",

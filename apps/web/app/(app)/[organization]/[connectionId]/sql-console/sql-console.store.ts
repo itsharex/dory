@@ -32,6 +32,28 @@ export type CopilotActionRequest = {
 
 export const copilotActionRequestAtom = atom<CopilotActionRequest | null>(null);
 
+export type InlineSqlAskMode = 'sql' | 'ask-ai';
+
+export type InlineSqlAskState = {
+    mode: InlineSqlAskMode;
+    promptDraft: string;
+    isGenerating: boolean;
+    lastPrompt: string | null;
+    lastGeneratedSql: string | null;
+    errorMessage: string | null;
+};
+
+export const DEFAULT_INLINE_SQL_ASK_STATE: InlineSqlAskState = {
+    mode: 'sql',
+    promptDraft: '',
+    isGenerating: false,
+    lastPrompt: null,
+    lastGeneratedSql: null,
+    errorMessage: null,
+};
+
+export const inlineSqlAskByTabAtom = atom<Record<string, InlineSqlAskState>>({});
+
 export const activeSessionIdAtom = atom<string | undefined>(get => {
     const tabId = get(activeTabIdAtom);
     const map = get(sessionIdByTabAtom);

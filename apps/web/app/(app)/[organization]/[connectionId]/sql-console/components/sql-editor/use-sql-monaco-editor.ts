@@ -23,6 +23,7 @@ import { isPostgresFamilyConnectionType } from '@/lib/connection/postgres-family
 const MAX_SQL_LEN_FOR_PARSE = 20000;
 
 type ContentChangeHandler = (tabId: string, content: string) => void;
+type AfterEditorContentChange = () => void;
 
 interface UseSqlMonacoEditorProps {
     activeTab: UITabPayload | undefined;
@@ -34,13 +35,15 @@ interface UseSqlMonacoEditorProps {
     onContentChange: ContentChangeHandler;
     onRunQuery?: () => void;
     onNewTab?: () => void;
+    onInlineAskOpen?: () => void;
     onFormat?: () => void;
 }
 
-const bindEditorChange = (editor: Monaco.editor.IStandaloneCodeEditor, tabId: string, onContentChange: ContentChangeHandler) => {
+const bindEditorChange = (editor: Monaco.editor.IStandaloneCodeEditor, tabId: string, onContentChange: ContentChangeHandler, afterChange?: AfterEditorContentChange) => {
     return editor.onDidChangeModelContent(() => {
         const value = editor.getValue();
         onContentChange(tabId, value);
+        afterChange?.();
     });
 };
 
@@ -404,6 +407,7 @@ export function useSqlMonacoEditor({
     onContentChange,
     onRunQuery,
     onNewTab,
+    onInlineAskOpen,
     onFormat,
 }: UseSqlMonacoEditorProps) {
     const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -415,6 +419,7 @@ export function useSqlMonacoEditor({
     const schemasRef = useRef<any[]>([]);
     const onRunQueryRef = useRef(onRunQuery);
     const onNewTabRef = useRef(onNewTab);
+    const onInlineAskOpenRef = useRef(onInlineAskOpen);
     const onFormatRef = useRef(onFormat);
     const editorThemeRef = useRef(editorTheme);
     const editorSettingsRef = useRef(editorSettings);
@@ -457,6 +462,10 @@ export function useSqlMonacoEditor({
     }, [onNewTab]);
 
     useEffect(() => {
+        onInlineAskOpenRef.current = onInlineAskOpen;
+    }, [onInlineAskOpen]);
+
+    useEffect(() => {
         onFormatRef.current = onFormat;
     }, [onFormat]);
 
@@ -489,6 +498,7 @@ export function useSqlMonacoEditor({
         let localEditor: Monaco.editor.IStandaloneCodeEditor | null = null;
         let contentDisposable: Monaco.IDisposable | null = null;
         let selectionDisposable: Monaco.IDisposable | null = null;
+        const placeholderWidgets = new Map<number, Monaco.editor.IContentWidget>();
 
         (async () => {
             const monaco = await import('monaco-editor');
@@ -540,17 +550,93 @@ export function useSqlMonacoEditor({
             });
 
             editorRef.current = localEditor;
+            const createInlineAskPlaceholderWidget = (lineNumber: number, placeholder: string): Monaco.editor.IContentWidget => {
+                const node = document.createElement('span');
+                node.className = 'dory-sql-editor-inline-placeholder';
+                node.style.display = 'inline-block';
+                node.style.fontSize = `${localEditor?.getOption(monaco.editor.EditorOption.fontSize) ?? 12}px`;
+                node.style.lineHeight = `${localEditor?.getOption(monaco.editor.EditorOption.lineHeight) ?? 18}px`;
+                node.style.width = 'max-content';
+                node.style.whiteSpace = 'nowrap';
+
+                const [beforeSlash, afterSlash = ''] = placeholder.split('/');
+                const prefix = document.createElement('span');
+                prefix.textContent = beforeSlash.replaceAll(' ', '\u00a0');
+
+                const slash = document.createElement('span');
+                slash.className = 'dory-sql-editor-inline-placeholder-key';
+                slash.textContent = '/';
+
+                const suffix = document.createElement('span');
+                suffix.textContent = afterSlash.replaceAll(' ', '\u00a0');
+
+                node.append(prefix, slash, suffix);
+
+                return {
+                    suppressMouseDown: true,
+                    getId: () => `dory.sql-editor.inline-ask-placeholder.${activeTab.tabId}.${lineNumber}`,
+                    getDomNode: () => node,
+                    getPosition: () => ({
+                        position: { lineNumber, column: 1 },
+                        preference: [monaco.editor.ContentWidgetPositionPreference.EXACT],
+                    }),
+                };
+            };
+            const updateInlineAskPlaceholders = () => {
+                const editor = localEditor;
+                const model = editor?.getModel();
+                const selection = editor?.getSelection();
+                if (!editor || !model || !selection) return;
+
+                const lineNumber = selection.startLineNumber;
+                const placeholder = t('InlineAsk.EditorPlaceholder');
+                const shouldShowPlaceholder = !model.getLineContent(lineNumber).trim();
+
+                if (shouldShowPlaceholder) {
+                    const widget = placeholderWidgets.get(lineNumber);
+                    if (widget) {
+                        editor.layoutContentWidget(widget);
+                    } else {
+                        const nextWidget = createInlineAskPlaceholderWidget(lineNumber, placeholder);
+                        placeholderWidgets.set(lineNumber, nextWidget);
+                        editor.addContentWidget(nextWidget);
+                    }
+                }
+
+                for (const [widgetLineNumber, widget] of placeholderWidgets) {
+                    if (shouldShowPlaceholder && widgetLineNumber === lineNumber) continue;
+                    editor.removeContentWidget(widget);
+                    placeholderWidgets.delete(widgetLineNumber);
+                }
+            };
+            updateInlineAskPlaceholders();
             localEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => {
                 onRunQueryRef.current?.();
             });
             localEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyL, () => {
                 onNewTabRef.current?.();
             });
+            localEditor.addCommand(monaco.KeyCode.Slash, () => {
+                const editor = localEditor;
+                if (!editor) return;
+
+                const model = editor.getModel();
+                const selection = editor.getSelection();
+                const lineNumber = selection?.startLineNumber ?? 1;
+                if (!model || !selection || model.getLineContent(lineNumber).trim()) {
+                    editor.trigger('keyboard', 'type', { text: '/' });
+                    return;
+                }
+
+                onInlineAskOpenRef.current?.();
+            });
             localEditor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyF, () => {
                 onFormatRef.current?.();
             });
-            contentDisposable = bindEditorChange(localEditor, activeTab.tabId, onContentChange);
+            contentDisposable = bindEditorChange(localEditor, activeTab.tabId, onContentChange, updateInlineAskPlaceholders);
             selectionDisposable = localEditor.onDidChangeCursorSelection(() => {
+                updateInlineAskPlaceholders();
+
                 const model = localEditor?.getModel();
                 const selection = localEditor?.getSelection();
                 if (!model || !selection) return;
@@ -579,6 +665,10 @@ export function useSqlMonacoEditor({
             disposed = true;
             contentDisposable?.dispose();
             selectionDisposable?.dispose();
+            for (const widget of placeholderWidgets.values()) {
+                localEditor?.removeContentWidget(widget);
+            }
+            placeholderWidgets.clear();
             dtCompletionDisposableRef.current?.dispose();
             dtCompletionDisposableRef.current = null;
             localEditor?.dispose();

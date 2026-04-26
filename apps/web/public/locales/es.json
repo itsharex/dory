@@ -1039,6 +1039,22 @@
                 "Column": "columna de {table}"
             }
         },
+        "InlineAsk": {
+            "Badge": "Ask AI",
+            "Placeholder": "Describe lo que quieres...",
+            "EditorPlaceholder": "Press / to ask AI",
+            "EnterHint": "Enter para generar",
+            "EnterKeyLabel": "Enter",
+            "EscapeHint": "Esc para cancelar",
+            "Generating": "Generando SQL...",
+            "Submit": "Generar SQL",
+            "Errors": {
+                "GenerateFailed": "No se pudo generar el SQL. Prueba con una instrucción más específica."
+            },
+            "Success": {
+                "Applied": "El SQL se escribió en el editor"
+            }
+        },
         "ContextMenu": {
             "Copy": "Copiar",
             "Paste": "Pegar",

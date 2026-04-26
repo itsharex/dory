@@ -423,6 +423,34 @@
    * Dory Studio - Monaco Suggest Widget Styles (OKLCH)
    * ================================ */
 
+    .monaco-editor .dory-sql-editor-inline-placeholder,
+    .monaco-editor .contentWidgets .dory-sql-editor-inline-placeholder {
+        color: var(--muted-foreground);
+        display: inline-block;
+        font-style: italic;
+        width: max-content;
+        white-space: nowrap;
+        opacity: 0.55;
+        pointer-events: none;
+    }
+
+    .monaco-editor .dory-sql-editor-inline-placeholder-key,
+    .monaco-editor .contentWidgets .dory-sql-editor-inline-placeholder-key {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.5em;
+        height: 1.45em;
+        margin: 0 0.28em;
+        border: 1px solid color-mix(in oklab, var(--border) 75%, transparent);
+        border-radius: 5px;
+        background: color-mix(in oklab, var(--muted) 70%, transparent);
+        color: var(--foreground);
+        font-style: normal;
+        font-weight: 600;
+        line-height: 1;
+    }
+
     .monaco-editor .suggest-widget {
         --ds-suggest-bg: var(--surface);
         --ds-suggest-border: color-mix(in oklab, var(--border) 80%, transparent);
