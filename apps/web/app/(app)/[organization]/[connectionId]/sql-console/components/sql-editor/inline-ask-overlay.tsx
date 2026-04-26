@@ -56,7 +56,7 @@ export function InlineAskOverlay({ open, promptDraft, isGenerating, errorMessage
                                 return;
                             }
 
-                            if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) {
+                            if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
                                 event.preventDefault();
                                 if (!isGenerating && promptDraft.trim()) {
                                     onSubmit();

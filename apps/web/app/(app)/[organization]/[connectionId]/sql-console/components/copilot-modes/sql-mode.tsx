@@ -36,6 +36,7 @@ import type { SavedQueryItem } from '../saved-queries/saved-queries-sidebar';
 import { createCopilotSQLContextEnvelope } from '../../../chatbot/copilot/copilot-envelope';
 import { useSqlInlineAskAI } from '../../hooks/useSqlInlineAskAI';
 import { normalizeSqlDialect } from '@/lib/sql/sql-dialect';
+import { useTables } from '@/hooks/use-tables';
 
 const isEditableShortcutTarget = (target: EventTarget | null) => {
     if (!(target instanceof HTMLElement)) return false;
@@ -54,6 +55,61 @@ const isEditableShortcutTarget = (target: EventTarget | null) => {
 const buildInlineAskSqlComment = (prompt: string) => {
     const commentText = prompt.replace(/\s+/g, ' ').replace(/--/g, '-').trim();
     return commentText ? `-- ${commentText}` : '';
+};
+
+const normalizeTableMetaName = (table: any) => {
+    return String(table?.value ?? table?.label ?? table?.name ?? table?.tableName ?? table?.table ?? '').trim();
+};
+
+const resolveTableSchema = (table: any) => {
+    const explicitSchema = typeof table?.schema === 'string' ? table.schema.trim() : '';
+    if (explicitSchema) return explicitSchema;
+
+    const tableName = normalizeTableMetaName(table);
+    const parts = tableName.split('.');
+    return parts.length > 1 ? parts[parts.length - 2]?.trim() || null : null;
+};
+
+const stripTableQualifier = (tableName: string) => {
+    const parts = tableName.split('.');
+    return parts[parts.length - 1]?.trim() || tableName.trim();
+};
+
+const escapeRegExp = (value: string) => {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+const hasTableNameReference = (source: string, tableName: string) => {
+    const trimmedName = tableName.trim();
+    if (!trimmedName) return false;
+
+    return new RegExp(`(^|[^A-Za-z0-9_$])${escapeRegExp(trimmedName)}([^A-Za-z0-9_$]|$)`, 'i').test(source);
+};
+
+const buildInlineAskCandidateTables = (prompt: string, editorSql: string, tables: any[], database: string | null, activeSchema: string | null) => {
+    const source = `${prompt}\n${editorSql}`;
+    const candidates = new Map<string, { database?: string | null; schema?: string | null; name: string }>();
+
+    for (const table of tables) {
+        const rawName = normalizeTableMetaName(table);
+        if (!rawName) continue;
+
+        const shortName = stripTableQualifier(rawName);
+        const names = [rawName, shortName].filter(Boolean);
+        if (!names.some(name => hasTableNameReference(source, name))) continue;
+
+        const schema = resolveTableSchema(table) ?? activeSchema;
+        const key = `${database ?? ''}:${schema ?? ''}:${shortName}`;
+        if (candidates.has(key)) continue;
+
+        candidates.set(key, {
+            database,
+            schema,
+            name: shortName,
+        });
+    }
+
+    return Array.from(candidates.values()).slice(0, 12);
 };
 
 export function SqlMode({
@@ -77,6 +133,7 @@ export function SqlMode({
     const searchParams = useSearchParams();
     const { data: session } = authClient.useSession();
     const activeDatabase = useAtomValue(activeDatabaseAtom);
+    const { tables } = useTables(activeDatabase);
     const selectionByTab = useAtomValue(editorSelectionByTabAtom);
     const activeSchema = useAtomValue(activeSchemaAtom);
     const [editorSettings, setEditorSettings] = useAtom(sqlEditorSettingsAtom);
@@ -198,6 +255,7 @@ export function SqlMode({
     const handleOpenInlineAsk = useCallback(() => {
         updateInlineAskState({
             mode: 'ask-ai',
+            promptDraft: '',
             errorMessage: null,
         });
     }, [updateInlineAskState]);
@@ -266,6 +324,7 @@ export function SqlMode({
                 connectionType: currentConnection?.connection.type ?? null,
                 database: activeDatabase || null,
                 activeSchema: activeSchema || null,
+                candidateTables: buildInlineAskCandidateTables(prompt, editorSql, tables, activeDatabase || null, activeSchema || null),
                 tabId: activeTab.tabId,
                 copilotEnvelope,
                 errorMessage: t('InlineAsk.Errors.GenerateFailed'),
@@ -305,6 +364,7 @@ export function SqlMode({
         getSqlText,
         inlineAskState.promptDraft,
         selection,
+        tables,
         t,
         updateInlineAskState,
         updateTab,
@@ -339,7 +399,7 @@ export function SqlMode({
                                         {t('Actions.Cancel')}
                                     </Button>
                                     <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                        <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-medium leading-none text-muted-foreground">⌘ Enter</kbd>
+                                        <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-medium leading-none text-muted-foreground">Enter</kbd>
                                     </div>
                                 </div>
                             ) : (
@@ -375,9 +435,6 @@ export function SqlMode({
                                     <Button variant="secondary" size="sm" className="gap-2" onClick={handleOpenInlineAsk} aria-keyshortcuts="/">
                                         <Sparkles className="h-4 w-4" />
                                         {t('InlineAsk.Badge')}
-                                        <kbd className="ml-1 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
-                                            /
-                                        </kbd>
                                     </Button>
                                 </>
                             )}

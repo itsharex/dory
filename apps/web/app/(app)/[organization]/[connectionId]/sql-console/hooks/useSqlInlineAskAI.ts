@@ -17,6 +17,11 @@ type GenerateSqlFromPromptInput = {
     connectionType: ConnectionType | null;
     database: string | null;
     activeSchema: string | null;
+    candidateTables?: Array<{
+        database?: string | null;
+        schema?: string | null;
+        name: string;
+    }>;
     tabId: string;
     copilotEnvelope: CopilotEnvelopeV1;
     errorMessage: string;
@@ -26,15 +31,17 @@ function createUIChunkStream(responseStream: ReadableStream): ReadableStream<UIM
     return responseStream
         .pipeThrough(new TextDecoderStream())
         .pipeThrough(new EventSourceParserStream())
-        .pipeThrough(new TransformStream({
-            transform(event, controller) {
-                if (!event.data || event.data === '[DONE]') {
-                    return;
-                }
+        .pipeThrough(
+            new TransformStream({
+                transform(event, controller) {
+                    if (!event.data || event.data === '[DONE]') {
+                        return;
+                    }
 
-                controller.enqueue(JSON.parse(event.data) as UIMessageChunk);
-            },
-        }));
+                    controller.enqueue(JSON.parse(event.data) as UIMessageChunk);
+                },
+            }),
+        );
 }
 
 async function readLastAssistantMessage(stream: ReadableStream<Uint8Array>): Promise<UIMessage | null> {
@@ -49,16 +56,7 @@ async function readLastAssistantMessage(stream: ReadableStream<Uint8Array>): Pro
 
 export function useSqlInlineAskAI() {
     return useCallback(async (input: GenerateSqlFromPromptInput) => {
-        const {
-            prompt,
-            connectionId,
-            connectionType,
-            database,
-            activeSchema,
-            tabId,
-            copilotEnvelope,
-            errorMessage,
-        } = input;
+        const { prompt, connectionId, connectionType, database, activeSchema, candidateTables, tabId, copilotEnvelope, errorMessage } = input;
 
         const trimmedPrompt = prompt.trim();
         if (!trimmedPrompt) {
@@ -86,6 +84,7 @@ export function useSqlInlineAskAI() {
                 ],
                 database,
                 activeSchema,
+                candidateTables,
                 connectionId,
                 connectionType,
                 mode: 'copilot',

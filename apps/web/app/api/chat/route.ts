@@ -7,7 +7,7 @@ import { isMissingAiEnvError } from '@/lib/ai/errors';
 
 import { getSessionFromRequest } from '@/lib/auth/session';
 import { getDBService } from '@/lib/database';
-import { buildSchemaContext, getDefaultSchemaSampleLimits } from '@/lib/ai/prompts';
+import { buildSchemaContext, buildSchemaContextForTables, getDefaultSchemaSampleLimits } from '@/lib/ai/prompts';
 import { fetchCloudUiMessageStream, type CloudStreamRequest } from '@/lib/ai/cloud-client';
 import { buildCloudToolDeclarations } from '@/lib/ai/cloud-tools';
 import { createSqlRunnerTool, isManualExecutionRequiredSqlResult } from './sql-runner';
@@ -26,6 +26,60 @@ import { getCloudApiBaseUrl } from '@/lib/cloud/url';
 import type { ConnectionType } from '@/types/connections';
 
 export const runtime = 'nodejs';
+
+type ChatSchemaTableRef = {
+    database?: string | null;
+    schema?: string | null;
+    name: string;
+};
+
+function normalizeSchemaTableRef(value: unknown): ChatSchemaTableRef | null {
+    if (!value || typeof value !== 'object') return null;
+
+    const record = value as Record<string, unknown>;
+    const name = typeof record.name === 'string' ? record.name.trim() : '';
+    if (!name) return null;
+
+    const database = typeof record.database === 'string' && record.database.trim() ? record.database.trim() : null;
+    const schema = typeof record.schema === 'string' && record.schema.trim() ? record.schema.trim() : null;
+
+    return { database, schema, name };
+}
+
+function collectSchemaContextTables(candidateTables?: ChatSchemaTableRef[] | null, copilotEnvelope?: CopilotEnvelopeV1 | null): ChatSchemaTableRef[] {
+    const seen = new Set<string>();
+    const tables: ChatSchemaTableRef[] = [];
+
+    const addTable = (value: unknown) => {
+        const table = normalizeSchemaTableRef(value);
+        if (!table) return;
+
+        const key = `${table.database ?? ''}:${table.schema ?? ''}:${table.name}`;
+        if (seen.has(key)) return;
+
+        seen.add(key);
+        tables.push(table);
+    };
+
+    if (Array.isArray(candidateTables)) {
+        for (const table of candidateTables) {
+            addTable(table);
+        }
+    }
+
+    if (copilotEnvelope?.surface === 'sql') {
+        const inferredTables = copilotEnvelope.context.draft.inferred.tables;
+        for (const table of inferredTables) {
+            addTable({
+                database: table.database ?? copilotEnvelope.context.draft.inferred.database ?? copilotEnvelope.context.baseline.database ?? null,
+                schema: table.schema ?? copilotEnvelope.context.draft.inferred.schema ?? null,
+                name: table.name,
+            });
+        }
+    }
+
+    return tables.slice(0, 12);
+}
 
 export const POST = withUserAndOrganizationHandler(async ({ req }) => {
     try {
@@ -63,6 +117,7 @@ async function handleChatRequest(req: NextRequest) {
         model: requestedModel,
         webSearch,
         copilotEnvelope,
+        candidateTables,
     }: {
         id: string;
         messages: UIMessage[];
@@ -77,6 +132,7 @@ async function handleChatRequest(req: NextRequest) {
         model?: string | null;
         webSearch?: boolean;
         copilotEnvelope?: CopilotEnvelopeV1 | null;
+        candidateTables?: ChatSchemaTableRef[] | null;
     } = await req.json();
 
     /* ------------------------------------------------------------------ */
@@ -85,10 +141,8 @@ async function handleChatRequest(req: NextRequest) {
 
     const uiMessages: UIMessage[] = Array.isArray(rawMessages) ? rawMessages.map(normalizeMessage) : [];
     const modelHistoryMessages = uiMessages.filter(message => (message as any)?.role !== 'tool');
-    const historyMessagesForModel =
-        modelHistoryMessages.length > MAX_HISTORY_MESSAGES ? modelHistoryMessages.slice(-MAX_HISTORY_MESSAGES) : modelHistoryMessages;
-    const currentUserMessage =
-        uiMessages.find(m => (m as any)?.id === requestMessageId && m.role === 'user') ?? [...uiMessages].reverse().find(m => m.role === 'user');
+    const historyMessagesForModel = modelHistoryMessages.length > MAX_HISTORY_MESSAGES ? modelHistoryMessages.slice(-MAX_HISTORY_MESSAGES) : modelHistoryMessages;
+    const currentUserMessage = uiMessages.find(m => (m as any)?.id === requestMessageId && m.role === 'user') ?? [...uiMessages].reverse().find(m => m.role === 'user');
     const currentUserText = extractMessageText(currentUserMessage);
 
     /* ------------------------------------------------------------------ */
@@ -216,7 +270,21 @@ async function handleChatRequest(req: NextRequest) {
 
     if (db && userId && organizationId && connectionId) {
         const defaults = getDefaultSchemaSampleLimits();
-        schemaContext = await buildSchemaContext({
+        const schemaContextTables = collectSchemaContextTables(candidateTables, copilotEnvelope);
+
+        schemaContext = schemaContextTables.length
+            ? await buildSchemaContextForTables({
+                  userId,
+                  organizationId,
+                  datasourceId: connectionId,
+                  database,
+                  schema: activeSchema,
+                  tables: schemaContextTables,
+                  columnSampleLimit: defaults.column,
+              })
+            : null;
+
+        schemaContext ??= await buildSchemaContext({
             userId,
             organizationId,
             datasourceId: connectionId,
@@ -256,9 +324,7 @@ async function handleChatRequest(req: NextRequest) {
 
     const userLanguageSection = buildUserLanguageInstruction(currentUserText, locale);
 
-    const systemPrompt = [compiledSystem, userLanguageSection, SYSTEM_PROMPT, sqlToolSection, copilotContextSection, schemaSection]
-        .filter(Boolean)
-        .join('\n\n');
+    const systemPrompt = [compiledSystem, userLanguageSection, SYSTEM_PROMPT, sqlToolSection, copilotContextSection, schemaSection].filter(Boolean).join('\n\n');
 
     const modelMessages = await convertToModelMessages(historyMessagesForModel, { tools });
 
@@ -809,7 +875,10 @@ function looksLikeStandaloneSql(text: string): boolean {
     if (!trimmed) return false;
     if (!/^(select|show|describe|desc|explain|with|pragma)\b/i.test(trimmed)) return false;
 
-    const lines = trimmed.split('\n').map(line => line.trim()).filter(Boolean);
+    const lines = trimmed
+        .split('\n')
+        .map(line => line.trim())
+        .filter(Boolean);
     if (lines.length > 12) return false;
 
     return !/[。！？]/.test(trimmed) && !/^[-*]\s/m.test(trimmed);
