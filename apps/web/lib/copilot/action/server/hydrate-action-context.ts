@@ -9,6 +9,28 @@ export async function hydrateActionContext(ctx: ActionContext): Promise<ActionCo
         return ctx;
     }
 
+    const explicitTables = Array.isArray(ctx.candidateTables)
+        ? ctx.candidateTables.filter(table => typeof table?.name === 'string' && table.name.trim())
+        : [];
+
+    if (explicitTables.length) {
+        const schemaContext = await buildSchemaContextForTables({
+            userId: ctx.userId,
+            organizationId: ctx.organizationId,
+            datasourceId: ctx.connectionId,
+            database: ctx.database ?? null,
+            schema: ctx.activeSchema ?? null,
+            tables: explicitTables.slice(0, 12),
+        });
+
+        return schemaContext
+            ? {
+                  ...ctx,
+                  schemaContext,
+              }
+            : ctx;
+    }
+
     const inferred = await inferSqlDraftContext({
         dialect: ctx.dialect,
         editorText: ctx.sql,
