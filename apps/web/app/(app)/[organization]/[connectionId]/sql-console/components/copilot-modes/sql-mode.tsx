@@ -4,7 +4,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Group, Panel, Separator, type Layout } from 'react-resizable-panels';
-import { Check, ChevronDown, Loader2, Play, Save, Square } from 'lucide-react';
+import { Check, ChevronDown, Loader2, Play, Save, Sparkles, Square } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Button } from '@/registry/new-york-v4/ui/button';
 import {
@@ -17,7 +18,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/registry/new-york-v4/ui/dropdown-menu';
-import { editorSelectionByTabAtom } from '../../sql-console.store';
+import { DEFAULT_INLINE_SQL_ASK_STATE, editorSelectionByTabAtom, inlineSqlAskByTabAtom } from '../../sql-console.store';
 
 import { ResultTable } from '../result-table/result-table';
 import SQLEditor from '../sql-editor';
@@ -30,8 +31,30 @@ import { AuthLinkSheet } from '@/components/auth/auth-link-sheet';
 import { isAnonymousUser } from '@/lib/auth/anonymous-user';
 import { useTranslations } from 'next-intl';
 import { normalizeSqlEditorSettings, SQL_EDITOR_QUERY_LIMIT_OPTIONS, sqlEditorSettingsAtom } from '@/shared/stores/sql-editor-settings.store';
-import { currentConnectionAtom } from '@/shared/stores/app.store';
+import { activeDatabaseAtom, activeSchemaAtom, currentConnectionAtom } from '@/shared/stores/app.store';
 import type { SavedQueryItem } from '../saved-queries/saved-queries-sidebar';
+import { createCopilotSQLContextEnvelope } from '../../../chatbot/copilot/copilot-envelope';
+import { useSqlInlineAskAI } from '../../hooks/useSqlInlineAskAI';
+import { normalizeSqlDialect } from '@/lib/sql/sql-dialect';
+
+const isEditableShortcutTarget = (target: EventTarget | null) => {
+    if (!(target instanceof HTMLElement)) return false;
+
+    const tagName = target.tagName.toLowerCase();
+    return (
+        tagName === 'input' ||
+        tagName === 'textarea' ||
+        tagName === 'select' ||
+        target.isContentEditable ||
+        target.closest('[contenteditable="true"]') ||
+        target.getAttribute('role') === 'textbox'
+    );
+};
+
+const buildInlineAskSqlComment = (prompt: string) => {
+    const commentText = prompt.replace(/\s+/g, ' ').replace(/--/g, '-').trim();
+    return commentText ? `-- ${commentText}` : '';
+};
 
 export function SqlMode({
     tabs,
@@ -53,8 +76,11 @@ export function SqlMode({
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const { data: session } = authClient.useSession();
+    const activeDatabase = useAtomValue(activeDatabaseAtom);
     const selectionByTab = useAtomValue(editorSelectionByTabAtom);
+    const activeSchema = useAtomValue(activeSchemaAtom);
     const [editorSettings, setEditorSettings] = useAtom(sqlEditorSettingsAtom);
+    const [inlineAskByTab, setInlineAskByTab] = useAtom(inlineSqlAskByTabAtom);
     const [saveDialogOpen, setSaveDialogOpen] = useState(false);
     const [authSheetOpen, setAuthSheetOpen] = useState(false);
     const [savedQueries, setSavedQueries] = useState<SavedQueryItem[]>([]);
@@ -66,6 +92,7 @@ export function SqlMode({
     const defaultSaveTitle = useMemo(() => activeTab?.tabName ?? t('Tabs.NewQuery'), [activeTab?.tabName, t]);
     const currentConnection = useAtomValue(currentConnectionAtom);
     const connectionId = currentConnection?.connection.id ?? null;
+    const generateSqlFromPrompt = useSqlInlineAskAI();
     const handleRunQuery = () => {
         if (!activeTab || isRunning) return;
         const options = hasSqlLimit ? undefined : { limit: queryLimit };
@@ -91,6 +118,22 @@ export function SqlMode({
         const query = searchParams?.toString();
         return query ? `${pathname}?${query}` : pathname || '/';
     }, [pathname, searchParams]);
+    const inlineAskState = activeTab?.tabType === 'sql' ? (inlineAskByTab[activeTab.tabId] ?? DEFAULT_INLINE_SQL_ASK_STATE) : DEFAULT_INLINE_SQL_ASK_STATE;
+
+    const updateInlineAskState = useCallback(
+        (patch: Partial<typeof DEFAULT_INLINE_SQL_ASK_STATE>) => {
+            if (!activeTab || activeTab.tabType !== 'sql') return;
+
+            setInlineAskByTab(prev => ({
+                ...prev,
+                [activeTab.tabId]: {
+                    ...(prev[activeTab.tabId] ?? DEFAULT_INLINE_SQL_ASK_STATE),
+                    ...patch,
+                },
+            }));
+        },
+        [activeTab, setInlineAskByTab],
+    );
 
     const requestSave = useCallback(() => {
         if (!canSave) return;
@@ -152,6 +195,121 @@ export function SqlMode({
         };
     }, [requestSave]);
 
+    const handleOpenInlineAsk = useCallback(() => {
+        updateInlineAskState({
+            mode: 'ask-ai',
+            errorMessage: null,
+        });
+    }, [updateInlineAskState]);
+
+    useEffect(() => {
+        const handler = (event: KeyboardEvent) => {
+            const isAskShortcut = (event.key === '/' || event.code === 'Slash') && !event.metaKey && !event.ctrlKey && !event.altKey;
+            if (!isAskShortcut) return;
+            if (event.repeat) return;
+            if (activeTab?.tabType !== 'sql') return;
+            if (inlineAskState.mode === 'ask-ai') return;
+            if (isEditableShortcutTarget(event.target)) return;
+
+            event.preventDefault();
+            handleOpenInlineAsk();
+        };
+
+        window.addEventListener('keydown', handler);
+        return () => {
+            window.removeEventListener('keydown', handler);
+        };
+    }, [activeTab?.tabType, handleOpenInlineAsk, inlineAskState.mode]);
+
+    const handleCancelInlineAsk = useCallback(() => {
+        if (inlineAskState.isGenerating) return;
+
+        updateInlineAskState({
+            mode: 'sql',
+            errorMessage: null,
+        });
+
+        window.setTimeout(() => {
+            editorRef.current?.focusAtEnd?.();
+        }, 0);
+    }, [editorRef, inlineAskState.isGenerating, updateInlineAskState]);
+
+    const handleSubmitInlineAsk = useCallback(async () => {
+        if (!activeTab || activeTab.tabType !== 'sql' || !connectionId) return;
+
+        const prompt = inlineAskState.promptDraft.trim();
+        if (!prompt) return;
+
+        updateInlineAskState({
+            isGenerating: true,
+            errorMessage: null,
+        });
+
+        try {
+            const editorSql = getSqlText();
+            const copilotEnvelope = await createCopilotSQLContextEnvelope({
+                editorText: editorSql,
+                selection,
+                baselineDatabase: activeDatabase || null,
+                dialect: normalizeSqlDialect(currentConnection?.connection.type),
+                meta: {
+                    tabId: activeTab.tabId,
+                    tabName: activeTab.tabName,
+                    connectionId,
+                },
+                updatedAt: Date.now(),
+            });
+
+            const generatedSql = await generateSqlFromPrompt({
+                prompt,
+                connectionId,
+                connectionType: currentConnection?.connection.type ?? null,
+                database: activeDatabase || null,
+                activeSchema: activeSchema || null,
+                tabId: activeTab.tabId,
+                copilotEnvelope,
+                errorMessage: t('InlineAsk.Errors.GenerateFailed'),
+            });
+
+            const promptComment = buildInlineAskSqlComment(prompt);
+            const generatedBlock = [promptComment, generatedSql].filter(Boolean).join('\n');
+            const nextSql = editorRef.current?.insertContentWithUndo?.(generatedBlock) ?? `${getSqlText()}${generatedBlock}`;
+            editorRef.current?.flushSave?.();
+            updateTab(activeTab.tabId, { content: nextSql }, { immediate: true });
+
+            updateInlineAskState({
+                mode: 'sql',
+                isGenerating: false,
+                lastPrompt: prompt,
+                lastGeneratedSql: generatedBlock,
+                errorMessage: null,
+            });
+
+            toast.success(t('InlineAsk.Success.Applied'));
+        } catch (error) {
+            const message = error instanceof Error && error.message.trim() ? error.message : t('InlineAsk.Errors.GenerateFailed');
+
+            updateInlineAskState({
+                isGenerating: false,
+                errorMessage: message,
+            });
+        }
+    }, [
+        activeDatabase,
+        activeSchema,
+        activeTab,
+        connectionId,
+        currentConnection?.connection.type,
+        editorRef,
+        generateSqlFromPrompt,
+        getSqlText,
+        inlineAskState.promptDraft,
+        selection,
+        t,
+        updateInlineAskState,
+        updateTab,
+    ]);
+
     return (
         <div className="flex flex-1 flex-col min-h-0 mr-10">
             <Group
@@ -166,34 +324,63 @@ export function SqlMode({
                 <Panel id="main-panel" defaultSize={`${showChatbot ? 100 - chatWidth : 100}%`} minSize="40%" className="min-h-0">
                     <div className="flex h-full flex-col min-h-0">
                         <div className="flex items-center gap-2 p-2 border-b shrink-0">
-                            <div className="flex items-center">
-                                <Button disabled={isRunning} size="sm" className="gap-2 rounded-r-none cursor-pointer" onClick={handleRunQuery} data-testid="run-query">
-                                    {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-                                    {runLabelWithLimit}
-                                </Button>
-
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button size="sm" variant="default" className="rounded-l-none px-2 cursor-pointer" aria-label="Run options">
-                                            <ChevronDown className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start">
-                                        <DropdownMenuItem disabled={isRunning} onSelect={handleRunQuery}>
-                                            <Play className="h-4 w-4" />
+                            {inlineAskState.mode === 'ask-ai' ? (
+                                <div className="flex items-center gap-2">
+                                    <Button
+                                        size="sm"
+                                        className="gap-2"
+                                        onClick={() => void handleSubmitInlineAsk()}
+                                        disabled={inlineAskState.isGenerating || !inlineAskState.promptDraft.trim()}
+                                    >
+                                        {inlineAskState.isGenerating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                                        {t('InlineAsk.Submit')}
+                                    </Button>
+                                    <Button variant="ghost" size="sm" onClick={handleCancelInlineAsk} disabled={inlineAskState.isGenerating}>
+                                        {t('Actions.Cancel')}
+                                    </Button>
+                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                        <kbd className="rounded border border-border bg-muted px-1.5 py-0.5 font-medium leading-none text-muted-foreground">⌘ Enter</kbd>
+                                    </div>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex items-center">
+                                        <Button disabled={isRunning} size="sm" className="gap-2 rounded-r-none cursor-pointer" onClick={handleRunQuery} data-testid="run-query">
+                                            {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
                                             {runLabelWithLimit}
-                                        </DropdownMenuItem>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuRadioGroup value={String(queryLimit)} onValueChange={handleLimitChange}>
-                                            {SQL_EDITOR_QUERY_LIMIT_OPTIONS.map(option => (
-                                                <DropdownMenuRadioItem key={option} value={String(option)}>
-                                                    Limit {option}
-                                                </DropdownMenuRadioItem>
-                                            ))}
-                                        </DropdownMenuRadioGroup>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
-                            </div>
+                                        </Button>
+
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button size="sm" variant="default" className="rounded-l-none px-2 cursor-pointer" aria-label="Run options">
+                                                    <ChevronDown className="h-4 w-4" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="start">
+                                                <DropdownMenuItem disabled={isRunning} onSelect={handleRunQuery}>
+                                                    <Play className="h-4 w-4" />
+                                                    {runLabelWithLimit}
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuRadioGroup value={String(queryLimit)} onValueChange={handleLimitChange}>
+                                                    {SQL_EDITOR_QUERY_LIMIT_OPTIONS.map(option => (
+                                                        <DropdownMenuRadioItem key={option} value={String(option)}>
+                                                            Limit {option}
+                                                        </DropdownMenuRadioItem>
+                                                    ))}
+                                                </DropdownMenuRadioGroup>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                    <Button variant="secondary" size="sm" className="gap-2" onClick={handleOpenInlineAsk} aria-keyshortcuts="/">
+                                        <Sparkles className="h-4 w-4" />
+                                        {t('InlineAsk.Badge')}
+                                        <kbd className="ml-1 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+                                            /
+                                        </kbd>
+                                    </Button>
+                                </>
+                            )}
 
                             {isRunning && activeTab ? (
                                 <Button variant="outline" size="sm" className="gap-2" onClick={() => cancelQuery(activeTab)}>
@@ -224,6 +411,19 @@ export function SqlMode({
                                         updateTab={updateTab}
                                         onRunQuery={handleRunQuery}
                                         onNewTab={() => void addTab({ activate: true })}
+                                        onInlineAskOpen={handleOpenInlineAsk}
+                                        inlineAskMode={inlineAskState.mode === 'ask-ai'}
+                                        inlineAskPromptDraft={inlineAskState.promptDraft}
+                                        inlineAskGenerating={inlineAskState.isGenerating}
+                                        inlineAskErrorMessage={inlineAskState.errorMessage}
+                                        onInlineAskPromptChange={value => {
+                                            updateInlineAskState({
+                                                promptDraft: value,
+                                                errorMessage: null,
+                                            });
+                                        }}
+                                        onInlineAskSubmit={() => void handleSubmitInlineAsk()}
+                                        onInlineAskCancel={handleCancelInlineAsk}
                                     />
                                 </div>
                             </Panel>
@@ -241,12 +441,7 @@ export function SqlMode({
 
                 <Separator className={['w-1.5 bg-border transition-colors', showChatbot ? '' : 'hidden'].join(' ')} />
 
-                <Panel
-                    id="copilot-panel"
-                    defaultSize={`${showChatbot ? chatWidth : 0}%`}
-                    minSize={`${showChatbot ? 30 : 0}%`}
-                    className="min-h-0"
-                >
+                <Panel id="copilot-panel" defaultSize={`${showChatbot ? chatWidth : 0}%`} minSize={`${showChatbot ? 30 : 0}%`} className="min-h-0">
                     {showChatbot ? (
                         <div className="flex h-full flex-col min-h-0 border-l bg-card">
                             <CopilotPanel

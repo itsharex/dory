@@ -1054,6 +1054,22 @@
                 "Column": "{table} 列"
             }
         },
+        "InlineAsk": {
+            "Badge": "Ask AI",
+            "Placeholder": "描述你想要的内容...",
+            "EditorPlaceholder": "Press / to ask AI",
+            "EnterHint": "Enter 生成",
+            "EnterKeyLabel": "Enter",
+            "EscapeHint": "Esc 取消",
+            "Generating": "正在生成 SQL...",
+            "Submit": "生成 SQL",
+            "Errors": {
+                "GenerateFailed": "生成 SQL 失败，请尝试更具体的描述。"
+            },
+            "Success": {
+                "Applied": "SQL 已写入编辑器"
+            }
+        },
         "ContextMenu": {
             "Copy": "复制",
             "Paste": "粘贴",

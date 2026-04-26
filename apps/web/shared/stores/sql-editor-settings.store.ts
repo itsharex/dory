@@ -2,14 +2,7 @@ import { atomWithStorage, createJSONStorage } from 'jotai/utils';
 import type * as Monaco from 'monaco-editor';
 
 export type SqlEditorTheme = 'auto' | 'github-light' | 'github-dark' | 'vs' | 'vs-dark';
-export type SqlEditorFontFamilyPreset =
-    | 'monaco'
-    | 'menlo'
-    | 'consolas'
-    | 'jetbrains-mono'
-    | 'fira-code'
-    | 'source-code-pro'
-    | 'custom';
+export type SqlEditorFontFamilyPreset = 'monaco' | 'menlo' | 'consolas' | 'jetbrains-mono' | 'fira-code' | 'source-code-pro' | 'custom';
 
 export type SqlEditorSettings = {
     theme: SqlEditorTheme;
@@ -48,7 +41,7 @@ export const DEFAULT_SQL_EDITOR_SETTINGS: SqlEditorSettings = {
     theme: 'auto',
     fontFamilyPreset: 'monaco',
     customFontFamily: '',
-    fontSize: 14,
+    fontSize: 12,
     lineHeight: 1.5,
     lineNumbers: 'on',
     minimap: false,
@@ -93,9 +86,7 @@ export const normalizeSqlEditorSettings = (value?: Partial<SqlEditorSettings> | 
             ? (next.lineNumbers as SqlEditorSettings['lineNumbers'])
             : DEFAULT_SQL_EDITOR_SETTINGS.lineNumbers,
         minimap: typeof next.minimap === 'boolean' ? next.minimap : DEFAULT_SQL_EDITOR_SETTINGS.minimap,
-        wordWrap: wordWrapSet.has(next.wordWrap as SqlEditorSettings['wordWrap'])
-            ? (next.wordWrap as SqlEditorSettings['wordWrap'])
-            : DEFAULT_SQL_EDITOR_SETTINGS.wordWrap,
+        wordWrap: wordWrapSet.has(next.wordWrap as SqlEditorSettings['wordWrap']) ? (next.wordWrap as SqlEditorSettings['wordWrap']) : DEFAULT_SQL_EDITOR_SETTINGS.wordWrap,
         folding: typeof next.folding === 'boolean' ? next.folding : DEFAULT_SQL_EDITOR_SETTINGS.folding,
         queryLimit,
     };
