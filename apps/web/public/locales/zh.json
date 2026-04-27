@@ -791,6 +791,16 @@
                 "ErrorLogs": "最近 24 小时的错误日志",
                 "OrderTrends": "本月每日订单趋势",
                 "TableSummary": "所有表的行数汇总"
+            },
+            "DynamicSuggestions": {
+                "OrderTrend": "{table} 的每日趋势",
+                "TopUsers": "{table} 中最活跃的前 10 名用户",
+                "ErrorLogs": "{table} 中最近 24 小时的错误日志",
+                "PopularProducts": "{table} 中最受欢迎的商品",
+                "PaymentSummary": "{table} 的支付汇总",
+                "RecentTrend": "{table} 最近 7 天的趋势",
+                "TopRecordsByColumn": "按 {column} 查看 {table} 中前 10 条记录",
+                "BreakdownByColumn": "按 {column} 统计 {table} 的分布"
             }
         },
         "AuthRequired": {
@@ -827,7 +837,14 @@
             "Cancel": "取消",
             "ConfirmDelete": "删除",
             "DeleteSuccess": "删除成功",
-            "CopilotAutoCreate": "Copilot 会话随当前 Tab 自动创建"
+            "CopilotAutoCreate": "Copilot 会话随当前 Tab 自动创建",
+            "NoMatches": "没有匹配的会话",
+            "SearchPlaceholder": "搜索会话",
+            "Groups": {
+                "Today": "今天",
+                "Last7Days": "最近 7 天",
+                "Earlier": "更早"
+            }
         },
         "Errors": {
             "FetchSessions": "获取会话列表失败",
@@ -858,7 +875,37 @@
             "ToolLabel": "工具",
             "MessageLabel": "消息",
             "ReplaceSql": "替换 SQL",
-            "NewTab": "新建 Tab"
+            "NewTab": "新建 Tab",
+            "ProcessNotes": "过程说明",
+            "Names": {
+                "Tool": "工具",
+                "SqlRunner": "SQL 执行器",
+                "ChartBuilder": "图表生成器"
+            },
+            "Status": {
+                "Error": "失败",
+                "Running": "执行中",
+                "Completed": "已完成"
+            },
+            "Steps": {
+                "RunSql": "执行 SQL",
+                "InspectSchema": "检查表结构",
+                "ListTables": "读取数据表",
+                "ValidateTimestampParsing": "验证时间字段解析",
+                "CheckTimeRange": "检查时间范围",
+                "ReviewRecentRows": "查看最近记录",
+                "FilterErrorLogs": "筛选错误日志",
+                "CountRows": "统计行数",
+                "QueryData": "查询数据",
+                "InsertData": "插入数据",
+                "UpdateData": "更新数据",
+                "DeleteData": "删除数据",
+                "CreateObject": "创建对象",
+                "DropObject": "删除对象",
+                "BuildChart": "生成图表",
+                "BuildChartWithType": "生成 {chartType} 图表",
+                "RunTool": "执行工具"
+            }
         },
         "Actions": {
             "Copy": "复制",

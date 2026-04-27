@@ -15,6 +15,8 @@ type ColumnRule = {
     template: (formatters: SuggestionFormatters, table: string, column: string) => string;
 };
 
+type ChatbotTranslate = (key: string, values?: Record<string, string>) => string;
+
 export type SuggestionFormatters = {
     orderTrend: (table: string) => string;
     topUsers: (table: string) => string;
@@ -54,57 +56,16 @@ function getTableBaseName(name: string): string {
     return parts[parts.length - 1];
 }
 
-export function createSuggestionFormatters(locale?: string): SuggestionFormatters {
-    const normalizedLocale = (locale ?? 'en').toLowerCase();
-
-    if (normalizedLocale.startsWith('zh')) {
-        return {
-            orderTrend: table => `${table} 的每日趋势`,
-            topUsers: table => `${table} 中最活跃的前 10 名用户`,
-            errorLogs: table => `${table} 中最近 24 小时的错误日志`,
-            popularProducts: table => `${table} 中最受欢迎的商品`,
-            paymentSummary: table => `${table} 的支付汇总`,
-            recentTrend: table => `${table} 最近 7 天的趋势`,
-            topRecordsByColumn: (table, column) => `按 ${column} 查看 ${table} 中前 10 条记录`,
-            breakdownByColumn: (table, column) => `按 ${column} 统计 ${table} 的分布`,
-        };
-    }
-
-    if (normalizedLocale.startsWith('ja')) {
-        return {
-            orderTrend: table => `${table} の日次トレンドを表示`,
-            topUsers: table => `${table} のアクティブユーザー上位10件を表示`,
-            errorLogs: table => `${table} の直近24時間のエラーログを表示`,
-            popularProducts: table => `${table} の人気商品を表示`,
-            paymentSummary: table => `${table} の支払いサマリーを表示`,
-            recentTrend: table => `${table} の直近7日間のトレンドを表示`,
-            topRecordsByColumn: (table, column) => `${table} を ${column} で並べた上位10件を表示`,
-            breakdownByColumn: (table, column) => `${column} ごとの ${table} の内訳を表示`,
-        };
-    }
-
-    if (normalizedLocale.startsWith('es')) {
-        return {
-            orderTrend: table => `Mostrar tendencias diarias de ${table}`,
-            topUsers: table => `Mostrar los 10 usuarios más activos de ${table}`,
-            errorLogs: table => `Mostrar errores de las últimas 24 horas en ${table}`,
-            popularProducts: table => `Mostrar los productos más populares de ${table}`,
-            paymentSummary: table => `Mostrar el resumen de pagos de ${table}`,
-            recentTrend: table => `Mostrar la tendencia de ${table} en los últimos 7 días`,
-            topRecordsByColumn: (table, column) => `Mostrar los 10 registros principales de ${table} por ${column}`,
-            breakdownByColumn: (table, column) => `Mostrar el desglose de ${table} por ${column}`,
-        };
-    }
-
+export function createSuggestionFormatters(t: ChatbotTranslate): SuggestionFormatters {
     return {
-        orderTrend: table => `Show daily trends from ${table}`,
-        topUsers: table => `Show top 10 users by activity from ${table}`,
-        errorLogs: table => `Show error logs in the last 24 hours from ${table}`,
-        popularProducts: table => `Show most popular products from ${table}`,
-        paymentSummary: table => `Show payment summary from ${table}`,
-        recentTrend: table => `Show trend of ${table} in the last 7 days`,
-        topRecordsByColumn: (table, column) => `Show top 10 records from ${table} by ${column}`,
-        breakdownByColumn: (table, column) => `Show breakdown of ${table} by ${column}`,
+        orderTrend: table => t('Welcome.DynamicSuggestions.OrderTrend', { table }),
+        topUsers: table => t('Welcome.DynamicSuggestions.TopUsers', { table }),
+        errorLogs: table => t('Welcome.DynamicSuggestions.ErrorLogs', { table }),
+        popularProducts: table => t('Welcome.DynamicSuggestions.PopularProducts', { table }),
+        paymentSummary: table => t('Welcome.DynamicSuggestions.PaymentSummary', { table }),
+        recentTrend: table => t('Welcome.DynamicSuggestions.RecentTrend', { table }),
+        topRecordsByColumn: (table, column) => t('Welcome.DynamicSuggestions.TopRecordsByColumn', { table, column }),
+        breakdownByColumn: (table, column) => t('Welcome.DynamicSuggestions.BreakdownByColumn', { table, column }),
     };
 }
 

@@ -38,7 +38,7 @@ export async function apiFetchSessions(params: { mode?: ChatMode; connectionId: 
     });
 
     const data = (await res.json()) as ApiEnvelope<{ sessions: ChatSessionItem[] }>;
-    assertOk(res, data, params?.errorMessage ?? 'Failed to fetch sessions');
+    assertOk(res, data, params?.errorMessage ?? '');
 
     return (data.data?.sessions ?? []) as ChatSessionItem[];
 }
@@ -50,7 +50,7 @@ export async function apiFetchSessionDetail(sessionId: string, options?: { error
     });
 
     const data = (await res.json()) as ApiEnvelope<ChatSessionDetailResponse>;
-    assertOk(res, data, options?.errorMessage ?? 'Failed to fetch session details');
+    assertOk(res, data, options?.errorMessage ?? '');
 
     const detail = data.data as ChatSessionDetailResponse;
     const messages: UIMessage[] = Array.isArray(detail?.messages) ? detail.messages.map(toUIMessage) : [];
@@ -66,7 +66,7 @@ export async function apiCreateSession(params: {
     copilotNotSupportedMessage?: string;
 }) {
     if (params.mode === 'copilot') {
-        throw new Error(params.copilotNotSupportedMessage ?? 'Copilot sessions cannot be created manually.');
+        throw new Error(params.copilotNotSupportedMessage ?? params.errorMessage ?? '');
     }
 
     const res = await authFetch('/api/chat/sessions', {
@@ -82,7 +82,7 @@ export async function apiCreateSession(params: {
     });
 
     const data = (await res.json()) as ApiEnvelope<{ session: ChatSessionItem | null }>;
-    assertOk(res, data, params.errorMessage ?? 'Failed to create session');
+    assertOk(res, data, params.errorMessage ?? '');
 
     return (data.data?.session ?? null) as ChatSessionItem | null;
 }
@@ -96,7 +96,7 @@ export async function apiRenameSession(params: { sessionId: string; title: strin
     });
 
     const data = (await res.json()) as ApiEnvelope<{}>;
-    assertOk(res, data, params.errorMessage ?? 'Failed to rename session');
+    assertOk(res, data, params.errorMessage ?? '');
 }
 
 export async function apiDeleteSession(sessionId: string, options?: { errorMessage?: string }) {
@@ -106,7 +106,7 @@ export async function apiDeleteSession(sessionId: string, options?: { errorMessa
     });
 
     const data = (await res.json()) as ApiEnvelope<{}>;
-    assertOk(res, data, options?.errorMessage ?? 'Failed to delete session');
+    assertOk(res, data, options?.errorMessage ?? '');
 }
 
 export async function apiGetOrCreateCopilotSession(input: { envelope?: CopilotEnvelopeV1 | null; errorMessage?: string }) {
@@ -118,7 +118,7 @@ export async function apiGetOrCreateCopilotSession(input: { envelope?: CopilotEn
     });
 
     const data = (await res.json()) as ApiEnvelope<{ session: ChatSessionItem }>;
-    assertOk(res, data, input.errorMessage ?? 'Failed to fetch Copilot session');
+    assertOk(res, data, input.errorMessage ?? '');
 
     return data.data!.session;
 }
@@ -130,7 +130,7 @@ export async function apiFetchCopilotSession(params: { tabId: string; errorMessa
     });
 
     const data = (await res.json()) as ApiEnvelope<{ session: ChatSessionItem | null }>;
-    assertOk(res, data, params.errorMessage ?? 'Failed to fetch Copilot session');
+    assertOk(res, data, params.errorMessage ?? '');
 
     return (data.data?.session ?? null) as ChatSessionItem | null;
 }

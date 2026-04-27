@@ -36,6 +36,23 @@ type MessageRendererProps = {
     onExecuteAction?: CopilotActionExecutor;
 };
 
+type ChatbotTranslate = (key: string, values?: Record<string, string>) => string;
+type SqlStepKey =
+    | 'RunSql'
+    | 'InspectSchema'
+    | 'ListTables'
+    | 'ValidateTimestampParsing'
+    | 'CheckTimeRange'
+    | 'ReviewRecentRows'
+    | 'FilterErrorLogs'
+    | 'CountRows'
+    | 'QueryData'
+    | 'InsertData'
+    | 'UpdateData'
+    | 'DeleteData'
+    | 'CreateObject'
+    | 'DropObject';
+
 function findScrollableAncestor(node: HTMLElement | null): HTMLElement | null {
     let current = node?.parentElement ?? null;
 
@@ -171,7 +188,7 @@ export function getSqlResultFromPart(part: any, fallbackMessage?: string): SqlRe
         error:
             candidate.ok === false && candidate.error
                 ? {
-                      message: String(candidate.error?.message ?? fallbackMessage ?? 'SQL execution failed'),
+                      message: String(candidate.error?.message ?? fallbackMessage ?? ''),
                   }
                 : undefined,
         timestamp: typeof candidate.timestamp === 'string' ? candidate.timestamp : undefined,
@@ -226,11 +243,12 @@ function didUserRequestChart(messages: UIMessage[], messageIndex: number): boole
     return !!previousUserMessage?.parts?.some((part: any) => part?.type === 'text' && /visualization|chart/i.test(part?.text ?? ''));
 }
 
-function formatToolName(toolName: string | null | undefined, fallback = 'Tool'): string {
+function formatToolName(toolName: string | null | undefined, t: ChatbotTranslate): string {
+    const fallback = t('Tools.Names.Tool');
     if (!toolName) return fallback;
 
-    if (toolName === 'sqlRunner') return 'SQL Runner';
-    if (toolName === 'chartBuilder') return 'Chart Builder';
+    if (toolName === 'sqlRunner') return t('Tools.Names.SqlRunner');
+    if (toolName === 'chartBuilder') return t('Tools.Names.ChartBuilder');
 
     const normalized = toolName
         .replace(/^tool[-_]/, '')
@@ -243,74 +261,32 @@ function formatToolName(toolName: string | null | undefined, fallback = 'Tool'):
     return normalized.charAt(0).toUpperCase() + normalized.slice(1);
 }
 
-function summarizeSqlStep(sql: string): string {
+function summarizeSqlStep(sql: string): SqlStepKey {
     const normalized = sql.replace(/\s+/g, ' ').trim().toLowerCase();
 
-    if (!normalized) return 'Run SQL';
-    if (normalized.includes('pragma table_info') || normalized.includes('information_schema.columns') || normalized.startsWith('describe ')) return 'Inspect schema';
-    if (normalized.includes('from sqlite_master')) return 'List tables';
-    if (normalized.includes('datetime(') && normalized.includes('timestamp')) return 'Validate timestamp parsing';
-    if ((normalized.includes('max(timestamp)') || normalized.includes('min(timestamp)')) && normalized.includes('from')) return 'Check time range';
-    if (normalized.includes('order by timestamp desc')) return 'Review recent rows';
-    if (/where\s+.*level\s*=\s*['"]?error['"]?/i.test(normalized)) return 'Filter error logs';
-    if (normalized.includes('count(*)')) return 'Count rows';
-    if (normalized.startsWith('select')) return 'Query data';
-    if (normalized.startsWith('insert')) return 'Insert data';
-    if (normalized.startsWith('update')) return 'Update data';
-    if (normalized.startsWith('delete')) return 'Delete data';
-    if (normalized.startsWith('create')) return 'Create object';
-    if (normalized.startsWith('drop')) return 'Drop object';
-    return 'Run SQL';
+    if (!normalized) return 'RunSql';
+    if (normalized.includes('pragma table_info') || normalized.includes('information_schema.columns') || normalized.startsWith('describe ')) return 'InspectSchema';
+    if (normalized.includes('from sqlite_master')) return 'ListTables';
+    if (normalized.includes('datetime(') && normalized.includes('timestamp')) return 'ValidateTimestampParsing';
+    if ((normalized.includes('max(timestamp)') || normalized.includes('min(timestamp)')) && normalized.includes('from')) return 'CheckTimeRange';
+    if (normalized.includes('order by timestamp desc')) return 'ReviewRecentRows';
+    if (/where\s+.*level\s*=\s*['"]?error['"]?/i.test(normalized)) return 'FilterErrorLogs';
+    if (normalized.includes('count(*)')) return 'CountRows';
+    if (normalized.startsWith('select')) return 'QueryData';
+    if (normalized.startsWith('insert')) return 'InsertData';
+    if (normalized.startsWith('update')) return 'UpdateData';
+    if (normalized.startsWith('delete')) return 'DeleteData';
+    if (normalized.startsWith('create')) return 'CreateObject';
+    if (normalized.startsWith('drop')) return 'DropObject';
+    return 'RunSql';
 }
 
-function containsChinese(text: string): boolean {
-    return /[\u4E00-\u9FFF]/u.test(text);
+function getSqlStepLabel(stepKey: SqlStepKey, t: ChatbotTranslate): string {
+    return t(`Tools.Steps.${stepKey}`);
 }
 
-function getMessageLocale(messages: UIMessage[], currentMessage: UIMessage): 'zh' | 'en' {
-    const sampleText = [...messages, currentMessage]
-        .flatMap(message =>
-            Array.isArray(message.parts)
-                ? message.parts.filter((part: any) => (part?.type === 'text' || part?.type === 'reasoning') && typeof part.text === 'string').map((part: any) => part.text)
-                : [],
-        )
-        .join(' ');
-
-    return containsChinese(sampleText) ? 'zh' : 'en';
-}
-
-function localizeStepLabel(step: string, locale: 'zh' | 'en'): string {
-    if (locale === 'en') return step;
-
-    const map: Record<string, string> = {
-        'Run SQL': '执行 SQL',
-        'Inspect schema': '检查表结构',
-        'List tables': '读取数据表',
-        'Validate timestamp parsing': '验证时间字段解析',
-        'Check time range': '检查时间范围',
-        'Review recent rows': '查看最近记录',
-        'Filter error logs': '筛选错误日志',
-        'Count rows': '统计行数',
-        'Query data': '查询数据',
-        'Insert data': '插入数据',
-        'Update data': '更新数据',
-        'Delete data': '删除数据',
-        'Create object': '创建对象',
-        'Drop object': '删除对象',
-        'Build chart': '生成图表',
-        'Run tool': '执行工具',
-    };
-
-    if (step.startsWith('Build ') && step.endsWith(' chart')) {
-        const chartType = step.slice('Build '.length, -' chart'.length);
-        return `生成 ${chartType} 图表`;
-    }
-
-    return map[step] ?? step;
-}
-
-function getProcessNotesLabel(locale: 'zh' | 'en'): string {
-    return locale === 'zh' ? '过程说明' : 'Notes';
+function getProcessNotesLabel(t: ChatbotTranslate): string {
+    return t('Tools.ProcessNotes');
 }
 
 type ProcessVisualStatus = 'running' | 'completed' | 'error';
@@ -327,10 +303,10 @@ function getProcessVisualStatus(part: any): ProcessVisualStatus {
     return 'running';
 }
 
-function getProcessStatusCopy(status: ProcessVisualStatus, locale: 'zh' | 'en') {
+function getProcessStatusCopy(status: ProcessVisualStatus, t: ChatbotTranslate) {
     if (status === 'error') {
         return {
-            label: locale === 'zh' ? '失败' : 'Error',
+            label: t('Tools.Status.Error'),
             icon: <AlertTriangleIcon className="size-3.5" />,
             badgeClassName: 'border-destructive/20 bg-destructive/[0.04] text-destructive',
             dotClassName: 'bg-destructive',
@@ -339,7 +315,7 @@ function getProcessStatusCopy(status: ProcessVisualStatus, locale: 'zh' | 'en') 
 
     if (status === 'running') {
         return {
-            label: locale === 'zh' ? '执行中' : 'Running',
+            label: t('Tools.Status.Running'),
             icon: <LoaderCircleIcon className="size-3.5 animate-spin" />,
             badgeClassName: 'border-border bg-muted/40 text-muted-foreground',
             dotClassName: 'bg-primary',
@@ -347,7 +323,7 @@ function getProcessStatusCopy(status: ProcessVisualStatus, locale: 'zh' | 'en') 
     }
 
     return {
-        label: locale === 'zh' ? '已完成' : 'Completed',
+        label: t('Tools.Status.Completed'),
         icon: <CheckCircle2Icon className="size-3.5" />,
         badgeClassName: 'border-border bg-muted/30 text-muted-foreground',
         dotClassName: 'bg-emerald-500',
@@ -356,7 +332,6 @@ function getProcessStatusCopy(status: ProcessVisualStatus, locale: 'zh' | 'en') 
 
 const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, onManualExecute, mode = 'global', onExecuteAction }: MessageRendererProps) => {
     const t = useTranslations('Chatbot');
-    const doryUiT = useTranslations('DoryUI');
     const processItems: Array<{ key: string; summary: string; content: ReactNode; status: ProcessVisualStatus; actions?: ReactNode; defaultOpen?: boolean }> = [];
     const leadingContentItems: ReactNode[] = [];
     const narrativeContentItems: ReactNode[] = [];
@@ -368,7 +343,6 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
     const assistantMessage = message.role === 'assistant';
     const isLatestAssistant = assistantMessage && messageIndex === messages.length - 1;
     const isStreaming = status !== 'ready';
-    const locale = getMessageLocale(messages, message);
     const textPartIndexes = (message.parts ?? [])
         .map((part: any, index: number) => (part?.type === 'text' && typeof part.text === 'string' && part.text.trim() ? index : -1))
         .filter((index: number) => index >= 0);
@@ -535,15 +509,15 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
 
         if (toolName === 'sqlRunner') {
             const sql = typeof part?.input?.sql === 'string' ? part.input.sql : typeof input?.sql === 'string' ? input.sql : '';
-            return localizeStepLabel(summarizeSqlStep(sql), locale);
+            return getSqlStepLabel(summarizeSqlStep(sql), t);
         }
 
         if (toolName === 'chartBuilder') {
             const chartType = typeof part?.input?.chartType === 'string' ? part.input.chartType : typeof input?.chartType === 'string' ? input.chartType : null;
-            return localizeStepLabel(chartType ? `Build ${chartType} chart` : 'Build chart', locale);
+            return chartType ? t('Tools.Steps.BuildChartWithType', { chartType }) : t('Tools.Steps.BuildChart');
         }
 
-        return localizeStepLabel(formatToolName(toolName, 'Run tool'), locale);
+        return toolName ? formatToolName(toolName, t) : t('Tools.Steps.RunTool');
     };
 
     const getToolDisplayTitle = (part: any) => {
@@ -554,7 +528,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
             return summary;
         }
 
-        const toolLabel = formatToolName(toolName);
+        const toolLabel = formatToolName(toolName, t);
 
         return summary === toolLabel ? summary : `${summary} · ${toolLabel}`;
     };
@@ -940,7 +914,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
         if (foldedNarrativeParts.length > 0) {
             processItems.unshift({
                 key: `${message.id}-process-notes`,
-                summary: getProcessNotesLabel(locale),
+                summary: getProcessNotesLabel(t),
                 status: 'completed',
                 defaultOpen: false,
                 content: (
@@ -952,7 +926,7 @@ const MessageRenderer = ({ message, messageIndex, messages, status, onCopySql, o
         }
 
         const processNodes = processItems.map(item => {
-            const statusCopy = getProcessStatusCopy(item.status, locale);
+            const statusCopy = getProcessStatusCopy(item.status, t);
 
             return <ProcessStepCollapsible key={item.key} item={item} statusCopy={statusCopy} />;
         });

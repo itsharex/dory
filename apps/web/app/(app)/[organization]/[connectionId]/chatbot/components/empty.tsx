@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useAtom, useAtomValue } from 'jotai';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
 import { Sparkles } from 'lucide-react';
 
@@ -26,7 +26,6 @@ const SUGGESTION_KEYS = ['TopUsers', 'ErrorLogs', 'OrderTrends', 'TableSummary']
 
 export default function ChatWelcome({ onSend, disabled = false }: ChatWelcomeProps) {
     const t = useTranslations('Chatbot');
-    const locale = useLocale();
     const [input, setInput] = useState('');
     const [activeDatabase] = useAtom(activeDatabaseAtom);
     const activeSchema = useAtomValue(activeSchemaAtom);
@@ -41,7 +40,7 @@ export default function ChatWelcome({ onSend, disabled = false }: ChatWelcomePro
         const fallbacks = SUGGESTION_KEYS.map(key => t(`Welcome.Suggestions.${key}`));
         const schemaMap = schema?.schema;
         if (!schemaMap || !activeDatabase) return fallbacks;
-        const formatters = createSuggestionFormatters(locale);
+        const formatters = createSuggestionFormatters(t);
 
         const allTables = Object.entries(schemaMap).map(([name, columns]) => ({
             name,
@@ -52,7 +51,7 @@ export default function ChatWelcome({ onSend, disabled = false }: ChatWelcomePro
         const filteredTables = sidebarConfig.supportsSchemas && activeSchema ? allTables.filter(table => getSchemaName(table.name, sidebarConfig) === activeSchema) : allTables;
         if (!filteredTables.length) return fallbacks;
         return generateSuggestions(filteredTables, fallbacks, formatters, 4);
-    }, [schema, activeDatabase, activeSchema, sidebarConfig, t, locale]);
+    }, [schema, activeDatabase, activeSchema, sidebarConfig, t]);
 
     const mentionTables = useMemo(() => {
         return (tables ?? []).filter(table => {

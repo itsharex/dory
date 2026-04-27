@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { ScrollArea } from '@/registry/new-york-v4/ui/scroll-area';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
@@ -53,7 +53,6 @@ export default function ChatSessionSidebar({
     const [searchQuery, setSearchQuery] = useState('');
     const [activeSearchIndex, setActiveSearchIndex] = useState(0);
     const t = useTranslations('Chatbot');
-    const locale = useLocale();
 
     useEffect(() => {
         submittedRef.current = false;
@@ -80,9 +79,9 @@ export default function ChatSessionSidebar({
     };
 
     const labels = {
-        today: locale.startsWith('zh') ? '今天' : 'Today',
-        last7Days: locale.startsWith('zh') ? '最近 7 天' : 'Last 7 Days',
-        earlier: locale.startsWith('zh') ? '更早' : 'Earlier',
+        today: t('Sessions.Groups.Today'),
+        last7Days: t('Sessions.Groups.Last7Days'),
+        earlier: t('Sessions.Groups.Earlier'),
     };
 
     const highlightMatch = (text: string) => {
@@ -223,7 +222,7 @@ export default function ChatSessionSidebar({
         }
 
         if (filteredSessions.length === 0) {
-            return <div className="p-4 text-sm text-muted-foreground">{locale.startsWith('zh') ? '没有匹配的会话' : 'No matching sessions'}</div>;
+            return <div className="p-4 text-sm text-muted-foreground">{t('Sessions.NoMatches')}</div>;
         }
 
         return (
@@ -374,7 +373,7 @@ export default function ChatSessionSidebar({
                                 value={searchQuery}
                                 onChange={event => setSearchQuery(event.target.value)}
                                 onKeyDown={handleSearchKeyDown}
-                                placeholder={locale.startsWith('zh') ? '搜索会话' : 'Search sessions'}
+                                placeholder={t('Sessions.SearchPlaceholder')}
                                 className="mb-2 h-8"
                             />
                             <ScrollArea className="max-h-72 pr-1">{renderSessionList('compact')}</ScrollArea>
@@ -408,7 +407,7 @@ export default function ChatSessionSidebar({
                     value={searchQuery}
                     onChange={event => setSearchQuery(event.target.value)}
                     onKeyDown={handleSearchKeyDown}
-                    placeholder={locale.startsWith('zh') ? '搜索会话' : 'Search sessions'}
+                    placeholder={t('Sessions.SearchPlaceholder')}
                     className="h-8"
                 />
             </div>
