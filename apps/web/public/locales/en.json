@@ -789,6 +789,16 @@
                 "ErrorLogs": "Error logs in the last 24 hours",
                 "OrderTrends": "Daily order trends this month",
                 "TableSummary": "Summary of all tables with row counts"
+            },
+            "DynamicSuggestions": {
+                "OrderTrend": "Show daily trends from {table}",
+                "TopUsers": "Show top 10 users by activity from {table}",
+                "ErrorLogs": "Show error logs in the last 24 hours from {table}",
+                "PopularProducts": "Show most popular products from {table}",
+                "PaymentSummary": "Show payment summary from {table}",
+                "RecentTrend": "Show trend of {table} in the last 7 days",
+                "TopRecordsByColumn": "Show top 10 records from {table} by {column}",
+                "BreakdownByColumn": "Show breakdown of {table} by {column}"
             }
         },
         "AuthRequired": {
@@ -825,7 +835,14 @@
             "Cancel": "Cancel",
             "ConfirmDelete": "Delete",
             "DeleteSuccess": "Session deleted",
-            "CopilotAutoCreate": "Copilot sessions are created automatically for the current tab"
+            "CopilotAutoCreate": "Copilot sessions are created automatically for the current tab",
+            "NoMatches": "No matching sessions",
+            "SearchPlaceholder": "Search sessions",
+            "Groups": {
+                "Today": "Today",
+                "Last7Days": "Last 7 Days",
+                "Earlier": "Earlier"
+            }
         },
         "Errors": {
             "FetchSessions": "Failed to fetch sessions",
@@ -856,7 +873,37 @@
             "ToolLabel": "Tool",
             "MessageLabel": "Message",
             "ReplaceSql": "Replace SQL",
-            "NewTab": "New Tab"
+            "NewTab": "New Tab",
+            "ProcessNotes": "Notes",
+            "Names": {
+                "Tool": "Tool",
+                "SqlRunner": "SQL Runner",
+                "ChartBuilder": "Chart Builder"
+            },
+            "Status": {
+                "Error": "Error",
+                "Running": "Running",
+                "Completed": "Completed"
+            },
+            "Steps": {
+                "RunSql": "Run SQL",
+                "InspectSchema": "Inspect schema",
+                "ListTables": "List tables",
+                "ValidateTimestampParsing": "Validate timestamp parsing",
+                "CheckTimeRange": "Check time range",
+                "ReviewRecentRows": "Review recent rows",
+                "FilterErrorLogs": "Filter error logs",
+                "CountRows": "Count rows",
+                "QueryData": "Query data",
+                "InsertData": "Insert data",
+                "UpdateData": "Update data",
+                "DeleteData": "Delete data",
+                "CreateObject": "Create object",
+                "DropObject": "Drop object",
+                "BuildChart": "Build chart",
+                "BuildChartWithType": "Build {chartType} chart",
+                "RunTool": "Run tool"
+            }
         },
         "Actions": {
             "Copy": "Copy",

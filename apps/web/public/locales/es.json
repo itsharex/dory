@@ -781,6 +781,26 @@
     "Chatbot": {
         "Close": "Cerrar",
         "EmptyState": "Selecciona una sesión o crea una nueva.",
+        "Welcome": {
+            "Heading": "Pregunta cualquier cosa sobre tus datos",
+            "Subheading": "La IA genera SQL, ejecuta consultas y visualiza resultados al instante",
+            "Suggestions": {
+                "TopUsers": "Mostrar los 10 usuarios principales por importe de pedido",
+                "ErrorLogs": "Errores de las últimas 24 horas",
+                "OrderTrends": "Tendencias diarias de pedidos de este mes",
+                "TableSummary": "Resumen de todas las tablas con recuentos de filas"
+            },
+            "DynamicSuggestions": {
+                "OrderTrend": "Mostrar tendencias diarias de {table}",
+                "TopUsers": "Mostrar los 10 usuarios más activos de {table}",
+                "ErrorLogs": "Mostrar errores de las últimas 24 horas en {table}",
+                "PopularProducts": "Mostrar los productos más populares de {table}",
+                "PaymentSummary": "Mostrar el resumen de pagos de {table}",
+                "RecentTrend": "Mostrar la tendencia de {table} en los últimos 7 días",
+                "TopRecordsByColumn": "Mostrar los 10 registros principales de {table} por {column}",
+                "BreakdownByColumn": "Mostrar el desglose de {table} por {column}"
+            }
+        },
         "AuthRequired": {
             "Title": "Inicia sesión para usar Chatbot",
             "Description": "Los espacios de trabajo de invitado permiten explorar la app, pero Chatbot requiere una cuenta completa.",
@@ -796,7 +816,8 @@
         "Input": {
             "GlobalPlaceholder": "Usa @ para mencionar tablas y preguntar sobre la base de datos; Shift + Enter para una nueva línea",
             "CopilotPlaceholder": "Pregunta sobre este SQL o deja que la IA lo corrija o reescriba; Shift + Enter para una nueva línea",
-            "SentWithAttachments": "Enviado con archivos adjuntos"
+            "SentWithAttachments": "Enviado con archivos adjuntos",
+            "WelcomePlaceholder": "Pregunta sobre tus datos… Prueba: \"Los 10 usuarios principales por ingresos la semana pasada\""
         },
         "Sessions": {
             "Title": "Sesiones",
@@ -814,7 +835,14 @@
             "Cancel": "Cancelar",
             "ConfirmDelete": "Eliminar",
             "DeleteSuccess": "Sesión eliminada",
-            "CopilotAutoCreate": "Las sesiones de Copilot se crean automáticamente para la pestaña actual"
+            "CopilotAutoCreate": "Las sesiones de Copilot se crean automáticamente para la pestaña actual",
+            "NoMatches": "No hay sesiones coincidentes",
+            "SearchPlaceholder": "Buscar sesiones",
+            "Groups": {
+                "Today": "Hoy",
+                "Last7Days": "Últimos 7 días",
+                "Earlier": "Anterior"
+            }
         },
         "Errors": {
             "FetchSessions": "No se pudieron obtener las sesiones",
@@ -845,7 +873,37 @@
             "ToolLabel": "Herramienta",
             "MessageLabel": "Mensaje",
             "ReplaceSql": "Reemplazar SQL",
-            "NewTab": "Nueva pestaña"
+            "NewTab": "Nueva pestaña",
+            "ProcessNotes": "Notas",
+            "Names": {
+                "Tool": "Herramienta",
+                "SqlRunner": "Ejecutor SQL",
+                "ChartBuilder": "Generador de gráficos"
+            },
+            "Status": {
+                "Error": "Error",
+                "Running": "En ejecución",
+                "Completed": "Completado"
+            },
+            "Steps": {
+                "RunSql": "Ejecutar SQL",
+                "InspectSchema": "Inspeccionar esquema",
+                "ListTables": "Listar tablas",
+                "ValidateTimestampParsing": "Validar análisis de timestamp",
+                "CheckTimeRange": "Comprobar rango de tiempo",
+                "ReviewRecentRows": "Revisar filas recientes",
+                "FilterErrorLogs": "Filtrar registros de error",
+                "CountRows": "Contar filas",
+                "QueryData": "Consultar datos",
+                "InsertData": "Insertar datos",
+                "UpdateData": "Actualizar datos",
+                "DeleteData": "Eliminar datos",
+                "CreateObject": "Crear objeto",
+                "DropObject": "Eliminar objeto",
+                "BuildChart": "Crear gráfico",
+                "BuildChartWithType": "Crear gráfico {chartType}",
+                "RunTool": "Ejecutar herramienta"
+            }
         },
         "Actions": {
             "Copy": "Copiar",

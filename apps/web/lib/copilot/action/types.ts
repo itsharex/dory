@@ -9,7 +9,14 @@ export type ActionContext = {
     connectionId?: string;
     dialect: ConnectionDialect;
     sql: string;
+    instruction?: string;
     database?: string;
+    activeSchema?: string;
+    candidateTables?: Array<{
+        database?: string | null;
+        schema?: string | null;
+        name: string;
+    }>;
     schemaContext?: string;
     locale?: Locale;
     model?: string | null;

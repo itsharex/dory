@@ -781,6 +781,26 @@
     "Chatbot": {
         "Close": "閉じる",
         "EmptyState": "セッションを選択するか、新しく作成してください。",
+        "Welcome": {
+            "Heading": "データについて何でも質問",
+            "Subheading": "AI が SQL を生成し、クエリを実行して結果をすぐに可視化します",
+            "Suggestions": {
+                "TopUsers": "注文金額上位10ユーザーを表示",
+                "ErrorLogs": "直近24時間のエラーログ",
+                "OrderTrends": "今月の日次注文トレンド",
+                "TableSummary": "すべてのテーブルの行数サマリー"
+            },
+            "DynamicSuggestions": {
+                "OrderTrend": "{table} の日次トレンドを表示",
+                "TopUsers": "{table} のアクティブユーザー上位10件を表示",
+                "ErrorLogs": "{table} の直近24時間のエラーログを表示",
+                "PopularProducts": "{table} の人気商品を表示",
+                "PaymentSummary": "{table} の支払いサマリーを表示",
+                "RecentTrend": "{table} の直近7日間のトレンドを表示",
+                "TopRecordsByColumn": "{table} を {column} で並べた上位10件を表示",
+                "BreakdownByColumn": "{column} ごとの {table} の内訳を表示"
+            }
+        },
         "AuthRequired": {
             "Title": "Chatbot を使うにはサインインしてください",
             "Description": "ゲストワークスペースでもアプリは閲覧できますが、Chatbot を使うには通常アカウントが必要です。",
@@ -796,7 +816,8 @@
         "Input": {
             "GlobalPlaceholder": "@ でテーブルに言及してデータベースについて質問できます。改行は Shift + Enter",
             "CopilotPlaceholder": "この SQL について質問 / AI に修正や書き換えを依頼。改行は Shift + Enter",
-            "SentWithAttachments": "添付付きで送信済み"
+            "SentWithAttachments": "添付付きで送信済み",
+            "WelcomePlaceholder": "データについて質問… 例: \"先週の売上上位10ユーザー\""
         },
         "Sessions": {
             "Title": "セッション",
@@ -814,7 +835,14 @@
             "Cancel": "キャンセル",
             "ConfirmDelete": "削除",
             "DeleteSuccess": "セッションを削除しました",
-            "CopilotAutoCreate": "Copilot セッションは現在のタブに対して自動作成されます"
+            "CopilotAutoCreate": "Copilot セッションは現在のタブに対して自動作成されます",
+            "NoMatches": "一致するセッションがありません",
+            "SearchPlaceholder": "セッションを検索",
+            "Groups": {
+                "Today": "今日",
+                "Last7Days": "直近7日間",
+                "Earlier": "以前"
+            }
         },
         "Errors": {
             "FetchSessions": "セッションの取得に失敗しました",
@@ -845,7 +873,37 @@
             "ToolLabel": "ツール",
             "MessageLabel": "メッセージ",
             "ReplaceSql": "SQL を置換",
-            "NewTab": "新しいタブ"
+            "NewTab": "新しいタブ",
+            "ProcessNotes": "メモ",
+            "Names": {
+                "Tool": "ツール",
+                "SqlRunner": "SQL ランナー",
+                "ChartBuilder": "チャートビルダー"
+            },
+            "Status": {
+                "Error": "エラー",
+                "Running": "実行中",
+                "Completed": "完了"
+            },
+            "Steps": {
+                "RunSql": "SQL を実行",
+                "InspectSchema": "スキーマを確認",
+                "ListTables": "テーブルを一覧表示",
+                "ValidateTimestampParsing": "タイムスタンプ解析を検証",
+                "CheckTimeRange": "時間範囲を確認",
+                "ReviewRecentRows": "最近の行を確認",
+                "FilterErrorLogs": "エラーログを絞り込み",
+                "CountRows": "行数を集計",
+                "QueryData": "データを照会",
+                "InsertData": "データを挿入",
+                "UpdateData": "データを更新",
+                "DeleteData": "データを削除",
+                "CreateObject": "オブジェクトを作成",
+                "DropObject": "オブジェクトを削除",
+                "BuildChart": "チャートを生成",
+                "BuildChartWithType": "{chartType} チャートを生成",
+                "RunTool": "ツールを実行"
+            }
         },
         "Actions": {
             "Copy": "コピー",

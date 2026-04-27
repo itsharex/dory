@@ -7,6 +7,7 @@ import { buildColumnTaggingPrompt } from './tasks/schema.tag';
 import { buildColumnLinesForPrompt, buildTableSummaryPrompt } from './tasks/schema.summary';
 import { buildToAggregationPrompt } from './tasks/sql.chart';
 import { buildFixSqlErrorPrompt } from './tasks/sql.fix';
+import { buildGenerateSqlPrompt } from './tasks/sql.generate';
 import { buildOptimizePerformancePrompt } from './tasks/sql.optimize';
 import { buildRewriteSqlPrompt } from './tasks/sql.rewrite';
 import { buildTabTitlePrompt } from './tasks/sql.title';
@@ -25,6 +26,7 @@ export * from './tasks/schema.tag';
 export * from './tasks/schema.summary';
 export * from './tasks/sql.chart';
 export * from './tasks/sql.fix';
+export * from './tasks/sql.generate';
 export * from './tasks/sql.optimize';
 export * from './tasks/sql.rewrite';
 export * from './tasks/sql.title';
@@ -39,6 +41,7 @@ export const promptRegistry = {
     'schema.summary': buildTableSummaryPrompt,
     'sql.chart': buildToAggregationPrompt,
     'sql.fix': buildFixSqlErrorPrompt,
+    'sql.generate': buildGenerateSqlPrompt,
     'sql.optimize': buildOptimizePerformancePrompt,
     'sql.rewrite': buildRewriteSqlPrompt,
     'sql.title': buildTabTitlePrompt,
@@ -70,6 +73,7 @@ export {
     buildColumnLinesForPrompt,
     buildToAggregationPrompt,
     buildFixSqlErrorPrompt,
+    buildGenerateSqlPrompt,
     buildRewriteSqlPrompt,
     buildOptimizePerformancePrompt,
     buildTabTitlePrompt,
