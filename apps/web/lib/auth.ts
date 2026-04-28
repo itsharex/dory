@@ -490,11 +490,13 @@ function createAuth() {
                             // For email+password signup:
                             //   - With requireEmailVerification, emailVerified is usually false
                             //   → Create the organization in afterEmailVerification instead
+                            //   - Without email verification, create immediately so the first session has an active organization.
                             if (
                                 shouldCreateDefaultOrganization({
                                     isDesktop,
                                     existingOrganizationId,
                                     emailVerified: user.emailVerified,
+                                    requireEmailVerification: REQUIRE_EMAIL_VERIFICATION,
                                 })
                             ) {
                                 await ensureDefaultOrganizationForUser(auth as any, user.id, user.email);

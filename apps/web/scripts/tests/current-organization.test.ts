@@ -61,12 +61,25 @@ test('resolveOrganizationIdForSession falls back from active org to legacy to me
     );
 });
 
-test('shouldCreateDefaultOrganization only allows verified users without existing orgs outside desktop', () => {
+test('shouldCreateDefaultOrganization creates immediately when email verification is disabled', () => {
+    assert.equal(
+        shouldCreateDefaultOrganization({
+            isDesktop: false,
+            existingOrganizationId: null,
+            emailVerified: false,
+            requireEmailVerification: false,
+        }),
+        true,
+    );
+});
+
+test('shouldCreateDefaultOrganization waits for verified users when email verification is enabled', () => {
     assert.equal(
         shouldCreateDefaultOrganization({
             isDesktop: false,
             existingOrganizationId: null,
             emailVerified: true,
+            requireEmailVerification: true,
         }),
         true,
     );
@@ -75,6 +88,7 @@ test('shouldCreateDefaultOrganization only allows verified users without existin
             isDesktop: false,
             existingOrganizationId: 'org_existing',
             emailVerified: true,
+            requireEmailVerification: true,
         }),
         false,
     );
@@ -83,6 +97,7 @@ test('shouldCreateDefaultOrganization only allows verified users without existin
             isDesktop: true,
             existingOrganizationId: null,
             emailVerified: true,
+            requireEmailVerification: true,
         }),
         false,
     );
@@ -91,6 +106,7 @@ test('shouldCreateDefaultOrganization only allows verified users without existin
             isDesktop: false,
             existingOrganizationId: null,
             emailVerified: false,
+            requireEmailVerification: true,
         }),
         false,
     );
@@ -127,6 +143,7 @@ test('buildElectronTicketUser only includes active organization in new tickets',
             name: 'User',
             image: null,
             emailVerified: true,
+            isAnonymous: false,
             activeOrganizationId: 'org_active',
         },
     );

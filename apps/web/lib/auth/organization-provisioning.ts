@@ -14,20 +14,24 @@ type CreateProvisionedOrganizationParams = {
     keepCurrentActiveOrganization?: boolean;
 };
 
-async function getDb() {
-    return (await getClient()) as PostgresDBClient;
-}
-
-export async function createProvisionedOrganization(params: CreateProvisionedOrganizationParams) {
-    const created = await params.auth.api.createOrganization({
-        headers: params.headers ?? new Headers(),
+export function buildCreateOrganizationRequest(params: CreateProvisionedOrganizationParams) {
+    return {
+        ...(params.headers ? { headers: params.headers } : {}),
         body: {
             name: params.name,
             slug: params.slug,
             userId: params.userId,
             keepCurrentActiveOrganization: params.keepCurrentActiveOrganization ?? false,
         },
-    });
+    };
+}
+
+async function getDb() {
+    return (await getClient()) as PostgresDBClient;
+}
+
+export async function createProvisionedOrganization(params: CreateProvisionedOrganizationParams) {
+    const created = await params.auth.api.createOrganization(buildCreateOrganizationRequest(params));
 
     const organizationId = created?.id ?? null;
     if (!organizationId) {

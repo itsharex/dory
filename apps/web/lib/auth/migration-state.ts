@@ -17,7 +17,12 @@ export function resolveOrganizationIdForSession(input: OrganizationResolutionInp
     return input.activeOrganizationId ?? input.membershipOrganizationId ?? null;
 }
 
-export function shouldCreateDefaultOrganization(input: { isDesktop: boolean; existingOrganizationId?: string | null; emailVerified: boolean }): boolean {
+export function shouldCreateDefaultOrganization(input: {
+    isDesktop: boolean;
+    existingOrganizationId?: string | null;
+    emailVerified: boolean;
+    requireEmailVerification: boolean;
+}): boolean {
     if (input.isDesktop) {
         return false;
     }
@@ -26,7 +31,7 @@ export function shouldCreateDefaultOrganization(input: { isDesktop: boolean; exi
         return false;
     }
 
-    return input.emailVerified;
+    return !input.requireEmailVerification || input.emailVerified;
 }
 
 export function resolveOrganizationIdFromTicket(input: { activeOrganizationId?: string | null }): string | null {
