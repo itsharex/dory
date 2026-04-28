@@ -53,6 +53,7 @@ export default async function TeamLayout({ children, params }: { children: React
         <OrganizationAppShell
             defaultOpen={defaultOpen}
             initialUser={session.user as any}
+            organizationId={organization.id}
             isOffline={bootstrap.isOffline}
             canUseCloudFeatures={bootstrap.canUseCloudFeatures}
         >

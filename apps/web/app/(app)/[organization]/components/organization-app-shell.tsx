@@ -10,12 +10,14 @@ export function OrganizationAppShell({
     children,
     defaultOpen,
     initialUser,
+    organizationId,
     isOffline,
     canUseCloudFeatures,
 }: {
     children: React.ReactNode;
     defaultOpen: boolean;
     initialUser: any;
+    organizationId: string;
     isOffline: boolean;
     canUseCloudFeatures: boolean;
 }) {
@@ -38,6 +40,7 @@ export function OrganizationAppShell({
                             variant="inset"
                             collapsible="icon"
                             initialUser={initialUser}
+                            organizationId={organizationId}
                         />
                         <SidebarInset className="flex min-h-0 flex-col" style={{ height: 'calc(100% - 1rem)', width: 'calc(100% - 248px)' }}>
                             <AppContentShell>

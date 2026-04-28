@@ -6,7 +6,7 @@ import Link from 'next/link';
 
 import { ExternalLink } from 'lucide-react';
 import { SidebarGroup, SidebarGroupContent, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from '@/registry/new-york-v4/ui/sidebar';
-import { SidebarSettingsEntry } from './nav-settings';
+import { SidebarSettingsEntry, SidebarThemeEntry } from './nav-settings';
 import { cn } from '@/lib/utils';
 
 export function NavSecondary({
@@ -26,6 +26,7 @@ export function NavSecondary({
         <SidebarGroup {...props} className={cn(props.className)}>
             <SidebarGroupContent>
                 <SidebarMenu>
+                    <SidebarThemeEntry />
                     <SidebarSettingsEntry />
                     {items.map(item => {
                         const IconComp = item.icon;
@@ -55,11 +56,7 @@ export function NavSecondary({
 
                         return (
                             <SidebarMenuItem key={item.title}>
-                                <SidebarMenuButton
-                                    asChild
-                                    
-                                    className={cn(disabled && 'pointer-events-none hover:bg-transparent hover:text-muted-foreground')}
-                                >
+                                <SidebarMenuButton asChild className={cn(disabled && 'pointer-events-none hover:bg-transparent hover:text-muted-foreground')}>
                                     {content}
                                 </SidebarMenuButton>
                             </SidebarMenuItem>
