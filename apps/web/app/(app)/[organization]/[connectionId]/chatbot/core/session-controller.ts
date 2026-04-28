@@ -11,7 +11,14 @@ import { useAtomValue } from 'jotai';
 
 import type { ChatSessionItem, ChatMode } from './types';
 import { normalizeSessionsForDisplay } from './utils';
-import { apiCreateSession, apiDeleteSession, apiFetchSessionDetail, apiFetchSessions, apiRenameSession } from './api';
+import {
+    apiCreateSession,
+    apiDeleteSession,
+    apiFetchCopilotSession,
+    apiFetchSessionDetail,
+    apiFetchSessions,
+    apiRenameSession,
+} from './api';
 import type { CopilotEnvelopeV1 } from '../copilot/types/copilot-envelope';
 import { activeDatabaseAtom, activeSchemaAtom, currentConnectionAtom } from '@/shared/stores/app.store';
 import { getSidebarConfig } from '../../../components/sql-console-sidebar/sidebar-config';
@@ -36,6 +43,7 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
     const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
     const selectedSessionRef = useRef<string | null>(null);
     const lastCopilotTabIdRef = useRef<string | null>(null);
+    const copilotSessionRequestSeqRef = useRef(0);
 
     const [initialMessages, setInitialMessages] = useState<UIMessage[]>([]);
     const [loadingSessions, setLoadingSessions] = useState(mode !== 'copilot');
@@ -113,6 +121,7 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
     const ensureCopilotSession = useCallback(async () => {
         if (mode !== 'copilot') return;
         if (!copilotTabId) {
+            copilotSessionRequestSeqRef.current += 1;
             lastCopilotTabIdRef.current = null;
             setSessions([]);
             setSelectedSessionId(null);
@@ -128,11 +137,43 @@ export function useChatSessions(params: { mode: ChatMode; copilotEnvelope?: Copi
             setInitialMessages([]);
         }
 
-        setLoadingSessions(false);
-    }, [mode, copilotTabId]);
+        const requestSeq = ++copilotSessionRequestSeqRef.current;
+        setLoadingSessions(true);
+        try {
+            const session = await apiFetchCopilotSession({
+                tabId: copilotTabId,
+                errorMessage: t('Errors.FetchCopilotSession'),
+            });
+
+            if (requestSeq !== copilotSessionRequestSeqRef.current) return;
+
+            if (!session) {
+                setSessions([]);
+                setSelectedSessionId(null);
+                setInitialMessages([]);
+                return;
+            }
+
+            setSessions([session]);
+            setSelectedSessionId(session.id);
+        } catch (e: any) {
+            if (requestSeq !== copilotSessionRequestSeqRef.current) return;
+
+            console.error('[chat] fetch copilot session failed', e);
+            toast.error(e?.message || t('Errors.FetchCopilotSession'));
+            setSessions([]);
+            setSelectedSessionId(null);
+            setInitialMessages([]);
+        } finally {
+            if (requestSeq === copilotSessionRequestSeqRef.current) {
+                setLoadingSessions(false);
+            }
+        }
+    }, [mode, copilotTabId, t]);
 
     useEffect(() => {
         if (!enabled) {
+            copilotSessionRequestSeqRef.current += 1;
             setLoadingSessions(false);
             setLoadingMessages(false);
             setSessions([]);
