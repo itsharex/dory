@@ -2524,7 +2524,7 @@
         "Description": "Manage organization details and access.",
         "Nav": {
             "Organization": "Organization",
-            "Billing": "Billing"
+            "Billing": "Plans & subscriptions"
         },
         "Organization": {
             "CardTitle": "Details",
@@ -2548,7 +2548,7 @@
             }
         },
         "Billing": {
-            "Title": "Billing",
+            "Title": "Plans & subscriptions",
             "Description": "Review the current organization plan, upgrade to Pro, or manage billing in Stripe.",
             "UnavailableDescription": "Unable to load organization billing.",
             "CurrentPlan": "Current plan",
@@ -2565,6 +2565,24 @@
             "Plan": {
                 "Pro": "Pro",
                 "Hobby": "Hobby"
+            },
+            "Hobby": {
+                "Features": {
+                    "DatabaseConnections": "5 database connections",
+                    "DatabaseTypes": "Limited database types",
+                    "AiQuota": "Free AI quota",
+                    "CommunitySupport": "Community support"
+                }
+            },
+            "Pro": {
+                "Label": "Upgrade option",
+                "Title": "Pro Plan",
+                "Features": {
+                    "UnlimitedConnections": "Unlimited database connections",
+                    "AiQuota": "Generous AI quota",
+                    "Byok": "BYOK (Coming Soon)",
+                    "PrioritySupport": "Priority Support"
+                }
             },
             "Details": {
                 "Plan": "Plan",

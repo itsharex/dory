@@ -25,6 +25,7 @@ export function NavUser({ user }: { user: User | null }) {
     const t = useTranslations('AppSidebar');
     const collapsed = state === 'collapsed';
     const [authSheetOpen, setAuthSheetOpen] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
     const [signingOut, setSigningOut] = useState(false);
     const [signOutError, setSignOutError] = useState<string | null>(null);
     const isAnonymous = isAnonymousUser(user);
@@ -46,10 +47,12 @@ export function NavUser({ user }: { user: User | null }) {
     const canManageOrganization = Boolean(organizationAccessQuery.data?.permissions.organization.update);
 
     function handleSignIn() {
+        setMenuOpen(false);
         setAuthSheetOpen(true);
     }
 
     async function handleSignOut() {
+        setMenuOpen(false);
         setSigningOut(true);
         setSignOutError(null);
 
@@ -83,8 +86,7 @@ export function NavUser({ user }: { user: User | null }) {
             </DropdownMenuLabel>
             {isAnonymous ? (
                 <DropdownMenuItem
-                    onClick={e => {
-                        e.preventDefault();
+                    onSelect={() => {
                         handleSignIn();
                     }}
                 >
@@ -94,8 +96,8 @@ export function NavUser({ user }: { user: User | null }) {
             ) : null}
             {canManageOrganization ? (
                 <DropdownMenuItem
-                    onClick={e => {
-                        e.preventDefault();
+                    onSelect={() => {
+                        setMenuOpen(false);
                         router.push(`/${organizationSlug}/settings/organization`);
                     }}
                 >
@@ -104,8 +106,7 @@ export function NavUser({ user }: { user: User | null }) {
                 </DropdownMenuItem>
             ) : null}
             <DropdownMenuItem
-                onClick={async e => {
-                    e.preventDefault();
+                onSelect={async () => {
                     await handleSignOut();
                 }}
             >
@@ -124,7 +125,7 @@ export function NavUser({ user }: { user: User | null }) {
                 <div className="flex w-full justify-center">
                     <SidebarTrigger className="size-8 shrink-0" />
                 </div>
-                <DropdownMenu>
+                <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
                     <DropdownMenuTrigger asChild>
                         <SidebarMenuButton size="lg" className="w-full justify-center px-0 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
                             <Avatar className="h-8 w-8 rounded-lg">
@@ -149,7 +150,7 @@ export function NavUser({ user }: { user: User | null }) {
             <SidebarMenu>
                 <SidebarMenuItem>
                     <div className="flex data-[state=open]:w-full items-center">
-                        <DropdownMenu>
+                        <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
                             <DropdownMenuTrigger asChild>
                                 <SidebarMenuButton size="lg" className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground">
                                     <Avatar className="h-8 w-8 rounded-lg">

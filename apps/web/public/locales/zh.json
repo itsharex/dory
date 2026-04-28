@@ -2526,7 +2526,7 @@
         "Description": "管理组织信息和访问权限。",
         "Nav": {
             "Organization": "组织",
-            "Billing": "账单"
+            "Billing": "套餐与订阅"
         },
         "Organization": {
             "CardTitle": "基本信息",
@@ -2550,7 +2550,7 @@
             }
         },
         "Billing": {
-            "Title": "账单",
+            "Title": "套餐与订阅",
             "Description": "查看当前组织套餐，升级到 Pro，或在 Stripe 中管理账单。",
             "UnavailableDescription": "无法加载组织账单信息。",
             "CurrentPlan": "当前套餐",
@@ -2567,6 +2567,24 @@
             "Plan": {
                 "Pro": "Pro",
                 "Hobby": "Hobby"
+            },
+            "Hobby": {
+                "Features": {
+                    "DatabaseConnections": "5个 数据库连接",
+                    "DatabaseTypes": "有限的数据库类型",
+                    "AiQuota": "免费 AI 额度",
+                    "CommunitySupport": "社区支持"
+                }
+            },
+            "Pro": {
+                "Label": "可升级套餐",
+                "Title": "Pro Plan",
+                "Features": {
+                    "UnlimitedConnections": "无限数据库连接",
+                    "AiQuota": "充足的AI额度",
+                    "Byok": "BYOK（Coming Soon）",
+                    "PrioritySupport": "Priority Support"
+                }
             },
             "Details": {
                 "Plan": "套餐",

@@ -2521,7 +2521,7 @@
         "Description": "組織の詳細とアクセス権を管理します。",
         "Nav": {
             "Organization": "組織",
-            "Billing": "請求"
+            "Billing": "プランとサブスクリプション"
         },
         "Organization": {
             "CardTitle": "詳細",
@@ -2545,7 +2545,7 @@
             }
         },
         "Billing": {
-            "Title": "請求",
+            "Title": "プランとサブスクリプション",
             "Description": "現在の組織プランを確認し、Pro へアップグレードしたり、Stripe で請求を管理したりできます。",
             "UnavailableDescription": "組織の請求情報を読み込めません。",
             "CurrentPlan": "現在のプラン",
@@ -2562,6 +2562,24 @@
             "Plan": {
                 "Pro": "Pro",
                 "Hobby": "Hobby"
+            },
+            "Hobby": {
+                "Features": {
+                    "DatabaseConnections": "5 件のデータベース接続",
+                    "DatabaseTypes": "限定されたデータベース種別",
+                    "AiQuota": "無料 AI クォータ",
+                    "CommunitySupport": "コミュニティサポート"
+                }
+            },
+            "Pro": {
+                "Label": "アップグレード候補",
+                "Title": "Pro Plan",
+                "Features": {
+                    "UnlimitedConnections": "無制限のデータベース接続",
+                    "AiQuota": "十分な AI クォータ",
+                    "Byok": "BYOK (Coming Soon)",
+                    "PrioritySupport": "Priority Support"
+                }
             },
             "Details": {
                 "Plan": "プラン",
