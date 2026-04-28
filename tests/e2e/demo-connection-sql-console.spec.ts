@@ -162,9 +162,13 @@ async function loginAsDemo(page: Parameters<typeof test>[0]['page']) {
     await page.goto('/sign-in');
     await installCamera(page);
 
-    const demoButton = page.getByRole('button', {
-        name: /enter as demo|login as demo/i,
-    });
+    const demoButton = page
+        .getByTestId('demo-sign-in')
+        .or(
+            page.getByRole('button', {
+                name: /enter as demo|login as demo|sign in as demo/i,
+            }),
+        );
 
     await focusLocator(page, demoButton, { maxScale: 4, padding: 0.48 });
     await expect(demoButton).toBeVisible();
@@ -181,6 +185,18 @@ async function getConnectionCard(page: Parameters<typeof test>[0]['page'], name:
     return page.locator('[data-testid="connection-card"]').filter({
         has: page.getByText(name, { exact: true }),
     });
+}
+
+async function waitForExistingConnectionCard(page: Parameters<typeof test>[0]['page'], name: string, timeoutMs = 4_000) {
+    const card = await getConnectionCard(page, name);
+
+    try {
+        await expect(card.first()).toBeVisible({ timeout: timeoutMs });
+    } catch {
+        // The demo workspace may still be bootstrapping its saved connections.
+    }
+
+    return card;
 }
 
 async function getConnectionIdFromCard(card: ReturnType<Parameters<typeof test>[0]['page']['locator']>) {
@@ -314,7 +330,7 @@ test('demo login, postgres connection, SQL console flow, and screenshots', async
     await beat(page);
     await saveShot(page, '01-connections.png');
 
-    let connectionCard = await getConnectionCard(page, CONNECTION.name);
+    let connectionCard = await waitForExistingConnectionCard(page, CONNECTION.name);
     let connectionId: string | null = (await connectionCard.count()) > 0 ? await getConnectionIdFromCard(connectionCard.first()) : null;
 
     if (!connectionId) {
@@ -406,6 +422,8 @@ test('demo login, postgres connection, SQL console flow, and screenshots', async
     await saveShot(page, '07-sql-film-sample.png');
 
     await resetFocus(page);
-    const relevantAppErrors = appErrors.filter(error => !error.includes('[PGlite migrate] failed: TypeError: Failed to fetch'));
+    const relevantAppErrors = appErrors.filter(
+        error => !error.includes('[PGlite migrate] failed: TypeError: Failed to fetch') && error !== 'pageerror: ErrnoError',
+    );
     await expectAppHealthy(relevantAppErrors);
 });

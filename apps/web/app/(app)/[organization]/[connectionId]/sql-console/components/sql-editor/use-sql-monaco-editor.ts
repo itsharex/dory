@@ -22,6 +22,10 @@ import { isPostgresFamilyConnectionType } from '@/lib/connection/postgres-family
 
 const MAX_SQL_LEN_FOR_PARSE = 20000;
 
+type MonacoEnvironmentConfig = {
+    getWorker?: (moduleId: string, label: string) => Worker;
+};
+
 type ContentChangeHandler = (tabId: string, content: string) => void;
 type AfterEditorContentChange = () => void;
 
@@ -397,6 +401,30 @@ const registerDtSqlCompletion = (
     });
 };
 
+const ensureMonacoWorkerFactory = () => {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    const globalScope = globalThis as typeof globalThis & {
+        MonacoEnvironment?: MonacoEnvironmentConfig;
+    };
+
+    if (typeof globalScope.MonacoEnvironment?.getWorker === 'function') {
+        return;
+    }
+
+    globalScope.MonacoEnvironment = {
+        ...globalScope.MonacoEnvironment,
+        getWorker: () => {
+            return new Worker(new URL('monaco-editor/esm/vs/editor/editor.worker.js', import.meta.url), {
+                type: 'module',
+                name: 'dory-monaco-editor-worker',
+            });
+        },
+    };
+};
+
 export function useSqlMonacoEditor({
     activeTab,
     editorTheme,
@@ -501,6 +529,7 @@ export function useSqlMonacoEditor({
         const placeholderWidgets = new Map<number, Monaco.editor.IContentWidget>();
 
         (async () => {
+            ensureMonacoWorkerFactory();
             const monaco = await import('monaco-editor');
             monacoRef.current = monaco;
             const dialectConfig = getSqlDialectConfigForConnectionType(currentConnectionType);

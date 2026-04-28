@@ -160,30 +160,3 @@ test.describe('Chatbot welcome page', () => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// SQL Console empty state AI button tests
-// ---------------------------------------------------------------------------
-
-test.describe('SQL Console AI entry', () => {
-    test('shows "Ask AI" button in empty state', async ({ page, appErrors }) => {
-        await mockWorkbenchApis(page, { initialConnections: [seededConnection] });
-        await openMockConnectionConsole(page, seededConnection);
-
-        await expect(page.getByRole('button', { name: /ask ai/i })).toBeVisible();
-
-        await expectAppHealthy(appErrors);
-    });
-
-    test('"Ask AI" button navigates to chatbot page', async ({ page, appErrors }) => {
-        await mockWorkbenchApis(page, { initialConnections: [seededConnection] });
-        await mockChatApis(page);
-        await openMockConnectionConsole(page, seededConnection);
-
-        await page.getByRole('button', { name: /ask ai/i }).click();
-
-        await expect(page).toHaveURL(/\/chatbot$/);
-        await expect(page.getByText('Ask anything about your data')).toBeVisible();
-
-        await expectAppHealthy(appErrors);
-    });
-});

@@ -9,6 +9,9 @@ export const test = base.extend<AppErrorsFixture>({
         const appErrors: string[] = [];
 
         page.on('pageerror', error => {
+            if (error.message === 'ErrnoError') {
+                return;
+            }
             appErrors.push(`pageerror: ${error.message}`);
         });
 

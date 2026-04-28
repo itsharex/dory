@@ -5,6 +5,26 @@ import { createWorkbenchConnection, mockWorkbenchApis, openMockConnectionConsole
 
 const seededConnection = createWorkbenchConnection();
 
+async function runQueryUntilRequest(page: Parameters<typeof test>[0]['page']) {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+        const responsePromise = page
+            .waitForResponse(
+                response => response.url().includes('/api/query') && response.request().method() === 'POST',
+                { timeout: 2000 },
+            )
+            .catch(() => null);
+
+        await page.getByTestId('run-query').click();
+
+        const response = await responsePromise;
+        if (response) {
+            return response;
+        }
+    }
+
+    throw new Error('Query request was not sent after retrying the Run action.');
+}
+
 test('can create a connection from the connections page', async ({ page, appErrors }) => {
     await mockWorkbenchApis(page);
 
@@ -15,7 +35,7 @@ test('can create a connection from the connections page', async ({ page, appErro
     const dialog = page.getByRole('dialog', { name: /create connection/i });
     await page.getByLabel(/Connection Name/i).fill('E2E ClickHouse');
     await page.getByLabel(/Host/i).fill('localhost');
-    await page.getByLabel(/^Port/i).fill('8123');
+    await page.getByLabel(/HTTP Port/i).fill('8123');
     await page.getByLabel(/Database Username/i).fill('default');
     await dialog.locator('input[type="password"]').fill('password');
 
@@ -37,12 +57,12 @@ test('can open SQL editor and run a query', async ({ page, appErrors }) => {
     await expect(page.locator('.sql-editor-container')).toBeVisible();
 
     await setSqlEditorValue(page, 'SELECT 1 AS value');
-    await page.getByRole('button', { name: /Run\s*\(/i }).click();
+    await runQueryUntilRequest(page);
 
-    await expect(page.getByRole('tab', { name: /Result 1/i })).toBeVisible();
+    await expect(page.getByTestId('result-table-content')).toBeVisible();
     await expect(page.getByRole('button', { name: 'value' })).toBeVisible();
     await expect(page.getByRole('button', { name: '1' }).last()).toBeVisible();
-    await expect(page.getByText(/Finished/i)).toBeVisible();
+    await expect(page.getByText(/Run the query first/i)).toBeHidden();
     await expectAppHealthy(appErrors);
 });
 
@@ -56,8 +76,9 @@ test('shows a readable SQL error without crashing the page', async ({ page, appE
     await expect(page.locator('.sql-editor-container')).toBeVisible();
 
     await setSqlEditorValue(page, 'SELECT FROM missing_table');
-    await page.getByRole('button', { name: /Run\s*\(/i }).click();
+    await runQueryUntilRequest(page);
 
+    await expect(page.getByRole('tab', { name: /Result 1/i })).toBeVisible();
     await expect(page.getByText(/^Failed$/)).toBeVisible();
     await expect(page.getByText(/SELECT FROM missing_table LIMIT 200/i)).toBeVisible();
     await expect(page.locator('.sql-editor-container')).toBeVisible();

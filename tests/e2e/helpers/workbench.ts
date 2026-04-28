@@ -239,6 +239,25 @@ export async function mockWorkbenchApis(page: Page, options: MockWorkbenchOption
         });
     });
 
+    await page.route('**/api/connection/*/schema*', async route => {
+        await json(route, {
+            schema: {
+                'default.numbers': [
+                    { columnName: 'number', columnType: 'UInt8' },
+                    { columnName: 'label', columnType: 'String' },
+                ],
+            },
+        });
+    });
+
+    await page.route('**/api/connection/*/databases/*/schemas', async route => {
+        await json(route, {
+            code: 0,
+            message: 'success',
+            data: [{ label: 'default', value: 'default' }],
+        });
+    });
+
     await page.route('**/api/sql-console/tabs*', async route => {
         const request = route.request();
         const url = new URL(request.url());
@@ -400,7 +419,7 @@ export async function createConnectionAndOpenConsole(page: Page) {
 
     await page.getByLabel(/Connection Name/i).fill('E2E ClickHouse');
     await page.getByLabel(/Host/i).fill('localhost');
-    await page.getByLabel(/^Port/i).fill('8123');
+    await page.getByLabel(/HTTP Port/i).fill('8123');
     await page.getByLabel(/Database Username/i).fill('default');
     await dialog.locator('input[type="password"]').fill('password');
 
@@ -414,36 +433,46 @@ export async function createConnectionAndOpenConsole(page: Page) {
     await expect(connectionCard).toBeVisible();
 }
 
-export async function openMockConnectionConsole(page: Page, connection: ConnectionRecord = createWorkbenchConnection()) {
+export async function openMockConnectionConsole(
+    page: Page,
+    connection: ConnectionRecord = createWorkbenchConnection(),
+    options: { requireInteractiveReady?: boolean } = {},
+) {
     await page.goto('/');
     await page.waitForURL(/\/[^/]+\/connections$/);
 
     const match = page.url().match(/\/([^/]+)\/connections$/);
     const organizationId = match?.[1];
-
     if (!organizationId) {
         throw new Error(`Failed to resolve organization id from URL: ${page.url()}`);
     }
 
-    await page.evaluate(
-        value => {
-            window.localStorage.setItem('currentConnection', JSON.stringify(value));
-        },
-        connection,
-    );
-
-    const targetPath = `/${organizationId}/${connection.connection.id}/sql-console`;
+    const actualTargetPath = `/${organizationId}/${connection.connection.id}/sql-console`;
+    const targetPath = new RegExp(`/${organizationId}/${connection.connection.id}/sql-console$`);
+    const connectionCard = page.getByTestId('connection-card').filter({ hasText: connection.connection.name }).first();
 
     try {
-        await page.goto(targetPath, { waitUntil: 'commit' });
-        await expect(page).toHaveURL(new RegExp(`/${organizationId}/${connection.connection.id}/sql-console$`));
-        await expect(page.getByRole('button', { name: /New Console/i })).toBeEnabled();
+        await expect(connectionCard).toBeVisible();
+        await connectionCard.click();
+        const navigatedFromCard = await page
+            .waitForURL(targetPath, { timeout: 5000 })
+            .then(() => true)
+            .catch(() => false);
+
+        if (!navigatedFromCard) {
+            await page.goto(actualTargetPath, { waitUntil: 'commit' });
+            await expect(page).toHaveURL(targetPath);
+        }
+
+        if (options.requireInteractiveReady !== false) {
+            await expect(page.getByRole('button', { name: /New Console/i })).toBeEnabled();
+        }
     } catch (error) {
         const diagnostics = await collectOpenConsoleDiagnostics(page);
 
         console.error('[workbench helper] failed to open SQL console', {
             currentUrl: page.url(),
-            targetPath,
+            targetPath: actualTargetPath,
             connectionId: connection.connection.id,
             connectionName: connection.connection.name,
             diagnostics,

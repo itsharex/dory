@@ -1,7 +1,7 @@
 import { expect, type Page, type Route } from '@playwright/test';
 
 import { expectAppHealthy, test } from './fixtures';
-import { createWorkbenchConnection, mockWorkbenchApis, openMockConnectionConsole } from './helpers/workbench';
+import { createWorkbenchConnection, mockWorkbenchApis } from './helpers/workbench';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -178,11 +178,29 @@ async function mockFolderApis(
 // ---------------------------------------------------------------------------
 
 async function openSavedQueriesSidebar(page: Page) {
-    await openMockConnectionConsole(page, seededConnection);
-    const tab = page.getByRole('tab', { name: /Saved Queries/i }).or(page.getByText(/Saved Queries/i));
-    if (await tab.isVisible()) {
-        await tab.click();
+    await page.goto('/');
+    await page.waitForURL(/\/[^/]+\/connections$/);
+
+    const connectionCard = page.getByTestId('connection-card').filter({ hasText: seededConnection.connection.name }).first();
+    await expect(connectionCard).toBeVisible();
+    await connectionCard.click({ position: { x: 24, y: 24 } });
+    await expect(page).toHaveURL(new RegExp(`/[^/]+/${seededConnection.connection.id}/sql-console$`), { timeout: 15000 });
+
+    const tab = page.getByRole('tab', { name: /Saved Queries/i });
+    await expect(tab).toBeVisible();
+    await tab.click({ force: true });
+    if ((await tab.getAttribute('data-state')) !== 'active') {
+        await tab.focus();
+        await page.keyboard.press('Enter');
     }
+    if ((await tab.getAttribute('data-state')) !== 'active') {
+        await page.evaluate(() => {
+            const trigger = document.querySelector<HTMLButtonElement>('[role="tab"][aria-controls$="content-saved"]');
+            trigger?.click();
+        });
+    }
+    await expect(tab).toHaveAttribute('data-state', 'active');
+    await expect(page.getByPlaceholder(/Search/i)).toBeVisible();
 }
 
 // ---------------------------------------------------------------------------
@@ -224,7 +242,7 @@ test.describe('Saved Query Folders', () => {
 
         await openSavedQueriesSidebar(page);
 
-        const createBtn = page.locator('button[title*="older" i]');
+    const createBtn = page.getByRole('button', { name: /new folder/i });
         await createBtn.click();
 
         const dialog = page.getByRole('dialog');
@@ -234,6 +252,7 @@ test.describe('Saved Query Folders', () => {
         await dialog.getByRole('button', { name: /Save/i }).click();
 
         await expect(dialog).toBeHidden();
+        await expect(page.getByText('My Folder')).toBeVisible();
 
         await expectAppHealthy(appErrors);
     });
@@ -357,11 +376,14 @@ test.describe('Saved Query Folders', () => {
         await folderRow.getByRole('button', { name: /More actions/i }).click();
 
         // Click delete
-        page.on('dialog', dialog => dialog.accept());
         await page.getByRole('menuitem', { name: /Delete/i }).click();
+        const dialog = page.getByRole('alertdialog');
+        await expect(dialog).toBeVisible();
+        await dialog.getByRole('button', { name: /Delete/i }).click();
 
-        // Wait for the API call to complete
-        await page.waitForTimeout(500);
+        await expect(dialog).toBeHidden();
+        await expect(page.getByText('ToDelete')).toBeHidden();
+        await expect(page.getByText('inside_query')).toBeVisible();
 
         expect(folders.length).toBe(0);
         expect(queries[0].folderId).toBeNull();
