@@ -6,8 +6,9 @@ import { getConnectionIdFromRequest } from '@/lib/utils/request';
 import { withUserAndOrganizationHandler } from '@/app/api/utils/with-organization-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
+import { isAiQuotaExceededError, toAiQuotaExceededResponse } from '@/lib/ai/usage-quota';
 
-export const runtime = 'nodejs'; 
+export const runtime = 'nodejs';
 
 const schemaTagRequestSchema = z.object({
     columns: z
@@ -50,14 +51,7 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
         );
     }
 
-    const {
-        columns,
-        database,
-        table,
-        model,
-        catalog,
-        dbType,
-    } = parsed.data as SchemaTagRequest;
+    const { columns, database, table, model, catalog, dbType } = parsed.data as SchemaTagRequest;
 
     const connectionId = getConnectionIdFromRequest(req);
     if (!connectionId) {
@@ -83,6 +77,10 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
             headers: { 'Content-Type': 'application/json' },
         });
     } catch (error) {
+        if (isAiQuotaExceededError(error)) {
+            return toAiQuotaExceededResponse(error);
+        }
+
         console.error('[api/ai/schema-tags] failed:', error);
         const fallback = heuristicTagging(columns, locale);
         return new Response(

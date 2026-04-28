@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { IconDotsVertical, IconLogin2, IconLogout } from '@tabler/icons-react';
+import { useParams, usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
+import { IconDotsVertical, IconLogin2, IconLogout, IconSettings } from '@tabler/icons-react';
 import { Avatar, AvatarImage } from '@/registry/new-york-v4/ui/avatar';
 import BoringAvatar from 'boring-avatars';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
@@ -13,12 +14,14 @@ import { ModeToggle } from '@/components/mode-toggle';
 import { AuthLinkSheet } from '@/components/auth/auth-link-sheet';
 import { User } from 'better-auth';
 import { isAnonymousUser } from '@/lib/auth/anonymous-user';
+import { getOrganizationAccess } from '@/lib/organization/api';
 
 export function NavUser({ user }: { user: User | null }) {
     const { isMobile, state } = useSidebar();
     const pathname = usePathname();
     const router = useRouter();
     const searchParams = useSearchParams();
+    const params = useParams<{ organization: string }>();
     const t = useTranslations('AppSidebar');
     const collapsed = state === 'collapsed';
     const [authSheetOpen, setAuthSheetOpen] = useState(false);
@@ -33,6 +36,14 @@ export function NavUser({ user }: { user: User | null }) {
 
     const displayName = isAnonymous ? t('GuestSession.Name') : user?.name;
     const displaySubtitle = isAnonymous ? t('GuestSession.Subtitle') : user?.email;
+    const organizationSlug = params.organization;
+    const organizationAccessQuery = useQuery({
+        queryKey: ['organization-access', organizationSlug, user?.id ?? 'anonymous'],
+        queryFn: () => getOrganizationAccess(),
+        enabled: !isAnonymous,
+        retry: false,
+    });
+    const canManageOrganization = Boolean(organizationAccessQuery.data?.permissions.organization.update);
 
     function handleSignIn() {
         setAuthSheetOpen(true);
@@ -79,6 +90,17 @@ export function NavUser({ user }: { user: User | null }) {
                 >
                     <IconLogin2 />
                     {t('GuestSession.SignIn')}
+                </DropdownMenuItem>
+            ) : null}
+            {canManageOrganization ? (
+                <DropdownMenuItem
+                    onClick={e => {
+                        e.preventDefault();
+                        router.push(`/${organizationSlug}/settings/organization`);
+                    }}
+                >
+                    <IconSettings />
+                    {t('OrganizationSetting')}
                 </DropdownMenuItem>
             ) : null}
             <DropdownMenuItem

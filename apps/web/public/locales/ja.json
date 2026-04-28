@@ -2496,6 +2496,7 @@
         "StarNotificationDescription": "GitHub でスターを付けて、このプロジェクトを広めてください。",
         "StarNotificationAction": "GitHub でスター",
         "DismissStarNotification": "GitHub スター案内を閉じる",
+        "OrganizationSetting": "組織設定",
         "LogOut": "ログアウト",
         "Update": "更新",
         "Updating": "更新中...",

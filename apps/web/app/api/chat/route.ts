@@ -425,6 +425,12 @@ async function handleChatRequest(req: NextRequest) {
 
     if (!initialCloudResponse.response.ok) {
         const status = initialCloudResponse.response.status || 502;
+        if (status === 429) {
+            return new Response('AI_QUOTA_EXCEEDED', {
+                status: 429,
+                headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+            });
+        }
         return new Response('AI_SERVICE_UNAVAILABLE', {
             status,
             headers: { 'Content-Type': 'text/plain; charset=utf-8' },

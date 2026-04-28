@@ -2496,6 +2496,7 @@
         "StarNotificationDescription": "Dale una estrella en GitHub para ayudar a que más gente descubra el proyecto.",
         "StarNotificationAction": "Dar estrella en GitHub",
         "DismissStarNotification": "Cerrar aviso de estrella de GitHub",
+        "OrganizationSetting": "Configuración de la organización",
         "LogOut": "Cerrar sesión",
         "Update": "Actualizar",
         "Updating": "Actualizando...",

@@ -2501,6 +2501,7 @@
         "StarNotificationAction": "GitHub Star",
         "DismissStarNotification": "关闭 GitHub Star 提示",
         "GetHelp": "获取帮助",
+        "OrganizationSetting": "组织设置",
         "LogOut": "退出登录",
         "Update": "更新",
         "Updating": "更新中...",

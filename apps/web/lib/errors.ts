@@ -21,6 +21,7 @@ export enum ErrorCodes {
     VALIDATION_ERROR = 'VALIDATION_ERROR',
     DATABASE_ERROR = 'DATABASE_ERROR',
     TIMEOUT = 'TIMEOUT',
+    AI_QUOTA_EXCEEDED = 'AI_QUOTA_EXCEEDED',
 }
 
 export type ErrorResponse = {
@@ -43,6 +44,7 @@ const ErrorMessages: Record<ErrorCodes, string> = {
     [ErrorCodes.VALIDATION_ERROR]: 'Validation failed',
     [ErrorCodes.DATABASE_ERROR]: 'Database error',
     [ErrorCodes.TIMEOUT]: 'Request timeout',
+    [ErrorCodes.AI_QUOTA_EXCEEDED]: 'AI monthly token quota exceeded',
 };
 
 export class ErrorRegistry {

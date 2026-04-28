@@ -6,8 +6,9 @@ import { getApiLocale } from '@/app/api/utils/i18n';
 import { buildFallbackSummary, buildFallbackDetail, buildFallbackHighlights, buildFallbackSnippets } from '@/lib/ai/core/table-summary';
 import { ColumnInput } from '@/types';
 import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
+import { isAiQuotaExceededError, toAiQuotaExceededResponse } from '@/lib/ai/usage-quota';
 
-export const runtime = 'nodejs'; 
+export const runtime = 'nodejs';
 
 type TableSummaryRequest = {
     database?: string | null;
@@ -56,8 +57,7 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
     const payload = (await req.json()) as TableSummaryRequest;
     timer.stamp('parsed body');
 
-    const { columns, database, table, properties, model, connectionId, catalog, dbType, ignoreCache } =
-        payload || {};
+    const { columns, database, table, properties, model, connectionId, catalog, dbType, ignoreCache } = payload || {};
     const colList = Array.isArray(columns) ? columns : [];
 
     const fallbackPayload = {
@@ -77,20 +77,13 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
         if (!colList.length) {
             timer.stamp('no columns, return fallback only');
             timer.end();
-            return new Response(
-                JSON.stringify(fallbackResponse),
-                { status: 200, headers: { 'Content-Type': 'application/json' } },
-            );
+            return new Response(JSON.stringify(fallbackResponse), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
 
-        
         if (!connectionId) {
             timer.stamp('missing connectionId, return fallback');
             timer.end();
-            return new Response(
-                JSON.stringify(fallbackResponse),
-                { status: 200, headers: { 'Content-Type': 'application/json' } },
-            );
+            return new Response(JSON.stringify(fallbackResponse), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
 
         timer.stamp('call getTableSummaryWithCache');
@@ -121,12 +114,13 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
             headers: { 'Content-Type': 'application/json' },
         });
     } catch (error) {
+        if (isAiQuotaExceededError(error)) {
+            return toAiQuotaExceededResponse(error);
+        }
+
         console.error('[api/ai/table-summary] failed:', error);
         timer.stamp('caught error, returning fallback');
         timer.end();
-        return new Response(
-            JSON.stringify(fallbackResponse),
-            { status: 200, headers: { 'Content-Type': 'application/json' } },
-        );
+        return new Response(JSON.stringify(fallbackResponse), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 });

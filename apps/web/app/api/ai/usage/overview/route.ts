@@ -1,4 +1,5 @@
 import { withUserAndOrganizationHandler } from '@/app/api/utils/with-organization-handler';
+import { resolveAiEntitlements } from '@/lib/ai/usage-quota';
 
 export const runtime = 'nodejs';
 
@@ -22,5 +23,10 @@ export const GET = withUserAndOrganizationHandler(async ({ req, db, organization
         model,
     });
 
-    return Response.json(data);
+    const entitlements = await resolveAiEntitlements({ organizationId });
+
+    return Response.json({
+        ...data,
+        quota: entitlements.quota ?? undefined,
+    });
 });

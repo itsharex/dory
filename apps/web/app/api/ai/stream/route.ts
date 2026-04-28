@@ -9,6 +9,7 @@ import { USE_CLOUD_AI } from '@/app/config/app';
 import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
 import { withUserAndOrganizationHandler } from '@/app/api/utils/with-organization-handler';
 import { getCloudApiBaseUrl } from '@/lib/cloud/url';
+import { isAiQuotaExceededError, toAiQuotaExceededResponse } from '@/lib/ai/usage-quota';
 
 export const runtime = 'nodejs';
 
@@ -33,7 +34,8 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
         const envProvider = (process.env.DORY_AI_PROVIDER ?? '').trim().toLowerCase();
         const envBaseUrl = (process.env.DORY_AI_URL ?? '').trim().toLowerCase();
         const isCloudflareGatewayUrl = envBaseUrl.includes('gateway.ai.cloudflare.com');
-        const shouldForcePresetModel = shouldUseCloudProxy || envProvider === 'cloudflare' || envProvider === 'cloudflare-gateway' || isCloudflareGatewayUrl;
+        const isCloudflareGatewayProvider = envProvider === 'cloudflare' || envProvider === 'cloudflare-gateway';
+        const shouldForcePresetModel = shouldUseCloudProxy || isCloudflareGatewayProvider || isCloudflareGatewayUrl;
         const requestedModel = shouldForcePresetModel ? null : body.model;
 
         console.info('[ai/stream] request model input', {
@@ -62,7 +64,7 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
 
         const toolSet = buildCloudToolSet(body.tools as Record<string, any> | null);
 
-        const result = streamText({
+        const result = await streamText({
             model,
             system: body.system,
             messages: body.messages as any,
@@ -75,7 +77,7 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
                 userId,
                 feature: 'chat_stream',
                 model: providerModelName,
-                gateway: isCloudflareGatewayUrl ? 'cloudflare' : 'direct',
+                gateway: isCloudflareGatewayProvider || isCloudflareGatewayUrl ? 'cloudflare' : 'direct',
                 provider: envProvider || null,
             },
         });
@@ -84,6 +86,10 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
             generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
         });
     } catch (error) {
+        if (isAiQuotaExceededError(error)) {
+            return toAiQuotaExceededResponse(error);
+        }
+
         if (isMissingAiEnvError(error) && !USE_CLOUD_AI) {
             return new Response('MISSING_AI_ENV', {
                 status: 500,

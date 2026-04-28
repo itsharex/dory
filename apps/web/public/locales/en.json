@@ -2499,6 +2499,7 @@
         "StarNotificationDescription": "Give the project a GitHub star to help more people discover it.",
         "StarNotificationAction": "Star on GitHub",
         "DismissStarNotification": "Dismiss GitHub star prompt",
+        "OrganizationSetting": "Organization settings",
         "LogOut": "Log out",
         "Update": "Update",
         "Updating": "Updating...",

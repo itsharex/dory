@@ -4,6 +4,7 @@ import { tool, stepCountIs } from 'ai';
 import { ErrorCodes } from '@/lib/errors';
 import { ResponseUtil } from '@/lib/result';
 import { generateText } from '@/lib/ai/gateway';
+import { isAiQuotaExceededError, toAiQuotaExceededResponse } from '@/lib/ai/usage-quota';
 import { getEffectiveModelBundle } from '@/lib/ai/model';
 import { buildSchemaContext, getDefaultSchemaSampleLimits } from '@/lib/ai/prompts/contexts/schema';
 import { SYSTEM_PROMPT } from '@/lib/ai/prompts/system/core';
@@ -170,6 +171,10 @@ export const POST = withAutomationHandler(async ({ req, userId, organizationId }
             }),
         );
     } catch (error: any) {
+        if (isAiQuotaExceededError(error)) {
+            return toAiQuotaExceededResponse(error);
+        }
+
         if (isMissingAiEnvError(error)) {
             return NextResponse.json(
                 ResponseUtil.error({
