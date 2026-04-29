@@ -1,6 +1,6 @@
 import type React from 'react';
 import { getTranslations } from 'next-intl/server';
-import { isBillingEnabledForServer } from '@/lib/runtime/runtime';
+import { isBillingSettingsVisibleForServer } from '@/lib/runtime/runtime';
 import { OrganizationSettingsTabs } from './organization-settings-tabs';
 
 export default async function OrganizationSettingsLayout({ children, params }: { children: React.ReactNode; params: Promise<{ organization: string }> }) {
@@ -8,7 +8,7 @@ export default async function OrganizationSettingsLayout({ children, params }: {
     const t = await getTranslations('OrganizationSettings');
     const navItems: Array<{ slug: 'organization' | 'billing'; label: string }> = [
         { slug: 'organization', label: t('Nav.Organization') },
-        ...(isBillingEnabledForServer() ? ([{ slug: 'billing', label: t('Nav.Billing') }] as const) : []),
+        ...(isBillingSettingsVisibleForServer() ? ([{ slug: 'billing', label: t('Nav.Billing') }] as const) : []),
     ];
 
     return (

@@ -44,6 +44,25 @@ export function isBillingEnabledForServer(): boolean {
     );
 }
 
+export function isDesktopBillingHandoffRuntimeForServer(): boolean {
+    return getRuntimeForServer() === 'desktop';
+}
+
+export function isDesktopBillingHandoffAvailableForServer(): boolean {
+    return (
+        isDesktopBillingHandoffRuntimeForServer() &&
+        Boolean((process.env.DORY_CLOUD_API_URL ?? process.env.NEXT_PUBLIC_DORY_CLOUD_API_URL ?? '').trim())
+    );
+}
+
+export function isBillingSettingsVisibleForServer(): boolean {
+    return isBillingEnabledForServer() || isDesktopBillingHandoffRuntimeForServer();
+}
+
+export function isBillingManagementAvailableForServer(): boolean {
+    return isBillingEnabledForServer() || isDesktopBillingHandoffAvailableForServer();
+}
+
 export function getRuntimeForServer(): DoryRuntime | null {
     const raw = process.env.DORY_RUNTIME?.trim() || process.env.NEXT_PUBLIC_DORY_RUNTIME?.trim() || '';
     return normalizeRuntime(raw);

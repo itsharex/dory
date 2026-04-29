@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
@@ -23,33 +24,12 @@ function formatDate(value: string | null, fallback: string) {
     return date.toLocaleString();
 }
 
-function getStatusDescription(
-    status: string | null,
-    cancelAtPeriodEnd: boolean,
-    periodEnd: string | null,
-    t: (key: string, values?: Record<string, string>) => string,
-    formatWithFallback: (value: string | null) => string,
-) {
-    if (cancelAtPeriodEnd) {
-        return t('Status.CancelAtPeriodEnd', { date: formatWithFallback(periodEnd) });
-    }
+type BillingSettingsPageClientProps = {
+    billingManagementAvailable: boolean;
+    desktopBillingHandoff: boolean;
+};
 
-    if (!status) {
-        return t('Status.NoSubscription');
-    }
-
-    if (status === 'canceled') {
-        return t('Status.Canceled');
-    }
-
-    if (status === 'incomplete' || status === 'incomplete_expired' || status === 'past_due' || status === 'unpaid') {
-        return t('Status.Inactive');
-    }
-
-    return t('Status.Reported', { status });
-}
-
-export default function BillingSettingsPageClient() {
+export default function BillingSettingsPageClient({ billingManagementAvailable, desktopBillingHandoff }: BillingSettingsPageClientProps) {
     const params = useParams<{ organization: string }>();
     const organizationSlug = params.organization;
     const t = useTranslations('OrganizationSettings.Billing');
@@ -71,10 +51,29 @@ export default function BillingSettingsPageClient() {
         queryFn: () => getOrganizationBillingStatus(organizationQuery.data!.id),
         enabled: Boolean(organizationQuery.data?.id),
         retry: false,
+        refetchOnWindowFocus: desktopBillingHandoff && billingManagementAvailable,
     });
+    const refetchBillingStatus = billingStatusQuery.refetch;
+
+    useEffect(() => {
+        if (!desktopBillingHandoff || !billingManagementAvailable || !organizationQuery.data?.id) {
+            return;
+        }
+
+        const handleFocus = () => {
+            void refetchBillingStatus();
+        };
+
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, [billingManagementAvailable, desktopBillingHandoff, organizationQuery.data?.id, refetchBillingStatus]);
 
     const upgradeMutation = useMutation({
         mutationFn: async () => {
+            if (!billingManagementAvailable) {
+                throw new Error(t('DesktopCloudUnavailable'));
+            }
+
             if (!organizationQuery.data?.id) {
                 throw new Error(t('Errors.OrganizationNotFound'));
             }
@@ -88,6 +87,10 @@ export default function BillingSettingsPageClient() {
 
     const portalMutation = useMutation({
         mutationFn: async () => {
+            if (!billingManagementAvailable) {
+                throw new Error(t('DesktopCloudUnavailable'));
+            }
+
             if (!organizationQuery.data?.id || !billingStatusQuery.data?.subscriptionId) {
                 throw new Error(t('Errors.NoManageableSubscription'));
             }
@@ -99,7 +102,12 @@ export default function BillingSettingsPageClient() {
         },
     });
 
-    const canManageBilling = accessQuery.data?.role === 'owner';
+    async function refreshBillingStatus() {
+        await refetchBillingStatus();
+        toast.success(t('RefreshComplete'));
+    }
+
+    const canManageBilling = billingManagementAvailable && accessQuery.data?.role === 'owner';
     const billingStatus = billingStatusQuery.data;
     const organization = organizationQuery.data;
     const isOrganizationLoading = organizationQuery.isLoading;
@@ -107,17 +115,13 @@ export default function BillingSettingsPageClient() {
     const isLoading = isOrganizationLoading || isBillingLoading;
     const isProPlan = billingStatus?.plan === 'pro';
     const showProPlan = !isLoading && !billingStatusQuery.isError && billingStatus?.plan !== 'pro';
-    const billingDescription = billingStatusQuery.isError
-        ? billingStatusQuery.error instanceof Error
-            ? billingStatusQuery.error.message
-            : t('Errors.LoadBillingFailed')
-        : isLoading
-          ? t('LoadingBillingStatus')
-          : getStatusDescription(billingStatus?.subscriptionStatus ?? null, billingStatus?.cancelAtPeriodEnd ?? false, billingStatus?.periodEnd ?? null, t, formatWithFallback);
-
     const currentPeriodEnd = isProPlan ? formatWithFallback(billingStatus?.periodEnd ?? null) : null;
     const currentPlanTitle = billingStatus?.plan === 'pro' ? t('Pro.Title') : t('Hobby.Title');
     const currentPlanPrice = billingStatus?.plan === 'pro' ? t('Pro.Price') : t('Hobby.Price');
+    const upgradeLabel = desktopBillingHandoff ? t('DesktopUpgradeToPro') : t('UpgradeToPro');
+    const manageBillingLabel = desktopBillingHandoff ? t('DesktopManageBilling') : t('ManageBilling');
+    const openingLabel = desktopBillingHandoff ? t('OpeningBrowser') : t('Opening');
+    const readOnly = !billingManagementAvailable ? t('DesktopCloudUnavailable') : t('ReadOnlyHint');
     const hobbyFeatures = [
         t('Hobby.Features.ConnectPopularDatabases'),
         t('Hobby.Features.SqlEditorAndQueryResults'),
@@ -172,6 +176,10 @@ export default function BillingSettingsPageClient() {
                 <CardDescription>{t('Description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+                {!billingManagementAvailable ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">{t('DesktopCloudUnavailable')}</div>
+                ) : null}
+
                 <div className={showProPlan ? 'grid gap-4 md:grid-cols-2' : 'grid gap-4'}>
                     <div className="relative rounded-lg border bg-muted/30 px-4 py-4">
                         <div className="absolute right-4 top-4 inline-flex h-5 items-center rounded-full border border-sidebar-border bg-background px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
@@ -179,7 +187,6 @@ export default function BillingSettingsPageClient() {
                         </div>
                         <div className="mt-2 text-2xl font-semibold">{isLoading ? t('Loading') : currentPlanTitle}</div>
                         <div className="mt-1 text-sm text-muted-foreground">{isLoading ? null : currentPlanPrice}</div>
-                        {/* {isProPlan || isLoading || billingStatusQuery.isError ? <p className="mt-2 text-sm text-muted-foreground">{billingDescription}</p> : null} */}
 
                         {!isLoading && !billingStatusQuery.isError ? (
                             <ul className="mt-4 space-y-3 text-sm">
@@ -204,8 +211,8 @@ export default function BillingSettingsPageClient() {
 
                     {showProPlan ? (
                         <div className="flex flex-col rounded-lg border bg-background px-4 py-4">
-                        <div className="mt-2 text-2xl font-semibold">{t('Pro.Title')}</div>
-                        <div className="mt-1 text-sm text-muted-foreground">{t('Pro.Price')}</div>
+                            <div className="mt-2 text-2xl font-semibold">{t('Pro.Title')}</div>
+                            <div className="mt-1 text-sm text-muted-foreground">{t('Pro.Price')}</div>
                             <ul className="mt-4 space-y-3 text-sm">
                                 {proFeatures.map(feature => (
                                     <li key={feature} className="flex items-center gap-2">
@@ -217,10 +224,10 @@ export default function BillingSettingsPageClient() {
                             <div className="mt-auto pt-5">
                                 {canManageBilling ? (
                                     <Button className="w-full" onClick={() => upgradeMutation.mutate()} disabled={upgradeMutation.isPending || isLoading || !organization}>
-                                        {upgradeMutation.isPending ? t('Redirecting') : t('UpgradeToPro')}
+                                        {upgradeMutation.isPending ? t('Redirecting') : upgradeLabel}
                                     </Button>
                                 ) : (
-                                    <p className="text-sm text-muted-foreground">{t('ReadOnlyHint')}</p>
+                                    <p className="text-sm text-muted-foreground">{readOnly}</p>
                                 )}
                             </div>
                         </div>
@@ -236,12 +243,18 @@ export default function BillingSettingsPageClient() {
                 <div className="flex flex-wrap gap-3">
                     {billingStatus?.isManageable && canManageBilling ? (
                         <Button variant="outline" onClick={() => portalMutation.mutate()} disabled={portalMutation.isPending || isLoading || !organization}>
-                            {portalMutation.isPending ? t('Opening') : t('ManageBilling')}
+                            {portalMutation.isPending ? openingLabel : manageBillingLabel}
+                        </Button>
+                    ) : null}
+
+                    {billingManagementAvailable ? (
+                        <Button variant="outline" onClick={() => void refreshBillingStatus()} disabled={billingStatusQuery.isFetching || !organization}>
+                            {billingStatusQuery.isFetching ? t('Refreshing') : t('RefreshBillingStatus')}
                         </Button>
                     ) : null}
                 </div>
 
-                {!canManageBilling && !showProPlan ? <p className="text-sm text-muted-foreground">{t('ReadOnlyHint')}</p> : null}
+                {!canManageBilling && !showProPlan ? <p className="text-sm text-muted-foreground">{readOnly}</p> : null}
             </CardContent>
         </Card>
     );
