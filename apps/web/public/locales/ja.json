@@ -2551,7 +2551,7 @@
             "CurrentPlan": "現在のプラン",
             "Loading": "読み込み中...",
             "LoadingBillingStatus": "請求状況を読み込み中...",
-            "UpgradeToPro": "Pro にアップグレード",
+            "UpgradeToPro": "早期アクセスを取得",
             "ManageBilling": "請求を管理",
             "Redirecting": "リダイレクト中...",
             "Opening": "開いています...",
@@ -2564,21 +2564,27 @@
                 "Hobby": "Hobby"
             },
             "Hobby": {
+                "Title": "Hobby（無料）",
+                "Price": "$0/mo",
                 "Features": {
-                    "DatabaseConnections": "5 件のデータベース接続",
-                    "DatabaseTypes": "限定されたデータベース種別",
-                    "AiQuota": "無料 AI クォータ",
+                    "ConnectPopularDatabases": "主要なデータベースに接続",
+                    "SqlEditorAndQueryResults": "SQL エディタ + クエリ結果",
+                    "BasicCharts": "基本的なチャート",
+                    "AiQuotaIncluded": "AI クォータ込み",
+                    "SavePersonalQueries": "個人用クエリを保存",
                     "CommunitySupport": "コミュニティサポート"
                 }
             },
             "Pro": {
-                "Label": "アップグレード候補",
-                "Title": "Pro Plan",
+                "Title": "Pro（おすすめ）",
+                "Price": "Starting at $9/mo",
                 "Features": {
-                    "UnlimitedConnections": "無制限のデータベース接続",
-                    "AiQuota": "十分な AI クォータ",
-                    "Byok": "BYOK (Coming Soon)",
-                    "PrioritySupport": "Priority Support"
+                    "UnlimitedDatabaseConnections": "無制限のデータベース接続",
+                    "HigherAiQuotaAndFasterResponses": "より高い AI クォータと高速な応答",
+                    "AiSqlGenerationExplainOptimize": "AI による SQL 生成 + explain + optimize",
+                    "EarlyAccessToUpcomingFeatures": "近日公開機能への先行アクセス",
+                    "AdvancedChartsAndExports": "高度なチャートとエクスポート",
+                    "PrioritySupport": "優先サポート"
                 }
             },
             "Details": {

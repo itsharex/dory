@@ -105,7 +105,6 @@ export default function BillingSettingsPageClient() {
     const isOrganizationLoading = organizationQuery.isLoading;
     const isBillingLoading = organizationQuery.isSuccess && billingStatusQuery.isLoading;
     const isLoading = isOrganizationLoading || isBillingLoading;
-    const currentPlanLabel = billingStatus?.plan === 'pro' ? t('Plan.Pro') : t('Plan.Hobby');
     const isProPlan = billingStatus?.plan === 'pro';
     const showProPlan = !isLoading && !billingStatusQuery.isError && billingStatus?.plan !== 'pro';
     const billingDescription = billingStatusQuery.isError
@@ -117,8 +116,24 @@ export default function BillingSettingsPageClient() {
           : getStatusDescription(billingStatus?.subscriptionStatus ?? null, billingStatus?.cancelAtPeriodEnd ?? false, billingStatus?.periodEnd ?? null, t, formatWithFallback);
 
     const currentPeriodEnd = isProPlan ? formatWithFallback(billingStatus?.periodEnd ?? null) : null;
-    const hobbyFeatures = [t('Hobby.Features.DatabaseConnections'), t('Hobby.Features.DatabaseTypes'), t('Hobby.Features.AiQuota'), t('Hobby.Features.CommunitySupport')];
-    const proFeatures = [t('Pro.Features.UnlimitedConnections'), t('Pro.Features.AiQuota'), t('Pro.Features.Byok'), t('Pro.Features.PrioritySupport')];
+    const currentPlanTitle = billingStatus?.plan === 'pro' ? t('Pro.Title') : t('Hobby.Title');
+    const currentPlanPrice = billingStatus?.plan === 'pro' ? t('Pro.Price') : t('Hobby.Price');
+    const hobbyFeatures = [
+        t('Hobby.Features.ConnectPopularDatabases'),
+        t('Hobby.Features.SqlEditorAndQueryResults'),
+        t('Hobby.Features.BasicCharts'),
+        t('Hobby.Features.AiQuotaIncluded'),
+        t('Hobby.Features.SavePersonalQueries'),
+        t('Hobby.Features.CommunitySupport'),
+    ];
+    const proFeatures = [
+        t('Pro.Features.UnlimitedDatabaseConnections'),
+        t('Pro.Features.HigherAiQuotaAndFasterResponses'),
+        t('Pro.Features.AiSqlGenerationExplainOptimize'),
+        t('Pro.Features.AdvancedChartsAndExports'),
+        t('Pro.Features.EarlyAccessToUpcomingFeatures'),
+        t('Pro.Features.PrioritySupport'),
+    ];
 
     if (organizationQuery.isError) {
         return (
@@ -158,9 +173,12 @@ export default function BillingSettingsPageClient() {
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className={showProPlan ? 'grid gap-4 md:grid-cols-2' : 'grid gap-4'}>
-                    <div className="rounded-lg border bg-muted/30 px-4 py-4">
-                        <div className="text-sm font-medium">{t('CurrentPlan')}</div>
-                        <div className="mt-2 text-2xl font-semibold">{isLoading ? t('Loading') : currentPlanLabel}</div>
+                    <div className="relative rounded-lg border bg-muted/30 px-4 py-4">
+                        <div className="absolute right-4 top-4 inline-flex h-5 items-center rounded-full border border-sidebar-border bg-background px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {t('CurrentPlan')}
+                        </div>
+                        <div className="mt-2 text-2xl font-semibold">{isLoading ? t('Loading') : currentPlanTitle}</div>
+                        <div className="mt-1 text-sm text-muted-foreground">{isLoading ? null : currentPlanPrice}</div>
                         {/* {isProPlan || isLoading || billingStatusQuery.isError ? <p className="mt-2 text-sm text-muted-foreground">{billingDescription}</p> : null} */}
 
                         {!isLoading && !billingStatusQuery.isError ? (
@@ -186,8 +204,8 @@ export default function BillingSettingsPageClient() {
 
                     {showProPlan ? (
                         <div className="flex flex-col rounded-lg border bg-background px-4 py-4">
-                            <div className="text-sm font-medium text-muted-foreground">{t('Pro.Label')}</div>
-                            <div className="mt-2 text-2xl font-semibold">{t('Pro.Title')}</div>
+                        <div className="mt-2 text-2xl font-semibold">{t('Pro.Title')}</div>
+                        <div className="mt-1 text-sm text-muted-foreground">{t('Pro.Price')}</div>
                             <ul className="mt-4 space-y-3 text-sm">
                                 {proFeatures.map(feature => (
                                     <li key={feature} className="flex items-center gap-2">

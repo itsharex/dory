@@ -2551,7 +2551,7 @@
             "CurrentPlan": "Plan actual",
             "Loading": "Cargando...",
             "LoadingBillingStatus": "Cargando el estado de facturación...",
-            "UpgradeToPro": "Mejorar a Pro",
+            "UpgradeToPro": "Obtener acceso anticipado",
             "ManageBilling": "Gestionar facturación",
             "Redirecting": "Redirigiendo...",
             "Opening": "Abriendo...",
@@ -2564,21 +2564,27 @@
                 "Hobby": "Hobby"
             },
             "Hobby": {
+                "Title": "Hobby (Gratis)",
+                "Price": "$0/mo",
                 "Features": {
-                    "DatabaseConnections": "5 conexiones a bases de datos",
-                    "DatabaseTypes": "Tipos de base de datos limitados",
-                    "AiQuota": "Cuota de IA gratuita",
+                    "ConnectPopularDatabases": "Conecta bases de datos populares",
+                    "SqlEditorAndQueryResults": "Editor SQL + resultados de consulta",
+                    "BasicCharts": "Gráficos básicos",
+                    "AiQuotaIncluded": "Cuota de IA incluida",
+                    "SavePersonalQueries": "Guarda consultas personales",
                     "CommunitySupport": "Soporte comunitario"
                 }
             },
             "Pro": {
-                "Label": "Opción de mejora",
-                "Title": "Pro Plan",
+                "Title": "Pro (Recomendado)",
+                "Price": "Starting at $9/mo",
                 "Features": {
-                    "UnlimitedConnections": "Conexiones ilimitadas a bases de datos",
-                    "AiQuota": "Cuota de IA generosa",
-                    "Byok": "BYOK (Coming Soon)",
-                    "PrioritySupport": "Priority Support"
+                    "UnlimitedDatabaseConnections": "Conexiones ilimitadas a bases de datos",
+                    "HigherAiQuotaAndFasterResponses": "Mayor cuota de IA y respuestas más rápidas",
+                    "AiSqlGenerationExplainOptimize": "Generación de SQL con IA + explain + optimize",
+                    "EarlyAccessToUpcomingFeatures": "Acceso anticipado a próximas funciones",
+                    "AdvancedChartsAndExports": "Gráficos avanzados y exportación",
+                    "PrioritySupport": "Soporte prioritario"
                 }
             },
             "Details": {

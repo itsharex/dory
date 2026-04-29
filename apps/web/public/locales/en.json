@@ -2554,7 +2554,7 @@
             "CurrentPlan": "Current plan",
             "Loading": "Loading...",
             "LoadingBillingStatus": "Loading billing status...",
-            "UpgradeToPro": "Upgrade to Pro",
+            "UpgradeToPro": "Get Early Access",
             "ManageBilling": "Manage billing",
             "Redirecting": "Redirecting...",
             "Opening": "Opening...",
@@ -2567,21 +2567,27 @@
                 "Hobby": "Hobby"
             },
             "Hobby": {
+                "Title": "Hobby (Free)",
+                "Price": "$0/mo",
                 "Features": {
-                    "DatabaseConnections": "5 database connections",
-                    "DatabaseTypes": "Limited database types",
-                    "AiQuota": "Free AI quota",
+                    "ConnectPopularDatabases": "Connect popular databases",
+                    "SqlEditorAndQueryResults": "SQL editor + query results",
+                    "BasicCharts": "Basic charts",
+                    "AiQuotaIncluded": "AI quota included",
+                    "SavePersonalQueries": "Save personal queries",
                     "CommunitySupport": "Community support"
                 }
             },
             "Pro": {
-                "Label": "Upgrade option",
-                "Title": "Pro Plan",
+                "Title": "Pro (Recommended)",
+                "Price": "Starting at $9/mo",
                 "Features": {
-                    "UnlimitedConnections": "Unlimited database connections",
-                    "AiQuota": "Generous AI quota",
-                    "Byok": "BYOK (Coming Soon)",
-                    "PrioritySupport": "Priority Support"
+                    "UnlimitedDatabaseConnections": "Unlimited database connections",
+                    "HigherAiQuotaAndFasterResponses": "Higher AI quota & faster responses",
+                    "AiSqlGenerationExplainOptimize": "AI SQL generation + explain + optimize",
+                    "EarlyAccessToUpcomingFeatures": "Early access to upcoming features",
+                    "AdvancedChartsAndExports": "Advanced charts & exports",
+                    "PrioritySupport": "Priority support"
                 }
             },
             "Details": {
