@@ -187,7 +187,7 @@ export function NavUser({ user, organizationId }: { user: User | null; organizat
                                     <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
                                         <div className="flex min-w-0 items-center gap-1">
                                             <span className="min-w-0 truncate font-medium">{displayName}</span>
-                                            {plan && planLabel ? <PlanBadge label={planLabel} plan={plan} /> : null}
+                                            {/* {plan && planLabel ? <PlanBadge label={planLabel} plan={plan} /> : null} */}
                                         </div>
                                     </div>
                                 </SidebarMenuButton>
