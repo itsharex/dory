@@ -5,9 +5,9 @@ import { useParams } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Check } from 'lucide-react';
+import { Check, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/registry/new-york-v4/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/registry/new-york-v4/ui/card';
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/registry/new-york-v4/ui/card';
 import { getOrganizationBillingStatus, openOrganizationBillingPortal, upgradeOrganizationToPro } from '@/lib/billing/api';
 import { getOrganizationAccess, getFullOrganization } from '@/lib/organization/api';
 
@@ -21,7 +21,13 @@ function formatDate(value: string | null, fallback: string) {
         return value;
     }
 
-    return date.toLocaleString();
+    return date.toLocaleString(undefined, {
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 type BillingSettingsPageClientProps = {
@@ -116,10 +122,9 @@ export default function BillingSettingsPageClient({ billingManagementAvailable, 
     const isProPlan = billingStatus?.plan === 'pro';
     const showProPlan = !isLoading && !billingStatusQuery.isError && billingStatus?.plan !== 'pro';
     const currentPeriodEnd = isProPlan ? formatWithFallback(billingStatus?.periodEnd ?? null) : null;
-    const currentPlanTitle = billingStatus?.plan === 'pro' ? t('Pro.Title') : t('Hobby.Title');
+    const currentPlanTitle = billingStatus?.plan === 'pro' ? t('Plan.Pro') : t('Hobby.Title');
     const currentPlanPrice = billingStatus?.plan === 'pro' ? t('Pro.Price') : t('Hobby.Price');
     const upgradeLabel = desktopBillingHandoff ? t('DesktopUpgradeToPro') : t('UpgradeToPro');
-    const manageBillingLabel = desktopBillingHandoff ? t('DesktopManageBilling') : t('ManageBilling');
     const openingLabel = desktopBillingHandoff ? t('OpeningBrowser') : t('Opening');
     const readOnly = !billingManagementAvailable ? t('DesktopCloudUnavailable') : t('ReadOnlyHint');
     const hobbyFeatures = [
@@ -174,6 +179,14 @@ export default function BillingSettingsPageClient({ billingManagementAvailable, 
             <CardHeader>
                 <CardTitle>{t('Title')}</CardTitle>
                 <CardDescription>{t('Description')}</CardDescription>
+                {billingManagementAvailable ? (
+                    <CardAction>
+                        <Button variant="outline" size="sm" onClick={() => void refreshBillingStatus()} disabled={billingStatusQuery.isFetching || !organization}>
+                            <RefreshCw className={billingStatusQuery.isFetching ? 'size-4 animate-spin' : 'size-4'} />
+                            {billingStatusQuery.isFetching ? t('Refreshing') : t('RefreshBillingStatus')}
+                        </Button>
+                    </CardAction>
+                ) : null}
             </CardHeader>
             <CardContent className="space-y-6">
                 {!billingManagementAvailable ? (
@@ -200,11 +213,9 @@ export default function BillingSettingsPageClient({ billingManagementAvailable, 
                         ) : null}
 
                         {currentPeriodEnd ? (
-                            <div className="mt-4 grid gap-3">
-                                <div className="flex items-center justify-between gap-4 rounded-md border bg-background/60 px-3 py-2 text-sm">
-                                    <span className="font-medium">{t('Details.CurrentPeriodEnd')}</span>
-                                    <span className="text-right text-muted-foreground">{currentPeriodEnd}</span>
-                                </div>
+                            <div className="mt-4 flex items-center justify-between gap-4 border-t pt-4 text-sm">
+                                <span className="font-medium text-muted-foreground">{t('Details.CurrentPeriodEnd')}</span>
+                                <span className="text-right text-muted-foreground">{currentPeriodEnd}</span>
                             </div>
                         ) : null}
                     </div>
@@ -243,13 +254,8 @@ export default function BillingSettingsPageClient({ billingManagementAvailable, 
                 <div className="flex flex-wrap gap-3">
                     {billingStatus?.isManageable && canManageBilling ? (
                         <Button variant="outline" onClick={() => portalMutation.mutate()} disabled={portalMutation.isPending || isLoading || !organization}>
-                            {portalMutation.isPending ? openingLabel : manageBillingLabel}
-                        </Button>
-                    ) : null}
-
-                    {billingManagementAvailable ? (
-                        <Button variant="outline" onClick={() => void refreshBillingStatus()} disabled={billingStatusQuery.isFetching || !organization}>
-                            {billingStatusQuery.isFetching ? t('Refreshing') : t('RefreshBillingStatus')}
+                            {portalMutation.isPending ? openingLabel : t('ManageBilling')}
+                            {desktopBillingHandoff && !portalMutation.isPending ? <ExternalLink className="size-4" /> : null}
                         </Button>
                     ) : null}
                 </div>

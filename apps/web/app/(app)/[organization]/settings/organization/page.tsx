@@ -93,11 +93,7 @@ export default function OrganizationSettingsPage() {
                         disabled={!organization || !canUpdate || updateMutation.isPending}
                     />
                 </div>
-                <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-3 text-sm">
-                    <div>
-                        <div className="font-medium">{t('Fields.OrganizationId')}</div>
-                        <div className="text-muted-foreground">{organization?.id ?? t('Loading')}</div>
-                    </div>
+                <div className="flex items-center justify-end">
                     <Button
                         onClick={() => updateMutation.mutate()}
                         disabled={!organization || !canUpdate || !name.trim() || !slug.trim() || updateMutation.isPending}
@@ -105,11 +101,6 @@ export default function OrganizationSettingsPage() {
                         {updateMutation.isPending ? t('Saving') : t('SaveChanges')}
                     </Button>
                 </div>
-                {!canUpdate ? (
-                    <p className="text-sm text-muted-foreground">
-                        {t('ReadOnlyHint')}
-                    </p>
-                ) : null}
             </CardContent>
         </Card>
     );

@@ -2528,7 +2528,7 @@
         },
         "Organization": {
             "CardTitle": "Details",
-            "CardDescription": "Update the public name and slug used in the workspace URL.",
+            "CardDescription": "Update the public name and slug used in the organization URL.",
             "Fields": {
                 "Name": "Name",
                 "Slug": "Slug",
@@ -2559,9 +2559,8 @@
             "Redirecting": "Redirecting...",
             "Opening": "Opening...",
             "DesktopUpgradeToPro": "Subscribe in browser",
-            "DesktopManageBilling": "Manage billing in browser",
             "OpeningBrowser": "Opening browser...",
-            "RefreshBillingStatus": "I've finished, refresh status",
+            "RefreshBillingStatus": "Refresh status",
             "Refreshing": "Refreshing...",
             "RefreshComplete": "Billing status refreshed",
             "DesktopCloudUnavailable": "Connect to Dory Cloud before subscribing from the desktop app.",
