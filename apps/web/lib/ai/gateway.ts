@@ -1,12 +1,6 @@
-import {
-    generateText as sdkGenerateText,
-    streamText as sdkStreamText,
-    type ModelMessage,
-    type ToolSet,
-    type LanguageModelUsage,
-    type SystemModelMessage,
-} from 'ai';
+import { generateText as sdkGenerateText, streamText as sdkStreamText, type ModelMessage, type ToolSet, type LanguageModelUsage, type SystemModelMessage } from 'ai';
 import { runAiWithCache as runAiWithCacheBase, type RunAiWithCacheOptions, type RunAiWithCacheResult } from './runtime/runAiWithCache';
+import { AI_QUOTA_EXCEEDED_CODE, assertAiQuotaAllowed, buildCloudflareAiGatewayHeaders, resolveAiEntitlements, type AiIdentityContext } from './usage-quota';
 
 type AiUsageStatus = 'ok' | 'error' | 'aborted';
 
@@ -31,6 +25,8 @@ export type AiDebugInfo = {
 export type AiGatewayContext = {
     organizationId?: string | null;
     userId?: string | null;
+    userEmail?: string | null;
+    plan?: 'hobby' | 'pro';
     feature?: string;
     model?: string;
     promptVersion?: number;
@@ -110,14 +106,7 @@ type StreamTextOptions<TOOLS extends ToolSet> = Parameters<typeof sdkStreamText<
     meter?: AiMeteringOptions;
 };
 
-type UsageLike = Pick<
-    LanguageModelUsage,
-    | 'inputTokens'
-    | 'outputTokens'
-    | 'reasoningTokens'
-    | 'cachedInputTokens'
-    | 'totalTokens'
->;
+type UsageLike = Pick<LanguageModelUsage, 'inputTokens' | 'outputTokens' | 'reasoningTokens' | 'cachedInputTokens' | 'totalTokens'>;
 
 const DEFAULT_PROTECTED_KEYS = [
     'password',
@@ -155,12 +144,7 @@ function truncateString(value: string, maxLength: number): string {
     return `${value.slice(0, maxLength)}...(truncated)`;
 }
 
-function sanitizeForDebug(
-    value: unknown,
-    options: Required<RedactionOptions>,
-    depth = 0,
-    seen = new WeakSet<object>(),
-): unknown {
+function sanitizeForDebug(value: unknown, options: Required<RedactionOptions>, depth = 0, seen = new WeakSet<object>()): unknown {
     if (value === null || value === undefined) return value;
     if (typeof value === 'string') {
         return truncateString(value, options.maxStringLength);
@@ -189,38 +173,22 @@ function sanitizeForDebug(
     return result;
 }
 
-function buildDebugInput(
-    input: AiDebugInput,
-    options?: RedactionOptions,
-): AiDebugInput {
+function buildDebugInput(input: AiDebugInput, options?: RedactionOptions): AiDebugInput {
     const redaction: Required<RedactionOptions> = {
         maxStringLength: options?.maxStringLength ?? DEFAULT_MAX_STRING_LENGTH,
         maxArrayLength: options?.maxArrayLength ?? DEFAULT_MAX_ARRAY_LENGTH,
         maxDepth: options?.maxDepth ?? DEFAULT_MAX_DEPTH,
-        protectedKeys: [
-            ...DEFAULT_PROTECTED_KEYS,
-            ...(options?.protectedKeys ?? []),
-        ],
+        protectedKeys: [...DEFAULT_PROTECTED_KEYS, ...(options?.protectedKeys ?? [])],
     };
 
     return {
-        system: input.system
-            ? (sanitizeForDebug(input.system, redaction) as AiDebugInput['system'])
-            : input.system ?? null,
-        prompt: input.prompt
-            ? (sanitizeForDebug(input.prompt, redaction) as string)
-            : input.prompt ?? null,
-        messages: input.messages
-            ? (sanitizeForDebug(input.messages, redaction) as ModelMessage[])
-            : input.messages ?? null,
+        system: input.system ? (sanitizeForDebug(input.system, redaction) as AiDebugInput['system']) : (input.system ?? null),
+        prompt: input.prompt ? (sanitizeForDebug(input.prompt, redaction) as string) : (input.prompt ?? null),
+        messages: input.messages ? (sanitizeForDebug(input.messages, redaction) as ModelMessage[]) : (input.messages ?? null),
     };
 }
 
-async function writeAiUsage(
-    record: AiUsageRecord,
-    meter?: AiMeteringOptions,
-    trace?: AiTraceRecord,
-): Promise<void> {
+async function writeAiUsage(record: AiUsageRecord, meter?: AiMeteringOptions, trace?: AiTraceRecord): Promise<void> {
     if (meter?.enabled === false) return;
     if (meter?.onWrite) {
         await meter.onWrite(record);
@@ -269,13 +237,15 @@ function sumUsage(usages: Array<LanguageModelUsage | undefined>): LanguageModelU
     let acc: UsageLike | undefined;
     for (const usage of usages) {
         if (!usage) continue;
-        acc = acc ? addUsage(acc, usage) : {
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            reasoningTokens: usage.reasoningTokens,
-            cachedInputTokens: usage.cachedInputTokens,
-            totalTokens: usage.totalTokens,
-        };
+        acc = acc
+            ? addUsage(acc, usage)
+            : {
+                  inputTokens: usage.inputTokens,
+                  outputTokens: usage.outputTokens,
+                  reasoningTokens: usage.reasoningTokens,
+                  cachedInputTokens: usage.cachedInputTokens,
+                  totalTokens: usage.totalTokens,
+              };
     }
 
     if (!acc) return undefined;
@@ -296,6 +266,8 @@ function sumUsage(usages: Array<LanguageModelUsage | undefined>): LanguageModelU
 function inferGateway(context?: AiGatewayContext): string | null {
     if (context?.gateway) return context.gateway;
     if (typeof process === 'undefined') return null;
+    const envProvider = (process.env.DORY_AI_PROVIDER ?? '').trim().toLowerCase();
+    if (envProvider === 'cloudflare' || envProvider === 'cloudflare-gateway') return 'cloudflare';
     const envBaseUrl = (process.env.DORY_AI_URL ?? '').trim().toLowerCase();
     if (!envBaseUrl) return null;
     if (envBaseUrl.includes('gateway.ai.cloudflare.com')) return 'cloudflare';
@@ -368,9 +340,7 @@ function buildTraceRecord(args: {
     const prompt = typeof debugInput.prompt === 'string' ? debugInput.prompt : null;
     const messagesText = debugInput.messages ? JSON.stringify(debugInput.messages) : null;
     const systemText = debugInput.system ? JSON.stringify(debugInput.system) : null;
-    const mergedInputText = [prompt, systemText, messagesText]
-        .filter((part): part is string => !!part && part.length > 0)
-        .join('\n\n');
+    const mergedInputText = [prompt, systemText, messagesText].filter((part): part is string => !!part && part.length > 0).join('\n\n');
 
     return {
         requestId,
@@ -380,52 +350,33 @@ function buildTraceRecord(args: {
         model: context?.model,
         inputText: mergedInputText ? truncateString(mergedInputText, DEFAULT_TRACE_TEXT_LENGTH) : null,
         outputText: outputText ? truncateString(outputText, DEFAULT_TRACE_TEXT_LENGTH) : null,
-        inputJson: sanitizeForDebug(
-            debugInput,
-            {
-                maxStringLength: DEFAULT_TRACE_TEXT_LENGTH,
-                maxArrayLength: DEFAULT_MAX_ARRAY_LENGTH,
-                maxDepth: DEFAULT_MAX_DEPTH,
-                protectedKeys: DEFAULT_PROTECTED_KEYS,
-            },
-        ) as Record<string, unknown>,
+        inputJson: sanitizeForDebug(debugInput, {
+            maxStringLength: DEFAULT_TRACE_TEXT_LENGTH,
+            maxArrayLength: DEFAULT_MAX_ARRAY_LENGTH,
+            maxDepth: DEFAULT_MAX_DEPTH,
+            protectedKeys: DEFAULT_PROTECTED_KEYS,
+        }) as Record<string, unknown>,
         outputJson: outputJson ?? null,
         redacted: true,
     };
 }
 
-let aiUsageDepsPromise: Promise<{
-    getClient: () => Promise<unknown>;
-    aiUsageEvents: unknown;
-    aiUsageTraces: unknown;
-}> | null = null;
+let aiUsageDepsPromise: Promise<typeof import('@/lib/database')> | null = null;
 
 async function getAiUsageDeps() {
     if (!aiUsageDepsPromise) {
-        aiUsageDepsPromise = Promise.all([
-            import('@/lib/database/postgres/client'),
-            import('@/lib/database/postgres/schemas'),
-        ]).then(([clientModule, schemaModule]) => ({
-            getClient: clientModule.getClient,
-            aiUsageEvents: schemaModule.aiUsageEvents,
-            aiUsageTraces: schemaModule.aiUsageTraces,
-        }));
+        aiUsageDepsPromise = import('@/lib/database');
     }
     return aiUsageDepsPromise;
 }
 
 async function writeAiUsageToDatabase(record: AiUsageRecord): Promise<void> {
     try {
-        const { getClient, aiUsageEvents } = await getAiUsageDeps();
-        const db = (await getClient()) as {
-            insert: (table: unknown) => {
-                values: (value: Record<string, unknown>) => {
-                    onConflictDoUpdate: (args: { target: unknown; set: Record<string, unknown> }) => Promise<void>;
-                };
-            };
-        };
+        const { getDBService } = await getAiUsageDeps();
+        const db = await getDBService();
         const usage = extractUsageFields(record.usage);
-        const setValues = {
+        await db.aiUsage.writeEvent({
+            requestId: record.requestId,
             organizationId: record.organizationId ?? null,
             userId: record.userId ?? null,
             feature: record.feature ?? null,
@@ -448,14 +399,6 @@ async function writeAiUsageToDatabase(record: AiUsageRecord): Promise<void> {
             usageJson: record.usageJson ?? toUsageJson(record.usage),
             latencyMs: record.latencyMs ?? null,
             fromCache: record.fromCache ?? false,
-        };
-
-        await db.insert(aiUsageEvents).values({
-            requestId: record.requestId,
-            ...setValues,
-        }).onConflictDoUpdate({
-            target: (aiUsageEvents as { requestId: unknown }).requestId,
-            set: setValues,
         });
     } catch (error) {
         console.error('[ai][usage] failed to write ai_usage_events', error);
@@ -464,15 +407,10 @@ async function writeAiUsageToDatabase(record: AiUsageRecord): Promise<void> {
 
 async function writeAiTraceToDatabase(record: AiTraceRecord): Promise<void> {
     try {
-        const { getClient, aiUsageTraces } = await getAiUsageDeps();
-        const db = (await getClient()) as {
-            insert: (table: unknown) => {
-                values: (value: Record<string, unknown>) => {
-                    onConflictDoUpdate: (args: { target: unknown; set: Record<string, unknown> }) => Promise<void>;
-                };
-            };
-        };
-        const setValues = {
+        const { getDBService } = await getAiUsageDeps();
+        const db = await getDBService();
+        await db.aiUsage.writeTrace({
+            requestId: record.requestId,
             organizationId: record.organizationId ?? null,
             userId: record.userId ?? null,
             feature: record.feature ?? null,
@@ -482,13 +420,6 @@ async function writeAiTraceToDatabase(record: AiTraceRecord): Promise<void> {
             inputJson: record.inputJson ?? null,
             outputJson: record.outputJson ?? null,
             redacted: record.redacted ?? true,
-        };
-        await db.insert(aiUsageTraces).values({
-            requestId: record.requestId,
-            ...setValues,
-        }).onConflictDoUpdate({
-            target: (aiUsageTraces as { requestId: unknown }).requestId,
-            set: setValues,
         });
     } catch (error) {
         console.error('[ai][usage] failed to write ai_usage_traces', error);
@@ -506,9 +437,15 @@ function emitDebug(debug: AiDebugInfo, options?: AiDebugOptions) {
     }
 }
 
-export async function generateText(
-    options: GenerateTextOptions,
-): Promise<Awaited<ReturnType<typeof sdkGenerateText>> & { debug: AiDebugInfo }> {
+function mergeCallHeaders(headers: Record<string, string | undefined> | undefined, extraHeaders: Record<string, string> | null): Record<string, string | undefined> | undefined {
+    if (!extraHeaders) return headers;
+    return {
+        ...(headers ?? {}),
+        ...extraHeaders,
+    };
+}
+
+export async function generateText(options: GenerateTextOptions): Promise<Awaited<ReturnType<typeof sdkGenerateText>> & { debug: AiDebugInfo }> {
     const { context, debug: debugOptions, meter, ...callOptions } = options;
     const startedAt = Date.now();
     const requestId = context?.requestId ?? createRequestId();
@@ -528,13 +465,27 @@ export async function generateText(
         debugOptions?.redaction,
     );
 
+    const entitlements = await resolveAiEntitlements(context ?? {});
+    const effectiveContext: AiGatewayContext = {
+        ...context,
+        userEmail: entitlements.userEmail ?? context?.userEmail ?? null,
+        plan: entitlements.plan ?? context?.plan,
+    };
+    const gateway = inferGateway(effectiveContext);
+    const provider = inferProvider(effectiveContext);
+
     try {
-        const result = await sdkGenerateText(callOptions);
+        assertAiQuotaAllowed(entitlements.quota);
+        const cloudflareHeaders = buildCloudflareAiGatewayHeaders(effectiveContext as AiIdentityContext, gateway);
+        const result = await sdkGenerateText({
+            ...callOptions,
+            headers: mergeCallHeaders(callOptions.headers, cloudflareHeaders),
+        });
         const usage = result.usage;
         const debug: AiDebugInfo = {
             requestId,
-            feature: context?.feature,
-            model: context?.model,
+            feature: effectiveContext.feature,
+            model: effectiveContext.model,
             promptVersion,
             algoVersion,
             usage,
@@ -546,10 +497,10 @@ export async function generateText(
         await writeAiUsage(
             {
                 requestId,
-                organizationId: context?.organizationId ?? null,
-                userId: context?.userId ?? null,
-                feature: context?.feature,
-                model: context?.model,
+                organizationId: effectiveContext.organizationId ?? null,
+                userId: effectiveContext.userId ?? null,
+                feature: effectiveContext.feature,
+                model: effectiveContext.model,
                 promptVersion,
                 algoVersion,
                 usage,
@@ -557,16 +508,16 @@ export async function generateText(
                 latencyMs: debug.latencyMs,
                 fromCache: false,
                 status: 'ok',
-                gateway: inferGateway(context),
-                provider: inferProvider(context),
-                costMicros: context?.costMicros ?? null,
-                traceId: context?.traceId ?? null,
-                spanId: context?.spanId ?? null,
+                gateway,
+                provider,
+                costMicros: effectiveContext.costMicros ?? null,
+                traceId: effectiveContext.traceId ?? null,
+                spanId: effectiveContext.spanId ?? null,
             },
             meter,
             buildTraceRecord({
                 requestId,
-                context,
+                context: effectiveContext,
                 debugInput,
                 outputText: typeof result.text === 'string' ? result.text : null,
                 outputJson: { text: typeof result.text === 'string' ? result.text : null },
@@ -579,27 +530,27 @@ export async function generateText(
         await writeAiUsage(
             {
                 requestId,
-                organizationId: context?.organizationId ?? null,
-                userId: context?.userId ?? null,
-                feature: context?.feature,
-                model: context?.model,
+                organizationId: effectiveContext.organizationId ?? null,
+                userId: effectiveContext.userId ?? null,
+                feature: effectiveContext.feature,
+                model: effectiveContext.model,
                 promptVersion,
                 algoVersion,
                 latencyMs: Date.now() - startedAt,
                 fromCache: false,
                 status: 'error',
-                errorCode: err.code,
+                errorCode: (error as { code?: string } | null)?.code === AI_QUOTA_EXCEEDED_CODE ? AI_QUOTA_EXCEEDED_CODE : err.code,
                 errorMessage: err.message,
-                gateway: inferGateway(context),
-                provider: inferProvider(context),
-                costMicros: context?.costMicros ?? null,
-                traceId: context?.traceId ?? null,
-                spanId: context?.spanId ?? null,
+                gateway,
+                provider,
+                costMicros: effectiveContext.costMicros ?? null,
+                traceId: effectiveContext.traceId ?? null,
+                spanId: effectiveContext.spanId ?? null,
             },
             meter,
             buildTraceRecord({
                 requestId,
-                context,
+                context: effectiveContext,
                 debugInput,
                 outputText: null,
                 outputJson: err.message ? { error: err.message, code: err.code } : null,
@@ -609,9 +560,9 @@ export async function generateText(
     }
 }
 
-export function streamText<TOOLS extends ToolSet>(
+export async function streamText<TOOLS extends ToolSet>(
     options: StreamTextOptions<TOOLS>,
-): ReturnType<typeof sdkStreamText<TOOLS>> & { debug: AiDebugInfo; debugReady: Promise<AiDebugInfo> } {
+): Promise<ReturnType<typeof sdkStreamText<TOOLS>> & { debug: AiDebugInfo; debugReady: Promise<AiDebugInfo> }> {
     const { context, debug: debugOptions, meter, ...callOptions } = options;
     const startedAt = Date.now();
     const requestId = context?.requestId ?? createRequestId();
@@ -640,13 +591,6 @@ export function streamText<TOOLS extends ToolSet>(
         algoVersion,
         input: debugInput,
     };
-    const gateway = inferGateway(context);
-    const provider = inferProvider(context);
-    const shouldLogCloudflareStreamUsage =
-        context?.feature === 'chat_stream' &&
-        gateway === 'cloudflare' &&
-        typeof process !== 'undefined' &&
-        process.env.AI_USAGE_LOG === '1';
 
     let finalized = false;
     const finalize = async (args: {
@@ -655,11 +599,15 @@ export function streamText<TOOLS extends ToolSet>(
         outputText?: string | null;
         outputJson?: Record<string, unknown> | null;
         error?: unknown;
+        context?: AiGatewayContext;
+        gateway?: string | null;
+        provider?: string | null;
     }) => {
         if (finalized) return;
         finalized = true;
 
         const err = args.error ? toErrorParts(args.error) : { code: null, message: null };
+        const effectiveContext = args.context ?? context;
         const latencyMs = Date.now() - startedAt;
         debug.usage = args.usage ?? debug.usage;
         debug.latencyMs = latencyMs;
@@ -668,10 +616,10 @@ export function streamText<TOOLS extends ToolSet>(
         await writeAiUsage(
             {
                 requestId,
-                organizationId: context?.organizationId ?? null,
-                userId: context?.userId ?? null,
-                feature: context?.feature,
-                model: context?.model,
+                organizationId: effectiveContext?.organizationId ?? null,
+                userId: effectiveContext?.userId ?? null,
+                feature: effectiveContext?.feature,
+                model: effectiveContext?.model,
                 promptVersion,
                 algoVersion,
                 usage: args.usage ?? debug.usage,
@@ -679,18 +627,18 @@ export function streamText<TOOLS extends ToolSet>(
                 latencyMs,
                 fromCache: false,
                 status: args.status,
-                errorCode: err.code,
+                errorCode: (args.error as { code?: string } | null)?.code === AI_QUOTA_EXCEEDED_CODE ? AI_QUOTA_EXCEEDED_CODE : err.code,
                 errorMessage: err.message,
-                gateway,
-                provider,
-                costMicros: context?.costMicros ?? null,
-                traceId: context?.traceId ?? null,
-                spanId: context?.spanId ?? null,
+                gateway: args.gateway ?? inferGateway(effectiveContext),
+                provider: args.provider ?? inferProvider(effectiveContext),
+                costMicros: effectiveContext?.costMicros ?? null,
+                traceId: effectiveContext?.traceId ?? null,
+                spanId: effectiveContext?.spanId ?? null,
             },
             meter,
             buildTraceRecord({
                 requestId,
-                context,
+                context: effectiveContext,
                 debugInput,
                 outputText: args.outputText ?? null,
                 outputJson: args.outputJson ?? null,
@@ -700,16 +648,27 @@ export function streamText<TOOLS extends ToolSet>(
         resolveDebugReady(debug);
     };
 
+    const entitlements = await resolveAiEntitlements(context ?? {});
+    const effectiveContext: AiGatewayContext = {
+        ...context,
+        userEmail: entitlements.userEmail ?? context?.userEmail ?? null,
+        plan: entitlements.plan ?? context?.plan,
+    };
+    const gateway = inferGateway(effectiveContext);
+    const provider = inferProvider(effectiveContext);
+
     const wrappedOnFinish = async (event: Parameters<NonNullable<typeof callOptions.onFinish>>[0]) => {
         const finishReason = (event as { finishReason?: string }).finishReason ?? null;
         const isAborted = (event as { isAborted?: boolean }).isAborted === true || finishReason === 'abort';
         const text = (event as { text?: string }).text ?? null;
         const fallbackStepUsage = sumUsage(event.steps.map(step => step.usage));
         const usage = event.totalUsage ?? event.usage ?? fallbackStepUsage;
+        const shouldLogCloudflareStreamUsage =
+            effectiveContext.feature === 'chat_stream' && gateway === 'cloudflare' && typeof process !== 'undefined' && process.env.AI_USAGE_LOG === '1';
         if (shouldLogCloudflareStreamUsage) {
             console.info('[ai][stream-usage][cloudflare][finish]', {
                 requestId,
-                feature: context?.feature ?? null,
+                feature: effectiveContext.feature ?? null,
                 provider: provider ?? null,
                 gateway,
                 finishReason,
@@ -730,6 +689,9 @@ export function streamText<TOOLS extends ToolSet>(
                 finishReason,
                 text,
             },
+            context: effectiveContext,
+            gateway,
+            provider,
         });
         if (callOptions.onFinish) {
             await callOptions.onFinish(event);
@@ -744,6 +706,9 @@ export function streamText<TOOLS extends ToolSet>(
                 error: toErrorParts(event).message,
                 code: toErrorParts(event).code,
             },
+            context: effectiveContext,
+            gateway,
+            provider,
         });
         if (callOptions.onError) {
             await callOptions.onError(event);
@@ -752,10 +717,12 @@ export function streamText<TOOLS extends ToolSet>(
 
     const wrappedOnAbort = async (event: Parameters<NonNullable<typeof callOptions.onAbort>>[0]) => {
         const usage = sumUsage(event.steps.map(step => step.usage));
+        const shouldLogCloudflareStreamUsage =
+            effectiveContext.feature === 'chat_stream' && gateway === 'cloudflare' && typeof process !== 'undefined' && process.env.AI_USAGE_LOG === '1';
         if (shouldLogCloudflareStreamUsage) {
             console.info('[ai][stream-usage][cloudflare][abort]', {
                 requestId,
-                feature: context?.feature ?? null,
+                feature: effectiveContext.feature ?? null,
                 provider: provider ?? null,
                 gateway,
                 steps: event.steps.length,
@@ -770,20 +737,41 @@ export function streamText<TOOLS extends ToolSet>(
                 finishReason: 'abort',
                 steps: event.steps.length,
             },
+            context: effectiveContext,
+            gateway,
+            provider,
         });
         if (callOptions.onAbort) {
             await callOptions.onAbort(event);
         }
     };
 
-    const result = sdkStreamText({
-        ...callOptions,
-        onFinish: wrappedOnFinish,
-        onError: wrappedOnError,
-        onAbort: wrappedOnAbort,
-    });
+    try {
+        assertAiQuotaAllowed(entitlements.quota);
+        const cloudflareHeaders = buildCloudflareAiGatewayHeaders(effectiveContext as AiIdentityContext, gateway);
+        const result = sdkStreamText({
+            ...callOptions,
+            headers: mergeCallHeaders(callOptions.headers, cloudflareHeaders),
+            onFinish: wrappedOnFinish,
+            onError: wrappedOnError,
+            onAbort: wrappedOnAbort,
+        });
 
-    return Object.assign(result, { debug, debugReady });
+        return Object.assign(result, { debug, debugReady });
+    } catch (error) {
+        await finalize({
+            status: 'error',
+            error,
+            outputJson: {
+                error: toErrorParts(error).message,
+                code: toErrorParts(error).code,
+            },
+            context: effectiveContext,
+            gateway,
+            provider,
+        });
+        throw error;
+    }
 }
 
 export async function runAiWithCache<TNormalized, TPayload>(

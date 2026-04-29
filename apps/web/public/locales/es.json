@@ -2496,6 +2496,7 @@
         "StarNotificationDescription": "Dale una estrella en GitHub para ayudar a que más gente descubra el proyecto.",
         "StarNotificationAction": "Dar estrella en GitHub",
         "DismissStarNotification": "Cerrar aviso de estrella de GitHub",
+        "OrganizationSetting": "Configuración de la organización",
         "LogOut": "Cerrar sesión",
         "Update": "Actualizar",
         "Updating": "Actualizando...",
@@ -2520,7 +2521,7 @@
         "Description": "Gestiona los detalles y el acceso de la organización.",
         "Nav": {
             "Organization": "Organización",
-            "Billing": "Facturación"
+            "Billing": "Planes y suscripciones"
         },
         "Organization": {
             "CardTitle": "Detalles",
@@ -2544,13 +2545,13 @@
             }
         },
         "Billing": {
-            "Title": "Facturación",
+            "Title": "Planes y suscripciones",
             "Description": "Revisa el plan actual de la organización, mejora a Pro o gestiona la facturación en Stripe.",
             "UnavailableDescription": "No se puede cargar la facturación de la organización.",
             "CurrentPlan": "Plan actual",
             "Loading": "Cargando...",
             "LoadingBillingStatus": "Cargando el estado de facturación...",
-            "UpgradeToPro": "Mejorar a Pro",
+            "UpgradeToPro": "Obtener acceso anticipado",
             "ManageBilling": "Gestionar facturación",
             "Redirecting": "Redirigiendo...",
             "Opening": "Abriendo...",
@@ -2561,6 +2562,30 @@
             "Plan": {
                 "Pro": "Pro",
                 "Hobby": "Hobby"
+            },
+            "Hobby": {
+                "Title": "Hobby (Gratis)",
+                "Price": "$0/mo",
+                "Features": {
+                    "ConnectPopularDatabases": "Conecta bases de datos populares",
+                    "SqlEditorAndQueryResults": "Editor SQL + resultados de consulta",
+                    "BasicCharts": "Gráficos básicos",
+                    "AiQuotaIncluded": "Cuota de IA incluida",
+                    "SavePersonalQueries": "Guarda consultas personales",
+                    "CommunitySupport": "Soporte comunitario"
+                }
+            },
+            "Pro": {
+                "Title": "Pro (Recomendado)",
+                "Price": "Starting at $9/mo",
+                "Features": {
+                    "UnlimitedDatabaseConnections": "Conexiones ilimitadas a bases de datos",
+                    "HigherAiQuotaAndFasterResponses": "Mayor cuota de IA y respuestas más rápidas",
+                    "AiSqlGenerationExplainOptimize": "Generación de SQL con IA + explain + optimize",
+                    "EarlyAccessToUpcomingFeatures": "Acceso anticipado a próximas funciones",
+                    "AdvancedChartsAndExports": "Gráficos avanzados y exportación",
+                    "PrioritySupport": "Soporte prioritario"
+                }
             },
             "Details": {
                 "Plan": "Plan",

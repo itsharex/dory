@@ -4,7 +4,7 @@ import { PostgresDBClient } from '@/types';
 import { and, eq, isNull, or } from 'drizzle-orm';
 import { organizations } from '@/lib/database/schema';
 import { ensureDemoConnection } from '@/lib/demo/ensure-demo-connection';
-import { organizationMembers } from '../../schemas';
+import { organizationMembers, user } from '../../schemas';
 import { translateDatabase } from '@/lib/database/i18n';
 import type { PostgresConnectionsRepository } from '../connections';
 
@@ -48,6 +48,19 @@ export class PostgresOrganizationsRepository {
             .limit(1);
 
         return rows[0] ?? null;
+    }
+
+    async getOrganizationOwnerEmail(organizationId: string): Promise<string | null> {
+        const rows = await this.db
+            .select({
+                email: user.email,
+            })
+            .from(organizations)
+            .innerJoin(user, eq(user.id, organizations.ownerUserId))
+            .where(eq(organizations.id, organizationId))
+            .limit(1);
+
+        return rows[0]?.email ?? null;
     }
 
     async isUserInOrganization(userId: string, organizationId: string): Promise<boolean> {

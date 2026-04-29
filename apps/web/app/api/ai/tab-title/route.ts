@@ -6,6 +6,7 @@ import { getApiLocale } from '@/app/api/utils/i18n';
 import { withUserAndOrganizationHandler } from '@/app/api/utils/with-organization-handler';
 import { USE_CLOUD_AI } from '@/app/config/app';
 import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
+import { isAiQuotaExceededError, toAiQuotaExceededResponse } from '@/lib/ai/usage-quota';
 
 export const POST = withUserAndOrganizationHandler(async ({ req, organizationId, userId }) => {
     try {
@@ -57,6 +58,10 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
             headers: { 'Content-Type': 'application/json' },
         });
     } catch (error) {
+        if (isAiQuotaExceededError(error)) {
+            return toAiQuotaExceededResponse(error, { title: null });
+        }
+
         console.error('[api/ai/tab-title] error:', error);
         return new Response(JSON.stringify({ title: null }), {
             status: 500,

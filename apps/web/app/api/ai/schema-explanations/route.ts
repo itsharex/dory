@@ -5,8 +5,9 @@ import { withUserAndOrganizationHandler } from '@/app/api/utils/with-organizatio
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { fallbackSummaries } from '@/lib/ai/core/schema-explanations';
 import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
+import { isAiQuotaExceededError, toAiQuotaExceededResponse } from '@/lib/ai/usage-quota';
 
-export const runtime = 'nodejs'; 
+export const runtime = 'nodejs';
 
 const schemaExplanationRequestSchema = z.object({
     columns: z
@@ -51,15 +52,7 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
         );
     }
 
-    const {
-        columns,
-        database,
-        table,
-        model,
-        connectionId,
-        catalog,
-        dbType,
-    } = parsed.data;
+    const { columns, database, table, model, connectionId, catalog, dbType } = parsed.data;
 
     try {
         const result = await provider.getColumnExplanationsWithCache({
@@ -81,6 +74,10 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
             headers: { 'Content-Type': 'application/json' },
         });
     } catch (error) {
+        if (isAiQuotaExceededError(error)) {
+            return toAiQuotaExceededResponse(error);
+        }
+
         console.error('[api/ai/schema-explanations] failed:', error);
         const fallback = fallbackSummaries(columns, locale);
         return new Response(

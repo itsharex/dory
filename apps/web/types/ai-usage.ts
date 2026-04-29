@@ -52,6 +52,7 @@ export type AiUsageOverviewResponse = {
     byFeature: AiUsageFeatureRow[];
     byUser: AiUsageUserRow[];
     timeseries: AiUsageTimeseriesRow[];
+    quota?: AiUsageQuotaOverview;
 };
 
 export type AiUsageEventsParams = AiUsageOverviewParams & {
@@ -106,8 +107,65 @@ export type AiUsageEventsResponse = {
     nextCursor: string | null;
 };
 
+export type AiUsageQuotaOverview = {
+    plan: 'hobby' | 'pro';
+    usedTokens: number;
+    limitTokens: number | null;
+    remainingTokens: number | null;
+    resetAt: string;
+    enforced: boolean;
+};
+
+export type AiUsageMonthlyTokenUsageParams = {
+    organizationId: string;
+    from: string | Date;
+    to: string | Date;
+};
+
+export type AiUsageWriteEventInput = {
+    requestId: string;
+    organizationId?: string | null;
+    userId?: string | null;
+    feature?: string | null;
+    model?: string | null;
+    promptVersion?: number | null;
+    algoVersion?: number | null;
+    status?: AiUsageStatus;
+    errorCode?: string | null;
+    errorMessage?: string | null;
+    gateway?: string | null;
+    provider?: string | null;
+    costMicros?: number | null;
+    traceId?: string | null;
+    spanId?: string | null;
+    inputTokens?: number | null;
+    outputTokens?: number | null;
+    reasoningTokens?: number | null;
+    cachedInputTokens?: number | null;
+    totalTokens?: number | null;
+    usageJson?: Record<string, unknown> | null;
+    latencyMs?: number | null;
+    fromCache?: boolean;
+};
+
+export type AiUsageWriteTraceInput = {
+    requestId: string;
+    organizationId?: string | null;
+    userId?: string | null;
+    feature?: string | null;
+    model?: string | null;
+    inputText?: string | null;
+    outputText?: string | null;
+    inputJson?: Record<string, unknown> | null;
+    outputJson?: Record<string, unknown> | null;
+    redacted?: boolean;
+};
+
 export interface AiUsageRepository {
     init(): Promise<void>;
     getOverview(params: AiUsageOverviewParams): Promise<AiUsageOverviewResponse>;
     listEvents(params: AiUsageEventsParams): Promise<AiUsageEventsResponse>;
+    getMonthlyTokenUsage(params: AiUsageMonthlyTokenUsageParams): Promise<number>;
+    writeEvent(input: AiUsageWriteEventInput): Promise<void>;
+    writeTrace(input: AiUsageWriteTraceInput): Promise<void>;
 }

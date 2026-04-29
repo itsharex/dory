@@ -2,6 +2,7 @@ import 'server-only';
 
 import { z } from 'zod';
 import { generateText } from '@/lib/ai/gateway';
+import { isAiQuotaExceededError } from '@/lib/ai/usage-quota';
 import { getEffectiveModelBundle } from '@/lib/ai/model';
 import { compileSystemPrompt } from '@/lib/ai/model/compile-system';
 export { isMissingAiEnvError } from '@/lib/ai/errors';
@@ -43,6 +44,9 @@ export async function runLLMJson<T extends z.ZodTypeAny>(args: {
             const parsed = schema.parse(JSON.parse(json));
             return parsed as z.infer<T>;
         } catch (e) {
+            if (isAiQuotaExceededError(e)) {
+                throw e;
+            }
             lastErr = e;
         }
     }

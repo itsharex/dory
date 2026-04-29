@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
+import { Check } from 'lucide-react';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/registry/new-york-v4/ui/card';
 import { getOrganizationBillingStatus, openOrganizationBillingPortal, upgradeOrganizationToPro } from '@/lib/billing/api';
@@ -105,30 +105,35 @@ export default function BillingSettingsPageClient() {
     const isOrganizationLoading = organizationQuery.isLoading;
     const isBillingLoading = organizationQuery.isSuccess && billingStatusQuery.isLoading;
     const isLoading = isOrganizationLoading || isBillingLoading;
-    const currentPlanLabel = billingStatus?.plan === 'pro' ? t('Plan.Pro') : t('Plan.Hobby');
+    const isProPlan = billingStatus?.plan === 'pro';
+    const showProPlan = !isLoading && !billingStatusQuery.isError && billingStatus?.plan !== 'pro';
     const billingDescription = billingStatusQuery.isError
         ? billingStatusQuery.error instanceof Error
             ? billingStatusQuery.error.message
             : t('Errors.LoadBillingFailed')
         : isLoading
           ? t('LoadingBillingStatus')
-          : getStatusDescription(
-                billingStatus?.subscriptionStatus ?? null,
-                billingStatus?.cancelAtPeriodEnd ?? false,
-                billingStatus?.periodEnd ?? null,
-                t,
-                formatWithFallback,
-            );
+          : getStatusDescription(billingStatus?.subscriptionStatus ?? null, billingStatus?.cancelAtPeriodEnd ?? false, billingStatus?.periodEnd ?? null, t, formatWithFallback);
 
-    const detailRows = useMemo(
-        () => [
-            { label: t('Details.Plan'), value: currentPlanLabel },
-            { label: t('Details.SubscriptionStatus'), value: billingStatus?.subscriptionStatus ?? t('NoSubscription') },
-            { label: t('Details.StripeSubscriptionId'), value: billingStatus?.stripeSubscriptionId ?? t('NotAvailable') },
-            { label: t('Details.CurrentPeriodEnd'), value: formatWithFallback(billingStatus?.periodEnd ?? null) },
-        ],
-        [billingStatus, currentPlanLabel, t],
-    );
+    const currentPeriodEnd = isProPlan ? formatWithFallback(billingStatus?.periodEnd ?? null) : null;
+    const currentPlanTitle = billingStatus?.plan === 'pro' ? t('Pro.Title') : t('Hobby.Title');
+    const currentPlanPrice = billingStatus?.plan === 'pro' ? t('Pro.Price') : t('Hobby.Price');
+    const hobbyFeatures = [
+        t('Hobby.Features.ConnectPopularDatabases'),
+        t('Hobby.Features.SqlEditorAndQueryResults'),
+        t('Hobby.Features.BasicCharts'),
+        t('Hobby.Features.AiQuotaIncluded'),
+        t('Hobby.Features.SavePersonalQueries'),
+        t('Hobby.Features.CommunitySupport'),
+    ];
+    const proFeatures = [
+        t('Pro.Features.UnlimitedDatabaseConnections'),
+        t('Pro.Features.HigherAiQuotaAndFasterResponses'),
+        t('Pro.Features.AiSqlGenerationExplainOptimize'),
+        t('Pro.Features.AdvancedChartsAndExports'),
+        t('Pro.Features.EarlyAccessToUpcomingFeatures'),
+        t('Pro.Features.PrioritySupport'),
+    ];
 
     if (organizationQuery.isError) {
         return (
@@ -167,19 +172,59 @@ export default function BillingSettingsPageClient() {
                 <CardDescription>{t('Description')}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="rounded-lg border bg-muted/30 px-4 py-4">
-                    <div className="text-sm font-medium">{t('CurrentPlan')}</div>
-                    <div className="mt-2 text-2xl font-semibold">{isLoading ? t('Loading') : currentPlanLabel}</div>
-                    <p className="mt-2 text-sm text-muted-foreground">{billingDescription}</p>
-                </div>
-
-                <div className="grid gap-3">
-                    {detailRows.map(row => (
-                        <div key={row.label} className="flex items-center justify-between rounded-lg border px-4 py-3 text-sm">
-                            <span className="font-medium">{row.label}</span>
-                            <span className="text-muted-foreground">{row.value}</span>
+                <div className={showProPlan ? 'grid gap-4 md:grid-cols-2' : 'grid gap-4'}>
+                    <div className="relative rounded-lg border bg-muted/30 px-4 py-4">
+                        <div className="absolute right-4 top-4 inline-flex h-5 items-center rounded-full border border-sidebar-border bg-background px-2 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                            {t('CurrentPlan')}
                         </div>
-                    ))}
+                        <div className="mt-2 text-2xl font-semibold">{isLoading ? t('Loading') : currentPlanTitle}</div>
+                        <div className="mt-1 text-sm text-muted-foreground">{isLoading ? null : currentPlanPrice}</div>
+                        {/* {isProPlan || isLoading || billingStatusQuery.isError ? <p className="mt-2 text-sm text-muted-foreground">{billingDescription}</p> : null} */}
+
+                        {!isLoading && !billingStatusQuery.isError ? (
+                            <ul className="mt-4 space-y-3 text-sm">
+                                {(isProPlan ? proFeatures : hobbyFeatures).map(feature => (
+                                    <li key={feature} className="flex items-center gap-2">
+                                        <Check className="size-4 text-primary" />
+                                        <span>{feature}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        ) : null}
+
+                        {currentPeriodEnd ? (
+                            <div className="mt-4 grid gap-3">
+                                <div className="flex items-center justify-between gap-4 rounded-md border bg-background/60 px-3 py-2 text-sm">
+                                    <span className="font-medium">{t('Details.CurrentPeriodEnd')}</span>
+                                    <span className="text-right text-muted-foreground">{currentPeriodEnd}</span>
+                                </div>
+                            </div>
+                        ) : null}
+                    </div>
+
+                    {showProPlan ? (
+                        <div className="flex flex-col rounded-lg border bg-background px-4 py-4">
+                        <div className="mt-2 text-2xl font-semibold">{t('Pro.Title')}</div>
+                        <div className="mt-1 text-sm text-muted-foreground">{t('Pro.Price')}</div>
+                            <ul className="mt-4 space-y-3 text-sm">
+                                {proFeatures.map(feature => (
+                                    <li key={feature} className="flex items-center gap-2">
+                                        <Check className="size-4 text-primary" />
+                                        <span>{feature}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                            <div className="mt-auto pt-5">
+                                {canManageBilling ? (
+                                    <Button className="w-full" onClick={() => upgradeMutation.mutate()} disabled={upgradeMutation.isPending || isLoading || !organization}>
+                                        {upgradeMutation.isPending ? t('Redirecting') : t('UpgradeToPro')}
+                                    </Button>
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">{t('ReadOnlyHint')}</p>
+                                )}
+                            </div>
+                        </div>
+                    ) : null}
                 </div>
 
                 {billingStatus?.cancelAtPeriodEnd ? (
@@ -189,12 +234,6 @@ export default function BillingSettingsPageClient() {
                 ) : null}
 
                 <div className="flex flex-wrap gap-3">
-                    {billingStatus?.plan !== 'pro' && canManageBilling ? (
-                        <Button onClick={() => upgradeMutation.mutate()} disabled={upgradeMutation.isPending || isLoading || !organization}>
-                            {upgradeMutation.isPending ? t('Redirecting') : t('UpgradeToPro')}
-                        </Button>
-                    ) : null}
-
                     {billingStatus?.isManageable && canManageBilling ? (
                         <Button variant="outline" onClick={() => portalMutation.mutate()} disabled={portalMutation.isPending || isLoading || !organization}>
                             {portalMutation.isPending ? t('Opening') : t('ManageBilling')}
@@ -202,9 +241,7 @@ export default function BillingSettingsPageClient() {
                     ) : null}
                 </div>
 
-                {!canManageBilling ? (
-                    <p className="text-sm text-muted-foreground">{t('ReadOnlyHint')}</p>
-                ) : null}
+                {!canManageBilling && !showProPlan ? <p className="text-sm text-muted-foreground">{t('ReadOnlyHint')}</p> : null}
             </CardContent>
         </Card>
     );

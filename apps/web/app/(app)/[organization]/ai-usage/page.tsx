@@ -1,21 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import {
-    Bar,
-    BarChart,
-    CartesianGrid,
-    Legend,
-    Line,
-    LineChart,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, XAxis, YAxis } from 'recharts';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/registry/new-york-v4/ui/card';
 import { Input } from '@/registry/new-york-v4/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/registry/new-york-v4/ui/table';
 import { ChartConfig, ChartContainer, ChartTooltip, ChartTooltipContent } from '@/registry/new-york-v4/ui/chart';
+import { Badge } from '@/registry/new-york-v4/ui/badge';
+import { Progress } from '@/registry/new-york-v4/ui/progress';
 
 type UsageOverviewResponse = {
     kpis: {
@@ -52,6 +45,14 @@ type UsageOverviewResponse = {
         totalTokens: number;
         errors: number;
     }>;
+    quota?: {
+        plan: 'hobby' | 'pro';
+        usedTokens: number;
+        limitTokens: number | null;
+        remainingTokens: number | null;
+        resetAt: string;
+        enforced: boolean;
+    };
 };
 
 type UsageEvent = {
@@ -109,6 +110,11 @@ function formatPercent(value?: number | null) {
     return `${((value ?? 0) * 100).toFixed(2)}%`;
 }
 
+function formatDateTime(value?: string | null) {
+    if (!value) return '-';
+    return new Date(value).toLocaleString();
+}
+
 const chartConfig = {
     tokens: { label: 'Tokens', color: 'var(--primary)' },
     requests: { label: 'Requests', color: 'var(--muted-foreground)' },
@@ -134,78 +140,81 @@ export default function AiUsagePage() {
     const [loadingMore, setLoadingMore] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
 
-    const load = React.useCallback(async (cursor?: string | null) => {
-        const isLoadMore = !!cursor;
-        if (isLoadMore) {
-            setLoadingMore(true);
-        } else {
-            setLoading(true);
-            setError(null);
-        }
+    const load = React.useCallback(
+        async (cursor?: string | null) => {
+            const isLoadMore = !!cursor;
+            if (isLoadMore) {
+                setLoadingMore(true);
+            } else {
+                setLoading(true);
+                setError(null);
+            }
 
-        try {
-            const from = toIsoStartOfDay(fromDate);
-            const to = toIsoEndOfDay(toDate);
+            try {
+                const from = toIsoStartOfDay(fromDate);
+                const to = toIsoEndOfDay(toDate);
 
-            const overviewQuery = buildQuery({
-                from,
-                to,
-                feature: feature || null,
-                userId: userId || null,
-                model: model || null,
-            });
-            const eventsQuery = buildQuery({
-                from,
-                to,
-                feature: feature || null,
-                userId: userId || null,
-                model: model || null,
-                status: status || null,
-                includeTrace: includeTrace ? 'true' : 'false',
-                limit: '30',
-                cursor: cursor ?? null,
-            });
+                const overviewQuery = buildQuery({
+                    from,
+                    to,
+                    feature: feature || null,
+                    userId: userId || null,
+                    model: model || null,
+                });
+                const eventsQuery = buildQuery({
+                    from,
+                    to,
+                    feature: feature || null,
+                    userId: userId || null,
+                    model: model || null,
+                    status: status || null,
+                    includeTrace: includeTrace ? 'true' : 'false',
+                    limit: '30',
+                    cursor: cursor ?? null,
+                });
 
-            const requests = [
-                fetch(`/api/ai/usage/events?${eventsQuery}`, {
-                    cache: 'no-store',
-                    credentials: 'include',
-                }),
-            ];
-
-            if (!isLoadMore) {
-                requests.unshift(
-                    fetch(`/api/ai/usage/overview?${overviewQuery}`, {
+                const requests = [
+                    fetch(`/api/ai/usage/events?${eventsQuery}`, {
                         cache: 'no-store',
                         credentials: 'include',
                     }),
-                );
-            }
+                ];
 
-            const responses = await Promise.all(requests);
-            for (const response of responses) {
-                if (!response.ok) {
-                    throw new Error(`Request failed with status ${response.status}`);
+                if (!isLoadMore) {
+                    requests.unshift(
+                        fetch(`/api/ai/usage/overview?${overviewQuery}`, {
+                            cache: 'no-store',
+                            credentials: 'include',
+                        }),
+                    );
                 }
-            }
 
-            const eventsResponse = (await responses[responses.length - 1].json()) as UsageEventsResponse;
-            if (isLoadMore) {
-                setEvents(prev => [...prev, ...eventsResponse.items]);
-            } else {
-                const overviewResponse = (await responses[0].json()) as UsageOverviewResponse;
-                setOverview(overviewResponse);
-                setEvents(eventsResponse.items);
+                const responses = await Promise.all(requests);
+                for (const response of responses) {
+                    if (!response.ok) {
+                        throw new Error(`Request failed with status ${response.status}`);
+                    }
+                }
+
+                const eventsResponse = (await responses[responses.length - 1].json()) as UsageEventsResponse;
+                if (isLoadMore) {
+                    setEvents(prev => [...prev, ...eventsResponse.items]);
+                } else {
+                    const overviewResponse = (await responses[0].json()) as UsageOverviewResponse;
+                    setOverview(overviewResponse);
+                    setEvents(eventsResponse.items);
+                }
+                setNextCursor(eventsResponse.nextCursor);
+            } catch (err) {
+                const message = err instanceof Error ? err.message : 'Failed to load AI usage';
+                setError(message);
+            } finally {
+                setLoading(false);
+                setLoadingMore(false);
             }
-            setNextCursor(eventsResponse.nextCursor);
-        } catch (err) {
-            const message = err instanceof Error ? err.message : 'Failed to load AI usage';
-            setError(message);
-        } finally {
-            setLoading(false);
-            setLoadingMore(false);
-        }
-    }, [feature, fromDate, includeTrace, model, status, toDate, userId]);
+        },
+        [feature, fromDate, includeTrace, model, status, toDate, userId],
+    );
 
     React.useEffect(() => {
         void load(null);
@@ -240,6 +249,8 @@ export default function AiUsagePage() {
             })),
         [overview],
     );
+    const quota = overview?.quota ?? null;
+    const quotaPercent = quota?.enforced && quota.limitTokens ? Math.min(100, Math.round((quota.usedTokens / quota.limitTokens) * 100)) : 0;
 
     return (
         <section className="flex flex-1 flex-col gap-4 p-4 md:p-6">
@@ -259,11 +270,7 @@ export default function AiUsagePage() {
                     <Input placeholder="Feature" value={feature} onChange={e => setFeature(e.target.value)} />
                     <Input placeholder="User ID" value={userId} onChange={e => setUserId(e.target.value)} />
                     <Input placeholder="Model" value={model} onChange={e => setModel(e.target.value)} />
-                    <select
-                        className="border-input bg-background h-9 rounded-md border px-3 text-sm"
-                        value={status}
-                        onChange={e => setStatus(e.target.value)}
-                    >
+                    <select className="border-input bg-background h-9 rounded-md border px-3 text-sm" value={status} onChange={e => setStatus(e.target.value)}>
                         <option value="">All Status</option>
                         <option value="ok">ok</option>
                         <option value="error">error</option>
@@ -274,14 +281,46 @@ export default function AiUsagePage() {
                         Include traces
                     </label>
                     <div className="flex items-center justify-end">
-                        <Button onClick={() => void load(null)} disabled={loading}>{loading ? 'Loading...' : 'Refresh'}</Button>
+                        <Button onClick={() => void load(null)} disabled={loading}>
+                            {loading ? 'Loading...' : 'Refresh'}
+                        </Button>
                     </div>
                 </CardContent>
             </Card>
 
-            {error ? (
-                <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
-            ) : null}
+            {error ? <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
+
+            <Card>
+                <CardHeader className="gap-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                            <CardTitle>Monthly quota</CardTitle>
+                            <CardDescription>Organization AI token usage for the current UTC month.</CardDescription>
+                        </div>
+                        <Badge variant={quota?.plan === 'pro' ? 'default' : 'secondary'} className="w-fit uppercase">
+                            {quota?.plan ?? 'hobby'}
+                        </Badge>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <div className="text-2xl font-semibold tabular-nums">
+                                {formatNumber(quota?.usedTokens)}
+                                <span className="text-sm font-normal text-muted-foreground">
+                                    {' / '}
+                                    {quota?.enforced ? formatNumber(quota?.limitTokens) : 'unlimited'}
+                                </span>
+                            </div>
+                            <p className="text-sm text-muted-foreground">
+                                Remaining {quota?.enforced ? formatNumber(quota?.remainingTokens) : 'unlimited'} · Resets {formatDateTime(quota?.resetAt)}
+                            </p>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{quota?.enforced ? `${quotaPercent}% used` : 'Not enforced'}</p>
+                    </div>
+                    <Progress value={quotaPercent} />
+                </CardContent>
+            </Card>
 
             <div className="*:data-[slot=card]:from-primary/5 *:data-[slot=card]:to-card dark:*:data-[slot=card]:bg-card grid grid-cols-1 gap-4 px-0 *:data-[slot=card]:bg-gradient-to-t *:data-[slot=card]:shadow-xs md:grid-cols-4">
                 <Card data-slot="card">
@@ -315,7 +354,8 @@ export default function AiUsagePage() {
                     <CardHeader>
                         <CardTitle>Overview</CardTitle>
                         <CardDescription>
-                            Requests {formatNumber(overview?.kpis.totalRequests)} · Tokens {formatNumber(overview?.kpis.totalTokens)} · Error {formatPercent(overview?.kpis.errorRate)} · Cache {formatPercent(overview?.kpis.cacheHitRate)}
+                            Requests {formatNumber(overview?.kpis.totalRequests)} · Tokens {formatNumber(overview?.kpis.totalTokens)} · Error{' '}
+                            {formatPercent(overview?.kpis.errorRate)} · Cache {formatPercent(overview?.kpis.cacheHitRate)}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">

@@ -25,12 +25,13 @@ import { cn } from '@/lib/utils';
 
 type AppSidebarProps = React.ComponentProps<typeof Sidebar> & {
     initialUser?: User | null;
+    organizationId: string;
 };
 
 const GITHUB_REPO_URL = 'https://github.com/dorylab/dory';
 const SIDEBAR_STAR_NOTIFICATION_KEY = 'dory:sidebar:star-notification:v1';
 
-export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
+export function AppSidebar({ initialUser = null, organizationId, ...props }: AppSidebarProps) {
     const params = useParams<{ organization: string; connectionId?: string }>();
     const resolvedUser = initialUser ?? null;
     const t = useTranslations('AppSidebar');
@@ -264,7 +265,7 @@ export function AppSidebar({ initialUser = null, ...props }: AppSidebarProps) {
             <Separator />
 
             <SidebarFooter>
-                <NavUser user={resolvedUser as any} />
+                <NavUser user={resolvedUser as any} organizationId={organizationId} />
             </SidebarFooter>
         </Sidebar>
     );

@@ -2499,6 +2499,7 @@
         "StarNotificationDescription": "Give the project a GitHub star to help more people discover it.",
         "StarNotificationAction": "Star on GitHub",
         "DismissStarNotification": "Dismiss GitHub star prompt",
+        "OrganizationSetting": "Organization settings",
         "LogOut": "Log out",
         "Update": "Update",
         "Updating": "Updating...",
@@ -2523,7 +2524,7 @@
         "Description": "Manage organization details and access.",
         "Nav": {
             "Organization": "Organization",
-            "Billing": "Billing"
+            "Billing": "Plans & subscriptions"
         },
         "Organization": {
             "CardTitle": "Details",
@@ -2547,13 +2548,13 @@
             }
         },
         "Billing": {
-            "Title": "Billing",
+            "Title": "Plans & subscriptions",
             "Description": "Review the current organization plan, upgrade to Pro, or manage billing in Stripe.",
             "UnavailableDescription": "Unable to load organization billing.",
             "CurrentPlan": "Current plan",
             "Loading": "Loading...",
             "LoadingBillingStatus": "Loading billing status...",
-            "UpgradeToPro": "Upgrade to Pro",
+            "UpgradeToPro": "Get Early Access",
             "ManageBilling": "Manage billing",
             "Redirecting": "Redirecting...",
             "Opening": "Opening...",
@@ -2564,6 +2565,30 @@
             "Plan": {
                 "Pro": "Pro",
                 "Hobby": "Hobby"
+            },
+            "Hobby": {
+                "Title": "Hobby (Free)",
+                "Price": "$0/mo",
+                "Features": {
+                    "ConnectPopularDatabases": "Connect popular databases",
+                    "SqlEditorAndQueryResults": "SQL editor + query results",
+                    "BasicCharts": "Basic charts",
+                    "AiQuotaIncluded": "AI quota included",
+                    "SavePersonalQueries": "Save personal queries",
+                    "CommunitySupport": "Community support"
+                }
+            },
+            "Pro": {
+                "Title": "Pro (Recommended)",
+                "Price": "Starting at $9/mo",
+                "Features": {
+                    "UnlimitedDatabaseConnections": "Unlimited database connections",
+                    "HigherAiQuotaAndFasterResponses": "Higher AI quota & faster responses",
+                    "AiSqlGenerationExplainOptimize": "AI SQL generation + explain + optimize",
+                    "EarlyAccessToUpcomingFeatures": "Early access to upcoming features",
+                    "AdvancedChartsAndExports": "Advanced charts & exports",
+                    "PrioritySupport": "Priority support"
+                }
             },
             "Details": {
                 "Plan": "Plan",

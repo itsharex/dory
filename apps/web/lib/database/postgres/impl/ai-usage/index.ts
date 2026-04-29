@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, lte, sql, type SQLWrapper } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, lt, lte, sql, type SQLWrapper } from 'drizzle-orm';
 
 import { getClient } from '@/lib/database/postgres/client';
 import { aiUsageEvents, aiUsageTraces, user } from '@/lib/database/postgres/schemas';
@@ -6,17 +6,19 @@ import { DatabaseError } from '@/lib/errors/DatabaseError';
 import type {
     AiUsageEventsParams,
     AiUsageEventsResponse,
+    AiUsageMonthlyTokenUsageParams,
     AiUsageOverviewParams,
     AiUsageOverviewResponse,
     AiUsageRepository,
+    AiUsageWriteEventInput,
+    AiUsageWriteTraceInput,
     PostgresDBClient,
 } from '@/types';
 import { translateDatabase } from '@/lib/database/i18n';
 
 type Cursor = { createdAtMs: number; id: string };
 
-const encCursor = (cursor: Cursor) =>
-    Buffer.from(`${cursor.createdAtMs}|${cursor.id}`).toString('base64');
+const encCursor = (cursor: Cursor) => Buffer.from(`${cursor.createdAtMs}|${cursor.id}`).toString('base64');
 
 const decCursor = (raw?: string | null): Cursor | null => {
     if (!raw) return null;
@@ -118,10 +120,7 @@ export class PostgresAiUsageRepository implements AiUsageRepository {
 
         const fromDate = parseDate(params.from);
         const toDate = parseDate(params.to);
-        const spanMs =
-            fromDate && toDate
-                ? toDate.getTime() - fromDate.getTime()
-                : Number.NaN;
+        const spanMs = fromDate && toDate ? toDate.getTime() - fromDate.getTime() : Number.NaN;
         const useHourBucket = Number.isFinite(spanMs) ? spanMs <= 3 * 24 * 60 * 60 * 1000 : false;
         const bucketExpr = useHourBucket
             ? sql<string>`to_char(${aiUsageEvents.createdAt}, 'YYYY-MM-DD HH24:00:00')`
@@ -181,6 +180,26 @@ export class PostgresAiUsageRepository implements AiUsageRepository {
         };
     }
 
+    async getMonthlyTokenUsage(params: AiUsageMonthlyTokenUsageParams): Promise<number> {
+        this.assertInited();
+
+        const fromDate = parseDate(params.from instanceof Date ? params.from.toISOString() : params.from);
+        const toDate = parseDate(params.to instanceof Date ? params.to.toISOString() : params.to);
+        const where: SQLWrapper[] = [eq(aiUsageEvents.organizationId, params.organizationId), eq(aiUsageEvents.status, 'ok')];
+
+        if (fromDate) where.push(gte(aiUsageEvents.createdAt, fromDate));
+        if (toDate) where.push(lt(aiUsageEvents.createdAt, toDate));
+
+        const [row] = await this.db
+            .select({
+                totalTokens: sql<number>`COALESCE(SUM(${aiUsageEvents.totalTokens}), 0)`,
+            })
+            .from(aiUsageEvents)
+            .where(and(...where));
+
+        return row?.totalTokens ?? 0;
+    }
+
     async listEvents(params: AiUsageEventsParams): Promise<AiUsageEventsResponse> {
         this.assertInited();
 
@@ -220,10 +239,7 @@ export class PostgresAiUsageRepository implements AiUsageRepository {
 
         let traceMap = new Map<string, typeof aiUsageTraces.$inferSelect>();
         if (includeTrace && requestIds.length > 0) {
-            const traces = await this.db
-                .select()
-                .from(aiUsageTraces)
-                .where(inArray(aiUsageTraces.requestId, requestIds));
+            const traces = await this.db.select().from(aiUsageTraces).where(inArray(aiUsageTraces.requestId, requestIds));
             traceMap = new Map(traces.map(item => [item.requestId, item]));
         }
 
@@ -259,25 +275,93 @@ export class PostgresAiUsageRepository implements AiUsageRepository {
                 usageJson: event.usageJson,
                 trace: trace
                     ? {
-                        inputText: trace.inputText,
-                        outputText: trace.outputText,
-                        inputJson: trace.inputJson,
-                        outputJson: trace.outputJson,
-                        redacted: trace.redacted,
-                        expiresAt: trace.expiresAt.toISOString(),
-                    }
+                          inputText: trace.inputText,
+                          outputText: trace.outputText,
+                          inputJson: trace.inputJson,
+                          outputJson: trace.outputJson,
+                          redacted: trace.redacted,
+                          expiresAt: trace.expiresAt.toISOString(),
+                      }
                     : null,
             };
         });
 
         const last = slice[slice.length - 1];
-        const nextCursor = hasMore && last
-            ? encCursor({
-                createdAtMs: last.event.createdAt.getTime(),
-                id: last.event.id,
-            })
-            : null;
+        const nextCursor =
+            hasMore && last
+                ? encCursor({
+                      createdAtMs: last.event.createdAt.getTime(),
+                      id: last.event.id,
+                  })
+                : null;
 
         return { items, nextCursor };
+    }
+
+    async writeEvent(input: AiUsageWriteEventInput): Promise<void> {
+        this.assertInited();
+
+        const setValues = {
+            organizationId: input.organizationId ?? null,
+            userId: input.userId ?? null,
+            feature: input.feature ?? null,
+            model: input.model ?? null,
+            promptVersion: input.promptVersion ?? null,
+            algoVersion: input.algoVersion ?? null,
+            status: input.status ?? 'ok',
+            errorCode: input.errorCode ?? null,
+            errorMessage: input.errorMessage ?? null,
+            gateway: input.gateway ?? null,
+            provider: input.provider ?? null,
+            costMicros: input.costMicros ?? null,
+            traceId: input.traceId ?? null,
+            spanId: input.spanId ?? null,
+            inputTokens: input.inputTokens ?? null,
+            outputTokens: input.outputTokens ?? null,
+            reasoningTokens: input.reasoningTokens ?? null,
+            cachedInputTokens: input.cachedInputTokens ?? null,
+            totalTokens: input.totalTokens ?? null,
+            usageJson: input.usageJson ?? null,
+            latencyMs: input.latencyMs ?? null,
+            fromCache: input.fromCache ?? false,
+        };
+
+        await this.db
+            .insert(aiUsageEvents)
+            .values({
+                requestId: input.requestId,
+                ...setValues,
+            })
+            .onConflictDoUpdate({
+                target: aiUsageEvents.requestId,
+                set: setValues,
+            });
+    }
+
+    async writeTrace(input: AiUsageWriteTraceInput): Promise<void> {
+        this.assertInited();
+
+        const setValues = {
+            organizationId: input.organizationId ?? null,
+            userId: input.userId ?? null,
+            feature: input.feature ?? null,
+            model: input.model ?? null,
+            inputText: input.inputText ?? null,
+            outputText: input.outputText ?? null,
+            inputJson: input.inputJson ?? null,
+            outputJson: input.outputJson ?? null,
+            redacted: input.redacted ?? true,
+        };
+
+        await this.db
+            .insert(aiUsageTraces)
+            .values({
+                requestId: input.requestId,
+                ...setValues,
+            })
+            .onConflictDoUpdate({
+                target: aiUsageTraces.requestId,
+                set: setValues,
+            });
     }
 }

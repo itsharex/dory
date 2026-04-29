@@ -2501,6 +2501,7 @@
         "StarNotificationAction": "GitHub Star",
         "DismissStarNotification": "关闭 GitHub Star 提示",
         "GetHelp": "获取帮助",
+        "OrganizationSetting": "组织设置",
         "LogOut": "退出登录",
         "Update": "更新",
         "Updating": "更新中...",
@@ -2525,7 +2526,7 @@
         "Description": "管理组织信息和访问权限。",
         "Nav": {
             "Organization": "组织",
-            "Billing": "账单"
+            "Billing": "套餐与订阅"
         },
         "Organization": {
             "CardTitle": "基本信息",
@@ -2549,13 +2550,13 @@
             }
         },
         "Billing": {
-            "Title": "账单",
+            "Title": "套餐与订阅",
             "Description": "查看当前组织套餐，升级到 Pro，或在 Stripe 中管理账单。",
             "UnavailableDescription": "无法加载组织账单信息。",
             "CurrentPlan": "当前套餐",
             "Loading": "加载中...",
             "LoadingBillingStatus": "正在加载账单状态...",
-            "UpgradeToPro": "升级到 Pro",
+            "UpgradeToPro": "获取早期体验",
             "ManageBilling": "管理账单",
             "Redirecting": "正在跳转...",
             "Opening": "正在打开...",
@@ -2566,6 +2567,30 @@
             "Plan": {
                 "Pro": "Pro",
                 "Hobby": "Hobby"
+            },
+            "Hobby": {
+                "Title": "Hobby（免费）",
+                "Price": "$0/mo",
+                "Features": {
+                    "ConnectPopularDatabases": "连接主流数据库",
+                    "SqlEditorAndQueryResults": "SQL 编辑器 + 查询结果",
+                    "BasicCharts": "基础图表",
+                    "AiQuotaIncluded": "包含 AI 额度",
+                    "SavePersonalQueries": "保存个人查询",
+                    "CommunitySupport": "社区支持"
+                }
+            },
+            "Pro": {
+                "Title": "Pro（建议）",
+                "Price": "Starting at $9/mo",
+                "Features": {
+                    "UnlimitedDatabaseConnections": "无限数据库连接",
+                    "HigherAiQuotaAndFasterResponses": "更高的 AI 额度和更快的响应",
+                    "AiSqlGenerationExplainOptimize": "AI 生成 SQL + explain + optimize",
+                    "EarlyAccessToUpcomingFeatures": "优先体验即将推出的功能",
+                    "AdvancedChartsAndExports": "高级图表与导出",
+                    "PrioritySupport": "优先支持"
+                }
             },
             "Details": {
                 "Plan": "套餐",
