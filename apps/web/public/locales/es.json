@@ -2525,7 +2525,7 @@
         },
         "Organization": {
             "CardTitle": "Detalles",
-            "CardDescription": "Actualiza el nombre público y el slug usados en la URL del espacio de trabajo.",
+            "CardDescription": "Actualiza el nombre público y el slug usados en la URL de la organización.",
             "Fields": {
                 "Name": "Nombre",
                 "Slug": "Slug",
@@ -2555,6 +2555,12 @@
             "ManageBilling": "Gestionar facturación",
             "Redirecting": "Redirigiendo...",
             "Opening": "Abriendo...",
+            "DesktopUpgradeToPro": "Suscribirse en el navegador",
+            "OpeningBrowser": "Abriendo el navegador...",
+            "RefreshBillingStatus": "Actualizar estado",
+            "Refreshing": "Actualizando...",
+            "RefreshComplete": "Estado de facturación actualizado",
+            "DesktopCloudUnavailable": "Conéctate a Dory Cloud antes de suscribirte desde la app de escritorio.",
             "ReadOnlyHint": "Solo los propietarios de la organización pueden mejorar, cancelar o gestionar la facturación. Tu rol actual es de solo lectura aquí.",
             "NoSubscription": "Sin suscripción",
             "NotAvailable": "N/D",

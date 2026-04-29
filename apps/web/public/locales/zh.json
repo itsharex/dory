@@ -2530,7 +2530,7 @@
         },
         "Organization": {
             "CardTitle": "基本信息",
-            "CardDescription": "更新工作区 URL 中展示的组织名称和 slug。",
+            "CardDescription": "更新组织 URL 中展示的组织名称和 slug。",
             "Fields": {
                 "Name": "名称",
                 "Slug": "Slug",
@@ -2560,6 +2560,12 @@
             "ManageBilling": "管理账单",
             "Redirecting": "正在跳转...",
             "Opening": "正在打开...",
+            "DesktopUpgradeToPro": "在浏览器中订阅",
+            "OpeningBrowser": "正在打开浏览器...",
+            "RefreshBillingStatus": "刷新状态",
+            "Refreshing": "正在刷新...",
+            "RefreshComplete": "账单状态已刷新",
+            "DesktopCloudUnavailable": "请在连接云端后订阅。",
             "ReadOnlyHint": "只有组织所有者可以升级、取消或管理账单。你当前在这里是只读权限。",
             "NoSubscription": "无订阅",
             "NotAvailable": "暂无",

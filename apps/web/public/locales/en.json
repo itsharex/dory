@@ -2528,7 +2528,7 @@
         },
         "Organization": {
             "CardTitle": "Details",
-            "CardDescription": "Update the public name and slug used in the workspace URL.",
+            "CardDescription": "Update the public name and slug used in the organization URL.",
             "Fields": {
                 "Name": "Name",
                 "Slug": "Slug",
@@ -2558,6 +2558,12 @@
             "ManageBilling": "Manage billing",
             "Redirecting": "Redirecting...",
             "Opening": "Opening...",
+            "DesktopUpgradeToPro": "Subscribe in browser",
+            "OpeningBrowser": "Opening browser...",
+            "RefreshBillingStatus": "Refresh status",
+            "Refreshing": "Refreshing...",
+            "RefreshComplete": "Billing status refreshed",
+            "DesktopCloudUnavailable": "Connect to Dory Cloud before subscribing from the desktop app.",
             "ReadOnlyHint": "Only organization owners can upgrade, cancel, or manage billing. Your current role is read-only here.",
             "NoSubscription": "No subscription",
             "NotAvailable": "N/A",

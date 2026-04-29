@@ -2525,7 +2525,7 @@
         },
         "Organization": {
             "CardTitle": "詳細",
-            "CardDescription": "ワークスペース URL に使われる公開名とスラッグを更新します。",
+            "CardDescription": "組織 URL に使われる公開名とスラッグを更新します。",
             "Fields": {
                 "Name": "名前",
                 "Slug": "スラッグ",
@@ -2555,6 +2555,12 @@
             "ManageBilling": "請求を管理",
             "Redirecting": "リダイレクト中...",
             "Opening": "開いています...",
+            "DesktopUpgradeToPro": "ブラウザでサブスクライブ",
+            "OpeningBrowser": "ブラウザを開いています...",
+            "RefreshBillingStatus": "状態を更新",
+            "Refreshing": "更新中...",
+            "RefreshComplete": "請求状況を更新しました",
+            "DesktopCloudUnavailable": "デスクトップアプリからサブスクライブする前に Dory Cloud に接続してください。",
             "ReadOnlyHint": "アップグレード、キャンセル、請求管理を行えるのは組織オーナーのみです。現在のロールではここは読み取り専用です。",
             "NoSubscription": "サブスクリプションなし",
             "NotAvailable": "該当なし",

@@ -72,7 +72,16 @@ function resolveStripeError(error: unknown): Error {
     return new Error('Billing request failed');
 }
 
-function assertRedirectUrl(result: { data?: StripeRedirectResponse | null; error?: { message?: string | null } | null }) {
+async function openBillingRedirectUrl(url: string) {
+    if (window.authBridge?.openExternal) {
+        await window.authBridge.openExternal(url);
+        return;
+    }
+
+    window.location.assign(url);
+}
+
+async function assertRedirectUrl(result: { data?: StripeRedirectResponse | null; error?: { message?: string | null } | null }) {
     if (result.error) {
         throw new Error(result.error.message || 'Billing request failed');
     }
@@ -82,7 +91,7 @@ function assertRedirectUrl(result: { data?: StripeRedirectResponse | null; error
         throw new Error('Stripe did not return a redirect URL');
     }
 
-    window.location.assign(url);
+    await openBillingRedirectUrl(url);
 }
 
 export async function getOrganizationBillingStatus(organizationId: string): Promise<OrganizationBillingStatus> {
@@ -110,7 +119,7 @@ export async function upgradeOrganizationToPro(organizationId: string, organizat
             disableRedirect: true,
         });
 
-        assertRedirectUrl(result);
+        await assertRedirectUrl(result);
     } catch (error) {
         throw resolveStripeError(error);
     }
@@ -125,7 +134,7 @@ export async function openOrganizationBillingPortal(organizationId: string, orga
             disableRedirect: true,
         });
 
-        assertRedirectUrl(result);
+        await assertRedirectUrl(result);
     } catch (error) {
         throw resolveStripeError(error);
     }

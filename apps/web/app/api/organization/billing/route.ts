@@ -1,15 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { withUserHandler } from '@/app/api/utils/with-organization-handler';
 import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { getOrganizationBillingStatus } from '@/lib/billing/server';
 import { canManageOrganizationBilling } from '@/lib/billing/authz';
+import { proxyCloudRequest, shouldProxyCloudRequest } from '@/lib/auth/auth-proxy';
 import { ErrorCodes } from '@/lib/errors';
 import { ResponseUtil } from '@/lib/result';
 import { resolveOrganizationAccess } from '@/lib/server/authz';
 
 export const runtime = 'nodejs';
 
-export const GET = withUserHandler(async ({ req, userId }) => {
+const handleGet = withUserHandler(async ({ req, userId }) => {
     const locale = await getApiLocale();
     const organizationId = req.nextUrl.searchParams.get('organizationId');
 
@@ -42,3 +43,11 @@ export const GET = withUserHandler(async ({ req, userId }) => {
         }),
     );
 });
+
+export async function GET(req: NextRequest) {
+    if (shouldProxyCloudRequest()) {
+        return proxyCloudRequest(req);
+    }
+
+    return handleGet(req);
+}
