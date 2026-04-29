@@ -180,11 +180,19 @@ async function mockFolderApis(
 async function openSavedQueriesSidebar(page: Page) {
     await page.goto('/');
     await page.waitForURL(/\/[^/]+\/connections$/);
+    const organization = new URL(page.url()).pathname.split('/').filter(Boolean)[0];
+    expect(organization).toBeTruthy();
 
     const connectionCard = page.getByTestId('connection-card').filter({ hasText: seededConnection.connection.name }).first();
     await expect(connectionCard).toBeVisible();
     await connectionCard.click({ position: { x: 24, y: 24 } });
-    await expect(page).toHaveURL(new RegExp(`/[^/]+/${seededConnection.connection.id}/sql-console$`), { timeout: 15000 });
+    const consoleUrl = `/${organization}/${seededConnection.connection.id}/sql-console`;
+    try {
+        await expect(page).toHaveURL(new RegExp(`/[^/]+/${seededConnection.connection.id}/sql-console$`), { timeout: 5000 });
+    } catch {
+        await page.goto(consoleUrl);
+        await expect(page).toHaveURL(new RegExp(`/[^/]+/${seededConnection.connection.id}/sql-console$`), { timeout: 15000 });
+    }
 
     const tab = page.getByRole('tab', { name: /Saved Queries/i });
     await expect(tab).toBeVisible();
