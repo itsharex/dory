@@ -13,15 +13,7 @@ const STEP_PAUSE_MS = Number(process.env.E2E_DEMO_STEP_PAUSE_MS ?? (CINEMATIC_MO
 const SHORT_PAUSE_MS = Number(process.env.E2E_DEMO_SHORT_PAUSE_MS ?? (CINEMATIC_MODE ? '350' : '0'));
 const FOCUS_TRANSITION_MS = Number(process.env.E2E_DEMO_FOCUS_TRANSITION_MS ?? (CINEMATIC_MODE ? '1200' : '0'));
 
-const CONNECTION = {
-    name: process.env.E2E_DEMO_CONNECTION_NAME ?? 'demo',
-    type: 'PostgreSQL',
-    host: process.env.E2E_DEMO_PG_HOST ?? '127.0.0.1',
-    port: process.env.E2E_DEMO_PG_PORT ?? '5432',
-    database: process.env.E2E_DEMO_PG_DATABASE ?? 'pagila',
-    username: process.env.E2E_DEMO_PG_USERNAME ?? 'postgres',
-    password: process.env.E2E_DEMO_PG_PASSWORD ?? 'postgres',
-} as const;
+const DEMO_CONNECTION_NAME = process.env.E2E_DEMO_CONNECTION_NAME ?? 'Demo Database';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -316,7 +308,7 @@ async function runSql(page: Parameters<typeof test>[0]['page'], sql: string) {
     return body;
 }
 
-test('demo login, postgres connection, SQL console flow, and screenshots', async ({ page, appErrors }) => {
+test('demo login, SQLite demo connection, SQL console flow, and screenshots', async ({ page, appErrors }) => {
     test.setTimeout(180_000);
 
     await loginAsDemo(page);
@@ -330,96 +322,47 @@ test('demo login, postgres connection, SQL console flow, and screenshots', async
     await beat(page);
     await saveShot(page, '01-connections.png');
 
-    let connectionCard = await waitForExistingConnectionCard(page, CONNECTION.name);
-    let connectionId: string | null = (await connectionCard.count()) > 0 ? await getConnectionIdFromCard(connectionCard.first()) : null;
+    const connectionCard = await waitForExistingConnectionCard(page, DEMO_CONNECTION_NAME, 15_000);
+    await expect(connectionCard.first()).toBeVisible();
 
+    const connectionId = await getConnectionIdFromCard(connectionCard.first());
+    expect(connectionId).toBeTruthy();
     if (!connectionId) {
-        console.log('[demo-flow] connection:create');
-        await page.getByRole('button', { name: /add connection/i }).click();
-
-        const dialog = page.getByRole('dialog', { name: /create connection/i });
-        await expect(dialog).toBeVisible();
-        await focusLocator(page, dialog, { maxScale: 2.4, padding: 0.7 });
-        await beat(page);
-
-        await dialog.getByRole('textbox', { name: /connection name/i }).fill(CONNECTION.name);
-        await dialog.getByRole('combobox', { name: /type/i }).click();
-        await page.getByRole('option', { name: CONNECTION.type }).click();
-        await dialog.getByRole('textbox', { name: /host/i }).fill(CONNECTION.host);
-        await dialog.getByRole('textbox', { name: /^port/i }).fill(CONNECTION.port);
-        await dialog.getByRole('textbox', { name: /default database/i }).fill(CONNECTION.database);
-        await dialog.getByRole('textbox', { name: /database username/i }).fill(CONNECTION.username);
-        await dialog.getByRole('textbox', { name: /^password$/i }).fill(CONNECTION.password);
-
-        const sshSwitch = dialog.getByRole('switch', { name: /^enable$/i });
-        if ((await sshSwitch.getAttribute('aria-checked')) === 'true') {
-            await sshSwitch.click();
-        }
-
-        await beat(page);
-        await saveShot(page, '02-connection-form.png');
-
-        const testResponsePromise = page.waitForResponse(response => response.url().includes('/api/connection/test') && response.request().method() === 'POST');
-        await dialog.getByRole('button', { name: /test connection/i }).click();
-        const testResponse = await testResponsePromise;
-        const testBody = await testResponse.json();
-
-        expect(testResponse.ok()).toBeTruthy();
-        expect(testBody?.data?.ok).toBeTruthy();
-
-        await beat(page);
-        await saveShot(page, '03-connection-tested.png');
-
-        const createResponsePromise = page.waitForResponse(response => response.url().endsWith('/api/connection') && response.request().method() === 'POST');
-        await dialog.getByRole('button', { name: /create connection/i }).click();
-        await createResponsePromise;
-
-        connectionCard = await getConnectionCard(page, CONNECTION.name);
-        await expect(connectionCard.first()).toBeVisible();
-
-        connectionId = await getConnectionIdFromCard(connectionCard.first());
-        expect(connectionId).toBeTruthy();
-
-        await resetFocus(page);
-        await focusLocator(page, connectionCard.first(), { maxScale: 3.1, padding: 0.58 });
-        await beat(page);
-        await saveShot(page, '04-connection-saved.png');
-        console.log(`[demo-flow] connection:created ${connectionId}`);
-    } else {
-        await focusLocator(page, connectionCard.first(), { maxScale: 3.1, padding: 0.58 });
-        await beat(page);
-        await saveShot(page, '04-connection-saved.png');
-        console.log(`[demo-flow] connection:reused ${connectionId}`);
+        throw new Error('Demo connection card is missing data-connection-id');
     }
+
+    await focusLocator(page, connectionCard.first(), { maxScale: 3.1, padding: 0.58 });
+    await beat(page);
+    await saveShot(page, '04-connection-saved.png');
+    console.log(`[demo-flow] connection:reused ${connectionId}`);
 
     console.log('[demo-flow] sql-console:goto');
     await resetFocus(page);
     await page.goto(`/${organization}/${connectionId}/sql-console`);
     await installCamera(page);
-    await ensureSqlTab(page, connectionId!);
+    await ensureSqlTab(page, connectionId);
 
-    const dbSchemaResult = await runSql(page, 'select current_database() as database_name, current_schema() as schema_name;');
+    const dbSchemaResult = await runSql(page, "select 'main' as database_name, sqlite_version() as sqlite_version;");
     expect(dbSchemaResult?.data?.queryResultSets?.[0]?.rowCount).toBe(1);
     const resultTable = page.getByTestId('result-table');
     await expect(resultTable).toBeVisible();
-    expect(dbSchemaResult?.data?.results?.[0]?.[0]?.database_name).toBe(CONNECTION.database);
-    expect(dbSchemaResult?.data?.results?.[0]?.[0]?.schema_name).toBe('public');
+    expect(dbSchemaResult?.data?.results?.[0]?.[0]?.database_name).toBe('main');
+    expect(dbSchemaResult?.data?.results?.[0]?.[0]?.sqlite_version).toBeTruthy();
     await focusLocator(page, resultTable, { maxScale: 2.8, padding: 0.58 });
-    await expect(resultTable.getByText(CONNECTION.database, { exact: true })).toBeVisible();
-    await expect(resultTable.getByText('public', { exact: true })).toBeVisible();
+    await expect(resultTable.getByText('main', { exact: true })).toBeVisible();
     await saveShot(page, '05-sql-db-schema.png');
 
-    const actorCountResult = await runSql(page, 'select count(*) as actor_count from actor;');
-    expect(Number(actorCountResult?.data?.results?.[0]?.[0]?.actor_count)).toBe(200);
+    const userCountResult = await runSql(page, 'select count(*) as user_count from users;');
+    expect(Number(userCountResult?.data?.results?.[0]?.[0]?.user_count)).toBe(100);
     await focusLocator(page, resultTable, { maxScale: 3.3, padding: 0.5 });
-    await expect(resultTable.getByText('200', { exact: true })).toBeVisible();
-    await saveShot(page, '06-sql-actor-count.png');
+    await expect(resultTable.getByText('100', { exact: true })).toBeVisible();
+    await saveShot(page, '06-sql-user-count.png');
 
-    const filmResult = await runSql(page, 'select film_id, title, release_year from film order by film_id limit 5;');
-    expect(filmResult?.data?.queryResultSets?.[0]?.rowCount ?? 0).toBeGreaterThan(0);
+    const ordersResult = await runSql(page, 'select order_id, user_id, amount, status from orders order by order_id limit 5;');
+    expect(ordersResult?.data?.queryResultSets?.[0]?.rowCount ?? 0).toBeGreaterThan(0);
     await focusLocator(page, resultTable, { maxScale: 2.4, padding: 0.56 });
     await expect(resultTable).toBeVisible();
-    await saveShot(page, '07-sql-film-sample.png');
+    await saveShot(page, '07-sql-orders-sample.png');
 
     await resetFocus(page);
     const relevantAppErrors = appErrors.filter(
