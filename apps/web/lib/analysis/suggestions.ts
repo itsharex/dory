@@ -345,6 +345,7 @@ export function buildAnalysisSuggestions(params: {
     resultContext: ResultContext;
     draft?: InsightDraft | null;
     recommendedActions?: RecommendedInsightAction[] | InsightAction[] | null;
+    recommendedActionsOnly?: boolean;
     t: AnalysisTranslate;
 }): AnalysisSuggestion[] {
     const suggestions: AnalysisSuggestion[] = [];
@@ -357,11 +358,25 @@ export function buildAnalysisSuggestions(params: {
         const actionPriority = 'priority' in action && (action.priority === 'primary' || action.priority === 'secondary') ? action.priority : 'secondary';
         pushSuggestion(
             suggestions,
-            suggestionFromInsightAction({
-                ...action,
-                priority: actionPriority,
-            } as Extract<RecommendedInsightAction, { kind: 'analysis-suggestion' }>, t),
+            suggestionFromInsightAction(
+                {
+                    ...action,
+                    priority: actionPriority,
+                } as Extract<RecommendedInsightAction, { kind: 'analysis-suggestion' }>,
+                t,
+            ),
         );
+    }
+
+    if (params.recommendedActionsOnly && suggestions.length > 0) {
+        return suggestions
+            .sort((left, right) => right.priority - left.priority)
+            .slice(0, 5)
+            .map((item, index) => ({
+                ...item,
+                priority: clampPriority(item.priority),
+                isPrimary: index === 0 ? true : item.isPrimary,
+            }));
     }
 
     const keyColumns = draft?.keyColumns;

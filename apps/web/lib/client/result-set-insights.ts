@@ -127,22 +127,11 @@ export type InsightRewriteRequest = {
     keyColumns: InsightKeyColumns;
     facts: InsightFact[];
     patterns: InsightPattern[];
-    recommendedActions: Array<{
-        id: string;
-        label: string;
-        priority: RecommendedActionPriority;
-        action?: ResultAction;
-        sqlPreview?: string;
-    }>;
     profileColumns?: Array<{
         name: string;
         semanticRole: string;
-        nonNullCount: number;
         distinctCount?: number | null;
-        distinctRatio?: number | null;
-        entropy?: number | null;
         topValueShare?: number | null;
-        informationDensity?: 'none' | 'low' | 'medium' | 'high';
         topK?: Array<{ value: string; count: number }>;
     }>;
     sampleRows?: Array<Record<string, unknown>>;
@@ -314,6 +303,125 @@ function pearsonCorrelation(points: Array<{ x: number; y: number }>) {
 
 function sampleRows(rows?: Array<Record<string, unknown>> | null) {
     return (rows ?? []).slice(0, MAX_PATTERN_ROWS);
+}
+
+function rankInsightFacts(facts: InsightFact[]) {
+    const priority = new Map<InsightFactType, number>([
+        ['risk_signal', 0],
+        ['top_message', 1],
+        ['trend_candidate', 2],
+        ['measure_spread', 3],
+        ['outlier_candidate', 4],
+        ['dominant_category', 5],
+        ['top_dimension', 6],
+    ]);
+
+    return [...facts]
+        .filter(fact => fact.severity !== 'info' || priority.has(fact.type))
+        .sort((left, right) => (priority.get(left.type) ?? 20) - (priority.get(right.type) ?? 20) || right.confidence - left.confidence)
+        .slice(0, 5);
+}
+
+function rankInsightPatterns(patterns: InsightPattern[]) {
+    const priority = new Map<InsightPattern['kind'], number>([
+        ['spike', 0],
+        ['outlier', 1],
+        ['drop', 2],
+        ['segment_shift', 3],
+        ['correlation', 4],
+    ]);
+
+    return [...patterns].sort((left, right) => (priority.get(left.kind) ?? 20) - (priority.get(right.kind) ?? 20) || right.confidence - left.confidence).slice(0, 3);
+}
+
+function compactProfileColumns(stats: ResultSetStatsV1) {
+    return Object.values(stats.columns).map(profile => ({
+        name: profile.name,
+        semanticRole: profile.semanticRole,
+        distinctCount: profile.distinctCount ?? null,
+        topValueShare: profile.topValueShare ?? null,
+        topK: profile.semanticRole === 'dimension' || profile.semanticRole === 'text' ? (profile.topK?.slice(0, 3) ?? []) : [],
+    }));
+}
+
+function rowSignature(row: Record<string, unknown>) {
+    return JSON.stringify(row);
+}
+
+function pickUniqueRow(rows: Array<Record<string, unknown>>, seen: Set<string>, predicate: (row: Record<string, unknown>) => boolean) {
+    const row = rows.find(candidate => {
+        if (!predicate(candidate)) return false;
+        return !seen.has(rowSignature(candidate));
+    });
+
+    if (!row) return null;
+    seen.add(rowSignature(row));
+    return row;
+}
+
+function selectRepresentativeSampleRows(rows: Array<Record<string, unknown>> | null | undefined, keyColumns: InsightKeyColumns, patterns: InsightPattern[]) {
+    const candidates = rows ?? [];
+    const selected: Array<Record<string, unknown>> = [];
+    const seen = new Set<string>();
+    const addRow = (row: Record<string, unknown> | null) => {
+        if (!row || selected.length >= 5) return;
+        selected.push(row);
+    };
+    const durationColumn =
+        keyColumns.measures.find(column => column.trim().toLowerCase() === 'duration_ms') ?? keyColumns.measures.find(column => column.trim().toLowerCase().includes('duration'));
+
+    if (durationColumn) {
+        const highDurationRows = candidates
+            .map(row => ({ row, value: toNumericValue(row[durationColumn]) }))
+            .filter((item): item is { row: Record<string, unknown>; value: number } => typeof item.value === 'number')
+            .sort((left, right) => right.value - left.value)
+            .slice(0, 2);
+
+        for (const item of highDurationRows) {
+            const signature = rowSignature(item.row);
+            if (seen.has(signature)) continue;
+            seen.add(signature);
+            addRow(item.row);
+        }
+    }
+
+    const outlierPattern = patterns.find(pattern => pattern.kind === 'outlier');
+    const outlierColumn = outlierPattern?.columns[0];
+    const outlierValue = outlierPattern?.metrics.value;
+    if (outlierColumn && outlierValue != null) {
+        addRow(
+            pickUniqueRow(candidates, seen, row => {
+                const value = row[outlierColumn];
+                if (typeof outlierValue === 'number') return toNumericValue(value) === outlierValue;
+                return String(value) === String(outlierValue);
+            }),
+        );
+    }
+
+    const durationValues = durationColumn ? candidates.map(candidate => toNumericValue(candidate[durationColumn])).filter((item): item is number => typeof item === 'number') : [];
+    const highDurationCutoff = durationValues.length ? quantile(durationValues, 0.95) : null;
+    const ordinaryRows = candidates.filter(row => {
+        if (durationColumn && selected.length < 4) {
+            const value = toNumericValue(row[durationColumn]);
+            if (typeof value === 'number' && highDurationCutoff != null && value >= highDurationCutoff) return false;
+        }
+        return true;
+    });
+
+    let ordinaryCount = 0;
+    for (const row of ordinaryRows) {
+        if (ordinaryCount >= 2 || selected.length >= 5) break;
+        const before = selected.length;
+        addRow(pickUniqueRow([row], seen, () => true));
+        if (selected.length > before) ordinaryCount += 1;
+    }
+
+    for (const row of candidates) {
+        if (selected.length >= Math.min(3, candidates.length)) break;
+        addRow(pickUniqueRow([row], seen, () => true));
+    }
+
+    return selected;
 }
 
 export function buildKeyColumns(columns: ResultColumnMeta[] | null | undefined, stats: ResultSetStatsV1 | null | undefined): InsightKeyColumns {
@@ -939,6 +1047,10 @@ function mergeRecommendedActions(context: InsightRuleContext, ruleActions: Recom
         });
     }
 
+    if (merged.length) {
+        return normalizeRecommendedActions(merged);
+    }
+
     for (const action of ruleActions) {
         if (action.kind !== 'analysis-suggestion') {
             merged.push(action);
@@ -1088,35 +1200,17 @@ export function buildInsightRewriteRequest(context: InsightRuleContext): Insight
     }
 
     const draft = buildInsightDraft(context);
+    const compactPatterns = rankInsightPatterns(draft.patterns);
 
     return {
         locale: context.locale,
         sqlText: context.sqlText ?? null,
         summary: context.stats.summary,
         keyColumns: draft.keyColumns,
-        facts: draft.facts,
-        patterns: draft.patterns,
-        recommendedActions: draft.recommendedActions
-            .filter(action => action.kind === 'analysis-suggestion' && (!!action.action || !!action.sqlPreview))
-            .map(action => ({
-                id: action.id,
-                label: action.label,
-                priority: action.priority,
-                action: action.kind === 'analysis-suggestion' ? action.action : undefined,
-                sqlPreview: action.kind === 'analysis-suggestion' ? action.sqlPreview : undefined,
-            })),
-        profileColumns: Object.values(context.stats.columns).map(profile => ({
-            name: profile.name,
-            semanticRole: profile.semanticRole,
-            nonNullCount: profile.nonNullCount,
-            distinctCount: profile.distinctCount ?? null,
-            distinctRatio: profile.distinctRatio ?? null,
-            entropy: profile.entropy ?? null,
-            topValueShare: profile.topValueShare ?? null,
-            informationDensity: profile.informationDensity ?? 'none',
-            topK: profile.topK ?? [],
-        })),
-        sampleRows: sampleRows(context.rows).slice(0, 30),
+        facts: rankInsightFacts(draft.facts),
+        patterns: compactPatterns,
+        profileColumns: compactProfileColumns(context.stats),
+        sampleRows: selectRepresentativeSampleRows(context.rows, draft.keyColumns, compactPatterns),
     };
 }
 

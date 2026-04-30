@@ -363,6 +363,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
             resultContext,
             draft,
             recommendedActions: structured.recommendedActions,
+            recommendedActionsOnly: !!rewritten?.recommendedActions?.length || !!rewritten?.recommendedSql?.trim(),
             t: (key, values) => t(key as any, values),
         });
         return {

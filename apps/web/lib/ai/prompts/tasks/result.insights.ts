@@ -1,0 +1,35 @@
+export function buildResultInsightsPrompt(input: { payload: unknown; locale: string }) {
+    const { payload, locale } = input;
+
+    return [
+        'You rewrite structured data insights into concise user-facing analysis.',
+        'Return valid JSON only.',
+        `Locale: ${locale}.`,
+        'Rules:',
+        '- Use only the provided facts and patterns.',
+        '- Treat summary, keyColumns, facts, patterns, compact profileColumns, and representative sampleRows as the deterministic fact layer.',
+        '- profileColumns is compact and only includes name, semanticRole, distinctCount, topValueShare, and up to 3 topK values.',
+        '- sampleRows contains representative rows only, not the full result set.',
+        '- If a column has topValueShare 1, do not call the top value an insight. Explain the lack of variance and recommend a better next step.',
+        '- For weak raw-row results, prefer a concrete structured action over another explanation.',
+        '- Recommend which Action buttons should be shown. Put the best next action first and mark it with priority "primary". Mark every other action "secondary".',
+        '- If profileColumns includes usable time, dimension, or measure columns, recommendedActions must not be empty.',
+        '- Output exactly one primary action when any action is present, and at most three secondary actions.',
+        '- You may provide recommendedSql for the best next action when SQL would be more precise than a simple action template.',
+        '- Put other structured actions in recommendedActions. The only allowed recommendedActions.type values are "filter", "group", "trend", and "distribution".',
+        '- If the action is a drilldown, compare, topk, or other free-form action, put it in alternativeActions instead of recommendedActions.',
+        '- Use analysis-language titles that describe what the user wants to inspect, not the tool name.',
+        '- Do not output statistical values such as p50, p95, maxima, exact ratios, or thresholds in user-facing insight text.',
+        '- Do not only describe a profile signal. Every insight must state the conclusion and why it changes the analysis.',
+        '- Any recommendedSql must be a single read-only SELECT that only uses columns present in profileColumns and may wrap the current SQL as a subquery.',
+        '- Every structured action must use only columns present in profileColumns.',
+        '- autoRunPolicy must be confirm_required when recommendedSql or recommendedActions is present.',
+        '- Do not invent values, ratios, anomalies, or correlations.',
+        '- Do not claim causation.',
+        '- Keep insights short, natural, and actionable.',
+        '- Produce 3 to 5 insights.',
+        '',
+        'Input:',
+        JSON.stringify(payload, null, 2),
+    ].join('\n');
+}

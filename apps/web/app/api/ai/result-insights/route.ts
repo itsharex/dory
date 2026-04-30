@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { withUserAndOrganizationHandler } from '@/app/api/utils/with-organization-handler';
 import { getApiLocale } from '@/app/api/utils/i18n';
 import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
+import { buildResultInsightsPrompt } from '@/lib/ai/prompts';
 import { runLLMJson } from '@/lib/copilot/action/server/llm-json';
 
 export const runtime = 'nodejs';
@@ -46,28 +47,13 @@ const requestSchema = z.object({
             metrics: z.record(z.string(), z.union([z.string(), z.number()])),
         }),
     ),
-    recommendedActions: z
-        .array(
-            z.object({
-                id: z.string(),
-                label: z.string(),
-                priority: z.enum(['primary', 'secondary']),
-                action: z.unknown().optional(),
-                sqlPreview: z.string().optional(),
-            }),
-        )
-        .optional(),
     profileColumns: z
         .array(
             z.object({
                 name: z.string(),
                 semanticRole: z.string(),
-                nonNullCount: z.number(),
                 distinctCount: z.number().nullable().optional(),
-                distinctRatio: z.number().nullable().optional(),
-                entropy: z.number().nullable().optional(),
                 topValueShare: z.number().nullable().optional(),
-                informationDensity: z.enum(['none', 'low', 'medium', 'high']).optional(),
                 topK: z.array(z.object({ value: z.string(), count: z.number() })).optional(),
             }),
         )
@@ -127,6 +113,7 @@ const recommendedResultActionSchema = resultActionSchema.and(
         priority: z.enum(['primary', 'secondary']).optional(),
     }),
 );
+type RecommendedResultAction = z.infer<typeof recommendedResultActionSchema>;
 
 const responseSchema = z.object({
     analysisState: z.enum(['invalid', 'weak', 'good', 'actionable']).optional(),
@@ -139,7 +126,7 @@ const responseSchema = z.object({
     primaryInsight: z.string().optional(),
     limitations: z.array(z.string()).max(5).optional(),
     recommendedSql: z.string().nullable().optional(),
-    recommendedActions: z.array(recommendedResultActionSchema).max(5).optional(),
+    recommendedActions: z.array(z.unknown()).max(5).optional(),
     alternativeActions: z
         .array(
             z.object({
@@ -181,43 +168,128 @@ function stringifyInsight(value: z.infer<typeof responseSchema>['insights'][numb
     return (value.summary ?? value.insight ?? value.description ?? value.title ?? '').trim();
 }
 
+function actionColumns(action: RecommendedResultAction) {
+    if (action.type === 'filter') return [action.params.column];
+    if (action.type === 'group') return [...action.params.dimensions, action.params.measure?.column].filter((column): column is string => !!column);
+    if (action.type === 'trend') return [action.params.timeColumn, action.params.measure?.column].filter((column): column is string => !!column);
+    return [action.params.column];
+}
+
+function filterAllowedActions(actions: RecommendedResultAction[], allowedColumns: Set<string>) {
+    return actions.filter(action => {
+        if (!allowedColumns.size) return true;
+        return actionColumns(action).every(column => allowedColumns.has(column));
+    });
+}
+
+function actionSignature(action: RecommendedResultAction) {
+    return `${action.type}:${JSON.stringify(action.params)}`;
+}
+
+function normalizeRecommendedActions(actions: RecommendedResultAction[]) {
+    const seen = new Set<string>();
+    const deduped = actions.filter(action => {
+        const signature = actionSignature(action);
+        if (seen.has(signature)) return false;
+        seen.add(signature);
+        return true;
+    });
+
+    return deduped.slice(0, 4).map((action, index) => ({
+        ...action,
+        priority: index === 0 ? 'primary' : 'secondary',
+    }));
+}
+
+function title(locale: string, zh: string, en: string) {
+    return locale.toLowerCase().startsWith('zh') ? zh : en;
+}
+
+function buildFallbackRecommendedActions(payload: z.infer<typeof requestSchema>, allowedColumns: Set<string>) {
+    const locale = payload.locale;
+    const actions: RecommendedResultAction[] = [];
+    const isAllowedColumn = (column?: string | null) => !!column && (!allowedColumns.size || allowedColumns.has(column));
+    const profileColumns = payload.profileColumns ?? [];
+    const primaryMeasure =
+        payload.keyColumns.measures.find(isAllowedColumn) ?? profileColumns.find(column => column.semanticRole === 'measure' && isAllowedColumn(column.name))?.name;
+    const primaryDimension =
+        payload.keyColumns.dimensions.find(isAllowedColumn) ?? profileColumns.find(column => column.semanticRole === 'dimension' && isAllowedColumn(column.name))?.name;
+    const timeColumn =
+        (isAllowedColumn(payload.keyColumns.time) ? payload.keyColumns.time : undefined) ??
+        profileColumns.find(column => column.semanticRole === 'time' && isAllowedColumn(column.name))?.name;
+    const outlierPattern = payload.patterns.find(pattern => pattern.kind === 'outlier');
+    const outlierColumn = outlierPattern?.columns[0];
+    const outlierValue = outlierPattern?.metrics.value;
+
+    if (timeColumn) {
+        actions.push({
+            type: 'trend',
+            title: title(locale, `查看 ${timeColumn} 趋势`, `View trend by ${timeColumn}`),
+            params: {
+                timeColumn,
+                measure: primaryMeasure
+                    ? {
+                          column: primaryMeasure,
+                          aggregation: 'SUM',
+                      }
+                    : undefined,
+                limit: 50,
+            },
+        });
+    }
+
+    if (primaryDimension) {
+        actions.push({
+            type: 'group',
+            title: title(locale, `按 ${primaryDimension} 分组分析`, `Analyze by ${primaryDimension}`),
+            params: {
+                dimensions: [primaryDimension],
+                measure: primaryMeasure
+                    ? {
+                          column: primaryMeasure,
+                          aggregation: 'SUM',
+                      }
+                    : undefined,
+                limit: 20,
+            },
+        });
+    }
+
+    if (primaryMeasure) {
+        actions.push({
+            type: 'distribution',
+            title: title(locale, `查看 ${primaryMeasure} 分布`, `View ${primaryMeasure} distribution`),
+            params: {
+                column: primaryMeasure,
+            },
+        });
+    }
+
+    if (outlierColumn && typeof outlierValue === 'number' && Number.isFinite(outlierValue) && (!allowedColumns.size || allowedColumns.has(outlierColumn))) {
+        actions.push({
+            type: 'filter',
+            title: title(locale, `检查 ${outlierColumn} 高值行`, `Inspect high ${outlierColumn} rows`),
+            params: {
+                column: outlierColumn,
+                operator: '>',
+                value: outlierValue,
+            },
+        });
+    }
+
+    return normalizeRecommendedActions(filterAllowedActions(actions, allowedColumns));
+}
+
 function normalizeResultInsightResponse(input: z.infer<typeof responseSchema>, payload: z.infer<typeof requestSchema>) {
     const insights = input.insights.map(stringifyInsight).filter(Boolean).slice(0, 5);
     const fallbackTitle = input.primaryInsight ?? insights[0] ?? 'Analysis';
     const allowedColumns = new Set(payload.profileColumns?.map(column => column.name) ?? []);
     const aiRecommendedActions = (input.recommendedActions ?? [])
-        .filter(action => {
-            if (!allowedColumns.size) return true;
-            if (action.type === 'filter') return allowedColumns.has(action.params.column);
-            if (action.type === 'group')
-                return action.params.dimensions.every(column => allowedColumns.has(column)) && (!action.params.measure || allowedColumns.has(action.params.measure.column));
-            if (action.type === 'trend') return allowedColumns.has(action.params.timeColumn) && (!action.params.measure || allowedColumns.has(action.params.measure.column));
-            return allowedColumns.has(action.params.column);
-        })
-        .slice(0, 4)
-        .map((action, index) => ({
-            ...action,
-            priority: index === 0 ? 'primary' : 'secondary',
-        }));
-    const fallbackRecommendedActions = (payload.recommendedActions ?? [])
-        .map(action => resultActionSchema.safeParse(action.action).data)
-        .filter((action): action is z.infer<typeof resultActionSchema> => !!action)
-        .filter(action => {
-            if (!allowedColumns.size) return true;
-            if (action.type === 'filter') return allowedColumns.has(action.params.column);
-            if (action.type === 'group')
-                return action.params.dimensions.every(column => allowedColumns.has(column)) && (!action.params.measure || allowedColumns.has(action.params.measure.column));
-            if (action.type === 'trend') return allowedColumns.has(action.params.timeColumn) && (!action.params.measure || allowedColumns.has(action.params.measure.column));
-            return allowedColumns.has(action.params.column);
-        })
-        .slice(0, 4)
-        .map((action, index) => ({
-            ...action,
-            priority: index === 0 ? 'primary' : 'secondary',
-        }));
-    const recommendedActions = aiRecommendedActions.length ? aiRecommendedActions : fallbackRecommendedActions;
-    const fallbackRecommendedSql = payload.recommendedActions?.find(action => action.priority === 'primary' && action.sqlPreview?.trim())?.sqlPreview?.trim() ?? null;
-    const recommendedSql = input.recommendedSql?.trim() || fallbackRecommendedSql;
+        .map(action => recommendedResultActionSchema.safeParse(action).data)
+        .filter((action): action is RecommendedResultAction => !!action);
+    const recommendedActions = normalizeRecommendedActions(filterAllowedActions(aiRecommendedActions, allowedColumns));
+    const fallbackRecommendedActions = recommendedActions.length ? recommendedActions : buildFallbackRecommendedActions(payload, allowedColumns);
+    const recommendedSql = input.recommendedSql?.trim() || null;
 
     return {
         ...input,
@@ -228,40 +300,9 @@ function normalizeResultInsightResponse(input: z.infer<typeof responseSchema>, p
         primaryInsight: input.primaryInsight ?? insights[0],
         insights: insights.length >= 3 ? insights : [...insights, ...payload.facts.map(fact => fact.narrativeHint).filter((item): item is string => !!item)].slice(0, 5),
         recommendedSql,
-        recommendedActions,
-        autoRunPolicy: recommendedSql || recommendedActions.length ? 'confirm_required' : input.autoRunPolicy,
+        recommendedActions: fallbackRecommendedActions,
+        autoRunPolicy: recommendedSql || fallbackRecommendedActions.length ? 'confirm_required' : input.autoRunPolicy,
     };
-}
-
-function buildPrompt(input: z.infer<typeof requestSchema>, locale: string) {
-    return [
-        `You rewrite structured data insights into concise user-facing analysis.`,
-        `Return valid JSON only.`,
-        `Locale: ${locale}.`,
-        `Rules:`,
-        `- Use only the provided facts and patterns.`,
-        `- Treat profileColumns as the deterministic fact layer. Use entropy, distinctRatio, topValueShare, and informationDensity to decide whether the result is invalid, weak, good, or actionable.`,
-        `- If a column has entropy 0, informationDensity none, or topValueShare 1, do not call the top value an insight. Explain the lack of variance and recommend a better next step.`,
-        `- For weak raw-row results, prefer a concrete structured action over another explanation.`,
-        `- The input includes deterministic recommendedActions. You may improve their order or wording, but if you cannot produce better actions, keep those actions.`,
-        `- Recommend which Action buttons should be shown. Put the best next action first and mark it with priority "primary". Mark every other action "secondary".`,
-        `- Output exactly one primary action when any action is present, and at most three secondary actions.`,
-        `- You may provide recommendedSql for the best next action when SQL would be more precise than a simple action template.`,
-        `- Put other structured actions in recommendedActions. They must be filter, group, trend, or distribution.`,
-        `- Use analysis-language titles that describe what the user wants to inspect, not the tool name.`,
-        `- Do not output statistical values such as p50, p95, maxima, exact ratios, or thresholds in user-facing insight text.`,
-        `- Do not only describe a profile signal. Every insight must state the conclusion and why it changes the analysis.`,
-        `- Any recommendedSql must be a single read-only SELECT that only uses columns present in profileColumns and may wrap the current SQL as a subquery.`,
-        `- Every structured action must use only columns present in profileColumns.`,
-        `- autoRunPolicy must be confirm_required when recommendedSql or recommendedActions is present.`,
-        `- Do not invent values, ratios, anomalies, or correlations.`,
-        `- Do not claim causation.`,
-        `- Keep insights short, natural, and actionable.`,
-        `- Produce 3 to 5 insights.`,
-        ``,
-        `Input:`,
-        JSON.stringify(input, null, 2),
-    ].join('\n');
 }
 
 export const POST = withUserAndOrganizationHandler(async ({ req, organizationId, userId }) => {
@@ -282,7 +323,7 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
         }
 
         const result = await runLLMJson({
-            prompt: buildPrompt(payload, locale),
+            prompt: buildResultInsightsPrompt({ payload, locale }),
             schema: responseSchema,
             temperature: 0.2,
             maxRetries: 1,

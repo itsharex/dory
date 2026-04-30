@@ -28,11 +28,12 @@ export async function fetchInsightRewrite(cacheKey: string) {
     })
         .then(async response => {
             const payload = (await response.json().catch(() => null)) as InsightRewriteResponse | null;
-            insightRewriteCache.set(cacheKey, payload ?? null);
+            if (payload) {
+                insightRewriteCache.set(cacheKey, payload);
+            }
             return payload ?? null;
         })
         .catch(() => {
-            insightRewriteCache.set(cacheKey, null);
             return null;
         })
         .finally(() => {
