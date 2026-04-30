@@ -6,7 +6,7 @@ import type { ActionIntent, ActionResult, ActionContext } from '@/lib/copilot/ac
 import { getLocalizedQuickActions, getQuickActionAvailability } from '@/lib/copilot/action/registry';
 import { runQuickActionClient } from '@/lib/copilot/action/client/runQuickActionClient';
 
-import { QuickActionList, QuickActionListItem } from './QuickActionList';
+import { QuickActionList, type QuickActionListItem } from './QuickActionList';
 import { ActionResultPanel } from './ActionResultPanel/ActionResultPanel';
 import { CopilotFixInput } from '@/app/(app)/[organization]/[connectionId]/chatbot/copilot/types/copilot-fix-input';
 import { useTranslations } from 'next-intl';

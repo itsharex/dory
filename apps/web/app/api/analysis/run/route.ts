@@ -41,7 +41,16 @@ const insightSchema = z.object({
     decision: z.object({
         title: z.string(),
         impact: z.string(),
-        recommendedActions: z.array(z.object({}).passthrough()),
+        items: z.array(
+            z.object({
+                id: z.string(),
+                title: z.string(),
+                summary: z.string(),
+                severity: z.enum(['info', 'warning', 'critical']),
+                confidence: z.enum(['high', 'medium', 'low']),
+                actions: z.array(z.object({}).passthrough()),
+            }),
+        ),
     }),
     signals: z.array(z.object({}).passthrough()),
     findings: z.array(
@@ -51,10 +60,10 @@ const insightSchema = z.object({
             summary: z.string(),
             severity: z.enum(['info', 'warning', 'critical']),
             confidence: z.enum(['high', 'medium', 'low']),
+            actions: z.array(z.object({}).passthrough()),
         }),
     ),
     narrative: z.string(),
-    recommendedActions: z.array(z.object({}).passthrough()),
 });
 
 const resultActionSchema = z.discriminatedUnion('type', [

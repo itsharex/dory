@@ -65,11 +65,19 @@ export type RecommendedInsightAction = InsightAction & {
     priority: RecommendedActionPriority;
 };
 
+export type InsightItem = {
+    id: string;
+    title: string;
+    summary: string;
+    severity: 'info' | 'warning' | 'critical';
+    confidence: 'high' | 'medium' | 'low';
+    actions: RecommendedInsightAction[];
+};
+
 export type InsightDecisionCard = {
     title: string;
     impact: string;
-    insights: string[];
-    recommendedActions: RecommendedInsightAction[];
+    items: InsightItem[];
 };
 
 export type InsightKeyColumns = {
@@ -100,6 +108,7 @@ export type InsightViewModel = {
     recommendedActions: RecommendedInsightAction[];
     source: 'rules' | 'llm';
     advancedPatterns?: InsightPattern[];
+    rewriteItems?: InsightRewriteItem[];
 };
 
 export type InsightStructuredSignal = InsightFact | InsightPattern;
@@ -110,6 +119,7 @@ export type InsightStructuredFinding = {
     summary: string;
     severity: 'info' | 'warning' | 'critical';
     confidence: 'high' | 'medium' | 'low';
+    actions: RecommendedInsightAction[];
 };
 
 export type StructuredInsightView = {
@@ -117,7 +127,6 @@ export type StructuredInsightView = {
     signals: InsightStructuredSignal[];
     findings: InsightStructuredFinding[];
     narrative: string;
-    recommendedActions: RecommendedInsightAction[];
 };
 
 export type InsightRewriteRequest = {
@@ -142,23 +151,22 @@ export type InsightRewriteResponse = {
         title: string;
         subtitle?: string;
     };
-    insights: string[];
+    items: InsightRewriteItem[];
     analysisState?: 'invalid' | 'weak' | 'good' | 'actionable';
     primaryInsight?: string;
     limitations?: string[];
     recommendedSql?: string | null;
-    recommendedActions?: Array<ResultAction & { priority?: RecommendedActionPriority }>;
-    alternativeActions?: Array<{
-        id?: string;
-        label: string;
-        description: string;
-        kind?: 'drilldown' | 'trend' | 'distribution' | 'topk' | 'compare';
-        recommendedSql?: string | null;
-    }>;
     autoRunPolicy?: 'confirm_required';
     reasoning?: {
         priorities: string[];
     };
+};
+
+export type InsightRewriteItem = {
+    id: string;
+    title: string;
+    summary: string;
+    actions: Array<ResultAction & { priority?: RecommendedActionPriority }>;
 };
 
 export type InsightRuleContext = {
@@ -808,9 +816,9 @@ function actionFromPattern(context: InsightRuleContext, pattern: InsightPattern,
     };
 }
 
-function normalizeRecommendedActions(actions: Array<InsightAction & { priority?: RecommendedActionPriority }>): RecommendedInsightAction[] {
+function normalizeRecommendedActions(actions: Array<InsightAction & { priority?: RecommendedActionPriority }>, limit = 4): RecommendedInsightAction[] {
     const executableActions = actions.filter(action => action.kind !== 'analysis-suggestion' || !!action.action || !!action.sqlPreview);
-    const limited = executableActions.slice(0, 4);
+    const limited = executableActions.slice(0, limit);
     const primaryIndex = Math.max(
         0,
         limited.findIndex(action => action.priority === 'primary'),
@@ -820,6 +828,10 @@ function normalizeRecommendedActions(actions: Array<InsightAction & { priority?:
         ...action,
         priority: index === primaryIndex ? 'primary' : 'secondary',
     }));
+}
+
+function normalizeInsightActions(actions: Array<InsightAction & { priority?: RecommendedActionPriority }>): RecommendedInsightAction[] {
+    return normalizeRecommendedActions(actions).slice(0, 3);
 }
 
 function buildRecommendedActions(context: InsightRuleContext, keyColumns: InsightKeyColumns, facts: InsightFact[], patterns: InsightPattern[]): RecommendedInsightAction[] {
@@ -976,7 +988,7 @@ function buildRecommendedActions(context: InsightRuleContext, keyColumns: Insigh
     }
 
     const deduped = actions.filter((action, index) => actions.findIndex(candidate => candidate.id === action.id) === index);
-    return normalizeRecommendedActions(deduped);
+    return normalizeRecommendedActions(deduped, 8);
 }
 
 function actionColumns(action: ResultAction) {
@@ -1003,7 +1015,23 @@ function actionKind(action: ResultAction) {
     return 'analyze-source';
 }
 
-function mergeRecommendedActions(context: InsightRuleContext, ruleActions: RecommendedInsightAction[], rewritten?: InsightRewriteResponse | null) {
+function rewriteActionToInsightAction(
+    context: InsightRuleContext,
+    action: ResultAction & { priority?: RecommendedActionPriority },
+    suggestionId: string,
+): RecommendedInsightAction | null {
+    if (!isValidResultAction(action, context)) return null;
+    return {
+        id: suggestionId,
+        label: action.title,
+        kind: 'analysis-suggestion',
+        suggestionId,
+        action,
+        priority: action.priority === 'primary' ? 'primary' : 'secondary',
+    };
+}
+
+function buildRewriteActions(context: InsightRuleContext, rewritten?: InsightRewriteResponse | null) {
     const seen = new Set<string>();
     const merged: Array<InsightAction & { priority?: RecommendedActionPriority }> = [];
 
@@ -1019,48 +1047,22 @@ function mergeRecommendedActions(context: InsightRuleContext, ruleActions: Recom
         });
     }
 
-    for (const [index, action] of (rewritten?.recommendedActions ?? []).entries()) {
-        if (!isValidResultAction(action, context)) continue;
-        const signature = actionSignature(action);
-        if (seen.has(signature)) continue;
-        seen.add(signature);
-        const suggestionId = `ai-${actionKind(action)}-${index + 1}`;
-        merged.push({
-            id: suggestionId,
-            label: action.title,
-            kind: 'analysis-suggestion',
-            suggestionId,
-            action,
-            priority: action.priority,
-        });
-    }
-
-    for (const [index, action] of (rewritten?.alternativeActions ?? []).entries()) {
-        const sqlPreview = action.recommendedSql?.trim();
-        if (!sqlPreview) continue;
-        merged.push({
-            id: action.id?.trim() || `ai-alternative-sql-${index + 1}`,
-            label: action.label.trim(),
-            kind: 'analysis-suggestion',
-            suggestionId: action.id?.trim() || `ai-alternative-sql-${index + 1}`,
-            sqlPreview,
-        });
-    }
-
-    if (merged.length) {
-        return normalizeRecommendedActions(merged);
-    }
-
-    for (const action of ruleActions) {
-        if (action.kind !== 'analysis-suggestion') {
-            merged.push(action);
-            continue;
+    for (const [itemIndex, item] of (rewritten?.items ?? []).entries()) {
+        for (const [actionIndex, action] of item.actions.entries()) {
+            if (!isValidResultAction(action, context)) continue;
+            const signature = actionSignature(action);
+            if (seen.has(signature)) continue;
+            seen.add(signature);
+            const suggestionId = `ai-${actionKind(action)}-${itemIndex + 1}-${actionIndex + 1}`;
+            merged.push({
+                id: suggestionId,
+                label: action.title,
+                kind: 'analysis-suggestion',
+                suggestionId,
+                action,
+                priority: action.priority,
+            });
         }
-        if (!action.action) continue;
-        const signature = actionSignature(action.action);
-        if (seen.has(signature)) continue;
-        seen.add(signature);
-        merged.push(action);
     }
 
     return normalizeRecommendedActions(merged);
@@ -1163,14 +1165,18 @@ export function buildInsightDraft(context: InsightRuleContext): InsightDraft {
 export function buildInsights(context: InsightRuleContext, rewritten?: InsightRewriteResponse | null): InsightViewModel {
     const draft = buildInsightDraft(context);
 
-    if (rewritten?.insights?.length) {
+    if (rewritten?.items?.length) {
         return {
             quickSummary: rewritten.quickSummary ?? draft.quickSummary,
-            insights: rewritten.insights.slice(0, 5),
+            insights: rewritten.items
+                .map(item => item.summary || item.title)
+                .filter(Boolean)
+                .slice(0, 5),
             keyColumns: draft.keyColumns,
-            recommendedActions: mergeRecommendedActions(context, draft.recommendedActions, rewritten),
+            recommendedActions: buildRewriteActions(context, rewritten),
             source: 'llm',
             advancedPatterns: draft.patterns,
+            rewriteItems: rewritten.items,
         };
     }
 
@@ -1231,121 +1237,135 @@ function findingSeverity(source: InsightFact | InsightPattern): 'info' | 'warnin
     return 'info';
 }
 
-function buildInsightDecision(params: { context: InsightRuleContext; draft: InsightDraft; view: InsightViewModel; findings: InsightStructuredFinding[] }) {
-    const { context, draft, findings } = params;
-    const { t } = context;
-    const primaryMeasure = draft.keyColumns.measures[0];
-    const outlierPattern = draft.patterns.find(pattern => pattern.kind === 'outlier');
-    const spreadFact = draft.facts.find(fact => fact.type === 'measure_spread');
-    const riskFact = draft.facts.find(fact => fact.type === 'risk_signal');
-    const lowInformationFact = draft.facts.find(fact => fact.type === 'low_information_dimension');
-    const topDimensionFact = draft.facts.find(fact => fact.type === 'top_dimension' || fact.type === 'dominant_category');
-    const timePattern = draft.patterns.find(pattern => pattern.kind === 'spike' || pattern.kind === 'drop');
-    const trendFact = draft.facts.find(fact => fact.type === 'trend_candidate');
-    const recommendedActions = normalizeRecommendedActions(params.view.recommendedActions);
+function sourceColumns(source: InsightFact | InsightPattern) {
+    return new Set(source.columns ?? []);
+}
 
-    if (params.view.source === 'llm' && params.view.insights[0]) {
-        const title = params.view.quickSummary.title;
-        const insights = params.view.insights.filter(Boolean).slice(0, 5);
-        const impact = insights.find(insight => insight !== title) ?? params.view.quickSummary.subtitle ?? t('Insights.Decision.DefaultImpact');
-        return {
-            title,
-            impact,
-            insights,
-            recommendedActions,
-        };
+function sourceActionScore(source: InsightFact | InsightPattern, action: RecommendedInsightAction) {
+    if (action.kind !== 'analysis-suggestion') return 0;
+    if (!action.action && !action.sqlPreview) return -1;
+    if (action.sqlPreview) return 1;
+
+    const resultAction = action.action;
+    if (!resultAction) return -1;
+
+    const actionColumnSet = new Set(actionColumns(resultAction));
+    const overlap = [...sourceColumns(source)].filter(column => actionColumnSet.has(column)).length;
+    const actionType = resultAction.type;
+    let score = overlap * 4;
+
+    if ('kind' in source) {
+        if ((source.kind === 'spike' || source.kind === 'drop') && actionType === 'trend') score += 8;
+        if (source.kind === 'outlier' && (actionType === 'filter' || actionType === 'distribution')) score += 8;
+        if (source.kind === 'correlation' && (actionType === 'group' || actionType === 'distribution')) score += 4;
+    } else {
+        if (source.type === 'risk_signal' && (actionType === 'group' || actionType === 'trend' || actionType === 'filter')) score += 8;
+        if (source.type === 'measure_spread' && (actionType === 'filter' || actionType === 'distribution' || actionType === 'trend')) score += 8;
+        if (source.type === 'trend_candidate' && actionType === 'trend') score += 8;
+        if ((source.type === 'dominant_category' || source.type === 'top_dimension' || source.type === 'top_message') && actionType === 'group') score += 8;
+        if (source.type === 'low_information_dimension' && actionType === 'group') score += 5;
     }
 
-    if (primaryMeasure && (outlierPattern || spreadFact)) {
-        return {
-            title: t('Insights.Decision.OutlierTitle', { column: primaryMeasure }),
-            impact: t('Insights.Decision.OutlierImpact'),
-            insights: [t('Insights.Decision.OutlierImpact')],
-            recommendedActions,
-        };
+    return score;
+}
+
+function actionsForSource(source: InsightFact | InsightPattern, actions: RecommendedInsightAction[]) {
+    const scored = actions
+        .map((action, index) => ({
+            action,
+            index,
+            score: sourceActionScore(source, action),
+        }))
+        .filter(item => item.score > 0)
+        .sort((left, right) => right.score - left.score || left.index - right.index)
+        .map(item => item.action);
+
+    return normalizeInsightActions(scored);
+}
+
+function buildFallbackItemActions(source: InsightFact | InsightPattern, draft: InsightDraft) {
+    return actionsForSource(source, draft.recommendedActions);
+}
+
+function buildCandidateActionPool(view: InsightViewModel, draft: InsightDraft) {
+    const seen = new Set<string>();
+    const actions: RecommendedInsightAction[] = [];
+
+    for (const action of [...view.recommendedActions, ...draft.recommendedActions]) {
+        const signature = action.kind === 'analysis-suggestion' && action.action ? actionSignature(action.action) : action.id;
+        if (seen.has(signature)) continue;
+        seen.add(signature);
+        actions.push(action);
     }
 
-    if (riskFact) {
-        return {
-            title: t('Insights.Decision.RiskTitle', {
-                column: String(riskFact.columns?.[0] ?? t('Insights.Card.CurrentResult')),
-            }),
-            impact: t('Insights.Decision.RiskImpact'),
-            insights: [t('Insights.Decision.RiskImpact')],
-            recommendedActions,
-        };
-    }
+    return actions;
+}
 
-    if (lowInformationFact) {
-        return {
-            title: t('Insights.Decision.LowInformationTitle', {
-                column: String(lowInformationFact.columns?.[0] ?? t('Insights.Card.CurrentResult')),
-            }),
-            impact: t('Insights.Decision.LowInformationImpact'),
-            insights: [t('Insights.Decision.LowInformationImpact')],
-            recommendedActions,
-        };
-    }
+function rewriteItemActions(context: InsightRuleContext, item: InsightRewriteItem, itemIndex: number) {
+    return normalizeInsightActions(
+        item.actions
+            .map((action, actionIndex) => rewriteActionToInsightAction(context, action, `ai-${actionKind(action)}-${itemIndex + 1}-${actionIndex + 1}`))
+            .filter((action): action is RecommendedInsightAction => !!action),
+    );
+}
 
-    if (topDimensionFact) {
-        return {
-            title: t('Insights.Decision.ConcentrationTitle', {
-                column: String(topDimensionFact.columns?.[0] ?? t('Insights.Card.CurrentResult')),
-            }),
-            impact: t('Insights.Decision.ConcentrationImpact'),
-            insights: [t('Insights.Decision.ConcentrationImpact')],
-            recommendedActions,
-        };
-    }
+function buildFindingFromSource(params: { source: InsightFact | InsightPattern; summary: string; actions: RecommendedInsightAction[] }): InsightStructuredFinding {
+    return {
+        id: params.source.id,
+        title: params.summary,
+        summary: params.summary,
+        severity: findingSeverity(params.source),
+        confidence: confidenceBucket(params.source.confidence),
+        actions: params.actions,
+    };
+}
 
-    if ((timePattern || trendFact) && draft.keyColumns.time) {
-        return {
-            title: t('Insights.Decision.TrendTitle', { column: draft.keyColumns.time }),
-            impact: t('Insights.Decision.TrendImpact'),
-            insights: [t('Insights.Decision.TrendImpact')],
-            recommendedActions,
-        };
-    }
+function buildInsightDecision(params: { view: InsightViewModel; findings: InsightStructuredFinding[] }) {
+    const items: InsightItem[] = params.findings.map(finding => ({
+        id: finding.id,
+        title: finding.title,
+        summary: finding.summary,
+        severity: finding.severity,
+        confidence: finding.confidence,
+        actions: finding.actions,
+    }));
 
     return {
-        title: findings[0]?.title ?? draft.quickSummary.title,
-        impact: t('Insights.Decision.DefaultImpact'),
-        insights: [t('Insights.Decision.DefaultImpact')],
-        recommendedActions,
+        title: params.view.quickSummary.title,
+        impact: items[0]?.summary ?? params.view.quickSummary.subtitle ?? '',
+        items,
     };
 }
 
 export function buildStructuredInsightView(params: { context: InsightRuleContext; draft?: InsightDraft; view?: InsightViewModel }): StructuredInsightView {
     const draft = params.draft ?? buildInsightDraft(params.context);
     const view = params.view ?? buildInsights(params.context);
-    const recommendedActions = normalizeRecommendedActions(view.recommendedActions);
+    const candidateActions = buildCandidateActionPool(view, draft);
     const findingSources = [...draft.patterns, ...draft.facts];
     const findings = findingSources
-        .map(source => {
-            const summary = 'kind' in source ? patternToInsight(params.context, source) : factToInsight(params.context, source);
+        .map((source, index) => {
+            const rewriteItem = view.source === 'llm' ? (view.rewriteItems?.find(item => item.id === source.id) ?? view.rewriteItems?.[index] ?? null) : null;
+            const ruleSummary = 'kind' in source ? patternToInsight(params.context, source) : factToInsight(params.context, source);
+            const summary = rewriteItem?.summary || rewriteItem?.title || (view.source === 'llm' && view.insights[index] ? view.insights[index] : ruleSummary);
             if (!summary) return null;
+            const actions = rewriteItem ? rewriteItemActions(params.context, rewriteItem, index) : actionsForSource(source, candidateActions);
 
-            return {
-                id: source.id,
-                title: summary,
+            return buildFindingFromSource({
+                source,
                 summary,
-                severity: findingSeverity(source),
-                confidence: confidenceBucket(source.confidence),
-            } satisfies InsightStructuredFinding;
+                actions: actions.length ? actions : buildFallbackItemActions(source, draft),
+            });
         })
         .filter((item): item is InsightStructuredFinding => !!item)
         .slice(0, 5);
 
     return {
         decision: buildInsightDecision({
-            context: params.context,
-            draft,
             view,
             findings,
         }),
         signals: [...draft.facts, ...draft.patterns],
         findings,
         narrative: [view.quickSummary.title, view.quickSummary.subtitle, ...view.insights].filter(Boolean).join(' '),
-        recommendedActions,
     };
 }

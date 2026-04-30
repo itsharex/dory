@@ -115,6 +115,13 @@ const recommendedResultActionSchema = resultActionSchema.and(
 );
 type RecommendedResultAction = z.infer<typeof recommendedResultActionSchema>;
 
+const insightItemSchema = z.object({
+    id: z.string().optional(),
+    title: z.string().optional(),
+    summary: z.string().optional(),
+    actions: z.array(z.unknown()).max(4).optional(),
+});
+
 const responseSchema = z.object({
     analysisState: z.enum(['invalid', 'weak', 'good', 'actionable']).optional(),
     quickSummary: z
@@ -126,6 +133,7 @@ const responseSchema = z.object({
     primaryInsight: z.string().optional(),
     limitations: z.array(z.string()).max(5).optional(),
     recommendedSql: z.string().nullable().optional(),
+    items: z.array(insightItemSchema).min(1).max(5).optional(),
     recommendedActions: z.array(z.unknown()).max(5).optional(),
     alternativeActions: z
         .array(
@@ -154,8 +162,8 @@ const responseSchema = z.object({
                     .passthrough(),
             ]),
         )
-        .min(1)
-        .max(5),
+        .max(5)
+        .optional(),
     reasoning: z
         .object({
             priorities: z.array(z.string()),
@@ -163,7 +171,9 @@ const responseSchema = z.object({
         .optional(),
 });
 
-function stringifyInsight(value: z.infer<typeof responseSchema>['insights'][number]) {
+type ResponseInsight = NonNullable<z.infer<typeof responseSchema>['insights']>[number];
+
+function stringifyInsight(value: ResponseInsight) {
     if (typeof value === 'string') return value.trim();
     return (value.summary ?? value.insight ?? value.description ?? value.title ?? '').trim();
 }
@@ -199,6 +209,12 @@ function normalizeRecommendedActions(actions: RecommendedResultAction[]) {
         ...action,
         priority: index === 0 ? 'primary' : 'secondary',
     }));
+}
+
+function normalizeItemActions(actions: unknown[] | undefined, allowedColumns: Set<string>) {
+    const parsed = (actions ?? []).map(action => recommendedResultActionSchema.safeParse(action).data).filter((action): action is RecommendedResultAction => !!action);
+
+    return normalizeRecommendedActions(filterAllowedActions(parsed, allowedColumns)).slice(0, 3);
 }
 
 function title(locale: string, zh: string, en: string) {
@@ -281,26 +297,53 @@ function buildFallbackRecommendedActions(payload: z.infer<typeof requestSchema>,
 }
 
 function normalizeResultInsightResponse(input: z.infer<typeof responseSchema>, payload: z.infer<typeof requestSchema>) {
-    const insights = input.insights.map(stringifyInsight).filter(Boolean).slice(0, 5);
-    const fallbackTitle = input.primaryInsight ?? insights[0] ?? 'Analysis';
     const allowedColumns = new Set(payload.profileColumns?.map(column => column.name) ?? []);
+    const legacyInsights = (input.insights ?? []).map(stringifyInsight).filter(Boolean);
+    const explicitItems = (input.items ?? [])
+        .map((item, index) => {
+            const title = (item.title ?? item.summary ?? '').trim();
+            const summary = (item.summary ?? item.title ?? '').trim();
+            if (!title && !summary) return null;
+
+            return {
+                id: item.id?.trim() || `ai-insight-${index + 1}`,
+                title: title || summary,
+                summary: summary || title,
+                actions: normalizeItemActions(item.actions, allowedColumns),
+            };
+        })
+        .filter((item): item is { id: string; title: string; summary: string; actions: ReturnType<typeof normalizeItemActions> } => !!item);
+    const fallbackInsightText = [...legacyInsights, ...payload.facts.map(fact => fact.narrativeHint).filter((item): item is string => !!item)].slice(0, 5);
     const aiRecommendedActions = (input.recommendedActions ?? [])
         .map(action => recommendedResultActionSchema.safeParse(action).data)
         .filter((action): action is RecommendedResultAction => !!action);
     const recommendedActions = normalizeRecommendedActions(filterAllowedActions(aiRecommendedActions, allowedColumns));
     const fallbackRecommendedActions = recommendedActions.length ? recommendedActions : buildFallbackRecommendedActions(payload, allowedColumns);
     const recommendedSql = input.recommendedSql?.trim() || null;
+    const items = explicitItems.length
+        ? explicitItems.map((item, index) => ({
+              ...item,
+              actions: item.actions.length ? item.actions : index === 0 ? fallbackRecommendedActions : [],
+          }))
+        : fallbackInsightText.map((insight, index) => ({
+              id: `ai-insight-${index + 1}`,
+              title: insight,
+              summary: insight,
+              actions: index === 0 ? fallbackRecommendedActions : [],
+          }));
+    const primaryInsight = input.primaryInsight ?? items[0]?.title;
 
     return {
-        ...input,
         quickSummary: input.quickSummary ?? {
-            title: fallbackTitle,
+            title: primaryInsight ?? 'Analysis',
             subtitle: payload.summary.rowCount != null ? `${payload.summary.rowCount.toLocaleString()} rows` : undefined,
         },
-        primaryInsight: input.primaryInsight ?? insights[0],
-        insights: insights.length >= 3 ? insights : [...insights, ...payload.facts.map(fact => fact.narrativeHint).filter((item): item is string => !!item)].slice(0, 5),
+        analysisState: input.analysisState,
+        primaryInsight,
+        limitations: input.limitations,
+        items,
         recommendedSql,
-        recommendedActions: fallbackRecommendedActions,
+        reasoning: input.reasoning,
         autoRunPolicy: recommendedSql || fallbackRecommendedActions.length ? 'confirm_required' : input.autoRunPolicy,
     };
 }

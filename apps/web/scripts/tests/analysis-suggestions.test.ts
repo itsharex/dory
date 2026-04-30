@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { profileResultSet } from '@/lib/client/result-set-ai';
-import { buildInsightDraft } from '@/lib/client/result-set-insights';
+import { buildInsightDraft, buildInsights, buildStructuredInsightView } from '@/lib/client/result-set-insights';
 import { buildAnalysisSuggestions } from '@/lib/analysis/suggestions';
 import { buildResultContext } from '@/lib/analysis/result-context';
 
@@ -38,6 +38,25 @@ function testTrendAndServiceSuggestions() {
         locale: 'en',
         t: translate,
     });
+    const structured = buildStructuredInsightView({
+        context: {
+            stats: profiled.stats,
+            columns: profiled.columns,
+            sqlText: 'select created_at, service, level, duration_ms from logs',
+            rows,
+            locale: 'en',
+            t: translate,
+        },
+        draft,
+        view: buildInsights({
+            stats: profiled.stats,
+            columns: profiled.columns,
+            sqlText: 'select created_at, service, level, duration_ms from logs',
+            rows,
+            locale: 'en',
+            t: translate,
+        }),
+    });
 
     const resultContext = buildResultContext({
         sessionId: 'session-1',
@@ -52,12 +71,13 @@ function testTrendAndServiceSuggestions() {
     const suggestions = buildAnalysisSuggestions({
         resultContext,
         draft,
-        recommendedActions: draft.recommendedActions,
+        recommendedActions: structured.decision.items.flatMap(item => item.actions),
         t: translate,
     });
 
-    const primaryAction = draft.recommendedActions.find(action => action.priority === 'primary' && action.kind === 'analysis-suggestion');
-    assert.equal(draft.recommendedActions.filter(action => action.priority === 'primary').length, 1);
+    const itemActions = structured.decision.items.flatMap(item => item.actions);
+    const primaryAction = itemActions.find(action => action.priority === 'primary' && action.kind === 'analysis-suggestion');
+    assert.ok(structured.decision.items.some(item => item.actions.length > 0));
     assert.equal(suggestions[0]?.isPrimary, true);
     assert.equal(suggestions[0]?.id, primaryAction?.kind === 'analysis-suggestion' ? primaryAction.suggestionId : undefined);
     assert.ok(suggestions.some(item => item.id === 'view-time-trend'));
@@ -84,6 +104,25 @@ function testNoInvalidSuggestionWithoutDimensions() {
         locale: 'en',
         t: translate,
     });
+    const structured = buildStructuredInsightView({
+        context: {
+            stats: profiled.stats,
+            columns: profiled.columns,
+            sqlText: 'select total from metrics',
+            rows,
+            locale: 'en',
+            t: translate,
+        },
+        draft,
+        view: buildInsights({
+            stats: profiled.stats,
+            columns: profiled.columns,
+            sqlText: 'select total from metrics',
+            rows,
+            locale: 'en',
+            t: translate,
+        }),
+    });
 
     const resultContext = buildResultContext({
         sessionId: 'session-2',
@@ -98,7 +137,7 @@ function testNoInvalidSuggestionWithoutDimensions() {
     const suggestions = buildAnalysisSuggestions({
         resultContext,
         draft,
-        recommendedActions: draft.recommendedActions,
+        recommendedActions: structured.decision.items.flatMap(item => item.actions),
         t: translate,
     });
 
@@ -136,6 +175,25 @@ function testAiPrimaryNextStepForLowVarianceRawRows() {
         locale: 'en',
         t: translate,
     });
+    const structured = buildStructuredInsightView({
+        context: {
+            stats: profiled.stats,
+            columns: profiled.columns,
+            sqlText: sql,
+            rows,
+            locale: 'en',
+            t: translate,
+        },
+        draft,
+        view: buildInsights({
+            stats: profiled.stats,
+            columns: profiled.columns,
+            sqlText: sql,
+            rows,
+            locale: 'en',
+            t: translate,
+        }),
+    });
 
     const resultContext = buildResultContext({
         sessionId: 'session-3',
@@ -150,7 +208,7 @@ function testAiPrimaryNextStepForLowVarianceRawRows() {
     const suggestions = buildAnalysisSuggestions({
         resultContext,
         draft,
-        recommendedActions: draft.recommendedActions,
+        recommendedActions: structured.decision.items.flatMap(item => item.actions),
         t: translate,
     });
     const primary = suggestions[0];

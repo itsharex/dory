@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSetAtom } from 'jotai';
 import { useLocale, useTranslations } from 'next-intl';
-import { Sparkles, Lightbulb, CalendarRange, ChevronDown, Star } from 'lucide-react';
+import { Sparkles, ChevronDown } from 'lucide-react';
 import { ScrollArea } from '@/registry/new-york-v4/ui/scroll-area';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/registry/new-york-v4/ui/collapsible';
@@ -167,58 +167,38 @@ export function ResultOverviewPanel(props: {
                         icon={<Sparkles className="h-3.5 w-3.5 text-violet-400" />}
                         description={t('Insights.KeyInsights.Description')}
                     >
-                        <div className="rounded-lg border bg-background px-4 py-4">
-                            <div className="text-base font-semibold leading-snug text-foreground">{structuredInsight.decision.title}</div>
-                            <div className="mt-3 space-y-2">
-                                {structuredInsight.decision.insights.map(insight => (
-                                    <div key={insight} className="text-sm leading-relaxed text-muted-foreground">
-                                        {insight}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </Section>
-
-                    <Section
-                        title={t('Insights.RecommendedActions.SectionTitle')}
-                        icon={<Lightbulb className="h-3.5 w-3.5 text-violet-400" />}
-                        description={t('Insights.RecommendedActions.Description')}
-                    >
                         <div className="space-y-3">
-                            {structuredInsight.decision.recommendedActions.length > 0 ? (
-                                <>
-                                    {structuredInsight.decision.recommendedActions
-                                        .filter(action => action.priority === 'primary')
-                                        .map(action => (
-                                            <div key={action.id} className="rounded-lg border bg-background p-3">
-                                                <div className="mb-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                                                    <CalendarRange className="h-3.5 w-3.5" />
-                                                    <span>{t('Insights.RecommendedActions.FirstStep')}</span>
-                                                </div>
-                                                <Button className="h-9 w-full justify-start gap-2 text-sm" onClick={() => handleAction(action)}>
-                                                    <Star className="h-4 w-4 fill-current" />
-                                                    <span className="truncate">{action.label}</span>
-                                                </Button>
+                            {structuredInsight.decision.items.length > 0 ? (
+                                structuredInsight.decision.items.map((item, index) => (
+                                    <div key={item.id} className="rounded-lg border bg-background px-4 py-3">
+                                        <div className="flex items-start gap-3">
+                                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
+                                                {index + 1}
                                             </div>
-                                        ))}
-                                    <div className="flex flex-wrap gap-2">
-                                        {structuredInsight.decision.recommendedActions
-                                            .filter(action => action.priority === 'secondary')
-                                            .map(action => (
-                                                <Button
-                                                    key={action.id}
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className="h-8 rounded-full px-3 text-xs"
-                                                    onClick={() => handleAction(action)}
-                                                >
-                                                    {action.label}
-                                                </Button>
-                                            ))}
+                                            <div className="min-w-0 flex-1">
+                                                <div className="text-sm font-semibold leading-snug text-foreground">{item.title}</div>
+                                                {item.summary !== item.title ? <div className="mt-1 text-sm leading-relaxed text-muted-foreground">{item.summary}</div> : null}
+                                                {item.actions.length > 0 ? (
+                                                    <div className="mt-3 flex flex-wrap gap-2">
+                                                        {item.actions.map(action => (
+                                                            <Button
+                                                                key={`${item.id}:${action.id}`}
+                                                                variant={action.priority === 'primary' ? 'default' : 'outline'}
+                                                                size="sm"
+                                                                className="h-8 rounded-full px-3 text-xs"
+                                                                onClick={() => handleAction(action)}
+                                                            >
+                                                                <span className="truncate">{action.label}</span>
+                                                            </Button>
+                                                        ))}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        </div>
                                     </div>
-                                </>
+                                ))
                             ) : (
-                                <div className="rounded-lg border bg-background px-4 py-3 text-xs text-muted-foreground">{t('Insights.RecommendedActions.Empty')}</div>
+                                <div className="rounded-lg border bg-background px-4 py-3 text-xs text-muted-foreground">{structuredInsight.narrative}</div>
                             )}
                         </div>
                     </Section>

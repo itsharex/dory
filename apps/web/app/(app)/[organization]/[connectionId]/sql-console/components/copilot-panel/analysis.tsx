@@ -2,10 +2,9 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
-import { ArrowLeft, BarChart3, Clipboard, FileText, Loader2, Play, Sparkles } from 'lucide-react';
+import { ArrowLeft, Clipboard, FileText, Loader2, Play, Sparkles } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { useDB } from '@/lib/client/use-pglite';
 import { buildInsightDraft, buildInsightRewriteRequest, buildInsights, buildStructuredInsightView, type InsightRewriteResponse } from '@/lib/client/result-set-insights';
@@ -205,10 +204,6 @@ function makeOptimisticSession(params: { suggestion: AnalysisSuggestion; resultR
     };
 }
 
-function suggestionKindLabel(kind: AnalysisSuggestion['kind'], t: ReturnType<typeof useTranslations>) {
-    return t(`Insights.Analysis.Kinds.${kind}` as any);
-}
-
 function mergeAnalysisSessions(...sessionGroups: Array<AnalysisSession[] | undefined>) {
     const sessions: AnalysisSession[] = [];
     for (const group of sessionGroups) {
@@ -362,8 +357,8 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
         const suggestions = buildAnalysisSuggestions({
             resultContext,
             draft,
-            recommendedActions: structured.recommendedActions,
-            recommendedActionsOnly: !!rewritten?.recommendedActions?.length || !!rewritten?.recommendedSql?.trim(),
+            recommendedActions: structured.decision.items.flatMap(item => item.actions),
+            recommendedActionsOnly: !!rewritten?.items?.some(item => item.actions.length > 0) || !!rewritten?.recommendedSql?.trim(),
             t: (key, values) => t(key as any, values),
         });
         return {
@@ -685,7 +680,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
     }, [activeSessionId, activeSet, analysisRequest, setAnalysisRequest, workspace, workspaceSuggestions]);
 
     if (!activeSessionId || activeSet == null || activeSet < 0 || !insightBundle) {
-        return <div className="flex h-full items-center justify-center px-6 text-center text-sm text-muted-foreground">{t('Insights.Analysis.Empty')}</div>;
+        return null;
     }
 
     if (selectedSession) {
@@ -828,43 +823,13 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
         );
     }
 
-    return (
-        <div className="flex flex-col gap-4 p-4">
-            <div className="space-y-1">
-                <div className="text-xs font-medium text-muted-foreground">{t('Insights.Analysis.AvailableActionsTitle')}</div>
-                <div className="text-xs text-muted-foreground">{t('Insights.Analysis.AvailableActionsDescription')}</div>
+    if (runningSuggestionId) {
+        return (
+            <div className="flex h-full items-center justify-center px-6 text-center">
+                <div className="max-w-72 text-sm leading-relaxed text-muted-foreground">{t('Insights.Analysis.RunningDescription')}</div>
             </div>
-            <div className="space-y-2">
-                {workspaceSuggestions.map(suggestion => {
-                    const isRunning = runningSuggestionId === suggestion.id;
-                    const isAiBlocked = suggestion.id.startsWith('ai-') && !suggestion.sqlPreview;
+        );
+    }
 
-                    return (
-                        <button
-                            key={suggestion.id}
-                            type="button"
-                            className="flex w-full items-start gap-3 rounded-lg border bg-background px-4 py-3 text-left transition hover:border-primary/40 hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
-                            onClick={() => void handleRunSuggestion(suggestion)}
-                            disabled={isAiBlocked}
-                        >
-                            <span className="flex size-5 items-center justify-center text-muted-foreground">
-                                {isRunning ? <Loader2 className="h-4 w-4 animate-spin text-violet-400" /> : <BarChart3 className="h-4 w-4 text-violet-400" />}
-                            </span>
-                            <div className="flex min-w-0 flex-1 flex-col gap-1">
-                                <div className="flex items-start justify-between gap-3">
-                                    <div className="min-w-0">
-                                        <div className="text-sm font-medium text-foreground">{suggestion.label}</div>
-                                        <div className="mt-1 text-xs text-muted-foreground">{suggestion.description}</div>
-                                    </div>
-                                    <Badge variant="outline" className="shrink-0 text-[10px]">
-                                        {suggestionKindLabel(suggestion.kind, t)}
-                                    </Badge>
-                                </div>
-                            </div>
-                        </button>
-                    );
-                })}
-            </div>
-        </div>
-    );
+    return null;
 }

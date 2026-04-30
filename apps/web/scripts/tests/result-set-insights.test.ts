@@ -196,13 +196,160 @@ function testStructuredInsightCardAndActionLabels() {
         view,
     });
 
-    assert.ok(structured.decision.title.includes('Decision.OutlierTitle'));
-    assert.ok(structured.decision.impact.includes('Decision.OutlierImpact'));
-    assert.equal(structured.decision.recommendedActions.filter(action => action.priority === 'primary').length, 1);
-    assert.ok(structured.decision.recommendedActions.filter(action => action.priority === 'secondary').length <= 3);
-    assert.ok(structured.decision.recommendedActions.every(action => action.kind !== 'analysis-suggestion' || !!action.action || !!action.sqlPreview));
+    assert.ok(structured.decision.title.includes('Insights.QuickSummary.Title'));
+    assert.ok(structured.decision.impact);
+    assert.ok(!('recommendedActions' in structured.decision));
+    assert.ok(structured.decision.items.length > 0);
+    assert.ok(structured.decision.items.some(item => item.actions.some(action => action.id === 'inspect-outliers')));
+    assert.ok(structured.decision.items.every(item => item.actions.every(action => action.kind !== 'analysis-suggestion' || !!action.action || !!action.sqlPreview)));
     assert.ok(draft.recommendedActions.some(action => action.id === 'inspect-outliers'));
     assert.ok(!draft.recommendedActions.some(action => action.label === 'Run'));
+}
+
+function testStructuredInsightActionsForRiskTrendAndOutlier() {
+    const rows = [
+        { created_at: '2025-01-01T00:00:00.000Z', service: 'auth', level: 'error', duration_ms: 15 },
+        { created_at: '2025-01-01T01:00:00.000Z', service: 'auth', level: 'error', duration_ms: 16 },
+        { created_at: '2025-01-01T02:00:00.000Z', service: 'orders', level: 'info', duration_ms: 17 },
+        { created_at: '2025-01-01T03:00:00.000Z', service: 'orders', level: 'error', duration_ms: 200 },
+        { created_at: '2025-01-01T04:00:00.000Z', service: 'billing', level: 'warn', duration_ms: 18 },
+        { created_at: '2025-01-01T05:00:00.000Z', service: 'billing', level: 'info', duration_ms: 19 },
+        { created_at: '2025-01-01T06:00:00.000Z', service: 'search', level: 'info', duration_ms: 20 },
+        { created_at: '2025-01-01T07:00:00.000Z', service: 'search', level: 'info', duration_ms: 21 },
+        { created_at: '2025-01-01T08:00:00.000Z', service: 'auth', level: 'error', duration_ms: 22 },
+    ];
+
+    const profiled = profileResultSet({
+        sqlText: 'select created_at, service, level, duration_ms from logs',
+        rawColumns: [
+            { name: 'created_at', type: 'timestamp' },
+            { name: 'service', type: 'text' },
+            { name: 'level', type: 'text' },
+            { name: 'duration_ms', type: 'integer' },
+        ],
+        rows,
+        rowCount: rows.length,
+        limited: false,
+        limit: null,
+    });
+
+    const context = {
+        stats: profiled.stats,
+        columns: profiled.columns,
+        sqlText: 'select created_at, service, level, duration_ms from logs',
+        rows,
+        locale: 'en',
+        t: translate,
+    };
+    const structured = buildStructuredInsightView({
+        context,
+        draft: buildInsightDraft(context),
+        view: buildInsights(context),
+    });
+
+    const riskItem = structured.decision.items.find(item => item.id.startsWith('risk:'));
+    const trendItem = structured.decision.items.find(item => item.id.startsWith('trend:') || item.id.startsWith('spike:'));
+    const outlierItem = structured.decision.items.find(item => item.id.startsWith('measure-spread:') || item.id.startsWith('outlier:'));
+
+    assert.ok(riskItem?.actions.some(action => action.id === 'group-by-service' || action.id === 'analyze-source'));
+    assert.ok(trendItem?.actions.some(action => action.id === 'view-time-trend'));
+    assert.ok(outlierItem?.actions.some(action => action.id === 'inspect-outliers' || action.id === 'view-distribution'));
+}
+
+function testRewriteItemsCarryTheirOwnActions() {
+    const rows = [
+        { created_at: '2025-01-01T00:00:00.000Z', status: 'pending', amount: 10 },
+        { created_at: '2025-01-01T01:00:00.000Z', status: 'paid', amount: 12 },
+        { created_at: '2025-01-01T02:00:00.000Z', status: 'pending', amount: 100 },
+        { created_at: '2025-01-01T03:00:00.000Z', status: 'paid', amount: 15 },
+        { created_at: '2025-01-01T04:00:00.000Z', status: 'pending', amount: 20 },
+    ];
+
+    const profiled = profileResultSet({
+        sqlText: 'select created_at, status, amount from orders',
+        rawColumns: [
+            { name: 'created_at', type: 'timestamp' },
+            { name: 'status', type: 'text' },
+            { name: 'amount', type: 'numeric' },
+        ],
+        rows,
+        rowCount: rows.length,
+        limited: false,
+        limit: null,
+    });
+    const context = {
+        stats: profiled.stats,
+        columns: profiled.columns,
+        sqlText: 'select created_at, status, amount from orders',
+        rows,
+        locale: 'en',
+        t: translate,
+    };
+    const rewritten = {
+        quickSummary: {
+            title: 'Order trend is visible',
+            subtitle: '5 rows',
+        },
+        primaryInsight: 'Order trend is visible',
+        items: [
+            {
+                id: 'trend:created_at',
+                title: 'Order trend is visible',
+                summary: 'Order trend is visible',
+                actions: [
+                    {
+                        type: 'trend' as const,
+                        title: 'View created_at trend',
+                        params: {
+                            timeColumn: 'created_at',
+                            measure: {
+                                column: 'amount',
+                                aggregation: 'SUM' as const,
+                            },
+                            limit: 50,
+                        },
+                        priority: 'primary' as const,
+                    },
+                ],
+            },
+            {
+                id: 'dominant:status:pending',
+                title: 'Pending orders are concentrated',
+                summary: 'Pending orders are concentrated',
+                actions: [
+                    {
+                        type: 'group' as const,
+                        title: 'Analyze by status',
+                        params: {
+                            dimensions: ['status'],
+                            measure: {
+                                column: 'amount',
+                                aggregation: 'SUM' as const,
+                            },
+                            limit: 20,
+                        },
+                        priority: 'primary' as const,
+                    },
+                ],
+            },
+        ],
+        recommendedSql: null,
+        autoRunPolicy: 'confirm_required' as const,
+    };
+
+    const view = buildInsights(context, rewritten);
+    const structured = buildStructuredInsightView({
+        context,
+        draft: buildInsightDraft(context),
+        view,
+    });
+
+    const trendItem = structured.decision.items.find(item => item.title === 'Order trend is visible');
+    const statusItem = structured.decision.items.find(item => item.title === 'Pending orders are concentrated');
+
+    assert.ok(trendItem?.actions.some(action => action.kind === 'analysis-suggestion' && action.action?.type === 'trend'));
+    assert.ok(statusItem?.actions.some(action => action.kind === 'analysis-suggestion' && action.action?.type === 'group'));
+    assert.ok(!('recommendedActions' in structured.decision));
 }
 
 function testLowInformationProfileSignals() {
@@ -253,6 +400,8 @@ testRiskSignalThreshold();
 testNoTimeColumnSkipsTrendRewritePrompt();
 testRulesFallbackView();
 testStructuredInsightCardAndActionLabels();
+testStructuredInsightActionsForRiskTrendAndOutlier();
+testRewriteItemsCarryTheirOwnActions();
 testLowInformationProfileSignals();
 
 console.log('result-set-insights tests passed');

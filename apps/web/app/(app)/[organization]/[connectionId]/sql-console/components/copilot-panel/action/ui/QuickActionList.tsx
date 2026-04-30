@@ -1,6 +1,5 @@
 import type { LocalizedQuickActionMeta } from '@/lib/copilot/action/registry';
 import { AlertTriangle, Gauge, Layers3, Sparkles } from 'lucide-react';
-import { useTranslations } from 'next-intl';
 
 export type QuickActionListItem = LocalizedQuickActionMeta & {
     available?: boolean;
@@ -48,22 +47,15 @@ const QUICK_ACTION_ICONS = {
 } as const;
 
 export function QuickActionList({ items, onSelect }: QuickActionListProps) {
-    const t = useTranslations('SqlConsole');
     return (
         <div className="flex flex-col gap-3 p-4">
-            <div className="space-y-1">
-                <div className="text-xs font-medium text-muted-foreground">{t('Copilot.Actions.SqlTitle')}</div>
-                <div className="text-xs text-muted-foreground">{t('Copilot.Actions.SqlDescription')}</div>
-            </div>
             {items.length ? (
                 <div className="flex flex-col gap-3">
                     {items.map(item => (
                         <QuickActionItem key={item.intent} item={item} onSelect={onSelect} />
                     ))}
                 </div>
-            ) : (
-                <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">{t('Copilot.Actions.Empty')}</div>
-            )}
+            ) : null}
         </div>
     );
 }
