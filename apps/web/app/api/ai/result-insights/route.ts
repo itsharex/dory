@@ -64,6 +64,53 @@ const requestSchema = z.object({
     sampleRows: z.array(z.record(z.string(), z.unknown())).optional(),
 });
 
+const resultActionSchema = z.discriminatedUnion('type', [
+    z.object({
+        type: z.literal('filter'),
+        title: z.string().min(1),
+        params: z.object({
+            column: z.string().min(1),
+            operator: z.enum(['>', '<', '=', '>=', '<=']),
+            value: z.union([z.number(), z.string()]),
+        }),
+    }),
+    z.object({
+        type: z.literal('group'),
+        title: z.string().min(1),
+        params: z.object({
+            dimensions: z.array(z.string().min(1)).min(1).max(3),
+            measure: z
+                .object({
+                    column: z.string().min(1),
+                    aggregation: z.enum(['COUNT', 'SUM', 'AVG', 'MIN', 'MAX']),
+                })
+                .optional(),
+            limit: z.number().int().positive().max(200).optional(),
+        }),
+    }),
+    z.object({
+        type: z.literal('trend'),
+        title: z.string().min(1),
+        params: z.object({
+            timeColumn: z.string().min(1),
+            measure: z
+                .object({
+                    column: z.string().min(1),
+                    aggregation: z.enum(['COUNT', 'SUM', 'AVG', 'MIN', 'MAX']),
+                })
+                .optional(),
+            limit: z.number().int().positive().max(200).optional(),
+        }),
+    }),
+    z.object({
+        type: z.literal('distribution'),
+        title: z.string().min(1),
+        params: z.object({
+            column: z.string().min(1),
+        }),
+    }),
+]);
+
 const responseSchema = z.object({
     analysisState: z.enum(['invalid', 'weak', 'good', 'actionable']).optional(),
     quickSummary: z
@@ -75,6 +122,7 @@ const responseSchema = z.object({
     primaryInsight: z.string().optional(),
     limitations: z.array(z.string()).max(5).optional(),
     recommendedSql: z.string().nullable().optional(),
+    recommendedActions: z.array(resultActionSchema).max(5).optional(),
     alternativeActions: z
         .array(
             z.object({
@@ -119,6 +167,17 @@ function stringifyInsight(value: z.infer<typeof responseSchema>['insights'][numb
 function normalizeResultInsightResponse(input: z.infer<typeof responseSchema>, payload: z.infer<typeof requestSchema>) {
     const insights = input.insights.map(stringifyInsight).filter(Boolean).slice(0, 5);
     const fallbackTitle = input.primaryInsight ?? insights[0] ?? 'Analysis';
+    const allowedColumns = new Set(payload.profileColumns?.map(column => column.name) ?? []);
+    const recommendedActions = (input.recommendedActions ?? [])
+        .filter(action => {
+            if (!allowedColumns.size) return true;
+            if (action.type === 'filter') return allowedColumns.has(action.params.column);
+            if (action.type === 'group')
+                return action.params.dimensions.every(column => allowedColumns.has(column)) && (!action.params.measure || allowedColumns.has(action.params.measure.column));
+            if (action.type === 'trend') return allowedColumns.has(action.params.timeColumn) && (!action.params.measure || allowedColumns.has(action.params.measure.column));
+            return allowedColumns.has(action.params.column);
+        })
+        .slice(0, 5);
 
     return {
         ...input,
@@ -128,7 +187,9 @@ function normalizeResultInsightResponse(input: z.infer<typeof responseSchema>, p
         },
         primaryInsight: input.primaryInsight ?? insights[0],
         insights: insights.length >= 3 ? insights : [...insights, ...payload.facts.map(fact => fact.narrativeHint).filter((item): item is string => !!item)].slice(0, 5),
-        autoRunPolicy: input.recommendedSql ? 'confirm_required' : input.autoRunPolicy,
+        recommendedSql: input.recommendedSql?.trim() || null,
+        recommendedActions,
+        autoRunPolicy: input.recommendedSql || recommendedActions.length ? 'confirm_required' : input.autoRunPolicy,
     };
 }
 
@@ -141,11 +202,14 @@ function buildPrompt(input: z.infer<typeof requestSchema>, locale: string) {
         `- Use only the provided facts and patterns.`,
         `- Treat profileColumns as the deterministic fact layer. Use entropy, distinctRatio, topValueShare, and informationDensity to decide whether the result is invalid, weak, good, or actionable.`,
         `- If a column has entropy 0, informationDensity none, or topValueShare 1, do not call the top value an insight. Explain the lack of variance and recommend a better next step.`,
-        `- For weak raw-row results, prefer a concrete aggregation query over another explanation.`,
-        `- Recommend which Action cards should be shown. Keep each action label short and each description one sentence.`,
-        `- Put the best next action in recommendedSql. Put other useful actions in alternativeActions, with recommendedSql when possible.`,
+        `- For weak raw-row results, prefer a concrete structured action over another explanation.`,
+        `- Recommend which Action buttons should be shown. Put the best next action first.`,
+        `- You may provide recommendedSql for the best next action when SQL would be more precise than a simple action template.`,
+        `- Put other structured actions in recommendedActions. They must be filter, group, trend, or distribution.`,
+        `- Use analysis-language titles that describe what the user wants to inspect, not the tool name.`,
         `- Any recommendedSql must be a single read-only SELECT that only uses columns present in profileColumns and may wrap the current SQL as a subquery.`,
-        `- autoRunPolicy must be confirm_required when recommendedSql is present.`,
+        `- Every structured action must use only columns present in profileColumns.`,
+        `- autoRunPolicy must be confirm_required when recommendedSql or recommendedActions is present.`,
         `- Do not invent values, ratios, anomalies, or correlations.`,
         `- Do not claim causation.`,
         `- Keep insights short, natural, and actionable.`,

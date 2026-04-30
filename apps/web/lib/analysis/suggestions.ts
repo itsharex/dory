@@ -180,9 +180,12 @@ function suggestionFromInsightAction(action: Extract<InsightAction, { kind: 'ana
             type: 'generate_sql',
             payload: {
                 suggestionId: action.suggestionId,
+                action: action.action,
             },
         },
         priority: fallback.priority,
+        action: action.action,
+        sqlPreview: action.sqlPreview,
     };
 }
 

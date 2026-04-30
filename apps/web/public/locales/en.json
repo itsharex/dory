@@ -1451,11 +1451,16 @@
             },
             "Actions": {
                 "InspectOutliers": "View anomalous samples",
+                "InspectHighValueRows": "View high {column} rows",
                 "AnalyzeSource": "Analyze source",
+                "AnalyzeByColumn": "Analyze by {column}",
                 "ViewDistribution": "View distribution",
+                "ViewColumnDistribution": "View {column} distribution",
                 "GroupByService": "Group by {column}",
                 "ViewTimeTrend": "View time trend",
+                "ViewTimeTrendByColumn": "View {column} trend",
                 "FilterOutliers": "Filter anomalous rows",
+                "ExcludeHighValueRows": "Exclude high {column} rows",
                 "TopMessages": "View top values",
                 "PatternFollowUp": "Follow up on this pattern",
                 "ExplainResult": "Explain this result"

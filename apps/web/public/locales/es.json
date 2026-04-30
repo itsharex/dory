@@ -1449,11 +1449,16 @@
             },
             "Actions": {
                 "InspectOutliers": "Ver muestras anómalas",
+                "InspectHighValueRows": "Ver filas altas de {column}",
                 "AnalyzeSource": "Analizar origen",
+                "AnalyzeByColumn": "Analizar por {column}",
                 "ViewDistribution": "Ver distribución",
+                "ViewColumnDistribution": "Ver distribución de {column}",
                 "GroupByService": "Agrupar por {column}",
                 "ViewTimeTrend": "Ver tendencia temporal",
+                "ViewTimeTrendByColumn": "Ver tendencia de {column}",
                 "FilterOutliers": "Filtrar filas anómalas",
+                "ExcludeHighValueRows": "Excluir filas altas de {column}",
                 "TopMessages": "Ver valores principales",
                 "PatternFollowUp": "Seguir este patrón",
                 "ExplainResult": "Explicar este resultado"

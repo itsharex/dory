@@ -14,6 +14,7 @@ import type {
     RunAnalysisRequest,
     RunAnalysisResponse,
 } from '@/lib/analysis/types';
+import { actionToSql } from '@/lib/analysis/result-actions';
 import { enhanceAnalysisSummaryWithAi } from './ai-summary';
 
 function nowIso() {
@@ -788,16 +789,65 @@ export async function runAnalysis(params: {
     const createdAt = nowIso();
     const specs = specsForContext(params.request.context.resultContext);
     const sqlPreview = params.request.trigger.sqlPreview?.trim();
-    const spec =
-        specs[params.request.trigger.suggestionId] ??
-        (sqlPreview
-            ? genericAiDrivenSpec({
-                  suggestionId: params.request.trigger.suggestionId,
-                  sqlPreview,
-                  context: params.request.context.resultContext,
-                  locale: params.locale ?? routing.defaultLocale,
-              })
-            : null);
+    const spec = sqlPreview
+        ? genericAiDrivenSpec({
+              suggestionId: params.request.trigger.suggestionId,
+              sqlPreview,
+              context: params.request.context.resultContext,
+              locale: params.locale ?? routing.defaultLocale,
+          })
+        : params.request.trigger.action
+          ? {
+                ...(specs[params.request.trigger.suggestionId] ?? {
+                    suggestionId: params.request.trigger.suggestionId,
+                    title: params.request.trigger.action.title,
+                    kind: 'drilldown' as const,
+                    goal: params.request.trigger.action.title,
+                    description: params.request.trigger.action.title,
+                    resultTitle: params.request.trigger.action.title,
+                    stepTemplates: [
+                        { id: 'inspect-profile', title: '读取 Profile 信号' },
+                        { id: 'run-next-sql', title: '执行推荐 SQL' },
+                        { id: 'summarize-next-step', title: '生成下一步结论' },
+                    ],
+                    summarize({ rows, columns }) {
+                        const first = rows[0] ?? {};
+                        const firstColumn = columns[0]?.name;
+                        return {
+                            analysisState: rows.length ? 'good' : 'invalid',
+                            limitations: rows.length ? [] : ['没有返回可分析结果。'],
+                            summary: rows.length ? `已执行推荐操作，返回 ${rows.length} 行结果。` : '推荐操作没有返回结果。',
+                            headline: params.request.trigger.action!.title,
+                            keyFindings: rows.length ? [`返回 ${rows.length} 行结果`] : ['没有返回结果'],
+                            recordHighlights: rows.slice(0, 5).map((row, index) => ({
+                                label: firstColumn ? formatValue(row[firstColumn]) : `row_${index + 1}`,
+                                value: formatValue(row[columns[1]?.name ?? firstColumn ?? 'value']),
+                            })),
+                            sections: [
+                                {
+                                    id: 'action-result',
+                                    title: 'Action result',
+                                    items: rows.slice(0, 5).map(
+                                        (row, index) =>
+                                            columns
+                                                .slice(0, 3)
+                                                .map(column => `${column.name}: ${formatValue(row[column.name])}`)
+                                                .join(' · ') || `row_${index + 1}`,
+                                    ),
+                                },
+                            ],
+                        };
+                    },
+                    buildFollowups,
+                }),
+                suggestionId: params.request.trigger.suggestionId,
+                title: params.request.trigger.action.title,
+                resultTitle: params.request.trigger.action.title,
+                buildSql(context: ResultContext) {
+                    return actionToSql(params.request.trigger.action!, context.sqlText ?? '');
+                },
+            }
+          : (specs[params.request.trigger.suggestionId] ?? null);
 
     if (!spec) {
         throw new Error(`Unsupported analysis suggestion: ${params.request.trigger.suggestionId}`);

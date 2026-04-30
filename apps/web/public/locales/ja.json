@@ -1449,11 +1449,16 @@
             },
             "Actions": {
                 "InspectOutliers": "異常サンプルを見る",
+                "InspectHighValueRows": "高い {column} の行を見る",
                 "AnalyzeSource": "原因を分析する",
+                "AnalyzeByColumn": "{column} で分析",
                 "ViewDistribution": "分布を見る",
+                "ViewColumnDistribution": "{column} の分布を見る",
                 "GroupByService": "{column} でグループ分析",
                 "ViewTimeTrend": "時系列を見る",
+                "ViewTimeTrendByColumn": "{column} の傾向を見る",
                 "FilterOutliers": "異常行を絞り込む",
+                "ExcludeHighValueRows": "高い {column} の行を除外",
                 "TopMessages": "上位値を見る",
                 "PatternFollowUp": "このパターンを追う",
                 "ExplainResult": "この結果を説明する"

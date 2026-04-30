@@ -1453,11 +1453,16 @@
             },
             "Actions": {
                 "InspectOutliers": "查看异常样本",
+                "InspectHighValueRows": "查看高 {column} 记录",
                 "AnalyzeSource": "分析来源",
+                "AnalyzeByColumn": "按 {column} 分析",
                 "ViewDistribution": "查看分布",
+                "ViewColumnDistribution": "查看 {column} 分布",
                 "GroupByService": "按 {column} 分组分析",
                 "ViewTimeTrend": "查看时间趋势",
+                "ViewTimeTrendByColumn": "查看 {column} 趋势",
                 "FilterOutliers": "过滤异常数据",
+                "ExcludeHighValueRows": "排除高 {column} 记录",
                 "TopMessages": "看哪些内容最多",
                 "PatternFollowUp": "继续分析这个模式",
                 "ExplainResult": "解释这个结果"

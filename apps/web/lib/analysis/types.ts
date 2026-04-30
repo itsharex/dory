@@ -1,6 +1,7 @@
 import type { ResultColumnMeta } from '@/lib/client/type';
 import type { ResultSetStatsV1 } from '@/lib/client/result-set-ai';
 import type { InsightAction, InsightStructuredFinding, InsightStructuredSignal, StructuredInsightView } from '@/lib/client/result-set-insights';
+import type { ResultAction } from './result-actions';
 
 export type AnalysisResultRef = {
     sessionId: string;
@@ -59,6 +60,7 @@ export type AnalysisSuggestion = {
     requiresConfirmation?: boolean;
     reason?: string;
     sqlPreview?: string;
+    action?: ResultAction;
     analysisState?: AnalysisState;
 };
 
@@ -68,8 +70,8 @@ export type AnalysisFocus = {
 };
 
 export type AnalysisTrigger =
-    | { type: 'suggestion'; suggestionId: string; sqlPreview?: string | null }
-    | { type: 'followup'; sourceSessionId: string; suggestionId: string; sqlPreview?: string | null };
+    | { type: 'suggestion'; suggestionId: string; sqlPreview?: string | null; action?: ResultAction | null }
+    | { type: 'followup'; sourceSessionId: string; suggestionId: string; sqlPreview?: string | null; action?: ResultAction | null };
 
 export type AnalysisStepType = 'reasoning' | 'sql_generation' | 'execution' | 'summary';
 export type AnalysisStepStatus = 'pending' | 'running' | 'done' | 'error';

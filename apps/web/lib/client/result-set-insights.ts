@@ -1,4 +1,5 @@
 import type { ActionIntent } from '@/lib/copilot/action/types';
+import type { ResultAction } from '@/lib/analysis/result-actions';
 import type { ResultColumnMeta, ResultSetStatsV1 } from './result-set-ai';
 
 type InsightTranslate = (key: string, values?: Record<string, string | number>) => string;
@@ -38,18 +39,12 @@ export type InsightPattern = {
 
 export type InsightAction =
     | {
-          id: 'inspect-outliers' | 'analyze-source' | 'view-distribution' | 'group-by-service' | 'view-time-trend' | 'filter-outliers' | 'top-messages' | 'pattern-follow-up';
+          id: string;
           label: string;
           kind: 'analysis-suggestion';
-          suggestionId:
-              | 'inspect-outliers'
-              | 'analyze-source'
-              | 'view-distribution'
-              | 'group-by-service'
-              | 'view-time-trend'
-              | 'filter-outliers'
-              | 'top-messages'
-              | 'pattern-follow-up';
+          suggestionId: string;
+          action?: ResultAction;
+          sqlPreview?: string;
       }
     | {
           id: 'explain-result';
@@ -146,6 +141,7 @@ export type InsightRewriteResponse = {
     primaryInsight?: string;
     limitations?: string[];
     recommendedSql?: string | null;
+    recommendedActions?: ResultAction[];
     alternativeActions?: Array<{
         id?: string;
         label: string;
@@ -660,18 +656,35 @@ export function detectAdvancedPatterns(context: InsightRuleContext): InsightPatt
     return patterns.slice(0, 4);
 }
 
-function actionFromPattern(context: InsightRuleContext, pattern: InsightPattern): InsightAction {
+function actionFromPattern(context: InsightRuleContext, pattern: InsightPattern, keyColumns: InsightKeyColumns): InsightAction | null {
     const { t } = context;
+    const dimension = keyColumns.dimensions[0];
+    const measure = keyColumns.measures[0];
+    if (!dimension) return null;
     return {
         id: 'pattern-follow-up',
         label: t('Insights.Actions.PatternFollowUp'),
         kind: 'analysis-suggestion',
         suggestionId: 'pattern-follow-up',
+        action: {
+            type: 'group',
+            title: t('Insights.Actions.PatternFollowUp'),
+            params: {
+                dimensions: [dimension],
+                measure: measure
+                    ? {
+                          column: measure,
+                          aggregation: 'AVG',
+                      }
+                    : undefined,
+                limit: 20,
+            },
+        },
     };
 }
 
 function buildRecommendedActions(context: InsightRuleContext, keyColumns: InsightKeyColumns, facts: InsightFact[], patterns: InsightPattern[]): InsightAction[] {
-    const { t, sqlText } = context;
+    const { t } = context;
     const actions: InsightAction[] = [];
     const serviceColumn = keyColumns.dimensions.find(name => looksLike(name, SERVICE_NAME_HINTS));
     const messageColumn = keyColumns.dimensions.find(name => looksLike(name, MESSAGE_NAME_HINTS));
@@ -679,17 +692,34 @@ function buildRecommendedActions(context: InsightRuleContext, keyColumns: Insigh
     const hasRiskSignal = facts.some(fact => fact.type === 'risk_signal');
     const hasOutlier = patterns.some(pattern => pattern.kind === 'outlier');
     const hasTimePattern = patterns.some(pattern => pattern.kind === 'spike' || pattern.kind === 'drop');
+    const primaryMeasureThreshold = (() => {
+        const spreadThreshold = facts.find(fact => fact.type === 'measure_spread' && fact.columns?.[0] === primaryMeasure)?.metrics?.p95;
+        if (typeof spreadThreshold === 'number' && Number.isFinite(spreadThreshold)) return spreadThreshold;
+        const outlierThreshold = patterns.find(pattern => pattern.kind === 'outlier' && pattern.columns[0] === primaryMeasure)?.metrics.value;
+        if (typeof outlierThreshold === 'number' && Number.isFinite(outlierThreshold)) return outlierThreshold;
+        return null;
+    })();
 
     if (patterns[0]) {
-        actions.push(actionFromPattern(context, patterns[0]));
+        const action = actionFromPattern(context, patterns[0], keyColumns);
+        if (action) actions.push(action);
     }
 
-    if (primaryMeasure && (hasOutlier || facts.some(fact => fact.type === 'measure_spread'))) {
+    if (primaryMeasure && primaryMeasureThreshold != null && (hasOutlier || facts.some(fact => fact.type === 'measure_spread'))) {
         actions.push({
             id: 'inspect-outliers',
-            label: t('Insights.Actions.InspectOutliers'),
+            label: t('Insights.Actions.InspectHighValueRows', { column: primaryMeasure }),
             kind: 'analysis-suggestion',
             suggestionId: 'inspect-outliers',
+            action: {
+                type: 'filter',
+                title: t('Insights.Actions.InspectHighValueRows', { column: primaryMeasure }),
+                params: {
+                    column: primaryMeasure,
+                    operator: '>',
+                    value: primaryMeasureThreshold,
+                },
+            },
         });
     }
 
@@ -701,65 +731,194 @@ function buildRecommendedActions(context: InsightRuleContext, keyColumns: Insigh
             }),
             kind: 'analysis-suggestion',
             suggestionId: 'group-by-service',
+            action: {
+                type: 'group',
+                title: t('Insights.Actions.GroupByService', { column: serviceColumn }),
+                params: {
+                    dimensions: [serviceColumn],
+                    limit: 20,
+                },
+            },
         });
     }
 
     if (serviceColumn || hasRiskSignal) {
-        actions.push({
-            id: 'analyze-source',
-            label: t('Insights.Actions.AnalyzeSource'),
-            kind: 'analysis-suggestion',
-            suggestionId: 'analyze-source',
-        });
+        const dimension = serviceColumn ?? keyColumns.dimensions[0];
+        if (dimension) {
+            actions.push({
+                id: 'analyze-source',
+                label: t('Insights.Actions.AnalyzeByColumn', { column: dimension }),
+                kind: 'analysis-suggestion',
+                suggestionId: 'analyze-source',
+                action: {
+                    type: 'group',
+                    title: t('Insights.Actions.AnalyzeByColumn', { column: dimension }),
+                    params: {
+                        dimensions: [dimension],
+                        limit: 20,
+                    },
+                },
+            });
+        }
     }
 
     if (primaryMeasure) {
         actions.push({
             id: 'view-distribution',
-            label: t('Insights.Actions.ViewDistribution'),
+            label: t('Insights.Actions.ViewColumnDistribution', { column: primaryMeasure }),
             kind: 'analysis-suggestion',
             suggestionId: 'view-distribution',
+            action: {
+                type: 'distribution',
+                title: t('Insights.Actions.ViewColumnDistribution', { column: primaryMeasure }),
+                params: {
+                    column: primaryMeasure,
+                },
+            },
         });
     }
 
     if (keyColumns.time && (hasRiskSignal || hasTimePattern || !!primaryMeasure)) {
         actions.push({
             id: 'view-time-trend',
-            label: t('Insights.Actions.ViewTimeTrend'),
+            label: t('Insights.Actions.ViewTimeTrendByColumn', { column: keyColumns.time }),
             kind: 'analysis-suggestion',
             suggestionId: 'view-time-trend',
+            action: {
+                type: 'trend',
+                title: t('Insights.Actions.ViewTimeTrendByColumn', { column: keyColumns.time }),
+                params: {
+                    timeColumn: keyColumns.time,
+                    measure: primaryMeasure
+                        ? {
+                              column: primaryMeasure,
+                              aggregation: 'SUM',
+                          }
+                        : undefined,
+                    limit: 50,
+                },
+            },
         });
     }
 
-    if (primaryMeasure) {
+    if (primaryMeasure && primaryMeasureThreshold != null) {
         actions.push({
             id: 'filter-outliers',
-            label: t('Insights.Actions.FilterOutliers'),
+            label: t('Insights.Actions.ExcludeHighValueRows', { column: primaryMeasure }),
             kind: 'analysis-suggestion',
             suggestionId: 'filter-outliers',
+            action: {
+                type: 'filter',
+                title: t('Insights.Actions.ExcludeHighValueRows', { column: primaryMeasure }),
+                params: {
+                    column: primaryMeasure,
+                    operator: '<=',
+                    value: primaryMeasureThreshold,
+                },
+            },
         });
     }
 
     if (messageColumn) {
         actions.push({
             id: 'top-messages',
-            label: t('Insights.Actions.TopMessages'),
+            label: t('Insights.Actions.AnalyzeByColumn', { column: messageColumn }),
             kind: 'analysis-suggestion',
             suggestionId: 'top-messages',
+            action: {
+                type: 'group',
+                title: t('Insights.Actions.AnalyzeByColumn', { column: messageColumn }),
+                params: {
+                    dimensions: [messageColumn],
+                    limit: 20,
+                },
+            },
         });
     }
 
-    actions.push({
-        id: 'explain-result',
-        label: t('Insights.Actions.ExplainResult'),
-        kind: 'copilot-prompt',
-        prompt: t('Insights.ActionPrompts.ExplainResult', {
-            sql: sqlText?.trim() || t('Insights.ActionPrompts.CurrentResult'),
-        }),
-    });
-
     const deduped = actions.filter((action, index) => actions.findIndex(candidate => candidate.id === action.id) === index);
     return deduped.slice(0, 6);
+}
+
+function actionColumns(action: ResultAction) {
+    if (action.type === 'filter') return [action.params.column];
+    if (action.type === 'group') return [...action.params.dimensions, action.params.measure?.column].filter((column): column is string => !!column);
+    if (action.type === 'trend') return [action.params.timeColumn, action.params.measure?.column].filter((column): column is string => !!column);
+    return [action.params.column];
+}
+
+function isValidResultAction(action: ResultAction, context: InsightRuleContext) {
+    const allowedColumns = new Set((context.columns ?? []).map(column => column.name));
+    if (!allowedColumns.size) return true;
+    return actionColumns(action).every(column => allowedColumns.has(column));
+}
+
+function actionSignature(action: ResultAction) {
+    return `${action.type}:${JSON.stringify(action.params)}`;
+}
+
+function actionKind(action: ResultAction) {
+    if (action.type === 'trend') return 'view-time-trend';
+    if (action.type === 'distribution') return 'view-distribution';
+    if (action.type === 'filter') return action.params.operator === '<=' || action.params.operator === '<' ? 'filter-outliers' : 'inspect-outliers';
+    return 'analyze-source';
+}
+
+function mergeRecommendedActions(context: InsightRuleContext, ruleActions: InsightAction[], rewritten?: InsightRewriteResponse | null) {
+    const seen = new Set<string>();
+    const merged: InsightAction[] = [];
+
+    const primarySql = rewritten?.recommendedSql?.trim();
+    if (primarySql) {
+        merged.push({
+            id: 'ai-recommended-sql',
+            label: rewritten?.primaryInsight ?? context.t('Insights.Analysis.AiDecision.DefaultLabel'),
+            kind: 'analysis-suggestion',
+            suggestionId: 'ai-recommended-sql',
+            sqlPreview: primarySql,
+        });
+    }
+
+    for (const [index, action] of (rewritten?.recommendedActions ?? []).entries()) {
+        if (!isValidResultAction(action, context)) continue;
+        const signature = actionSignature(action);
+        if (seen.has(signature)) continue;
+        seen.add(signature);
+        const suggestionId = `ai-${actionKind(action)}-${index + 1}`;
+        merged.push({
+            id: suggestionId,
+            label: action.title,
+            kind: 'analysis-suggestion',
+            suggestionId,
+            action,
+        });
+    }
+
+    for (const [index, action] of (rewritten?.alternativeActions ?? []).entries()) {
+        const sqlPreview = action.recommendedSql?.trim();
+        if (!sqlPreview) continue;
+        merged.push({
+            id: action.id?.trim() || `ai-alternative-sql-${index + 1}`,
+            label: action.label.trim(),
+            kind: 'analysis-suggestion',
+            suggestionId: action.id?.trim() || `ai-alternative-sql-${index + 1}`,
+            sqlPreview,
+        });
+    }
+
+    for (const action of ruleActions) {
+        if (action.kind !== 'analysis-suggestion') {
+            merged.push(action);
+            continue;
+        }
+        if (!action.action) continue;
+        const signature = actionSignature(action.action);
+        if (seen.has(signature)) continue;
+        seen.add(signature);
+        merged.push(action);
+    }
+
+    return merged.slice(0, 6);
 }
 
 function factToInsight(context: InsightRuleContext, fact: InsightFact) {
@@ -864,7 +1023,7 @@ export function buildInsights(context: InsightRuleContext, rewritten?: InsightRe
             quickSummary: rewritten.quickSummary ?? draft.quickSummary,
             insights: rewritten.insights.slice(0, 5),
             keyColumns: draft.keyColumns,
-            recommendedActions: draft.recommendedActions,
+            recommendedActions: mergeRecommendedActions(context, draft.recommendedActions, rewritten),
             source: 'llm',
             advancedPatterns: draft.patterns,
         };

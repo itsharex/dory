@@ -232,75 +232,6 @@ function dedupeAnalysisSuggestions(suggestions: AnalysisSuggestion[]) {
     });
 }
 
-function aiDecisionSuggestions(decision: InsightRewriteResponse | null, t: ReturnType<typeof useTranslations>, fallback?: AnalysisSuggestion | null): AnalysisSuggestion[] {
-    if (!decision) return [];
-    const sql = decision?.recommendedSql?.trim();
-    const makeSuggestion = (params: {
-        id: string;
-        label: string;
-        description: string;
-        kind?: AnalysisSuggestion['kind'];
-        sqlPreview?: string | null;
-        isPrimary?: boolean;
-        priority: number;
-    }): AnalysisSuggestion => ({
-        id: params.id,
-        kind: params.kind ?? 'drilldown',
-        title: params.label,
-        description: params.description,
-        label: params.label,
-        goal: params.description,
-        resultTitle: params.label,
-        stepTemplates: [
-            { id: 'inspect-profile', title: t('Insights.Analysis.Steps.InspectProfile') },
-            { id: 'run-next-sql', title: t('Insights.Analysis.Steps.RunNextSql') },
-            { id: 'summarize-next-step', title: t('Insights.Analysis.Steps.SummarizeNextStep') },
-        ],
-        followupPolicy: 'chain',
-        intent: {
-            type: 'generate_sql',
-            payload: {
-                suggestionId: params.id,
-                analysisState: decision.analysisState ?? 'good',
-            },
-        },
-        priority: params.priority,
-        isPrimary: params.isPrimary,
-        requiresConfirmation: true,
-        reason: params.description,
-        sqlPreview: params.sqlPreview?.trim() || undefined,
-        analysisState: decision.analysisState ?? fallback?.analysisState,
-    });
-
-    const primary = sql
-        ? [
-              makeSuggestion({
-                  id: 'ai-decision-recommended-sql',
-                  label: decision.primaryInsight ?? fallback?.label ?? t('Insights.Analysis.AiDecision.DefaultLabel'),
-                  description: decision.limitations?.[0] ?? decision.insights?.[0] ?? fallback?.description ?? t('Insights.Analysis.AiDecision.DefaultDescription'),
-                  kind: fallback?.kind,
-                  sqlPreview: sql,
-                  isPrimary: true,
-                  priority: 101,
-              }),
-          ]
-        : [];
-    const alternatives = (decision.alternativeActions ?? [])
-        .filter(action => action.label?.trim() && action.description?.trim())
-        .map((action, index) =>
-            makeSuggestion({
-                id: action.id?.trim() || `ai-decision-action-${index + 1}`,
-                label: action.label.trim(),
-                description: action.description.trim(),
-                kind: action.kind,
-                sqlPreview: action.recommendedSql ?? null,
-                priority: 90 - index,
-            }),
-        );
-
-    return dedupeAnalysisSuggestions([...primary, ...alternatives]).slice(0, 5);
-}
-
 type AnalysisActionsProps = {
     tabId?: string;
     connectionId?: string | null;
@@ -326,7 +257,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
     const [sampleRows, setSampleRows] = useState<Array<Record<string, unknown>>>([]);
     const [analysisRows, setAnalysisRows] = useState<AnalysisRow[]>([]);
     const [runningSuggestionId, setRunningSuggestionId] = useState<string | null>(null);
-    const [aiDecision, setAiDecision] = useState<InsightRewriteResponse | null>(null);
+    const [rewritten, setRewritten] = useState<InsightRewriteResponse | null>(null);
     const handledRequestIdsRef = useRef<Set<string>>(new Set());
 
     const workspaceKey = analysisWorkspaceKeyFor(tabId, activeSessionId, activeSet);
@@ -368,7 +299,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
 
     useEffect(() => {
         if (!insightRewriteRequest || !insightRewriteCacheKey) {
-            setAiDecision(null);
+            setRewritten(null);
             return;
         }
 
@@ -384,9 +315,9 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                     signal: controller.signal,
                 });
                 const payload = (await response.json().catch(() => null)) as InsightRewriteResponse | null;
-                if (!canceled) setAiDecision(payload);
+                if (!canceled) setRewritten(payload);
             } catch {
-                if (!controller.signal.aborted && !canceled) setAiDecision(null);
+                if (!controller.signal.aborted && !canceled) setRewritten(null);
             }
         })();
 
@@ -416,7 +347,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                 locale,
                 t: (key, values) => t(key as any, values),
             },
-            null,
+            rewritten,
         );
         const structured = buildStructuredInsightView({
             context: {
@@ -445,9 +376,6 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
             recommendedActions: structured.recommendedActions,
             t: (key, values) => t(key as any, values),
         });
-        const aiSuggestions = aiDecisionSuggestions(aiDecision, t, suggestions[0]);
-        const resolvedSuggestions = aiSuggestions.length ? aiSuggestions : suggestions;
-
         return {
             draft,
             view,
@@ -456,9 +384,9 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                 narrative: buildAnalysisSummaryFromDraft(draft, view.insights),
             },
             resultContext,
-            suggestions: resolvedSuggestions,
+            suggestions,
         };
-    }, [activeSessionId, activeSet, aiDecision, databaseName, locale, sampleRows, sessionMetas, t]);
+    }, [activeSessionId, activeSet, databaseName, locale, rewritten, sampleRows, sessionMetas, t]);
 
     useEffect(() => {
         if (!workspaceKey || !insightBundle || !tabId || !activeSessionId || activeSet == null || activeSet < 0) return;
@@ -719,6 +647,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                     type: 'suggestion',
                     suggestionId: suggestion.id,
                     sqlPreview: suggestion.sqlPreview ?? null,
+                    action: suggestion.action ?? null,
                 },
             });
 
@@ -748,7 +677,19 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
         }
 
         handledRequestIdsRef.current.add(analysisRequest.id);
-        void handleRunSuggestion(suggestion, analysisRequest.id).finally(() => {
+        void handleRunSuggestion(
+            analysisRequest.action
+                ? {
+                      ...suggestion,
+                      action: analysisRequest.action,
+                      sqlPreview: analysisRequest.sqlPreview ?? suggestion.sqlPreview,
+                  }
+                : {
+                      ...suggestion,
+                      sqlPreview: analysisRequest.sqlPreview ?? suggestion.sqlPreview,
+                  },
+            analysisRequest.id,
+        ).finally(() => {
             setAnalysisRequest(null);
         });
     }, [activeSessionId, activeSet, analysisRequest, setAnalysisRequest, workspace, workspaceSuggestions]);

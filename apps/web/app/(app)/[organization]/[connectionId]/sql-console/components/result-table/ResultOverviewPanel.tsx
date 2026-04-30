@@ -132,6 +132,8 @@ export function ResultOverviewPanel(props: {
             setCopilotAnalysisRequest({
                 id: `${action.suggestionId}-${Date.now()}`,
                 suggestionId: action.suggestionId,
+                action: action.action,
+                sqlPreview: action.sqlPreview,
                 sourceResultRef:
                     activeSessionId && typeof activeSet === 'number' && activeSet >= 0
                         ? {
@@ -269,27 +271,6 @@ export function ResultOverviewPanel(props: {
                                 </Button>
                             ))}
                         </div>
-                        {rewritten?.recommendedSql ? (
-                            <div className="mt-3 rounded-lg border bg-background p-3">
-                                <div className="text-xs font-medium text-muted-foreground">Recommended SQL</div>
-                                <pre className="mt-2 max-h-40 overflow-auto rounded-md bg-muted/40 p-2 text-xs leading-relaxed text-foreground">{rewritten.recommendedSql}</pre>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="mt-3 h-8 text-xs"
-                                    onClick={() => {
-                                        setCopilotPanelOpen(true);
-                                        setCopilotPanelTab('ask');
-                                        setCopilotPromptRequest({
-                                            id: `recommended-sql-${Date.now()}`,
-                                            prompt: `Use this recommended SQL as the next analysis step:\n\n${rewritten.recommendedSql}`,
-                                        });
-                                    }}
-                                >
-                                    继续分析这个 SQL
-                                </Button>
-                            </div>
-                        ) : null}
                     </Section>
                 </div>
             </ScrollArea>

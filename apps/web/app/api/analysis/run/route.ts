@@ -56,6 +56,53 @@ const insightSchema = z.object({
     recommendedActions: z.array(z.object({}).passthrough()),
 });
 
+const resultActionSchema = z.discriminatedUnion('type', [
+    z.object({
+        type: z.literal('filter'),
+        title: z.string().min(1),
+        params: z.object({
+            column: z.string().min(1),
+            operator: z.enum(['>', '<', '=', '>=', '<=']),
+            value: z.union([z.number(), z.string()]),
+        }),
+    }),
+    z.object({
+        type: z.literal('group'),
+        title: z.string().min(1),
+        params: z.object({
+            dimensions: z.array(z.string().min(1)).min(1),
+            measure: z
+                .object({
+                    column: z.string().min(1),
+                    aggregation: z.enum(['COUNT', 'SUM', 'AVG', 'MIN', 'MAX']),
+                })
+                .optional(),
+            limit: z.number().int().positive().optional(),
+        }),
+    }),
+    z.object({
+        type: z.literal('trend'),
+        title: z.string().min(1),
+        params: z.object({
+            timeColumn: z.string().min(1),
+            measure: z
+                .object({
+                    column: z.string().min(1),
+                    aggregation: z.enum(['COUNT', 'SUM', 'AVG', 'MIN', 'MAX']),
+                })
+                .optional(),
+            limit: z.number().int().positive().optional(),
+        }),
+    }),
+    z.object({
+        type: z.literal('distribution'),
+        title: z.string().min(1),
+        params: z.object({
+            column: z.string().min(1),
+        }),
+    }),
+]);
+
 const bodySchema = z.object({
     context: z.object({
         connectionId: z.string().min(1),
@@ -72,12 +119,14 @@ const bodySchema = z.object({
             type: z.literal('suggestion'),
             suggestionId: z.string().min(1),
             sqlPreview: z.string().nullable().optional(),
+            action: resultActionSchema.nullable().optional(),
         }),
         z.object({
             type: z.literal('followup'),
             sourceSessionId: z.string().min(1),
             suggestionId: z.string().min(1),
             sqlPreview: z.string().nullable().optional(),
+            action: resultActionSchema.nullable().optional(),
         }),
     ]),
     tabId: z.string().min(1).optional(),
