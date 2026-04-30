@@ -1,6 +1,6 @@
 import type { ResultColumnMeta } from '@/lib/client/type';
 import type { ResultSetStatsV1 } from '@/lib/client/result-set-ai';
-import type { InsightAction, InsightStructuredFinding, InsightStructuredSignal, StructuredInsightView } from '@/lib/client/result-set-insights';
+import type { InsightAction, InsightStructuredFinding, InsightStructuredSignal, RecommendedInsightAction, StructuredInsightView } from '@/lib/client/result-set-insights';
 import type { ResultAction } from './result-actions';
 
 export type AnalysisResultRef = {
@@ -217,7 +217,7 @@ export type InsightActionAnalysis = Extract<InsightAction, { kind: 'analysis-sug
 export type InsightSignalsPayload = {
     signals: InsightStructuredSignal[];
     findings: InsightStructuredFinding[];
-    recommendedActions: InsightAction[];
+    recommendedActions: RecommendedInsightAction[];
     narrative: string;
 };
 

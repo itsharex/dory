@@ -9,6 +9,7 @@ import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { useDB } from '@/lib/client/use-pglite';
 import { buildInsightDraft, buildInsightRewriteRequest, buildInsights, buildStructuredInsightView, type InsightRewriteResponse } from '@/lib/client/result-set-insights';
+import { fetchInsightRewrite, makeInsightRewriteCacheKey } from '@/lib/client/result-insight-rewrite';
 import { buildAnalysisSuggestions, buildAnalysisSummaryFromDraft } from '@/lib/analysis/suggestions';
 import { buildResultContext } from '@/lib/analysis/result-context';
 import { runAnalysisRequest } from '@/lib/analysis/client';
@@ -295,37 +296,25 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
             t: (key, values) => t(key as any, values),
         });
     }, [locale, sampleRows, sessionMetas, t]);
-    const insightRewriteCacheKey = useMemo(() => (insightRewriteRequest ? JSON.stringify(insightRewriteRequest) : null), [insightRewriteRequest]);
+    const insightRewriteCacheKey = useMemo(() => makeInsightRewriteCacheKey(insightRewriteRequest), [insightRewriteRequest]);
 
     useEffect(() => {
-        if (!insightRewriteRequest || !insightRewriteCacheKey) {
+        if (!insightRewriteCacheKey) {
             setRewritten(null);
             return;
         }
 
-        const controller = new AbortController();
         let canceled = false;
 
         void (async () => {
-            try {
-                const response = await fetch('/api/ai/result-insights', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(insightRewriteRequest),
-                    signal: controller.signal,
-                });
-                const payload = (await response.json().catch(() => null)) as InsightRewriteResponse | null;
-                if (!canceled) setRewritten(payload);
-            } catch {
-                if (!controller.signal.aborted && !canceled) setRewritten(null);
-            }
+            const payload = await fetchInsightRewrite(insightRewriteCacheKey);
+            if (!canceled) setRewritten(payload);
         })();
 
         return () => {
             canceled = true;
-            controller.abort();
         };
-    }, [insightRewriteCacheKey, insightRewriteRequest]);
+    }, [insightRewriteCacheKey]);
 
     const insightBundle = useMemo(() => {
         if (!activeSessionId || activeSet == null || activeSet < 0) return null;

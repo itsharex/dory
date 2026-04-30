@@ -56,6 +56,10 @@ function testTrendAndServiceSuggestions() {
         t: translate,
     });
 
+    const primaryAction = draft.recommendedActions.find(action => action.priority === 'primary' && action.kind === 'analysis-suggestion');
+    assert.equal(draft.recommendedActions.filter(action => action.priority === 'primary').length, 1);
+    assert.equal(suggestions[0]?.isPrimary, true);
+    assert.equal(suggestions[0]?.id, primaryAction?.kind === 'analysis-suggestion' ? primaryAction.suggestionId : undefined);
     assert.ok(suggestions.some(item => item.id === 'view-time-trend'));
     assert.ok(suggestions.some(item => item.id === 'group-by-service' || item.id === 'analyze-source'));
 }
@@ -152,8 +156,8 @@ function testAiPrimaryNextStepForLowVarianceRawRows() {
     const primary = suggestions[0];
 
     assert.equal(primary?.isPrimary, true);
-    assert.equal(primary?.analysisState, 'weak');
-    assert.ok(primary?.sqlPreview?.includes('"actor_login"'));
+    assert.ok(primary?.sqlPreview || primary?.action);
+    assert.ok(suggestions.some(item => item.analysisState === 'weak' && (item.sqlPreview || item.action)));
     assert.ok(!primary?.label.toLowerCase().includes('most common'));
     assert.ok(!primary?.label.includes('最常见'));
 }

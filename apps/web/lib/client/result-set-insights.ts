@@ -59,6 +59,19 @@ export type InsightAction =
           intent: ActionIntent;
       };
 
+export type RecommendedActionPriority = 'primary' | 'secondary';
+
+export type RecommendedInsightAction = InsightAction & {
+    priority: RecommendedActionPriority;
+};
+
+export type InsightDecisionCard = {
+    title: string;
+    impact: string;
+    insights: string[];
+    recommendedActions: RecommendedInsightAction[];
+};
+
 export type InsightKeyColumns = {
     time?: string;
     measures: string[];
@@ -74,7 +87,7 @@ export type InsightDraft = {
     facts: InsightFact[];
     patterns: InsightPattern[];
     keyColumns: InsightKeyColumns;
-    recommendedActions: InsightAction[];
+    recommendedActions: RecommendedInsightAction[];
 };
 
 export type InsightViewModel = {
@@ -84,7 +97,7 @@ export type InsightViewModel = {
     };
     insights: string[];
     keyColumns: InsightKeyColumns;
-    recommendedActions: InsightAction[];
+    recommendedActions: RecommendedInsightAction[];
     source: 'rules' | 'llm';
     advancedPatterns?: InsightPattern[];
 };
@@ -100,14 +113,11 @@ export type InsightStructuredFinding = {
 };
 
 export type StructuredInsightView = {
-    card: {
-        headline: string;
-        summaryLines: string[];
-    };
+    decision: InsightDecisionCard;
     signals: InsightStructuredSignal[];
     findings: InsightStructuredFinding[];
     narrative: string;
-    recommendedActions: InsightAction[];
+    recommendedActions: RecommendedInsightAction[];
 };
 
 export type InsightRewriteRequest = {
@@ -117,6 +127,13 @@ export type InsightRewriteRequest = {
     keyColumns: InsightKeyColumns;
     facts: InsightFact[];
     patterns: InsightPattern[];
+    recommendedActions: Array<{
+        id: string;
+        label: string;
+        priority: RecommendedActionPriority;
+        action?: ResultAction;
+        sqlPreview?: string;
+    }>;
     profileColumns?: Array<{
         name: string;
         semanticRole: string;
@@ -141,7 +158,7 @@ export type InsightRewriteResponse = {
     primaryInsight?: string;
     limitations?: string[];
     recommendedSql?: string | null;
-    recommendedActions?: ResultAction[];
+    recommendedActions?: Array<ResultAction & { priority?: RecommendedActionPriority }>;
     alternativeActions?: Array<{
         id?: string;
         label: string;
@@ -683,7 +700,21 @@ function actionFromPattern(context: InsightRuleContext, pattern: InsightPattern,
     };
 }
 
-function buildRecommendedActions(context: InsightRuleContext, keyColumns: InsightKeyColumns, facts: InsightFact[], patterns: InsightPattern[]): InsightAction[] {
+function normalizeRecommendedActions(actions: Array<InsightAction & { priority?: RecommendedActionPriority }>): RecommendedInsightAction[] {
+    const executableActions = actions.filter(action => action.kind !== 'analysis-suggestion' || !!action.action || !!action.sqlPreview);
+    const limited = executableActions.slice(0, 4);
+    const primaryIndex = Math.max(
+        0,
+        limited.findIndex(action => action.priority === 'primary'),
+    );
+
+    return limited.map((action, index) => ({
+        ...action,
+        priority: index === primaryIndex ? 'primary' : 'secondary',
+    }));
+}
+
+function buildRecommendedActions(context: InsightRuleContext, keyColumns: InsightKeyColumns, facts: InsightFact[], patterns: InsightPattern[]): RecommendedInsightAction[] {
     const { t } = context;
     const actions: InsightAction[] = [];
     const serviceColumn = keyColumns.dimensions.find(name => looksLike(name, SERVICE_NAME_HINTS));
@@ -837,7 +868,7 @@ function buildRecommendedActions(context: InsightRuleContext, keyColumns: Insigh
     }
 
     const deduped = actions.filter((action, index) => actions.findIndex(candidate => candidate.id === action.id) === index);
-    return deduped.slice(0, 6);
+    return normalizeRecommendedActions(deduped);
 }
 
 function actionColumns(action: ResultAction) {
@@ -864,9 +895,9 @@ function actionKind(action: ResultAction) {
     return 'analyze-source';
 }
 
-function mergeRecommendedActions(context: InsightRuleContext, ruleActions: InsightAction[], rewritten?: InsightRewriteResponse | null) {
+function mergeRecommendedActions(context: InsightRuleContext, ruleActions: RecommendedInsightAction[], rewritten?: InsightRewriteResponse | null) {
     const seen = new Set<string>();
-    const merged: InsightAction[] = [];
+    const merged: Array<InsightAction & { priority?: RecommendedActionPriority }> = [];
 
     const primarySql = rewritten?.recommendedSql?.trim();
     if (primarySql) {
@@ -876,6 +907,7 @@ function mergeRecommendedActions(context: InsightRuleContext, ruleActions: Insig
             kind: 'analysis-suggestion',
             suggestionId: 'ai-recommended-sql',
             sqlPreview: primarySql,
+            priority: 'primary',
         });
     }
 
@@ -891,6 +923,7 @@ function mergeRecommendedActions(context: InsightRuleContext, ruleActions: Insig
             kind: 'analysis-suggestion',
             suggestionId,
             action,
+            priority: action.priority,
         });
     }
 
@@ -918,7 +951,7 @@ function mergeRecommendedActions(context: InsightRuleContext, ruleActions: Insig
         merged.push(action);
     }
 
-    return merged.slice(0, 6);
+    return normalizeRecommendedActions(merged);
 }
 
 function factToInsight(context: InsightRuleContext, fact: InsightFact) {
@@ -1063,6 +1096,15 @@ export function buildInsightRewriteRequest(context: InsightRuleContext): Insight
         keyColumns: draft.keyColumns,
         facts: draft.facts,
         patterns: draft.patterns,
+        recommendedActions: draft.recommendedActions
+            .filter(action => action.kind === 'analysis-suggestion' && (!!action.action || !!action.sqlPreview))
+            .map(action => ({
+                id: action.id,
+                label: action.label,
+                priority: action.priority,
+                action: action.kind === 'analysis-suggestion' ? action.action : undefined,
+                sqlPreview: action.kind === 'analysis-suggestion' ? action.sqlPreview : undefined,
+            })),
         profileColumns: Object.values(context.stats.columns).map(profile => ({
             name: profile.name,
             semanticRole: profile.semanticRole,
@@ -1095,96 +1137,94 @@ function findingSeverity(source: InsightFact | InsightPattern): 'info' | 'warnin
     return 'info';
 }
 
-function buildInsightCard(params: { context: InsightRuleContext; draft: InsightDraft; view: InsightViewModel; findings: InsightStructuredFinding[] }) {
+function buildInsightDecision(params: { context: InsightRuleContext; draft: InsightDraft; view: InsightViewModel; findings: InsightStructuredFinding[] }) {
     const { context, draft, findings } = params;
-    const { locale, t } = context;
+    const { t } = context;
     const primaryMeasure = draft.keyColumns.measures[0];
     const outlierPattern = draft.patterns.find(pattern => pattern.kind === 'outlier');
     const spreadFact = draft.facts.find(fact => fact.type === 'measure_spread');
     const riskFact = draft.facts.find(fact => fact.type === 'risk_signal');
     const lowInformationFact = draft.facts.find(fact => fact.type === 'low_information_dimension');
     const topDimensionFact = draft.facts.find(fact => fact.type === 'top_dimension' || fact.type === 'dominant_category');
+    const timePattern = draft.patterns.find(pattern => pattern.kind === 'spike' || pattern.kind === 'drop');
+    const trendFact = draft.facts.find(fact => fact.type === 'trend_candidate');
+    const recommendedActions = normalizeRecommendedActions(params.view.recommendedActions);
+
+    if (params.view.source === 'llm' && params.view.insights[0]) {
+        const title = params.view.quickSummary.title;
+        const insights = params.view.insights.filter(Boolean).slice(0, 5);
+        const impact = insights.find(insight => insight !== title) ?? params.view.quickSummary.subtitle ?? t('Insights.Decision.DefaultImpact');
+        return {
+            title,
+            impact,
+            insights,
+            recommendedActions,
+        };
+    }
 
     if (primaryMeasure && (outlierPattern || spreadFact)) {
-        const headline = t('Insights.Card.OutlierHeadline', {
-            column: primaryMeasure,
-        });
-        const summaryLines: string[] = [];
-        if (outlierPattern && typeof outlierPattern.metrics.value === 'number') {
-            summaryLines.push(
-                t('Insights.Card.OutlierMaxLine', {
-                    value: formatNumber(locale, outlierPattern.metrics.value),
-                }),
-            );
-        }
-        if (spreadFact && typeof spreadFact.metrics?.p95 === 'number' && typeof spreadFact.metrics?.p50 === 'number') {
-            summaryLines.push(
-                t('Insights.Card.LongTailLine', {
-                    p50: formatNumber(locale, spreadFact.metrics.p50),
-                    p95: formatNumber(locale, spreadFact.metrics.p95),
-                }),
-            );
-        }
-
         return {
-            headline,
-            summaryLines: summaryLines.slice(0, 2),
+            title: t('Insights.Decision.OutlierTitle', { column: primaryMeasure }),
+            impact: t('Insights.Decision.OutlierImpact'),
+            insights: [t('Insights.Decision.OutlierImpact')],
+            recommendedActions,
         };
     }
 
     if (riskFact) {
         return {
-            headline: t('Insights.Card.RiskHeadline', {
+            title: t('Insights.Decision.RiskTitle', {
                 column: String(riskFact.columns?.[0] ?? t('Insights.Card.CurrentResult')),
             }),
-            summaryLines: [
-                t('Insights.Card.RiskLine', {
-                    value: String(riskFact.metrics?.value ?? ''),
-                    share: formatPercent(locale, typeof riskFact.metrics?.share === 'number' ? riskFact.metrics.share : null),
-                }),
-            ],
+            impact: t('Insights.Decision.RiskImpact'),
+            insights: [t('Insights.Decision.RiskImpact')],
+            recommendedActions,
         };
     }
 
     if (lowInformationFact) {
         return {
-            headline: t('Insights.Card.LowInformationHeadline', {
+            title: t('Insights.Decision.LowInformationTitle', {
                 column: String(lowInformationFact.columns?.[0] ?? t('Insights.Card.CurrentResult')),
             }),
-            summaryLines: [
-                t('Insights.Card.LowInformationLine', {
-                    value: String(lowInformationFact.metrics?.value ?? ''),
-                    count: formatNumber(locale, typeof lowInformationFact.metrics?.count === 'number' ? lowInformationFact.metrics.count : null),
-                    share: formatPercent(locale, typeof lowInformationFact.metrics?.share === 'number' ? lowInformationFact.metrics.share : null),
-                }),
-            ],
+            impact: t('Insights.Decision.LowInformationImpact'),
+            insights: [t('Insights.Decision.LowInformationImpact')],
+            recommendedActions,
         };
     }
 
     if (topDimensionFact) {
         return {
-            headline: t('Insights.Card.DimensionHeadline', {
+            title: t('Insights.Decision.ConcentrationTitle', {
                 column: String(topDimensionFact.columns?.[0] ?? t('Insights.Card.CurrentResult')),
             }),
-            summaryLines: [
-                topDimensionFact.metrics?.value
-                    ? t('Insights.Card.DimensionLine', {
-                          value: String(topDimensionFact.metrics.value),
-                      })
-                    : (findings[0]?.summary ?? draft.quickSummary.subtitle ?? draft.quickSummary.title),
-            ].filter(Boolean),
+            impact: t('Insights.Decision.ConcentrationImpact'),
+            insights: [t('Insights.Decision.ConcentrationImpact')],
+            recommendedActions,
+        };
+    }
+
+    if ((timePattern || trendFact) && draft.keyColumns.time) {
+        return {
+            title: t('Insights.Decision.TrendTitle', { column: draft.keyColumns.time }),
+            impact: t('Insights.Decision.TrendImpact'),
+            insights: [t('Insights.Decision.TrendImpact')],
+            recommendedActions,
         };
     }
 
     return {
-        headline: findings[0]?.title ?? draft.quickSummary.title,
-        summaryLines: [draft.quickSummary.subtitle ?? findings[0]?.summary ?? t('Insights.KeyInsights.Empty')].filter(Boolean),
+        title: findings[0]?.title ?? draft.quickSummary.title,
+        impact: t('Insights.Decision.DefaultImpact'),
+        insights: [t('Insights.Decision.DefaultImpact')],
+        recommendedActions,
     };
 }
 
 export function buildStructuredInsightView(params: { context: InsightRuleContext; draft?: InsightDraft; view?: InsightViewModel }): StructuredInsightView {
     const draft = params.draft ?? buildInsightDraft(params.context);
     const view = params.view ?? buildInsights(params.context);
+    const recommendedActions = normalizeRecommendedActions(view.recommendedActions);
     const findingSources = [...draft.patterns, ...draft.facts];
     const findings = findingSources
         .map(source => {
@@ -1203,7 +1243,7 @@ export function buildStructuredInsightView(params: { context: InsightRuleContext
         .slice(0, 5);
 
     return {
-        card: buildInsightCard({
+        decision: buildInsightDecision({
             context: params.context,
             draft,
             view,
@@ -1212,6 +1252,6 @@ export function buildStructuredInsightView(params: { context: InsightRuleContext
         signals: [...draft.facts, ...draft.patterns],
         findings,
         narrative: [view.quickSummary.title, view.quickSummary.subtitle, ...view.insights].filter(Boolean).join(' '),
-        recommendedActions: view.recommendedActions,
+        recommendedActions,
     };
 }

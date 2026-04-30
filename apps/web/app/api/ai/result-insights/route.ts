@@ -46,6 +46,17 @@ const requestSchema = z.object({
             metrics: z.record(z.string(), z.union([z.string(), z.number()])),
         }),
     ),
+    recommendedActions: z
+        .array(
+            z.object({
+                id: z.string(),
+                label: z.string(),
+                priority: z.enum(['primary', 'secondary']),
+                action: z.unknown().optional(),
+                sqlPreview: z.string().optional(),
+            }),
+        )
+        .optional(),
     profileColumns: z
         .array(
             z.object({
@@ -111,6 +122,12 @@ const resultActionSchema = z.discriminatedUnion('type', [
     }),
 ]);
 
+const recommendedResultActionSchema = resultActionSchema.and(
+    z.object({
+        priority: z.enum(['primary', 'secondary']).optional(),
+    }),
+);
+
 const responseSchema = z.object({
     analysisState: z.enum(['invalid', 'weak', 'good', 'actionable']).optional(),
     quickSummary: z
@@ -122,7 +139,7 @@ const responseSchema = z.object({
     primaryInsight: z.string().optional(),
     limitations: z.array(z.string()).max(5).optional(),
     recommendedSql: z.string().nullable().optional(),
-    recommendedActions: z.array(resultActionSchema).max(5).optional(),
+    recommendedActions: z.array(recommendedResultActionSchema).max(5).optional(),
     alternativeActions: z
         .array(
             z.object({
@@ -168,7 +185,7 @@ function normalizeResultInsightResponse(input: z.infer<typeof responseSchema>, p
     const insights = input.insights.map(stringifyInsight).filter(Boolean).slice(0, 5);
     const fallbackTitle = input.primaryInsight ?? insights[0] ?? 'Analysis';
     const allowedColumns = new Set(payload.profileColumns?.map(column => column.name) ?? []);
-    const recommendedActions = (input.recommendedActions ?? [])
+    const aiRecommendedActions = (input.recommendedActions ?? [])
         .filter(action => {
             if (!allowedColumns.size) return true;
             if (action.type === 'filter') return allowedColumns.has(action.params.column);
@@ -177,7 +194,30 @@ function normalizeResultInsightResponse(input: z.infer<typeof responseSchema>, p
             if (action.type === 'trend') return allowedColumns.has(action.params.timeColumn) && (!action.params.measure || allowedColumns.has(action.params.measure.column));
             return allowedColumns.has(action.params.column);
         })
-        .slice(0, 5);
+        .slice(0, 4)
+        .map((action, index) => ({
+            ...action,
+            priority: index === 0 ? 'primary' : 'secondary',
+        }));
+    const fallbackRecommendedActions = (payload.recommendedActions ?? [])
+        .map(action => resultActionSchema.safeParse(action.action).data)
+        .filter((action): action is z.infer<typeof resultActionSchema> => !!action)
+        .filter(action => {
+            if (!allowedColumns.size) return true;
+            if (action.type === 'filter') return allowedColumns.has(action.params.column);
+            if (action.type === 'group')
+                return action.params.dimensions.every(column => allowedColumns.has(column)) && (!action.params.measure || allowedColumns.has(action.params.measure.column));
+            if (action.type === 'trend') return allowedColumns.has(action.params.timeColumn) && (!action.params.measure || allowedColumns.has(action.params.measure.column));
+            return allowedColumns.has(action.params.column);
+        })
+        .slice(0, 4)
+        .map((action, index) => ({
+            ...action,
+            priority: index === 0 ? 'primary' : 'secondary',
+        }));
+    const recommendedActions = aiRecommendedActions.length ? aiRecommendedActions : fallbackRecommendedActions;
+    const fallbackRecommendedSql = payload.recommendedActions?.find(action => action.priority === 'primary' && action.sqlPreview?.trim())?.sqlPreview?.trim() ?? null;
+    const recommendedSql = input.recommendedSql?.trim() || fallbackRecommendedSql;
 
     return {
         ...input,
@@ -187,9 +227,9 @@ function normalizeResultInsightResponse(input: z.infer<typeof responseSchema>, p
         },
         primaryInsight: input.primaryInsight ?? insights[0],
         insights: insights.length >= 3 ? insights : [...insights, ...payload.facts.map(fact => fact.narrativeHint).filter((item): item is string => !!item)].slice(0, 5),
-        recommendedSql: input.recommendedSql?.trim() || null,
+        recommendedSql,
         recommendedActions,
-        autoRunPolicy: input.recommendedSql || recommendedActions.length ? 'confirm_required' : input.autoRunPolicy,
+        autoRunPolicy: recommendedSql || recommendedActions.length ? 'confirm_required' : input.autoRunPolicy,
     };
 }
 
@@ -203,10 +243,14 @@ function buildPrompt(input: z.infer<typeof requestSchema>, locale: string) {
         `- Treat profileColumns as the deterministic fact layer. Use entropy, distinctRatio, topValueShare, and informationDensity to decide whether the result is invalid, weak, good, or actionable.`,
         `- If a column has entropy 0, informationDensity none, or topValueShare 1, do not call the top value an insight. Explain the lack of variance and recommend a better next step.`,
         `- For weak raw-row results, prefer a concrete structured action over another explanation.`,
-        `- Recommend which Action buttons should be shown. Put the best next action first.`,
+        `- The input includes deterministic recommendedActions. You may improve their order or wording, but if you cannot produce better actions, keep those actions.`,
+        `- Recommend which Action buttons should be shown. Put the best next action first and mark it with priority "primary". Mark every other action "secondary".`,
+        `- Output exactly one primary action when any action is present, and at most three secondary actions.`,
         `- You may provide recommendedSql for the best next action when SQL would be more precise than a simple action template.`,
         `- Put other structured actions in recommendedActions. They must be filter, group, trend, or distribution.`,
         `- Use analysis-language titles that describe what the user wants to inspect, not the tool name.`,
+        `- Do not output statistical values such as p50, p95, maxima, exact ratios, or thresholds in user-facing insight text.`,
+        `- Do not only describe a profile signal. Every insight must state the conclusion and why it changes the analysis.`,
         `- Any recommendedSql must be a single read-only SELECT that only uses columns present in profileColumns and may wrap the current SQL as a subquery.`,
         `- Every structured action must use only columns present in profileColumns.`,
         `- autoRunPolicy must be confirm_required when recommendedSql or recommendedActions is present.`,

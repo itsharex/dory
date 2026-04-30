@@ -1,4 +1,4 @@
-import type { InsightAction, InsightDraft, InsightFact, InsightKeyColumns, InsightPattern } from '@/lib/client/result-set-insights';
+import type { InsightAction, InsightDraft, InsightFact, InsightKeyColumns, InsightPattern, RecommendedInsightAction } from '@/lib/client/result-set-insights';
 import type { AnalysisSuggestion, AnalysisSuggestionKind, ResultContext, TableRef } from './types';
 
 type AnalysisTranslate = (key: string, values?: Record<string, string | number>) => string;
@@ -43,7 +43,7 @@ export function extractTableRefs(sqlText?: string | null, databaseName?: string 
     return refs.filter((ref, index) => refs.findIndex(candidate => candidate.database === ref.database && candidate.table === ref.table) === index);
 }
 
-function suggestionFromInsightAction(action: Extract<InsightAction, { kind: 'analysis-suggestion' }>, t: AnalysisTranslate): AnalysisSuggestion {
+function suggestionFromInsightAction(action: Extract<RecommendedInsightAction, { kind: 'analysis-suggestion' }>, t: AnalysisTranslate): AnalysisSuggestion {
     const mapping: Record<
         string,
         {
@@ -183,7 +183,8 @@ function suggestionFromInsightAction(action: Extract<InsightAction, { kind: 'ana
                 action: action.action,
             },
         },
-        priority: fallback.priority,
+        priority: action.priority === 'primary' ? 100 : fallback.priority,
+        isPrimary: action.priority === 'primary',
         action: action.action,
         sqlPreview: action.sqlPreview,
     };
@@ -343,7 +344,7 @@ function buildPrimaryAiDrivenSuggestion(params: { resultContext: ResultContext; 
 export function buildAnalysisSuggestions(params: {
     resultContext: ResultContext;
     draft?: InsightDraft | null;
-    recommendedActions?: InsightAction[] | null;
+    recommendedActions?: RecommendedInsightAction[] | InsightAction[] | null;
     t: AnalysisTranslate;
 }): AnalysisSuggestion[] {
     const suggestions: AnalysisSuggestion[] = [];
@@ -353,7 +354,14 @@ export function buildAnalysisSuggestions(params: {
 
     for (const action of recommendedActions) {
         if (action.kind !== 'analysis-suggestion') continue;
-        pushSuggestion(suggestions, suggestionFromInsightAction(action, t));
+        const actionPriority = 'priority' in action && (action.priority === 'primary' || action.priority === 'secondary') ? action.priority : 'secondary';
+        pushSuggestion(
+            suggestions,
+            suggestionFromInsightAction({
+                ...action,
+                priority: actionPriority,
+            } as Extract<RecommendedInsightAction, { kind: 'analysis-suggestion' }>, t),
+        );
     }
 
     const keyColumns = draft?.keyColumns;
@@ -560,9 +568,10 @@ export function buildAnalysisSuggestions(params: {
     return suggestions
         .sort((left, right) => right.priority - left.priority)
         .slice(0, 5)
-        .map(item => ({
+        .map((item, index) => ({
             ...item,
             priority: clampPriority(item.priority),
+            isPrimary: index === 0 ? true : item.isPrimary,
         }));
 }
 

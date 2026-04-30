@@ -1368,6 +1368,7 @@
             "Title": "Insights",
             "Subtitle": "A lightweight explanation layer for the current result set.",
             "Loading": "Profiling the current result set...",
+            "ReadyToast": "Insight is ready.",
             "Kinds": {
                 "SingleValue": "Single value",
                 "TimeSeries": "Time series",
@@ -1413,14 +1414,27 @@
             "Card": {
                 "CurrentResult": "current result",
                 "OutlierHeadline": "Warning: {column} contains unusually high values",
-                "OutlierMaxLine": "The maximum value reaches {value}, which looks unusually high.",
-                "LongTailLine": "The distribution shows a long tail, with p50 at {p50} and p95 at {p95}.",
+                "OutlierMaxLine": "The highest rows can distort the overall read.",
+                "LongTailLine": "The distribution has a long tail that can mislead aggregate analysis.",
                 "RiskHeadline": "Warning: {column} shows a risky concentration",
                 "RiskLine": "{value} takes about {share} of the current result.",
                 "LowInformationHeadline": "{column} has no useful variance in this result",
                 "LowInformationLine": "{count} rows are concentrated in {value} ({share}), so this field has no information gain for distribution analysis.",
                 "DimensionHeadline": "Warning: {column} is highly concentrated",
                 "DimensionLine": "{value} stands out as the dominant segment."
+            },
+            "Decision": {
+                "OutlierTitle": "A small set of high {column} rows is pulling the result upward",
+                "OutlierImpact": "Average-based analysis can become misleading unless you inspect those rows first.",
+                "RiskTitle": "{column} points to a concentrated risk segment",
+                "RiskImpact": "The next step should isolate the segment before summarizing the whole result.",
+                "LowInformationTitle": "{column} does not add enough analytical signal",
+                "LowInformationImpact": "Continuing on this field will not explain the result, so move to a richer dimension.",
+                "ConcentrationTitle": "{column} is concentrating the current result",
+                "ConcentrationImpact": "This concentration can hide differences between segments, so break it down before drawing conclusions.",
+                "TrendTitle": "{column} should drive the next time-based check",
+                "TrendImpact": "A trend view can reveal whether the result is stable or driven by a specific period.",
+                "DefaultImpact": "Use the recommended first action to turn this result into a more precise next result."
             },
             "Messages": {
                 "PrimaryCategory": "{column} is led by {value} at about {share}.",
@@ -1429,11 +1443,11 @@
                 "TopDimension": "{value} is one of the most active values in {column} ({count} rows).",
                 "TopMessage": "A common message is “{value}” ({count} rows).",
                 "TimeTrend": "This result is well-suited for a time trend on {column} to spot spikes and shifts.",
-                "MeasureSpread": "{column} shows a noticeable spread, with p50 around {p50} and p95 around {p95}.",
+                "MeasureSpread": "{column} has a long-tail shape that can distort aggregate analysis.",
                 "HighCardinality": "{column} looks high-cardinality, so it is better used for filtering than headline summaries.",
-                "SpikePattern": "{bucket} stands out as a spike, reaching {value} versus a typical level near {baseline}.",
-                "DropPattern": "{bucket} drops below the usual level, landing at {value} versus a baseline near {baseline}.",
-                "OutlierPattern": "{column} contains extreme values, including a sample around {value}.",
+                "SpikePattern": "{bucket} stands out as a period that can drive the overall trend.",
+                "DropPattern": "{bucket} falls below the surrounding pattern and can change the trend reading.",
+                "OutlierPattern": "{column} contains extreme values that can distort the summary.",
                 "CorrelationPattern": "{left} and {right} tend to move together in this sample (correlation {correlation})."
             },
             "KeyColumns": {
@@ -1447,19 +1461,21 @@
             },
             "RecommendedActions": {
                 "SectionTitle": "Recommended Actions",
-                "Description": "Directions you can continue analyzing from here."
+                "Description": "The next step is ordered for you.",
+                "FirstStep": "Suggested first step",
+                "Empty": "No ready-to-run action is available yet."
             },
             "Actions": {
-                "InspectOutliers": "View anomalous samples",
+                "InspectOutliers": "Inspect high-value rows",
                 "InspectHighValueRows": "View high {column} rows",
                 "AnalyzeSource": "Analyze source",
                 "AnalyzeByColumn": "Analyze by {column}",
-                "ViewDistribution": "View distribution",
+                "ViewDistribution": "Inspect amount distribution",
                 "ViewColumnDistribution": "View {column} distribution",
                 "GroupByService": "Group by {column}",
-                "ViewTimeTrend": "View time trend",
+                "ViewTimeTrend": "Inspect order trend",
                 "ViewTimeTrendByColumn": "View {column} trend",
-                "FilterOutliers": "Filter anomalous rows",
+                "FilterOutliers": "Exclude anomalous rows",
                 "ExcludeHighValueRows": "Exclude high {column} rows",
                 "TopMessages": "View top values",
                 "PatternFollowUp": "Follow up on this pattern",
@@ -1495,8 +1511,8 @@
                 "Empty": "Select a result to start analysis.",
                 "CurrentInsightTitle": "Current Insight",
                 "CurrentInsightDescription": "The active issue and its ready-to-run entry points.",
-                "AvailableActionsTitle": "Analysis Actions",
-                "AvailableActionsDescription": "Continue from the current result and turn the data into a conclusion.",
+                "AvailableActionsTitle": "All Actions",
+                "AvailableActionsDescription": "A toolbox of available analysis actions for the current result.",
                 "ProcessTitle": "Analysis Process",
                 "ProcessDescription": "Explainable execution flow for the selected analysis.",
                 "ResultTitle": "Analysis Result",
@@ -1550,7 +1566,7 @@
                     "TimeTrendGoal": "Check whether activity clusters over {column}.",
                     "GroupByResultTitle": "{column} breakdown",
                     "TimeTrendResultTitle": "{column} trend",
-                    "LowDensityReason": "{column} has information density {density} and top value share {share}.",
+                    "LowDensityReason": "{column} is too concentrated to explain the result well.",
                     "NextAxisReason": "Choose {column} as the highest-value next analysis dimension."
                 },
                 "Steps": {
@@ -1663,22 +1679,22 @@
                     "RunFailed": "Failed to run analysis."
                 },
                 "Actions": {
-                    "ViewTimeTrend": "View time trend",
+                    "ViewTimeTrend": "Inspect order trend",
                     "GroupByColumn": "Group by {column}",
                     "AnalyzeSource": "Analyze source",
                     "TopMessages": "View top values",
-                    "ViewDistribution": "View distribution",
-                    "InspectOutliers": "View anomalous samples",
-                    "FilterOutliers": "Filter anomalous rows"
+                    "ViewDistribution": "Inspect amount distribution",
+                    "InspectOutliers": "Inspect high-value rows",
+                    "FilterOutliers": "Exclude anomalous rows"
                 },
                 "SuggestionTitles": {
-                    "ViewTimeTrend": "Trend {column} over time",
+                    "ViewTimeTrend": "Inspect {column} trend",
                     "GroupByColumn": "Break down by {column}",
                     "AnalyzeSource": "Analyze likely source",
                     "TopMessages": "View top values in {column}",
-                    "ViewDistribution": "Profile {column} distribution",
-                    "InspectOutliers": "Inspect outliers in {column}",
-                    "FilterOutliers": "Filter high {column} rows"
+                    "ViewDistribution": "Inspect {column} distribution",
+                    "InspectOutliers": "Inspect high {column} rows",
+                    "FilterOutliers": "Exclude high {column} rows"
                 }
             }
         },

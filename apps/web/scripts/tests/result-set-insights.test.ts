@@ -196,9 +196,12 @@ function testStructuredInsightCardAndActionLabels() {
         view,
     });
 
-    assert.ok(structured.card.headline.includes('OutlierHeadline'));
-    assert.ok(structured.card.summaryLines.length >= 1);
-    assert.ok(draft.recommendedActions.some(action => action.label.includes('InspectOutliers')));
+    assert.ok(structured.decision.title.includes('Decision.OutlierTitle'));
+    assert.ok(structured.decision.impact.includes('Decision.OutlierImpact'));
+    assert.equal(structured.decision.recommendedActions.filter(action => action.priority === 'primary').length, 1);
+    assert.ok(structured.decision.recommendedActions.filter(action => action.priority === 'secondary').length <= 3);
+    assert.ok(structured.decision.recommendedActions.every(action => action.kind !== 'analysis-suggestion' || !!action.action || !!action.sqlPreview));
+    assert.ok(draft.recommendedActions.some(action => action.id === 'inspect-outliers'));
     assert.ok(!draft.recommendedActions.some(action => action.label === 'Run'));
 }
 

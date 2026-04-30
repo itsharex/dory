@@ -2,6 +2,7 @@
 
 import React, { Activity, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Download, MoreHorizontal, RefreshCw } from 'lucide-react';
+import { toast } from 'sonner';
 
 import VTable from './vtable';
 import { InspectorPanel } from './vtable/InspectorPanel';
@@ -29,13 +30,15 @@ import { SQLErrorAlert } from './components/SQLErrorAlert';
 import { ResultOverviewPanel } from './ResultOverviewPanel';
 import { VTableSearchBar } from './components/TableSearchBar';
 import { Charts } from './components/charts';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { useVTableFilters, VTableFilters } from './vtable/VTableFilters';
 import { Tabs, TabsList, TabsTrigger } from '@/registry/new-york-v4/ui/tabs';
 import type { ColumnFilter } from './vtable/type';
 import type { ResultSetViewState } from '@/lib/client/type';
+import { buildInsightRewriteRequest } from '@/lib/client/result-set-insights';
+import { fetchInsightRewrite, getCachedInsightRewrite, makeInsightRewriteCacheKey } from '@/lib/client/result-insight-rewrite';
 /* =================================== constants =================================== */
 
 const MAX_ROWS_HINT = 5_000_000; // UI hint only
@@ -104,6 +107,7 @@ function areNumberArraysEqual(left: number[] | undefined, right: number[] | unde
 
 export function ResultTable() {
     const t = useTranslations('SqlConsole');
+    const locale = useLocale();
     const [viewModesByKey, setViewModesByKey] = useAtom(viewModesByTabAtom);
     const [currentViewMode, setCurrentViewMode] = useState<'overview' | 'table' | 'charts'>('table');
     const [inspectorOpen, setInspectorOpen] = useState(false);
@@ -169,6 +173,7 @@ export function ResultTable() {
 
     // Accumulator + one-frame flush
     const resultsRef = useRef<ResultRow[]>([]);
+    const notifiedInsightKeysRef = useRef<Set<string>>(new Set());
 
     useSessionMeta({ dbReady, tabId, sessionId, activeSet, dataVersion, getSession, setMeta, sessionStatus });
 
@@ -300,6 +305,38 @@ export function ResultTable() {
             return true;
         });
     }, [results, sessionMetas, query]);
+
+    const insightRewriteRequest = useMemo(() => {
+        if (!isResult || !sessionMetas?.stats?.summary || !Array.isArray(sessionMetas?.columns) || results.length === 0) return null;
+
+        return buildInsightRewriteRequest({
+            stats: sessionMetas.stats,
+            columns: sessionMetas.columns,
+            sqlText: sessionMetas.sqlText ?? '',
+            rows: results.slice(0, 2000).map(result => result.rowData as Record<string, unknown>),
+            locale,
+            t: (key, values) => t(key as any, values),
+        });
+    }, [isResult, locale, results, sessionMetas?.columns, sessionMetas?.sqlText, sessionMetas?.stats, t]);
+    const insightRewriteCacheKey = useMemo(() => makeInsightRewriteCacheKey(insightRewriteRequest), [insightRewriteRequest]);
+
+    useEffect(() => {
+        if (!insightRewriteCacheKey || localDataLoading[tabId] || sessionMetas?.status === 'error') return;
+        if (getCachedInsightRewrite(insightRewriteCacheKey) !== undefined) return;
+
+        let canceled = false;
+
+        void (async () => {
+            const payload = await fetchInsightRewrite(insightRewriteCacheKey);
+            if (canceled || !payload || notifiedInsightKeysRef.current.has(insightRewriteCacheKey)) return;
+            notifiedInsightKeysRef.current.add(insightRewriteCacheKey);
+            toast.message(t('Insights.ReadyToast'));
+        })();
+
+        return () => {
+            canceled = true;
+        };
+    }, [insightRewriteCacheKey, localDataLoading, sessionMetas?.status, tabId, t]);
     const {
         activeFilters,
         filteredResults: columnFilteredResults,

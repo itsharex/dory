@@ -38,9 +38,10 @@ const resultContextSchema = z.object({
 });
 
 const insightSchema = z.object({
-    card: z.object({
-        headline: z.string(),
-        summaryLines: z.array(z.string()),
+    decision: z.object({
+        title: z.string(),
+        impact: z.string(),
+        recommendedActions: z.array(z.object({}).passthrough()),
     }),
     signals: z.array(z.object({}).passthrough()),
     findings: z.array(

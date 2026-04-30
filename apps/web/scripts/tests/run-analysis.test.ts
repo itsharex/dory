@@ -42,9 +42,10 @@ function baseRequest(suggestionId: string): RunAnalysisRequest {
                 ],
             },
             insight: {
-                card: {
-                    headline: 'warning',
-                    summaryLines: ['line 1'],
+                decision: {
+                    title: 'warning',
+                    impact: 'line 1',
+                    recommendedActions: [],
                 },
                 signals: [],
                 findings: [],

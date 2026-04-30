@@ -1370,6 +1370,7 @@
             "Title": "Insights",
             "Subtitle": "面向当前结果集的轻量解释层。",
             "Loading": "正在分析当前结果集...",
+            "ReadyToast": "Insight 已可用。",
             "Kinds": {
                 "SingleValue": "单值结果",
                 "TimeSeries": "时间序列",
@@ -1415,14 +1416,27 @@
             "Card": {
                 "CurrentResult": "当前结果",
                 "OutlierHeadline": "⚠️ {column} 存在异常高值",
-                "OutlierMaxLine": "最大值 {value} 明显偏高。",
-                "LongTailLine": "分布存在长尾，p50 为 {p50}，p95 为 {p95}。",
+                "OutlierMaxLine": "最高值记录会影响整体判断。",
+                "LongTailLine": "分布存在长尾，可能让聚合分析失真。",
                 "RiskHeadline": "⚠️ {column} 里风险项比较集中",
                 "RiskLine": "“{value}”占了 {share}，建议先从这里查起。",
                 "LowInformationHeadline": "当前结果集的 {column} 没有区分度",
                 "LowInformationLine": "{count} 行主要集中在“{value}”（{share}），继续分析这个字段没有信息增益。",
                 "DimensionHeadline": "⚠️ {column} 里有内容特别集中",
                 "DimensionLine": "“{value}”出现得最多，值得先看它为什么这么高。"
+            },
+            "Decision": {
+                "OutlierTitle": "少数高 {column} 记录正在拉高整体结果",
+                "OutlierImpact": "如果先看平均值或总量，结论可能被这些高值带偏。",
+                "RiskTitle": "{column} 指向一个集中的风险片段",
+                "RiskImpact": "下一步应该先隔离这部分，再判断整体结果是否真的异常。",
+                "LowInformationTitle": "{column} 对这次分析没有足够区分度",
+                "LowInformationImpact": "继续分析这个字段不会带来新结论，应该切到更有信息量的维度。",
+                "ConcentrationTitle": "{column} 正在主导当前结果",
+                "ConcentrationImpact": "这种集中会掩盖不同分组之间的差异，需要先拆开看。",
+                "TrendTitle": "建议先按 {column} 看时间变化",
+                "TrendImpact": "趋势可以判断这是稳定现象，还是被某个时间段拉动。",
+                "DefaultImpact": "先执行推荐的第一步，把当前结果推进到更明确的下一轮分析。"
             },
             "Messages": {
                 "PrimaryCategory": "{column} 主要由 {value} 构成，约占 {share}。",
@@ -1431,11 +1445,11 @@
                 "TopDimension": "{value} 是 {column} 中最活跃的值之一（约 {count} 行）。",
                 "TopMessage": "常见内容之一是“{value}”（约 {count} 行）。",
                 "TimeTrend": "这份结果很适合围绕 {column} 做时间趋势分析，用来识别峰值和变化。",
-                "MeasureSpread": "{column} 的分布有一定跨度，p50 约为 {p50}，p95 约为 {p95}。",
+                "MeasureSpread": "{column} 呈现长尾形态，可能影响聚合结论。",
                 "HighCardinality": "{column} 看起来是高基数字段，更适合拿来筛选，而不是直接做结论摘要。",
-                "SpikePattern": "{bucket} 出现了明显峰值，达到 {value}，而常态大约在 {baseline} 附近。",
-                "DropPattern": "{bucket} 明显低于平时水平，只有 {value}，而常态大约在 {baseline} 附近。",
-                "OutlierPattern": "{column} 中存在极端值，样本里可见约 {value} 的高值。",
+                "SpikePattern": "{bucket} 是一个会影响整体趋势判断的异常峰值时段。",
+                "DropPattern": "{bucket} 低于周围模式，可能改变趋势判断。",
+                "OutlierPattern": "{column} 中存在会影响汇总结论的极端值。",
                 "CorrelationPattern": "在当前样本中，{left} 和 {right} 呈现同向变化趋势（相关系数 {correlation}）。"
             },
             "KeyColumns": {
@@ -1449,19 +1463,21 @@
             },
             "RecommendedActions": {
                 "SectionTitle": "Recommended Actions",
-                "Description": "可以直接继续分析的方向。"
+                "Description": "下一步已经按优先级排好。",
+                "FirstStep": "建议先做",
+                "Empty": "暂时没有可直接执行的下一步。"
             },
             "Actions": {
-                "InspectOutliers": "查看异常样本",
+                "InspectOutliers": "查看高值记录",
                 "InspectHighValueRows": "查看高 {column} 记录",
                 "AnalyzeSource": "分析来源",
                 "AnalyzeByColumn": "按 {column} 分析",
-                "ViewDistribution": "查看分布",
+                "ViewDistribution": "查看金额分布",
                 "ViewColumnDistribution": "查看 {column} 分布",
                 "GroupByService": "按 {column} 分组分析",
-                "ViewTimeTrend": "查看时间趋势",
+                "ViewTimeTrend": "查看订单趋势",
                 "ViewTimeTrendByColumn": "查看 {column} 趋势",
-                "FilterOutliers": "过滤异常数据",
+                "FilterOutliers": "排除异常订单",
                 "ExcludeHighValueRows": "排除高 {column} 记录",
                 "TopMessages": "看哪些内容最多",
                 "PatternFollowUp": "继续分析这个模式",
@@ -1497,8 +1513,8 @@
                 "Empty": "先选择一个结果，再开始分析。",
                 "CurrentInsightTitle": "当前问题",
                 "CurrentInsightDescription": "这次结果里最值得先看的点。",
-                "AvailableActionsTitle": "分析动作",
-                "AvailableActionsDescription": "基于当前结果继续分析，直接得到结论。",
+                "AvailableActionsTitle": "All Actions",
+                "AvailableActionsDescription": "当前结果可用的分析工具箱。",
                 "ProcessTitle": "分析过程",
                 "ProcessDescription": "我会把每一步怎么查、查到了什么列出来。",
                 "ResultTitle": "分析结果",
@@ -1552,7 +1568,7 @@
                     "TimeTrendGoal": "检查活动是否集中在 {column} 的某些时段。",
                     "GroupByResultTitle": "{column} 拆解",
                     "TimeTrendResultTitle": "{column} 趋势",
-                    "LowDensityReason": "{column} 的信息密度为 {density}，top value share 为 {share}。",
+                    "LowDensityReason": "{column} 过于集中，难以解释当前结果。",
                     "NextAxisReason": "选择 {column} 作为最高价值的下一步分析维度。"
                 },
                 "Steps": {
@@ -1665,22 +1681,22 @@
                     "RunFailed": "分析执行失败。"
                 },
                 "Actions": {
-                    "ViewTimeTrend": "查看时间趋势",
+                    "ViewTimeTrend": "查看订单趋势",
                     "GroupByColumn": "按 {column} 分组分析",
                     "AnalyzeSource": "分析来源",
                     "TopMessages": "看哪些内容最多",
-                    "ViewDistribution": "查看分布",
-                    "InspectOutliers": "查看异常样本",
-                    "FilterOutliers": "过滤异常数据"
+                    "ViewDistribution": "查看金额分布",
+                    "InspectOutliers": "查看高值记录",
+                    "FilterOutliers": "排除异常订单"
                 },
                 "SuggestionTitles": {
-                    "ViewTimeTrend": "查看 {column} 时间趋势",
+                    "ViewTimeTrend": "查看 {column} 趋势",
                     "GroupByColumn": "按 {column} 拆解",
                     "AnalyzeSource": "分析主要来源",
                     "TopMessages": "查看 {column} 里出现最多的内容",
                     "ViewDistribution": "查看 {column} 分布",
-                    "InspectOutliers": "查看 {column} 异常样本",
-                    "FilterOutliers": "过滤高 {column} 行"
+                    "InspectOutliers": "查看高 {column} 记录",
+                    "FilterOutliers": "排除高 {column} 记录"
                 }
             }
         },
