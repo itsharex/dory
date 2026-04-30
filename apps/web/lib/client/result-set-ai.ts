@@ -1,24 +1,8 @@
 'use client';
 
-export type NormalizedColumnType =
-    | 'string'
-    | 'integer'
-    | 'number'
-    | 'boolean'
-    | 'date'
-    | 'datetime'
-    | 'json'
-    | 'array'
-    | 'unknown';
+export type NormalizedColumnType = 'string' | 'integer' | 'number' | 'boolean' | 'date' | 'datetime' | 'json' | 'array' | 'unknown';
 
-export type ResultColumnSemanticRole =
-    | 'identifier'
-    | 'dimension'
-    | 'measure'
-    | 'time'
-    | 'text'
-    | 'json'
-    | 'unknown';
+export type ResultColumnSemanticRole = 'identifier' | 'dimension' | 'measure' | 'time' | 'text' | 'json' | 'unknown';
 
 export interface ResultColumnMeta {
     name: string;
@@ -58,7 +42,12 @@ export interface ColumnProfile {
     semanticRole: ResultColumnSemanticRole;
     nullCount: number;
     nonNullCount: number;
+    nullRatio?: number | null;
     distinctCount?: number | null;
+    distinctRatio?: number | null;
+    entropy?: number | null;
+    topValueShare?: number | null;
+    informationDensity?: 'none' | 'low' | 'medium' | 'high';
     sampleValues: unknown[];
     topK?: Array<{ value: string; count: number }>;
     min?: number | null;
@@ -132,7 +121,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function normalizeDbType(dbType?: string | null) {
-    return String(dbType ?? '').trim().toLowerCase();
+    return String(dbType ?? '')
+        .trim()
+        .toLowerCase();
 }
 
 function isDateOnlyString(value: string) {
@@ -213,6 +204,39 @@ function valueKey(value: unknown) {
     } catch {
         return `string:${String(value)}`;
     }
+}
+
+function shannonEntropy(counts: number[]) {
+    const total = counts.reduce((sum, value) => sum + value, 0);
+    if (total <= 0) return 0;
+
+    return counts.reduce((sum, count) => {
+        if (count <= 0) return sum;
+        const probability = count / total;
+        return sum - probability * Math.log2(probability);
+    }, 0);
+}
+
+function informationDensityFor(params: { nonNullCount: number; distinctCount: number; distinctRatio: number; entropy: number; topValueShare: number | null }) {
+    const { nonNullCount, distinctCount, distinctRatio, entropy, topValueShare } = params;
+
+    if (nonNullCount <= 0 || distinctCount <= 1 || entropy <= 0 || topValueShare === 1) {
+        return 'none' as const;
+    }
+
+    if (topValueShare != null && topValueShare >= 0.9) {
+        return 'low' as const;
+    }
+
+    if (distinctRatio < 0.02 || entropy < 1) {
+        return 'low' as const;
+    }
+
+    if (distinctRatio < 0.35 || entropy < 3) {
+        return 'medium' as const;
+    }
+
+    return 'high' as const;
 }
 
 function inferNormalizedTypeFromValue(value: unknown): NormalizedColumnType {
@@ -300,12 +324,7 @@ function buildSampleRows(rows: Array<Record<string, unknown>>) {
     return [...rows.slice(0, headCount), ...rows.slice(rows.length - tailCount)];
 }
 
-function inferSemanticRole(params: {
-    column: ResultColumnMeta;
-    distinctCount: number;
-    nonNullCount: number;
-    normalizedType: NormalizedColumnType;
-}) {
+function inferSemanticRole(params: { column: ResultColumnMeta; distinctCount: number; nonNullCount: number; normalizedType: NormalizedColumnType }) {
     const { column, distinctCount, nonNullCount, normalizedType } = params;
     const lowerName = column.name.toLowerCase();
     const distinctRatio = nonNullCount > 0 ? distinctCount / nonNullCount : 0;
@@ -429,7 +448,7 @@ export function profileResultSet(params: {
             const topKEntry = topKMap.get(label);
             if (topKEntry) {
                 topKEntry.count += 1;
-            } else if (topKMap.size < 256) {
+            } else {
                 topKMap.set(label, { value: label, count: 1 });
             }
 
@@ -450,13 +469,17 @@ export function profileResultSet(params: {
 
         const nonNullCount = values.length - nullCount;
         const distinctCount = distinctValues.size;
+        const topK = [...topKMap.values()].sort((left, right) => right.count - left.count || left.value.localeCompare(right.value)).slice(0, TOP_K_LIMIT);
+        const distinctRatio = nonNullCount > 0 ? distinctCount / nonNullCount : 0;
+        const nullRatio = values.length > 0 ? nullCount / values.length : 0;
+        const entropy = shannonEntropy([...topKMap.values()].map(item => item.count));
+        const topValueShare = nonNullCount > 0 && topK[0] ? topK[0].count / nonNullCount : null;
         const semanticRole = inferSemanticRole({
             column,
             distinctCount,
             nonNullCount,
             normalizedType: column.normalizedType,
         });
-        const distinctRatio = nonNullCount > 0 ? distinctCount / nonNullCount : 0;
         const isHighCardinality = nonNullCount > 0 && distinctRatio >= 0.75;
         const isCategorical = nonNullCount > 0 && distinctCount > 0 && distinctRatio <= 0.3;
 
@@ -472,12 +495,20 @@ export function profileResultSet(params: {
             semanticRole,
             nullCount,
             nonNullCount,
+            nullRatio,
             distinctCount,
+            distinctRatio,
+            entropy,
+            topValueShare,
+            informationDensity: informationDensityFor({
+                nonNullCount,
+                distinctCount,
+                distinctRatio,
+                entropy,
+                topValueShare,
+            }),
             sampleValues,
-            topK:
-                column.normalizedType === 'string'
-                    ? [...topKMap.values()].sort((left, right) => right.count - left.count || left.value.localeCompare(right.value)).slice(0, TOP_K_LIMIT)
-                    : undefined,
+            topK: column.normalizedType === 'string' ? topK : undefined,
             min: numericValues.length > 0 ? Math.min(...numericValues) : null,
             max: numericValues.length > 0 ? Math.max(...numericValues) : null,
             sum: numericValues.length > 0 ? numericValues.reduce((sum, value) => sum + value, 0) : null,

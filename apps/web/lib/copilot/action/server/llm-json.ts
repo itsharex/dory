@@ -5,6 +5,7 @@ import { generateText } from '@/lib/ai/gateway';
 import { isAiQuotaExceededError } from '@/lib/ai/usage-quota';
 import { getEffectiveModelBundle } from '@/lib/ai/model';
 import { compileSystemPrompt } from '@/lib/ai/model/compile-system';
+import { cleanJson } from '@/lib/ai/core/clean-json';
 export { isMissingAiEnvError } from '@/lib/ai/errors';
 
 export async function runLLMJson<T extends z.ZodTypeAny>(args: {
@@ -40,8 +41,7 @@ export async function runLLMJson<T extends z.ZodTypeAny>(args: {
                 },
             });
 
-            const json = extractJsonObject(text);
-            const parsed = schema.parse(JSON.parse(json));
+            const parsed = schema.parse(parseJsonFromModelText(text));
             return parsed as z.infer<T>;
         } catch (e) {
             if (isAiQuotaExceededError(e)) {
@@ -54,9 +54,81 @@ export async function runLLMJson<T extends z.ZodTypeAny>(args: {
     throw lastErr;
 }
 
-function extractJsonObject(text: string) {
-    const start = text.indexOf('{');
-    const end = text.lastIndexOf('}');
-    if (start === -1 || end === -1 || end <= start) return text.trim();
-    return text.slice(start, end + 1).trim();
+export function parseJsonFromModelText(text: string): unknown {
+    const candidates = [extractFirstJsonValue(text), cleanJson(text), text.trim()].filter((candidate): candidate is string => !!candidate?.trim());
+    let lastError: unknown = null;
+
+    for (const candidate of candidates) {
+        try {
+            return JSON.parse(candidate);
+        } catch (error) {
+            lastError = error;
+        }
+    }
+
+    throw lastError;
+}
+
+function extractFirstJsonValue(text: string) {
+    const source = stripJsonFence(text.trim());
+    const start = findJsonStart(source);
+    if (start < 0) return source;
+
+    const opener = source[start];
+    const closer = opener === '{' ? '}' : ']';
+    const stack: string[] = [];
+    let inString = false;
+    let escaped = false;
+
+    for (let index = start; index < source.length; index += 1) {
+        const char = source[index];
+
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
+
+        if (char === '\\') {
+            escaped = true;
+            continue;
+        }
+
+        if (char === '"') {
+            inString = !inString;
+            continue;
+        }
+
+        if (inString) continue;
+
+        if (char === '{' || char === '[') {
+            stack.push(char === '{' ? '}' : ']');
+            continue;
+        }
+
+        if (char === '}' || char === ']') {
+            const expected = stack.pop();
+            if (char !== expected) {
+                break;
+            }
+
+            if (stack.length === 0) {
+                return source.slice(start, index + 1).trim();
+            }
+        }
+    }
+
+    const end = source.lastIndexOf(closer);
+    return end > start ? source.slice(start, end + 1).trim() : source.slice(start).trim();
+}
+
+function stripJsonFence(text: string) {
+    return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+}
+
+function findJsonStart(text: string) {
+    const objectStart = text.indexOf('{');
+    const arrayStart = text.indexOf('[');
+    if (objectStart < 0) return arrayStart;
+    if (arrayStart < 0) return objectStart;
+    return Math.min(objectStart, arrayStart);
 }

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { BaseConnection } from '@/lib/connection/base/base-connection';
+import { translate } from '@/lib/i18n/i18n';
 import { routing, type Locale } from '@/lib/i18n/routing';
 import type {
     AnalysisOutcome,
@@ -79,11 +80,78 @@ function limitClause(limit = 20) {
     return `LIMIT ${limit}`;
 }
 
+function isReadOnlySelect(sql: string) {
+    const trimmed = sql.trim();
+    if (!/^select\b/i.test(trimmed)) return false;
+    const withoutTrailingSemicolon = trimmed.replace(/;+\s*$/, '');
+    if (withoutTrailingSemicolon.includes(';')) return false;
+    return !/\b(insert|update|delete|merge|replace|create|alter|drop|truncate|grant|revoke|copy|call|execute)\b/i.test(withoutTrailingSemicolon);
+}
+
 function formatValue(value: unknown) {
     if (value == null) return '—';
     if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString('en-US') : '—';
     if (typeof value === 'string') return value;
     return JSON.stringify(value);
+}
+
+function genericAiDrivenSpec(params: { suggestionId: string; sqlPreview: string; context: ResultContext; locale: Locale }): AnalysisSpec {
+    const t = (key: string, values?: Record<string, unknown>) => translate(params.locale, `SqlConsole.Insights.Analysis.Server.${key}`, values);
+    const title = params.suggestionId === 'ai-primary-next-step' ? t('ContinueRecommendedAnalysis') : t('RunRecommendedAnalysis');
+    return {
+        suggestionId: params.suggestionId,
+        title,
+        kind: 'drilldown',
+        goal: t('RecommendedAnalysisGoal'),
+        description: t('RecommendedAnalysisDescription'),
+        resultTitle: title,
+        stepTemplates: [
+            { id: 'inspect-profile', title: t('Steps.InspectProfile') },
+            { id: 'run-next-sql', title: t('Steps.RunNextSql') },
+            { id: 'summarize-next-step', title: t('Steps.SummarizeNextStep') },
+        ],
+        buildSql() {
+            if (!isReadOnlySelect(params.sqlPreview)) {
+                throw new Error(t('ReadOnlySelectError'));
+            }
+            return params.sqlPreview.trim().replace(/;+\s*$/, '');
+        },
+        summarize({ rows, columns }) {
+            const firstNumeric = columns.find(column => /count|total|events|rows|value/i.test(column.name))?.name ?? columns.find(column => column.name !== columns[0]?.name)?.name;
+            const firstLabel = columns.find(column => column.name !== firstNumeric)?.name ?? columns[0]?.name;
+            const first = rows[0] ?? {};
+            const leader = firstLabel ? formatValue(first[firstLabel]) : t('FirstGroup');
+            const leaderValue = firstNumeric ? formatValue(first[firstNumeric]) : null;
+            return {
+                analysisState: rows.length ? 'good' : 'invalid',
+                limitations: rows.length ? [] : [t('NoRecommendedRowsLimitation')],
+                summary: rows.length ? (leaderValue ? t('LeaderSummaryWithValue', { leader, value: leaderValue }) : t('LeaderSummary', { leader })) : t('NoRecommendedRowsSummary'),
+                headline: rows.length ? t('LeaderHeadline', { leader }) : t('NoRecommendedRowsHeadline'),
+                keyFindings: rows.length
+                    ? [
+                          leaderValue ? t('LeaderFindingWithValue', { leader, value: leaderValue }) : t('LeaderFinding', { leader }),
+                          t('CandidateGroupsFinding', { count: formatValue(rows.length) }),
+                      ]
+                    : [t('NoUsableRowsFinding')],
+                recordHighlights: rows.slice(0, 5).map((row, index) => ({
+                    label: firstLabel ? formatValue(row[firstLabel]) : `row_${index + 1}`,
+                    value: firstNumeric ? formatValue(row[firstNumeric]) : formatValue(row[columns[0]?.name ?? 'value']),
+                })),
+                sections: [
+                    {
+                        id: 'recommended-sql-result',
+                        title: t('RecommendedSqlResultTitle'),
+                        items: rows.slice(0, 5).map((row, index) => {
+                            const label = firstLabel ? formatValue(row[firstLabel]) : `row_${index + 1}`;
+                            const value = firstNumeric ? formatValue(row[firstNumeric]) : '';
+                            return value ? `${label} → ${value}` : label;
+                        }),
+                    },
+                ],
+            };
+        },
+        buildFollowups: buildFollowups,
+    };
 }
 
 type AnalysisSpec = {
@@ -589,7 +657,36 @@ ${limitClause(20)}`;
             },
             summarize({ rows }) {
                 const first = rows[0] ?? {};
+                const totalRows = rows.reduce((sum, row) => {
+                    const value = typeof row.total_rows === 'number' ? row.total_rows : Number(row.total_rows);
+                    return Number.isFinite(value) ? sum + value : sum;
+                }, 0);
+                const firstCount = typeof first.total_rows === 'number' ? first.total_rows : Number(first.total_rows);
+                const firstShare = totalRows > 0 && Number.isFinite(firstCount) ? firstCount / totalRows : null;
+                const singleValue = rows.length === 1 || firstShare === 1;
+                if (rows.length && singleValue) {
+                    return {
+                        analysisState: 'weak',
+                        limitations: [`${formatValue(first.value)} 覆盖当前结果的全部返回行，该字段没有区分度。`],
+                        summary: `${formatValue(first.total_rows)} / ${formatValue(totalRows || first.total_rows)} 行都是 ${formatValue(first.value)}，继续分析这个字段没有信息增益。建议转向更有区分度的参与者、仓库或时间维度。`,
+                        headline: '当前结果缺少字段多样性',
+                        keyFindings: [`${formatValue(first.value)} 覆盖全部返回行`, '该字段分布不适合作为继续分析目标', '建议直接进入聚合或时间趋势分析'],
+                        recordHighlights: rows.slice(0, 5).map(row => ({
+                            label: formatValue(row.value),
+                            value: formatValue(row.total_rows),
+                        })),
+                        sections: [
+                            {
+                                id: 'low-variance-profile',
+                                title: 'Profile fact',
+                                items: [`${formatValue(first.value)} → ${formatValue(first.total_rows)}`, 'Top value share: 100%'],
+                            },
+                        ],
+                    };
+                }
                 return {
+                    analysisState: rows.length ? 'good' : 'invalid',
+                    limitations: rows.length ? [] : ['没有返回高频值，无法继续解释分布。'],
                     summary: rows.length ? `${formatValue(first.value)} is the most common value with ${formatValue(first.total_rows)} rows.` : 'No top values were returned.',
                     headline: rows.length ? `${formatValue(first.value)} 是最常见的值` : '未返回高频值',
                     keyFindings: rows.length ? [`最高频值为 ${formatValue(first.value)}`, `频次为 ${formatValue(first.total_rows)}`] : ['没有返回高频值'],
@@ -690,7 +787,17 @@ export async function runAnalysis(params: {
     const resultSessionId = randomUUID();
     const createdAt = nowIso();
     const specs = specsForContext(params.request.context.resultContext);
-    const spec = specs[params.request.trigger.suggestionId];
+    const sqlPreview = params.request.trigger.sqlPreview?.trim();
+    const spec =
+        specs[params.request.trigger.suggestionId] ??
+        (sqlPreview
+            ? genericAiDrivenSpec({
+                  suggestionId: params.request.trigger.suggestionId,
+                  sqlPreview,
+                  context: params.request.context.resultContext,
+                  locale: params.locale ?? routing.defaultLocale,
+              })
+            : null);
 
     if (!spec) {
         throw new Error(`Unsupported analysis suggestion: ${params.request.trigger.suggestionId}`);
@@ -782,6 +889,7 @@ export async function runAnalysis(params: {
 
         const outcome: AnalysisOutcome = {
             ...outcomeCore,
+            recommendedActions: followups,
             artifacts: [
                 { type: 'sql', sql },
                 { type: 'result_ref', resultRef: { sessionId: resultSessionId, setIndex: 0 } },

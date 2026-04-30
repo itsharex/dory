@@ -7,6 +7,7 @@ export type InsightFactType =
     | 'dataset_shape'
     | 'distribution'
     | 'dominant_category'
+    | 'low_information_dimension'
     | 'risk_signal'
     | 'top_dimension'
     | 'top_message'
@@ -37,15 +38,7 @@ export type InsightPattern = {
 
 export type InsightAction =
     | {
-          id:
-              | 'inspect-outliers'
-              | 'analyze-source'
-              | 'view-distribution'
-              | 'group-by-service'
-              | 'view-time-trend'
-              | 'filter-outliers'
-              | 'top-messages'
-              | 'pattern-follow-up';
+          id: 'inspect-outliers' | 'analyze-source' | 'view-distribution' | 'group-by-service' | 'view-time-trend' | 'filter-outliers' | 'top-messages' | 'pattern-follow-up';
           label: string;
           kind: 'analysis-suggestion';
           suggestionId:
@@ -129,6 +122,17 @@ export type InsightRewriteRequest = {
     keyColumns: InsightKeyColumns;
     facts: InsightFact[];
     patterns: InsightPattern[];
+    profileColumns?: Array<{
+        name: string;
+        semanticRole: string;
+        nonNullCount: number;
+        distinctCount?: number | null;
+        distinctRatio?: number | null;
+        entropy?: number | null;
+        topValueShare?: number | null;
+        informationDensity?: 'none' | 'low' | 'medium' | 'high';
+        topK?: Array<{ value: string; count: number }>;
+    }>;
     sampleRows?: Array<Record<string, unknown>>;
 };
 
@@ -138,6 +142,18 @@ export type InsightRewriteResponse = {
         subtitle?: string;
     };
     insights: string[];
+    analysisState?: 'invalid' | 'weak' | 'good' | 'actionable';
+    primaryInsight?: string;
+    limitations?: string[];
+    recommendedSql?: string | null;
+    alternativeActions?: Array<{
+        id?: string;
+        label: string;
+        description: string;
+        kind?: 'drilldown' | 'trend' | 'distribution' | 'topk' | 'compare';
+        recommendedSql?: string | null;
+    }>;
+    autoRunPolicy?: 'confirm_required';
     reasoning?: {
         priorities: string[];
     };
@@ -379,20 +395,51 @@ export function buildInsightFacts(context: InsightRuleContext): InsightFact[] {
 
     const interestingDimension = findInterestingDimension(stats, columns);
     const dimensionTop = interestingDimension?.profile?.topK?.[0];
-    if (interestingDimension && dimensionTop && rowCount > 0) {
-        facts.push({
-            id: `dominant:${interestingDimension.column.name}:${dimensionTop.value}`,
-            type: 'dominant_category',
-            severity: 'info',
-            confidence: 0.9,
-            columns: [interestingDimension.column.name],
-            metrics: {
-                value: dimensionTop.value,
-                count: dimensionTop.count,
-                share: dimensionTop.count / rowCount,
-            },
-            narrativeHint: 'Most rows cluster around a single dominant category.',
+    const lowInformationDimension = (columns ?? [])
+        .map(column => ({ column, profile: profiles[column.name] }))
+        .find(entry => {
+            const profile = entry.profile;
+            if (!profile || profile.semanticRole !== 'dimension') return false;
+            return profile.informationDensity === 'none' || profile.topValueShare === 1 || profile.entropy === 0;
         });
+    if (lowInformationDimension?.profile && rowCount > 0) {
+        const top = lowInformationDimension.profile.topK?.[0];
+        facts.push({
+            id: `low-info:${lowInformationDimension.column.name}`,
+            type: 'low_information_dimension',
+            severity: 'warning',
+            confidence: 0.95,
+            columns: [lowInformationDimension.column.name],
+            metrics: {
+                value: top?.value ?? '',
+                count: top?.count ?? lowInformationDimension.profile.nonNullCount,
+                share: lowInformationDimension.profile.topValueShare ?? 1,
+                entropy: lowInformationDimension.profile.entropy ?? 0,
+                distinctRatio: lowInformationDimension.profile.distinctRatio ?? 0,
+            },
+            narrativeHint: 'This column has too little variance to support a useful distribution analysis.',
+        });
+    }
+
+    if (interestingDimension && dimensionTop && rowCount > 0) {
+        const informationDensity = interestingDimension.profile?.informationDensity;
+        if (informationDensity === 'none' || interestingDimension.profile?.topValueShare === 1) {
+            // Keep this as a Profile fact only; do not turn a constant field into a user-facing "top value" insight.
+        } else {
+            facts.push({
+                id: `dominant:${interestingDimension.column.name}:${dimensionTop.value}`,
+                type: 'dominant_category',
+                severity: 'info',
+                confidence: 0.9,
+                columns: [interestingDimension.column.name],
+                metrics: {
+                    value: dimensionTop.value,
+                    count: dimensionTop.count,
+                    share: dimensionTop.count / rowCount,
+                },
+                narrativeHint: 'Most rows cluster around a single dominant category.',
+            });
+        }
     }
 
     const riskProfile = Object.values(profiles).find(profile => {
@@ -724,6 +771,13 @@ function factToInsight(context: InsightRuleContext, fact: InsightFact) {
                 value: String(fact.metrics?.value ?? ''),
                 share: formatPercent(locale, typeof fact.metrics?.share === 'number' ? fact.metrics.share : null),
             });
+        case 'low_information_dimension':
+            return t('Insights.Messages.LowInformationDimension', {
+                column: String(fact.columns?.[0] ?? ''),
+                value: String(fact.metrics?.value ?? ''),
+                count: formatNumber(locale, typeof fact.metrics?.count === 'number' ? fact.metrics.count : null),
+                share: formatPercent(locale, typeof fact.metrics?.share === 'number' ? fact.metrics.share : null),
+            });
         case 'risk_signal':
             return t('Insights.Messages.RiskCategory', {
                 value: String(fact.metrics?.value ?? ''),
@@ -850,6 +904,17 @@ export function buildInsightRewriteRequest(context: InsightRuleContext): Insight
         keyColumns: draft.keyColumns,
         facts: draft.facts,
         patterns: draft.patterns,
+        profileColumns: Object.values(context.stats.columns).map(profile => ({
+            name: profile.name,
+            semanticRole: profile.semanticRole,
+            nonNullCount: profile.nonNullCount,
+            distinctCount: profile.distinctCount ?? null,
+            distinctRatio: profile.distinctRatio ?? null,
+            entropy: profile.entropy ?? null,
+            topValueShare: profile.topValueShare ?? null,
+            informationDensity: profile.informationDensity ?? 'none',
+            topK: profile.topK ?? [],
+        })),
         sampleRows: sampleRows(context.rows).slice(0, 30),
     };
 }
@@ -878,6 +943,7 @@ function buildInsightCard(params: { context: InsightRuleContext; draft: InsightD
     const outlierPattern = draft.patterns.find(pattern => pattern.kind === 'outlier');
     const spreadFact = draft.facts.find(fact => fact.type === 'measure_spread');
     const riskFact = draft.facts.find(fact => fact.type === 'risk_signal');
+    const lowInformationFact = draft.facts.find(fact => fact.type === 'low_information_dimension');
     const topDimensionFact = draft.facts.find(fact => fact.type === 'top_dimension' || fact.type === 'dominant_category');
 
     if (primaryMeasure && (outlierPattern || spreadFact)) {
@@ -921,6 +987,21 @@ function buildInsightCard(params: { context: InsightRuleContext; draft: InsightD
         };
     }
 
+    if (lowInformationFact) {
+        return {
+            headline: t('Insights.Card.LowInformationHeadline', {
+                column: String(lowInformationFact.columns?.[0] ?? t('Insights.Card.CurrentResult')),
+            }),
+            summaryLines: [
+                t('Insights.Card.LowInformationLine', {
+                    value: String(lowInformationFact.metrics?.value ?? ''),
+                    count: formatNumber(locale, typeof lowInformationFact.metrics?.count === 'number' ? lowInformationFact.metrics.count : null),
+                    share: formatPercent(locale, typeof lowInformationFact.metrics?.share === 'number' ? lowInformationFact.metrics.share : null),
+                }),
+            ],
+        };
+    }
+
     if (topDimensionFact) {
         return {
             headline: t('Insights.Card.DimensionHeadline', {
@@ -931,7 +1012,7 @@ function buildInsightCard(params: { context: InsightRuleContext; draft: InsightD
                     ? t('Insights.Card.DimensionLine', {
                           value: String(topDimensionFact.metrics.value),
                       })
-                    : findings[0]?.summary ?? draft.quickSummary.subtitle ?? draft.quickSummary.title,
+                    : (findings[0]?.summary ?? draft.quickSummary.subtitle ?? draft.quickSummary.title),
             ].filter(Boolean),
         };
     }
@@ -942,11 +1023,7 @@ function buildInsightCard(params: { context: InsightRuleContext; draft: InsightD
     };
 }
 
-export function buildStructuredInsightView(params: {
-    context: InsightRuleContext;
-    draft?: InsightDraft;
-    view?: InsightViewModel;
-}): StructuredInsightView {
+export function buildStructuredInsightView(params: { context: InsightRuleContext; draft?: InsightDraft; view?: InsightViewModel }): StructuredInsightView {
     const draft = params.draft ?? buildInsightDraft(params.context);
     const view = params.view ?? buildInsights(params.context);
     const findingSources = [...draft.patterns, ...draft.facts];

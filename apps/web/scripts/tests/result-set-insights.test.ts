@@ -202,10 +202,54 @@ function testStructuredInsightCardAndActionLabels() {
     assert.ok(!draft.recommendedActions.some(action => action.label === 'Run'));
 }
 
+function testLowInformationProfileSignals() {
+    const rows = Array.from({ length: 20 }, (_, index) => ({
+        event_type: 'CommitCommentEvent',
+        actor_login: index % 3 === 0 ? 'alice' : index % 3 === 1 ? 'bob' : 'carol',
+        repo_name: index % 2 === 0 ? 'dory/studio' : 'dory/web',
+        created_at: `2025-01-01T${String(index % 10).padStart(2, '0')}:00:00.000Z`,
+    }));
+
+    const profiled = profileResultSet({
+        sqlText: 'select event_type, actor_login, repo_name, created_at from github_events limit 20',
+        rawColumns: [
+            { name: 'event_type', type: 'text' },
+            { name: 'actor_login', type: 'text' },
+            { name: 'repo_name', type: 'text' },
+            { name: 'created_at', type: 'timestamp' },
+        ],
+        rows,
+        rowCount: rows.length,
+        limited: true,
+        limit: 20,
+    });
+
+    const eventType = profiled.stats.columns.event_type;
+    const actorLogin = profiled.stats.columns.actor_login;
+    assert.equal(eventType?.entropy, 0);
+    assert.equal(eventType?.topValueShare, 1);
+    assert.equal(eventType?.informationDensity, 'none');
+    assert.ok((actorLogin?.entropy ?? 0) > 0);
+    assert.notEqual(actorLogin?.informationDensity, 'none');
+
+    const draft = buildInsightDraft({
+        stats: profiled.stats,
+        columns: profiled.columns,
+        sqlText: 'select event_type, actor_login, repo_name, created_at from github_events limit 20',
+        rows,
+        locale: 'en',
+        t: translate,
+    });
+
+    assert.ok(draft.facts.some(fact => fact.type === 'low_information_dimension' && fact.columns?.[0] === 'event_type'));
+    assert.ok(!draft.facts.some(fact => fact.type === 'dominant_category' && fact.columns?.[0] === 'event_type'));
+}
+
 testFactsAndPatternsForTimeSeries();
 testRiskSignalThreshold();
 testNoTimeColumnSkipsTrendRewritePrompt();
 testRulesFallbackView();
 testStructuredInsightCardAndActionLabels();
+testLowInformationProfileSignals();
 
 console.log('result-set-insights tests passed');

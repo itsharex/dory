@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 import { Badge } from '@/registry/new-york-v4/ui/badge';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { useDB } from '@/lib/client/use-pglite';
-import { buildInsightDraft, buildInsights, buildStructuredInsightView } from '@/lib/client/result-set-insights';
+import { buildInsightDraft, buildInsightRewriteRequest, buildInsights, buildStructuredInsightView, type InsightRewriteResponse } from '@/lib/client/result-set-insights';
 import { buildAnalysisSuggestions, buildAnalysisSummaryFromDraft } from '@/lib/analysis/suggestions';
 import { buildResultContext } from '@/lib/analysis/result-context';
 import { runAnalysisRequest } from '@/lib/analysis/client';
@@ -34,17 +34,11 @@ function PanelSection(props: { title: string; icon: React.ReactNode; children: R
     );
 }
 
-function PrimaryConclusion(props: { headline: string; summary?: string; why?: string; t: ReturnType<typeof useTranslations> }) {
+function PrimaryConclusion(props: { headline: string; summary?: string }) {
     return (
         <div className="rounded-lg border bg-background px-4 py-3">
             <div className="text-base font-semibold leading-snug text-foreground">{props.headline}</div>
             {props.summary ? <div className="mt-2 text-sm leading-relaxed text-muted-foreground">{props.summary}</div> : null}
-            {props.why ? (
-                <div className="mt-3 rounded-md bg-muted/40 px-3 py-2">
-                    <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{props.t('Insights.Analysis.WhyRunTitle')}</div>
-                    <div className="mt-1 text-sm leading-relaxed text-foreground">{props.why}</div>
-                </div>
-            ) : null}
         </div>
     );
 }
@@ -81,6 +75,24 @@ function RecordHighlightList(props: { records: NonNullable<AnalysisSession['outc
                             <div className="shrink-0 text-sm font-semibold tabular-nums text-foreground">{item.value}</div>
                         </div>
                         {item.note ? <div className="mt-1 text-xs leading-relaxed text-muted-foreground">{item.note}</div> : null}
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function LimitationList(props: { limitations?: string[] }) {
+    const limitations = props.limitations ?? [];
+    if (!limitations.length) return null;
+
+    return (
+        <div className="space-y-2">
+            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">Limitations</div>
+            <div className="space-y-2">
+                {limitations.map(item => (
+                    <div key={item} className="rounded-lg border bg-muted/30 px-3 py-2 text-sm leading-relaxed text-foreground">
+                        {item}
                     </div>
                 ))}
             </div>
@@ -220,6 +232,75 @@ function dedupeAnalysisSuggestions(suggestions: AnalysisSuggestion[]) {
     });
 }
 
+function aiDecisionSuggestions(decision: InsightRewriteResponse | null, t: ReturnType<typeof useTranslations>, fallback?: AnalysisSuggestion | null): AnalysisSuggestion[] {
+    if (!decision) return [];
+    const sql = decision?.recommendedSql?.trim();
+    const makeSuggestion = (params: {
+        id: string;
+        label: string;
+        description: string;
+        kind?: AnalysisSuggestion['kind'];
+        sqlPreview?: string | null;
+        isPrimary?: boolean;
+        priority: number;
+    }): AnalysisSuggestion => ({
+        id: params.id,
+        kind: params.kind ?? 'drilldown',
+        title: params.label,
+        description: params.description,
+        label: params.label,
+        goal: params.description,
+        resultTitle: params.label,
+        stepTemplates: [
+            { id: 'inspect-profile', title: t('Insights.Analysis.Steps.InspectProfile') },
+            { id: 'run-next-sql', title: t('Insights.Analysis.Steps.RunNextSql') },
+            { id: 'summarize-next-step', title: t('Insights.Analysis.Steps.SummarizeNextStep') },
+        ],
+        followupPolicy: 'chain',
+        intent: {
+            type: 'generate_sql',
+            payload: {
+                suggestionId: params.id,
+                analysisState: decision.analysisState ?? 'good',
+            },
+        },
+        priority: params.priority,
+        isPrimary: params.isPrimary,
+        requiresConfirmation: true,
+        reason: params.description,
+        sqlPreview: params.sqlPreview?.trim() || undefined,
+        analysisState: decision.analysisState ?? fallback?.analysisState,
+    });
+
+    const primary = sql
+        ? [
+              makeSuggestion({
+                  id: 'ai-decision-recommended-sql',
+                  label: decision.primaryInsight ?? fallback?.label ?? t('Insights.Analysis.AiDecision.DefaultLabel'),
+                  description: decision.limitations?.[0] ?? decision.insights?.[0] ?? fallback?.description ?? t('Insights.Analysis.AiDecision.DefaultDescription'),
+                  kind: fallback?.kind,
+                  sqlPreview: sql,
+                  isPrimary: true,
+                  priority: 101,
+              }),
+          ]
+        : [];
+    const alternatives = (decision.alternativeActions ?? [])
+        .filter(action => action.label?.trim() && action.description?.trim())
+        .map((action, index) =>
+            makeSuggestion({
+                id: action.id?.trim() || `ai-decision-action-${index + 1}`,
+                label: action.label.trim(),
+                description: action.description.trim(),
+                kind: action.kind,
+                sqlPreview: action.recommendedSql ?? null,
+                priority: 90 - index,
+            }),
+        );
+
+    return dedupeAnalysisSuggestions([...primary, ...alternatives]).slice(0, 5);
+}
+
 type AnalysisActionsProps = {
     tabId?: string;
     connectionId?: string | null;
@@ -245,6 +326,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
     const [sampleRows, setSampleRows] = useState<Array<Record<string, unknown>>>([]);
     const [analysisRows, setAnalysisRows] = useState<AnalysisRow[]>([]);
     const [runningSuggestionId, setRunningSuggestionId] = useState<string | null>(null);
+    const [aiDecision, setAiDecision] = useState<InsightRewriteResponse | null>(null);
     const handledRequestIdsRef = useRef<Set<string>>(new Set());
 
     const workspaceKey = analysisWorkspaceKeyFor(tabId, activeSessionId, activeSet);
@@ -270,6 +352,49 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
             canceled = true;
         };
     }, [activeSessionId, activeSet, dbReady, getResultRows]);
+
+    const insightRewriteRequest = useMemo(() => {
+        const columns = Array.isArray(sessionMetas?.columns) ? sessionMetas.columns : [];
+        return buildInsightRewriteRequest({
+            stats: sessionMetas?.stats,
+            columns,
+            sqlText: sessionMetas?.sqlText ?? '',
+            rows: sampleRows,
+            locale,
+            t: (key, values) => t(key as any, values),
+        });
+    }, [locale, sampleRows, sessionMetas, t]);
+    const insightRewriteCacheKey = useMemo(() => (insightRewriteRequest ? JSON.stringify(insightRewriteRequest) : null), [insightRewriteRequest]);
+
+    useEffect(() => {
+        if (!insightRewriteRequest || !insightRewriteCacheKey) {
+            setAiDecision(null);
+            return;
+        }
+
+        const controller = new AbortController();
+        let canceled = false;
+
+        void (async () => {
+            try {
+                const response = await fetch('/api/ai/result-insights', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(insightRewriteRequest),
+                    signal: controller.signal,
+                });
+                const payload = (await response.json().catch(() => null)) as InsightRewriteResponse | null;
+                if (!canceled) setAiDecision(payload);
+            } catch {
+                if (!controller.signal.aborted && !canceled) setAiDecision(null);
+            }
+        })();
+
+        return () => {
+            canceled = true;
+            controller.abort();
+        };
+    }, [insightRewriteCacheKey, insightRewriteRequest]);
 
     const insightBundle = useMemo(() => {
         if (!activeSessionId || activeSet == null || activeSet < 0) return null;
@@ -312,12 +437,16 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
             databaseName: databaseName ?? null,
             rowCount: sessionMetas?.rowCount ?? sampleRows.length,
             columns,
+            stats: sessionMetas?.stats,
         });
         const suggestions = buildAnalysisSuggestions({
             resultContext,
             draft,
             recommendedActions: structured.recommendedActions,
+            t: (key, values) => t(key as any, values),
         });
+        const aiSuggestions = aiDecisionSuggestions(aiDecision, t, suggestions[0]);
+        const resolvedSuggestions = aiSuggestions.length ? aiSuggestions : suggestions;
 
         return {
             draft,
@@ -327,9 +456,9 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                 narrative: buildAnalysisSummaryFromDraft(draft, view.insights),
             },
             resultContext,
-            suggestions,
+            suggestions: resolvedSuggestions,
         };
-    }, [activeSessionId, activeSet, databaseName, locale, sampleRows, sessionMetas, t]);
+    }, [activeSessionId, activeSet, aiDecision, databaseName, locale, sampleRows, sessionMetas, t]);
 
     useEffect(() => {
         if (!workspaceKey || !insightBundle || !tabId || !activeSessionId || activeSet == null || activeSet < 0) return;
@@ -589,6 +718,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                 trigger: {
                     type: 'suggestion',
                     suggestionId: suggestion.id,
+                    sqlPreview: suggestion.sqlPreview ?? null,
                 },
             });
 
@@ -641,9 +771,6 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                                 <div className="mt-0.5 truncate text-xs text-muted-foreground">{t('Insights.Analysis.RunningDescription')}</div>
                             </div>
                         </div>
-                        <Badge variant="outline" className="shrink-0 text-[10px] uppercase">
-                            {t('Insights.Analysis.LoadingStatus')}
-                        </Badge>
                     </div>
 
                     <div className="flex flex-1 items-center justify-center px-6 py-16">
@@ -669,9 +796,6 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                             <div className="mt-0.5 truncate text-xs text-muted-foreground">{t('Insights.Analysis.ActionPageSubtitle')}</div>
                         </div>
                     </div>
-                    <Badge variant="outline" className="shrink-0 text-[10px] uppercase">
-                        {selectedSession.status}
-                    </Badge>
                 </div>
 
                 <div className="flex-1">
@@ -684,8 +808,6 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                             <PrimaryConclusion
                                 headline={selectedSession.outcome?.headline ?? selectedSession.title}
                                 summary={selectedSession.outcome?.summary ?? insightBundle.structured.narrative}
-                                why={selectedSessionSuggestion?.goal}
-                                t={t}
                             />
                         </PanelSection>
 
@@ -697,6 +819,8 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                             <div className="rounded-lg border bg-background px-4 py-3">
                                 {selectedSession.outcome ? (
                                     <div className="space-y-4">
+                                        <LimitationList limitations={selectedSession.outcome.limitations} />
+
                                         <KeyFindingList findings={selectedSession.outcome.keyFindings} t={t} />
 
                                         <RecordHighlightList records={selectedSession.outcome.recordHighlights} t={t} />
@@ -782,13 +906,15 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
             <div className="space-y-2">
                 {workspaceSuggestions.map(suggestion => {
                     const isRunning = runningSuggestionId === suggestion.id;
+                    const isAiBlocked = suggestion.id.startsWith('ai-') && !suggestion.sqlPreview;
 
                     return (
                         <button
                             key={suggestion.id}
                             type="button"
-                            className="flex w-full items-start gap-3 rounded-lg border bg-background px-4 py-3 text-left transition hover:border-primary/40 hover:bg-muted/40"
+                            className="flex w-full items-start gap-3 rounded-lg border bg-background px-4 py-3 text-left transition hover:border-primary/40 hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-60"
                             onClick={() => void handleRunSuggestion(suggestion)}
+                            disabled={isAiBlocked}
                         >
                             <span className="flex size-5 items-center justify-center text-muted-foreground">
                                 {isRunning ? <Loader2 className="h-4 w-4 animate-spin text-violet-400" /> : <BarChart3 className="h-4 w-4 text-violet-400" />}

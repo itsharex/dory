@@ -6,8 +6,10 @@ import { runLLMJson } from '@/lib/copilot/action/server/llm-json';
 import type { Locale } from '@/lib/i18n/routing';
 
 const aiOutcomeSchema = z.object({
+    analysisState: z.enum(['invalid', 'weak', 'good', 'actionable']).optional(),
     summary: z.string().min(1),
     headline: z.string().min(1),
+    limitations: z.array(z.string().min(1)).max(5).optional(),
     keyFindings: z.array(z.string().min(1)).min(1).max(5),
     recordHighlights: z
         .array(
@@ -70,7 +72,11 @@ function buildPrompt(params: {
         '- Use only the provided SQL result rows, columns, source context, and rule summary.',
         '- Do not invent values, ratios, trends, causes, or correlations.',
         '- If the evidence is limited, say so directly.',
-        '- Put the strongest conclusion first.',
+        '- Decide analysisState: invalid for empty unusable results, weak for low-information results, good for useful results, actionable when the result is ready for charting or a concrete follow-up.',
+        '- Do not present a single repeated top value as an insight. Explain the lack of variance and recommend a better next step.',
+        '- Put the strongest user-facing data conclusion first.',
+        '- Do not say that SQL was executed, that the system entered the next step, or that rows were returned as the main conclusion.',
+        '- Write the headline and summary as if speaking to a human analyst about the data, not about the workflow.',
         '- Keep the wording concise and useful for a data analyst.',
         '- keyFindings should contain 2 to 5 concrete findings.',
         '- recordHighlights should reference actual returned rows or aggregate values.',
@@ -97,6 +103,11 @@ function buildPrompt(params: {
 
 function normalizeAiOutcome(candidate: z.infer<typeof aiOutcomeSchema>, fallback: AnalysisSummaryCore): AnalysisSummaryCore {
     return {
+        analysisState: candidate.analysisState ?? fallback.analysisState,
+        limitations: (candidate.limitations ?? fallback.limitations ?? [])
+            .map(item => item.trim())
+            .filter(Boolean)
+            .slice(0, 5),
         summary: candidate.summary.trim() || fallback.summary,
         headline: candidate.headline.trim() || fallback.headline,
         keyFindings: candidate.keyFindings

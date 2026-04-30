@@ -29,6 +29,10 @@ const resultContextSchema = z.object({
             name: z.string().min(1),
             dataType: z.string().min(1),
             semanticType: z.enum(['time', 'dimension', 'measure', 'identifier']).optional(),
+            distinctRatio: z.number().nullable().optional(),
+            entropy: z.number().nullable().optional(),
+            topValueShare: z.number().nullable().optional(),
+            informationDensity: z.enum(['none', 'low', 'medium', 'high']).optional(),
         }),
     ),
 });
@@ -67,11 +71,13 @@ const bodySchema = z.object({
         z.object({
             type: z.literal('suggestion'),
             suggestionId: z.string().min(1),
+            sqlPreview: z.string().nullable().optional(),
         }),
         z.object({
             type: z.literal('followup'),
             sourceSessionId: z.string().min(1),
             suggestionId: z.string().min(1),
+            sqlPreview: z.string().nullable().optional(),
         }),
     ]),
     tabId: z.string().min(1).optional(),

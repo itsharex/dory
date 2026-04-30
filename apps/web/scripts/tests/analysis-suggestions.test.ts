@@ -46,24 +46,22 @@ function testTrendAndServiceSuggestions() {
         databaseName: 'db',
         rowCount: rows.length,
         columns: profiled.columns,
+        stats: profiled.stats,
     });
 
     const suggestions = buildAnalysisSuggestions({
         resultContext,
         draft,
         recommendedActions: draft.recommendedActions,
+        t: translate,
     });
 
-    assert.ok(suggestions.some(item => item.id === 'time-error-trend'));
-    assert.ok(suggestions.some(item => item.id === 'service-error-breakdown'));
+    assert.ok(suggestions.some(item => item.id === 'view-time-trend'));
+    assert.ok(suggestions.some(item => item.id === 'group-by-service' || item.id === 'analyze-source'));
 }
 
 function testNoInvalidSuggestionWithoutDimensions() {
-    const rows = [
-        { total: 10 },
-        { total: 20 },
-        { total: 30 },
-    ];
+    const rows = [{ total: 10 }, { total: 20 }, { total: 30 }];
 
     const profiled = profileResultSet({
         sqlText: 'select total from metrics',
@@ -90,18 +88,78 @@ function testNoInvalidSuggestionWithoutDimensions() {
         databaseName: 'db',
         rowCount: rows.length,
         columns: profiled.columns,
+        stats: profiled.stats,
     });
 
     const suggestions = buildAnalysisSuggestions({
         resultContext,
         draft,
         recommendedActions: draft.recommendedActions,
+        t: translate,
     });
 
-    assert.ok(!suggestions.some(item => item.id === 'service-error-breakdown'));
+    assert.ok(!suggestions.some(item => item.id === 'group-by-service'));
+}
+
+function testAiPrimaryNextStepForLowVarianceRawRows() {
+    const rows = Array.from({ length: 20 }, (_, index) => ({
+        event_type: 'CommitCommentEvent',
+        actor_login: index % 2 === 0 ? 'alice' : 'bob',
+        repo_name: index % 4 === 0 ? 'dory/studio' : 'dory/web',
+        created_at: `2025-01-01T${String(index % 10).padStart(2, '0')}:00:00.000Z`,
+    }));
+
+    const sql = 'select event_type, actor_login, repo_name, created_at from github_events limit 20';
+    const profiled = profileResultSet({
+        sqlText: sql,
+        rawColumns: [
+            { name: 'event_type', type: 'text' },
+            { name: 'actor_login', type: 'text' },
+            { name: 'repo_name', type: 'text' },
+            { name: 'created_at', type: 'timestamp' },
+        ],
+        rows,
+        rowCount: rows.length,
+        limited: true,
+        limit: 20,
+    });
+
+    const draft = buildInsightDraft({
+        stats: profiled.stats,
+        columns: profiled.columns,
+        sqlText: sql,
+        rows,
+        locale: 'en',
+        t: translate,
+    });
+
+    const resultContext = buildResultContext({
+        sessionId: 'session-3',
+        setIndex: 0,
+        sqlText: sql,
+        databaseName: 'db',
+        rowCount: rows.length,
+        columns: profiled.columns,
+        stats: profiled.stats,
+    });
+
+    const suggestions = buildAnalysisSuggestions({
+        resultContext,
+        draft,
+        recommendedActions: draft.recommendedActions,
+        t: translate,
+    });
+    const primary = suggestions[0];
+
+    assert.equal(primary?.isPrimary, true);
+    assert.equal(primary?.analysisState, 'weak');
+    assert.ok(primary?.sqlPreview?.includes('"actor_login"'));
+    assert.ok(!primary?.label.toLowerCase().includes('most common'));
+    assert.ok(!primary?.label.includes('最常见'));
 }
 
 testTrendAndServiceSuggestions();
 testNoInvalidSuggestionWithoutDimensions();
+testAiPrimaryNextStepForLowVarianceRawRows();
 
 console.log('analysis-suggestions tests passed');

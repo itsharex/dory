@@ -1,4 +1,5 @@
 import type { ResultColumnMeta } from '@/lib/client/type';
+import type { ResultSetStatsV1 } from '@/lib/client/result-set-ai';
 import type { InsightAction, InsightStructuredFinding, InsightStructuredSignal, StructuredInsightView } from '@/lib/client/result-set-insights';
 
 export type AnalysisResultRef = {
@@ -16,6 +17,10 @@ export type ResultContextColumn = {
     name: string;
     dataType: string;
     semanticType?: 'time' | 'dimension' | 'measure' | 'identifier';
+    distinctRatio?: number | null;
+    entropy?: number | null;
+    topValueShare?: number | null;
+    informationDensity?: 'none' | 'low' | 'medium' | 'high';
 };
 
 export type ResultContext = {
@@ -28,6 +33,7 @@ export type ResultContext = {
 };
 
 export type AnalysisSuggestionKind = 'drilldown' | 'trend' | 'distribution' | 'topk' | 'compare';
+export type AnalysisState = 'invalid' | 'weak' | 'good' | 'actionable';
 
 export type AnalysisStepTemplate = {
     id: string;
@@ -49,6 +55,11 @@ export type AnalysisSuggestion = {
         payload: Record<string, unknown>;
     };
     priority: number;
+    isPrimary?: boolean;
+    requiresConfirmation?: boolean;
+    reason?: string;
+    sqlPreview?: string;
+    analysisState?: AnalysisState;
 };
 
 export type AnalysisFocus = {
@@ -57,8 +68,8 @@ export type AnalysisFocus = {
 };
 
 export type AnalysisTrigger =
-    | { type: 'suggestion'; suggestionId: string }
-    | { type: 'followup'; sourceSessionId: string; suggestionId: string };
+    | { type: 'suggestion'; suggestionId: string; sqlPreview?: string | null }
+    | { type: 'followup'; sourceSessionId: string; suggestionId: string; sqlPreview?: string | null };
 
 export type AnalysisStepType = 'reasoning' | 'sql_generation' | 'execution' | 'summary';
 export type AnalysisStepStatus = 'pending' | 'running' | 'done' | 'error';
@@ -83,6 +94,9 @@ export type AnalysisArtifact =
 export type AnalysisOutcome = {
     summary: string;
     headline: string;
+    analysisState?: AnalysisState;
+    limitations?: string[];
+    recommendedActions?: AnalysisSuggestion[];
     keyFindings: string[];
     recordHighlights: Array<{
         label: string;
@@ -205,7 +219,7 @@ export type InsightSignalsPayload = {
     narrative: string;
 };
 
-export function toResultContextColumns(columns: ResultColumnMeta[] | null | undefined): ResultContextColumn[] {
+export function toResultContextColumns(columns: ResultColumnMeta[] | null | undefined, stats?: ResultSetStatsV1 | null): ResultContextColumn[] {
     return (columns ?? []).map(column => ({
         name: column.name,
         dataType: column.type ?? column.dbType ?? column.normalizedType,
@@ -213,5 +227,9 @@ export function toResultContextColumns(columns: ResultColumnMeta[] | null | unde
             column.semanticRole === 'time' || column.semanticRole === 'dimension' || column.semanticRole === 'measure' || column.semanticRole === 'identifier'
                 ? column.semanticRole
                 : undefined,
+        distinctRatio: stats?.columns?.[column.name]?.distinctRatio ?? null,
+        entropy: stats?.columns?.[column.name]?.entropy ?? null,
+        topValueShare: stats?.columns?.[column.name]?.topValueShare ?? null,
+        informationDensity: stats?.columns?.[column.name]?.informationDensity,
     }));
 }
