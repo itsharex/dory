@@ -1,4 +1,4 @@
-import type { CopilotContextSQL } from './types/copilot-context-types';
+import type { CopilotContextSQL, CopilotResultSetContext } from './types/copilot-context-sql';
 import type { CopilotFixInput } from './types/copilot-fix-input';
 import type { CopilotEnvelopeMeta, CopilotEnvelopeV1 } from './types/copilot-envelope';
 import { inferSqlDraftContext } from './infer-sql-context';
@@ -28,6 +28,7 @@ export async function createCopilotSQLContextEnvelope(params: {
     selection?: { start: number; end: number } | null;
     baselineDatabase?: string | null;
     dialect?: ConnectionDialect;
+    resultSet?: CopilotResultSetContext | null;
     meta?: CopilotEnvelopeMeta;
     updatedAt?: number;
 }): Promise<CopilotEnvelopeV1> {
@@ -37,8 +38,6 @@ export async function createCopilotSQLContextEnvelope(params: {
         editorText: params.editorText,
         baselineDatabase: params.baselineDatabase ?? null,
     });
-
-    console.log('Inferred SQL context:', inferred); 
 
     const context: CopilotContextSQL = {
         baseline: {
@@ -50,6 +49,7 @@ export async function createCopilotSQLContextEnvelope(params: {
             selection: params.selection ?? null,
             inferred,
         },
+        resultSet: params.resultSet ?? null,
     };
 
     return {
@@ -108,6 +108,55 @@ export function toPromptContext(envelope: CopilotEnvelopeV1): Record<string, unk
             selection: context.draft.selection ?? null,
             inferred: context.draft.inferred,
         };
+
+        if (context.resultSet) {
+            const stats = context.resultSet.stats ?? null;
+            result.resultSet = {
+                sessionId: context.resultSet.sessionId ?? null,
+                setIndex: context.resultSet.setIndex ?? null,
+                title: context.resultSet.title ?? null,
+                sqlText: truncateText(context.resultSet.sqlText ?? '', 4000),
+                status: context.resultSet.status ?? null,
+                rowCount: context.resultSet.rowCount ?? stats?.summary.rowCount ?? null,
+                limited: context.resultSet.limited ?? stats?.summary.limited ?? null,
+                limit: context.resultSet.limit ?? stats?.summary.limit ?? null,
+                durationMs: context.resultSet.durationMs ?? null,
+                columns: (context.resultSet.columns ?? []).map(column => ({
+                    name: column.name,
+                    type: column.type ?? column.dbType ?? null,
+                    normalizedType: column.normalizedType,
+                    semanticRole: column.semanticRole ?? 'unknown',
+                })),
+                profile: stats
+                    ? {
+                          summary: stats.summary,
+                          sample: stats.sample,
+                          columns: Object.values(stats.columns).map(profile => ({
+                              name: profile.name,
+                              normalizedType: profile.normalizedType,
+                              semanticRole: profile.semanticRole,
+                              nullCount: profile.nullCount,
+                              nonNullCount: profile.nonNullCount,
+                              distinctCount: profile.distinctCount ?? null,
+                              distinctRatio: profile.distinctRatio ?? null,
+                              entropy: profile.entropy ?? null,
+                              topValueShare: profile.topValueShare ?? null,
+                              informationDensity: profile.informationDensity ?? 'none',
+                              sampleValues: profile.sampleValues,
+                              topK: profile.topK ?? [],
+                              min: profile.min ?? null,
+                              max: profile.max ?? null,
+                              avg: profile.avg ?? null,
+                              p50: profile.p50 ?? null,
+                              p95: profile.p95 ?? null,
+                              minTime: profile.minTime ?? null,
+                              maxTime: profile.maxTime ?? null,
+                              inferredTimeGrain: profile.inferredTimeGrain ?? null,
+                          })),
+                      }
+                    : null,
+            };
+        }
 
         return result;
     }

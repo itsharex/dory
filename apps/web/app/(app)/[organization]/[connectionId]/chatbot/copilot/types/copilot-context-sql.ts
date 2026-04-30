@@ -1,3 +1,20 @@
+import type { ResultColumnMeta, ResultSetStatsV1 } from '@/lib/client/type';
+
+export type CopilotResultSetContext = {
+    sessionId?: string | null;
+    setIndex?: number | null;
+    title?: string | null;
+    sqlText?: string | null;
+    status?: 'success' | 'error' | 'running' | null;
+    rowCount?: number | null;
+    limited?: boolean | null;
+    limit?: number | null;
+    durationMs?: number | null;
+    columns?: ResultColumnMeta[] | null;
+    stats?: ResultSetStatsV1 | null;
+    aiProfileVersion?: number | null;
+};
+
 export type CopilotContextSQL = {
     baseline: {
         database?: string | null;
@@ -20,4 +37,6 @@ export type CopilotContextSQL = {
             confidence: 'high' | 'mid' | 'low';
         };
     };
+
+    resultSet?: CopilotResultSetContext | null;
 };

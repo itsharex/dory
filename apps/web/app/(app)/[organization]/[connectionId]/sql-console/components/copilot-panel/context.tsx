@@ -4,6 +4,7 @@
 import { Copy } from 'lucide-react';
 
 import type { CopilotEnvelopeV1 } from '../../../chatbot/copilot/types/copilot-envelope';
+import type { CopilotResultSetContext } from '../../../chatbot/copilot/types/copilot-context-sql';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/registry/new-york-v4/ui/accordion';
 import { useTranslations } from 'next-intl';
@@ -91,11 +92,14 @@ const ContextSQL = ({ copilotEnvelope }: { copilotEnvelope: CopilotEnvelopeV1 })
         selection && selection.end > selection.start
             ? sqlText.slice(selection.start, selection.end)
             : '';
+    const inferred = copilotEnvelope.context.draft.inferred;
+    const isPostgres = copilotEnvelope.context.baseline.dialect === 'postgres';
+    const tableLabel = inferred.tables.length ? inferred.tables.map(table => table.name).join(', ') : '-';
 
     return (
         <div className="space-y-2 rounded-md border bg-card px-4 py-3">
             <div className="flex items-center justify-between">
-                <div className="text-sm font-medium text-foreground">{t('Copilot.Context.SqlTitle')}</div>
+                <div className="text-sm font-medium text-foreground">{t('Copilot.Context.EditorTitle')}</div>
             </div>
             <div className="space-y-3">
                 <SQLBlock
@@ -110,50 +114,114 @@ const ContextSQL = ({ copilotEnvelope }: { copilotEnvelope: CopilotEnvelopeV1 })
                     placeholder={t('Copilot.Context.None')}
                     copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.SelectionLabel') })}
                 />
+                <div className="space-y-1.5 border-t pt-3 text-sm">
+                    <SummaryRow
+                        label={t('Copilot.Context.DatabaseLabel')}
+                        value={inferred.database ?? t('Copilot.Context.EmptyValue')}
+                        copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.DatabaseLabel') })}
+                    />
+                    {isPostgres ? (
+                        <SummaryRow
+                            label={t('Copilot.Context.SchemaLabel')}
+                            value={inferred.schema ?? t('Copilot.Context.EmptyValue')}
+                            copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.SchemaLabel') })}
+                        />
+                    ) : null}
+                    <SummaryRow
+                        label={t('Copilot.Context.TablesLabel')}
+                        value={tableLabel || t('Copilot.Context.EmptyValue')}
+                        copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.TablesLabel') })}
+                    />
+                    <SummaryRow
+                        label={t('Copilot.Context.ConfidenceLabel')}
+                        value={inferred.confidence}
+                        copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.ConfidenceLabel') })}
+                    />
+                </div>
             </div>
         </div>
     );
 };
 
-const ContextInferred = ({ copilotEnvelope }: { copilotEnvelope: CopilotEnvelopeV1 }) => {
-    const t = useTranslations('SqlConsole');
-    if (copilotEnvelope.surface !== 'sql') return null;
+function formatNumber(value: number | null | undefined) {
+    return typeof value === 'number' && Number.isFinite(value) ? new Intl.NumberFormat().format(value) : null;
+}
 
-    const inferred = copilotEnvelope.context.draft.inferred;
-    const isPostgres = copilotEnvelope.context.baseline.dialect === 'postgres';
-    const tableLabel = inferred.tables.length
-        ? inferred.tables
-              .map(table => table.name)
-              .join(', ')
-        : '-';
+function formatRatio(value: number | null | undefined) {
+    return typeof value === 'number' && Number.isFinite(value) ? `${Math.round(value * 100)}%` : null;
+}
+
+const ResultSetContext = ({ resultSet }: { resultSet?: CopilotResultSetContext | null }) => {
+    const t = useTranslations('SqlConsole');
+    if (!resultSet) return null;
+
+    const summary = resultSet.stats?.summary ?? null;
+    const profileColumns = Object.values(resultSet.stats?.columns ?? {}).slice(0, 6);
+    const rowCount = resultSet.rowCount ?? summary?.rowCount ?? null;
+    const columnCount = summary?.columnCount ?? resultSet.columns?.length ?? null;
+    const profileStatus = resultSet.stats ? t('Copilot.Context.ProfileReady') : t('Copilot.Context.ProfilePending');
 
     return (
-        <div className="space-y-2 rounded-md border bg-card px-4 py-3">
-            <div className="text-sm font-medium text-foreground">{t('Copilot.Context.InferredTitle')}</div>
+        <div className="space-y-3 rounded-md border bg-card px-4 py-3">
+            <div className="text-sm font-medium text-foreground">{t('Copilot.Context.ResultSetTitle')}</div>
             <div className="space-y-1.5 text-sm">
                 <SummaryRow
-                    label={t('Copilot.Context.DatabaseLabel')}
-                    value={inferred.database ?? t('Copilot.Context.EmptyValue')}
-                    copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.DatabaseLabel') })}
+                    label={t('Copilot.Context.StatusLabel')}
+                    value={resultSet.status ?? t('Copilot.Context.EmptyValue')}
+                    copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.StatusLabel') })}
                 />
-                {isPostgres ? (
+                <SummaryRow
+                    label={t('Copilot.Context.RowCountLabel')}
+                    value={formatNumber(rowCount) ?? t('Copilot.Context.EmptyValue')}
+                    copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.RowCountLabel') })}
+                />
+                <SummaryRow
+                    label={t('Copilot.Context.ColumnCountLabel')}
+                    value={formatNumber(columnCount) ?? t('Copilot.Context.EmptyValue')}
+                    copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.ColumnCountLabel') })}
+                />
+                <SummaryRow
+                    label={t('Copilot.Context.ProfileLabel')}
+                    value={profileStatus}
+                    copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.ProfileLabel') })}
+                />
+                {summary?.kind ? (
                     <SummaryRow
-                        label={t('Copilot.Context.SchemaLabel')}
-                        value={inferred.schema ?? t('Copilot.Context.EmptyValue')}
-                        copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.SchemaLabel') })}
+                        label={t('Copilot.Context.ResultKindLabel')}
+                        value={summary.kind}
+                        copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.ResultKindLabel') })}
                     />
                 ) : null}
-                <SummaryRow
-                    label={t('Copilot.Context.TablesLabel')}
-                    value={tableLabel || t('Copilot.Context.EmptyValue')}
-                    copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.TablesLabel') })}
-                />
-                <SummaryRow
-                    label={t('Copilot.Context.ConfidenceLabel')}
-                    value={inferred.confidence}
-                    copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.ConfidenceLabel') })}
-                />
+                {summary?.recommendedChart ? (
+                    <SummaryRow
+                        label={t('Copilot.Context.ChartLabel')}
+                        value={summary.recommendedChart}
+                        copyLabel={t('Copilot.Context.CopyLabel', { label: t('Copilot.Context.ChartLabel') })}
+                    />
+                ) : null}
             </div>
+            {profileColumns.length ? (
+                <div className="space-y-2 border-t pt-3">
+                    <div className="text-xs text-muted-foreground">{t('Copilot.Context.ProfileColumnsLabel')}</div>
+                    <div className="space-y-2">
+                        {profileColumns.map(profile => {
+                            const details = [
+                                profile.semanticRole,
+                                profile.normalizedType,
+                                profile.distinctCount != null ? t('Copilot.Context.DistinctShort', { value: formatNumber(profile.distinctCount) ?? String(profile.distinctCount) }) : null,
+                                profile.topValueShare != null ? t('Copilot.Context.TopShareShort', { value: formatRatio(profile.topValueShare) ?? String(profile.topValueShare) }) : null,
+                            ].filter(Boolean);
+
+                            return (
+                                <div key={profile.name} className="rounded-md bg-muted px-3 py-2">
+                                    <div className="truncate text-xs font-medium text-foreground">{profile.name}</div>
+                                    <div className="mt-1 truncate text-xs text-muted-foreground">{details.join(' / ')}</div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 };
@@ -253,7 +321,7 @@ const ContextTab = ({ copilotEnvelope, sessionMeta, activeTabCoreFields }: Conte
     return (
         <div className="flex h-full min-h-0 flex-col gap-3 overflow-auto px-4 py-3 text-sm">
             <ContextSQL copilotEnvelope={copilotEnvelope} />
-            <ContextInferred copilotEnvelope={copilotEnvelope} />
+            {copilotEnvelope.surface === 'sql' ? <ResultSetContext resultSet={copilotEnvelope.context.resultSet} /> : null}
             <ContextTableFacts copilotEnvelope={copilotEnvelope} />
             {/* <ContextRaw copilotEnvelope={copilotEnvelope} sessionMeta={sessionMeta} activeTabCoreFields={activeTabCoreFields} /> */}
         </div>

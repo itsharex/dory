@@ -7,6 +7,7 @@ import { Loader2, X } from 'lucide-react';
 import { useChatSessions } from '../../../chatbot/core/session-controller';
 import type { CopilotEnvelopeV1 } from '../../../chatbot/copilot/types/copilot-envelope';
 import { createCopilotFixInputFromExecution, createCopilotSQLContextEnvelope } from '../../../chatbot/copilot/copilot-envelope';
+import type { CopilotResultSetContext } from '../../../chatbot/copilot/types/copilot-context-sql';
 import type { CopilotFixInput } from '../../../chatbot/copilot/types/copilot-fix-input';
 import type { ActionIntent, ActionResult } from '@/lib/copilot/action/types';
 import { useSqlCopilotExecutor } from '../../hooks/useSqlCopilotExecutor';
@@ -77,6 +78,24 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
     const sessionErrorCode = (sessionMeta as any)?.errorCode ?? null;
     const sessionFinishedAt = (sessionMeta as any)?.finishedAt ?? null;
     const sessionStartedAt = (sessionMeta as any)?.startedAt ?? null;
+    const resultSetContext = useMemo<CopilotResultSetContext | null>(() => {
+        if (!sessionMeta || !(sessionMeta as any)?.sessionId) return null;
+
+        return {
+            sessionId: (sessionMeta as any).sessionId ?? null,
+            setIndex: (sessionMeta as any).setIndex ?? null,
+            title: (sessionMeta as any).title ?? null,
+            sqlText: typeof (sessionMeta as any).sqlText === 'string' ? (sessionMeta as any).sqlText : null,
+            status: (sessionMeta as any).status ?? null,
+            rowCount: (sessionMeta as any).rowCount ?? null,
+            limited: (sessionMeta as any).limited ?? null,
+            limit: (sessionMeta as any).limit ?? null,
+            durationMs: (sessionMeta as any).durationMs ?? null,
+            columns: (sessionMeta as any).columns ?? null,
+            stats: (sessionMeta as any).stats ?? null,
+            aiProfileVersion: (sessionMeta as any).aiProfileVersion ?? null,
+        };
+    }, [sessionMeta]);
 
     const tabId = activeTab?.tabId;
     const tabName = activeTab?.tabName;
@@ -105,6 +124,7 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                 selection: editorSelection,
                 baselineDatabase: activeDatabase || null,
                 dialect: (currentConnection as any)?.connection?.type ?? 'unknown',
+                resultSet: resultSetContext,
                 updatedAt: lastUpdatedAt ?? undefined,
                 meta: {
                     tabId,
@@ -130,6 +150,7 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
         (currentConnection as any)?.connection?.type,
         sessionFinishedAt,
         sessionStartedAt,
+        resultSetContext,
         tabContent,
         tabName,
         editorSelection,
