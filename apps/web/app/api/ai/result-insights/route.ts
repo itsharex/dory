@@ -114,11 +114,22 @@ const recommendedResultActionSchema = resultActionSchema.and(
     }),
 );
 type RecommendedResultAction = z.infer<typeof recommendedResultActionSchema>;
+type NormalizedRecommendedResultAction = RecommendedResultAction & { priority: 'primary' | 'secondary' };
+type NormalizedInsightItem = {
+    id: string;
+    title: string;
+    summary: string;
+    level: 'primary' | 'secondary' | 'info';
+    primaryAction?: NormalizedRecommendedResultAction;
+    actions: NormalizedRecommendedResultAction[];
+};
 
 const insightItemSchema = z.object({
     id: z.string().optional(),
     title: z.string().optional(),
     summary: z.string().optional(),
+    level: z.enum(['primary', 'secondary', 'info']).optional(),
+    primaryAction: z.unknown().optional(),
     actions: z.array(z.unknown()).max(4).optional(),
 });
 
@@ -196,7 +207,7 @@ function actionSignature(action: RecommendedResultAction) {
     return `${action.type}:${JSON.stringify(action.params)}`;
 }
 
-function normalizeRecommendedActions(actions: RecommendedResultAction[]) {
+function normalizeRecommendedActions(actions: RecommendedResultAction[]): NormalizedRecommendedResultAction[] {
     const seen = new Set<string>();
     const deduped = actions.filter(action => {
         const signature = actionSignature(action);
@@ -207,7 +218,7 @@ function normalizeRecommendedActions(actions: RecommendedResultAction[]) {
 
     return deduped.slice(0, 4).map((action, index) => ({
         ...action,
-        priority: index === 0 ? 'primary' : 'secondary',
+        priority: index === 0 ? ('primary' as const) : ('secondary' as const),
     }));
 }
 
@@ -215,6 +226,17 @@ function normalizeItemActions(actions: unknown[] | undefined, allowedColumns: Se
     const parsed = (actions ?? []).map(action => recommendedResultActionSchema.safeParse(action).data).filter((action): action is RecommendedResultAction => !!action);
 
     return normalizeRecommendedActions(filterAllowedActions(parsed, allowedColumns)).slice(0, 3);
+}
+
+function mergePrimaryAction(
+    primaryAction: ReturnType<typeof normalizeItemActions>[number] | undefined,
+    actions: ReturnType<typeof normalizeItemActions>,
+): ReturnType<typeof normalizeItemActions> {
+    if (!primaryAction) return actions;
+    const primarySignature = actionSignature(primaryAction);
+    const merged = [primaryAction, ...actions.filter(action => actionSignature(action) !== primarySignature)];
+
+    return normalizeRecommendedActions(merged).slice(0, 3);
 }
 
 function title(locale: string, zh: string, en: string) {
@@ -299,20 +321,28 @@ function buildFallbackRecommendedActions(payload: z.infer<typeof requestSchema>,
 function normalizeResultInsightResponse(input: z.infer<typeof responseSchema>, payload: z.infer<typeof requestSchema>) {
     const allowedColumns = new Set(payload.profileColumns?.map(column => column.name) ?? []);
     const legacyInsights = (input.insights ?? []).map(stringifyInsight).filter(Boolean);
-    const explicitItems = (input.items ?? [])
-        .map((item, index) => {
-            const title = (item.title ?? item.summary ?? '').trim();
-            const summary = (item.summary ?? item.title ?? '').trim();
-            if (!title && !summary) return null;
+    const explicitItems: NormalizedInsightItem[] = (input.items ?? []).flatMap((item, index) => {
+        const title = (item.title ?? item.summary ?? '').trim();
+        const summary = (item.summary ?? item.title ?? '').trim();
+        if (!title && !summary) return [];
 
-            return {
+        const actions = normalizeItemActions(item.actions, allowedColumns);
+        const primaryAction = recommendedResultActionSchema.safeParse(item.primaryAction).data;
+        const normalizedPrimaryAction = primaryAction
+            ? normalizeItemActions([primaryAction], allowedColumns)[0]
+            : (actions.find(action => action.priority === 'primary') ?? actions[0]);
+
+        return [
+            {
                 id: item.id?.trim() || `ai-insight-${index + 1}`,
                 title: title || summary,
                 summary: summary || title,
-                actions: normalizeItemActions(item.actions, allowedColumns),
-            };
-        })
-        .filter((item): item is { id: string; title: string; summary: string; actions: ReturnType<typeof normalizeItemActions> } => !!item);
+                level: item.level ?? (index === 0 ? 'primary' : 'secondary'),
+                primaryAction: normalizedPrimaryAction,
+                actions,
+            },
+        ];
+    });
     const fallbackInsightText = [...legacyInsights, ...payload.facts.map(fact => fact.narrativeHint).filter((item): item is string => !!item)].slice(0, 5);
     const aiRecommendedActions = (input.recommendedActions ?? [])
         .map(action => recommendedResultActionSchema.safeParse(action).data)
@@ -320,17 +350,36 @@ function normalizeResultInsightResponse(input: z.infer<typeof responseSchema>, p
     const recommendedActions = normalizeRecommendedActions(filterAllowedActions(aiRecommendedActions, allowedColumns));
     const fallbackRecommendedActions = recommendedActions.length ? recommendedActions : buildFallbackRecommendedActions(payload, allowedColumns);
     const recommendedSql = input.recommendedSql?.trim() || null;
-    const items = explicitItems.length
+    const itemsBeforeLevels = explicitItems.length
         ? explicitItems.map((item, index) => ({
               ...item,
-              actions: item.actions.length ? item.actions : index === 0 ? fallbackRecommendedActions : [],
+              primaryAction: item.primaryAction ?? (index === 0 ? fallbackRecommendedActions[0] : undefined),
+              actions: mergePrimaryAction(
+                  item.primaryAction ?? (index === 0 ? fallbackRecommendedActions[0] : undefined),
+                  item.actions.length ? item.actions : index === 0 ? fallbackRecommendedActions : [],
+              ),
           }))
         : fallbackInsightText.map((insight, index) => ({
               id: `ai-insight-${index + 1}`,
               title: insight,
               summary: insight,
-              actions: index === 0 ? fallbackRecommendedActions : [],
+              level: index === 0 ? ('primary' as const) : ('secondary' as const),
+              primaryAction: index === 0 ? fallbackRecommendedActions[0] : undefined,
+              actions: mergePrimaryAction(index === 0 ? fallbackRecommendedActions[0] : undefined, index === 0 ? fallbackRecommendedActions : []),
           }));
+    const firstPrimaryIndex = itemsBeforeLevels.findIndex(item => item.level === 'primary');
+    const promotedPrimaryIndex = firstPrimaryIndex >= 0 ? firstPrimaryIndex : itemsBeforeLevels.findIndex(item => item.level === 'secondary');
+    const items = itemsBeforeLevels.map((item, index) => {
+        const level = index === promotedPrimaryIndex || (promotedPrimaryIndex < 0 && index === 0) ? 'primary' : item.level === 'primary' ? 'secondary' : item.level;
+        const primaryAction = item.primaryAction ?? item.actions[0];
+
+        return {
+            ...item,
+            level,
+            primaryAction,
+            actions: mergePrimaryAction(primaryAction, item.actions),
+        };
+    });
     const primaryInsight = input.primaryInsight ?? items[0]?.title;
 
     return {

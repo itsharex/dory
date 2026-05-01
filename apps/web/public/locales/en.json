@@ -1368,7 +1368,6 @@
             "Title": "Insights",
             "Subtitle": "A lightweight explanation layer for the current result set.",
             "Loading": "Profiling the current result set...",
-            "ReadyToast": "Insight is ready.",
             "Kinds": {
                 "SingleValue": "Single value",
                 "TimeSeries": "Time series",
@@ -1410,6 +1409,46 @@
                 "SectionTitle": "Key Insights",
                 "Description": "What is most worth checking first in this result.",
                 "Empty": "No clear pattern stands out yet. Try filtering or charting this result."
+            },
+            "Loading": {
+                "Scenarios": {
+                    "generic": {
+                        "Title": "Analyzing result...",
+                        "CheckingLabel": "Checking for:",
+                        "Checks": {
+                            "First": "Anomalous values",
+                            "Second": "Long-tail distributions",
+                            "Third": "Structural issues"
+                        }
+                    },
+                    "logs": {
+                        "Title": "Analyzing log data...",
+                        "CheckingLabel": "Checking for:",
+                        "Checks": {
+                            "First": "Concentrated errors",
+                            "Second": "Abnormal response times",
+                            "Third": "Volatility or spikes"
+                        }
+                    },
+                    "metrics": {
+                        "Title": "Analyzing data distribution...",
+                        "CheckingLabel": "Checking for:",
+                        "Checks": {
+                            "First": "Extreme values",
+                            "Second": "Clear segmentation",
+                            "Third": "Whether averages are representative"
+                        }
+                    },
+                    "structure": {
+                        "Title": "Understanding data structure...",
+                        "CheckingLabel": "Analyzing:",
+                        "Checks": {
+                            "First": "Field types and distributions",
+                            "Second": "Possible key metrics",
+                            "Third": "Available analysis paths"
+                        }
+                    }
+                }
             },
             "Card": {
                 "CurrentResult": "current result",
@@ -1465,9 +1504,23 @@
                 "FirstStep": "Suggested first step",
                 "Empty": "No ready-to-run action is available yet."
             },
+            "MainFinding": {
+                "Label": "Main finding",
+                "Recommendation": "Recommended next step: focus on the strongest signal first.",
+                "RecommendationWithAction": "Recommended next step: {action}.",
+                "MeansLabel": "This means:",
+                "PriorityHint": "Recommended step 1"
+            },
+            "Levels": {
+                "primary": "Primary",
+                "secondary": "Secondary",
+                "info": "Info"
+            },
             "Actions": {
                 "InspectOutliers": "Inspect high-value rows",
                 "InspectHighValueRows": "View high {column} rows",
+                "FindHighestRows": "Find highest {column} rows",
+                "LocateSlowRequests": "Locate slow requests",
                 "AnalyzeSource": "Analyze source",
                 "AnalyzeByColumn": "Analyze by {column}",
                 "ViewDistribution": "Inspect amount distribution",

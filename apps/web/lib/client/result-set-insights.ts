@@ -65,18 +65,30 @@ export type RecommendedInsightAction = InsightAction & {
     priority: RecommendedActionPriority;
 };
 
+export type InsightLevel = 'primary' | 'secondary' | 'info';
+
+export type InsightMainFinding = {
+    title: string;
+    summary: string;
+    recommendation: string;
+    action?: RecommendedInsightAction;
+};
+
 export type InsightItem = {
     id: string;
     title: string;
     summary: string;
+    level: InsightLevel;
     severity: 'info' | 'warning' | 'critical';
     confidence: 'high' | 'medium' | 'low';
+    primaryAction?: RecommendedInsightAction;
     actions: RecommendedInsightAction[];
 };
 
 export type InsightDecisionCard = {
     title: string;
     impact: string;
+    mainFinding?: InsightMainFinding;
     items: InsightItem[];
 };
 
@@ -117,9 +129,16 @@ export type InsightStructuredFinding = {
     id: string;
     title: string;
     summary: string;
+    level: InsightLevel;
     severity: 'info' | 'warning' | 'critical';
     confidence: 'high' | 'medium' | 'low';
+    primaryAction?: RecommendedInsightAction;
     actions: RecommendedInsightAction[];
+};
+
+type InsightText = {
+    title: string;
+    summary: string;
 };
 
 export type StructuredInsightView = {
@@ -166,6 +185,8 @@ export type InsightRewriteItem = {
     id: string;
     title: string;
     summary: string;
+    level?: InsightLevel;
+    primaryAction?: ResultAction & { priority?: RecommendedActionPriority };
     actions: Array<ResultAction & { priority?: RecommendedActionPriority }>;
 };
 
@@ -850,6 +871,11 @@ function buildRecommendedActions(context: InsightRuleContext, keyColumns: Insigh
         if (typeof outlierThreshold === 'number' && Number.isFinite(outlierThreshold)) return outlierThreshold;
         return null;
     })();
+    const inspectHighValueLabel = primaryMeasure
+        ? looksLike(primaryMeasure, ['duration', 'latency', 'elapsed', '耗时', '时长']) || primaryMeasure.toLowerCase().endsWith('_ms')
+            ? t('Insights.Actions.LocateSlowRequests')
+            : t('Insights.Actions.FindHighestRows', { column: primaryMeasure })
+        : t('Insights.Actions.InspectOutliers');
 
     if (patterns[0]) {
         const action = actionFromPattern(context, patterns[0], keyColumns);
@@ -859,12 +885,12 @@ function buildRecommendedActions(context: InsightRuleContext, keyColumns: Insigh
     if (primaryMeasure && primaryMeasureThreshold != null && (hasOutlier || facts.some(fact => fact.type === 'measure_spread'))) {
         actions.push({
             id: 'inspect-outliers',
-            label: t('Insights.Actions.InspectHighValueRows', { column: primaryMeasure }),
+            label: inspectHighValueLabel,
             kind: 'analysis-suggestion',
             suggestionId: 'inspect-outliers',
             action: {
                 type: 'filter',
-                title: t('Insights.Actions.InspectHighValueRows', { column: primaryMeasure }),
+                title: inspectHighValueLabel,
                 params: {
                     column: primaryMeasure,
                     operator: '>',
@@ -1147,6 +1173,104 @@ function patternToInsight(context: InsightRuleContext, pattern: InsightPattern) 
     }
 }
 
+function factToInsightText(context: InsightRuleContext, fact: InsightFact): InsightText | null {
+    const { locale, t } = context;
+    const column = String(fact.columns?.[0] ?? '');
+    const value = String(fact.metrics?.value ?? '');
+
+    switch (fact.type) {
+        case 'dominant_category':
+            return {
+                title: t('Insights.Decision.ConcentrationTitle', { column }),
+                summary: t('Insights.Messages.PrimaryCategory', {
+                    column,
+                    value,
+                    share: formatPercent(locale, typeof fact.metrics?.share === 'number' ? fact.metrics.share : null),
+                }),
+            };
+        case 'low_information_dimension':
+            return {
+                title: t('Insights.Decision.LowInformationTitle', { column }),
+                summary: t('Insights.Messages.LowInformationDimension', {
+                    column,
+                    value,
+                    count: formatNumber(locale, typeof fact.metrics?.count === 'number' ? fact.metrics.count : null),
+                    share: formatPercent(locale, typeof fact.metrics?.share === 'number' ? fact.metrics.share : null),
+                }),
+            };
+        case 'risk_signal':
+            return {
+                title: t('Insights.Decision.RiskTitle', { column }),
+                summary: t('Insights.Messages.RiskCategory', {
+                    value,
+                    share: formatPercent(locale, typeof fact.metrics?.share === 'number' ? fact.metrics.share : null),
+                    column,
+                }),
+            };
+        case 'top_dimension':
+            return {
+                title: t('Insights.Decision.ConcentrationTitle', { column }),
+                summary: t('Insights.Messages.TopDimension', {
+                    column,
+                    value,
+                    count: formatNumber(locale, typeof fact.metrics?.count === 'number' ? fact.metrics.count : null),
+                }),
+            };
+        case 'top_message':
+            return {
+                title: t('Insights.Decision.ConcentrationTitle', { column }),
+                summary: t('Insights.Messages.TopMessage', {
+                    value,
+                    count: formatNumber(locale, typeof fact.metrics?.count === 'number' ? fact.metrics.count : null),
+                }),
+            };
+        case 'trend_candidate':
+            return {
+                title: t('Insights.Decision.TrendTitle', { column }),
+                summary: t('Insights.Messages.TimeTrend', { column }),
+            };
+        case 'measure_spread':
+            return {
+                title: t('Insights.Decision.OutlierTitle', { column }),
+                summary: t('Insights.Messages.MeasureSpread', {
+                    column,
+                    p50: formatNumber(locale, typeof fact.metrics?.p50 === 'number' ? fact.metrics.p50 : null),
+                    p95: formatNumber(locale, typeof fact.metrics?.p95 === 'number' ? fact.metrics.p95 : null),
+                }),
+            };
+        default: {
+            const summary = factToInsight(context, fact);
+            return summary ? { title: summary, summary } : null;
+        }
+    }
+}
+
+function patternToInsightText(context: InsightRuleContext, pattern: InsightPattern): InsightText | null {
+    const { t } = context;
+    const column = String(pattern.columns[0] ?? '');
+    const summary = patternToInsight(context, pattern);
+    if (!summary) return null;
+
+    if (pattern.kind === 'outlier') {
+        return {
+            title: t('Insights.Decision.OutlierTitle', { column }),
+            summary,
+        };
+    }
+
+    if (pattern.kind === 'spike' || pattern.kind === 'drop') {
+        return {
+            title: t('Insights.Decision.TrendTitle', { column }),
+            summary,
+        };
+    }
+
+    return {
+        title: summary,
+        summary,
+    };
+}
+
 export function buildInsightDraft(context: InsightRuleContext): InsightDraft {
     const keyColumns = buildKeyColumns(context.columns, context.stats);
     const facts = buildInsightFacts(context);
@@ -1259,7 +1383,11 @@ function sourceActionScore(source: InsightFact | InsightPattern, action: Recomme
         if (source.kind === 'outlier' && (actionType === 'filter' || actionType === 'distribution')) score += 8;
         if (source.kind === 'correlation' && (actionType === 'group' || actionType === 'distribution')) score += 4;
     } else {
-        if (source.type === 'risk_signal' && (actionType === 'group' || actionType === 'trend' || actionType === 'filter')) score += 8;
+        if (source.type === 'risk_signal') {
+            if (actionType === 'group') score += 8;
+            if (actionType === 'trend') score += 5;
+            if (actionType === 'filter' && overlap > 0) score += 8;
+        }
         if (source.type === 'measure_spread' && (actionType === 'filter' || actionType === 'distribution' || actionType === 'trend')) score += 8;
         if (source.type === 'trend_candidate' && actionType === 'trend') score += 8;
         if ((source.type === 'dominant_category' || source.type === 'top_dimension' || source.type === 'top_message') && actionType === 'group') score += 8;
@@ -1291,7 +1419,9 @@ function buildCandidateActionPool(view: InsightViewModel, draft: InsightDraft) {
     const seen = new Set<string>();
     const actions: RecommendedInsightAction[] = [];
 
-    for (const action of [...view.recommendedActions, ...draft.recommendedActions]) {
+    const candidates = view.source === 'llm' ? draft.recommendedActions : [...view.recommendedActions, ...draft.recommendedActions];
+
+    for (const action of candidates) {
         const signature = action.kind === 'analysis-suggestion' && action.action ? actionSignature(action.action) : action.id;
         if (seen.has(signature)) continue;
         seen.add(signature);
@@ -1302,37 +1432,167 @@ function buildCandidateActionPool(view: InsightViewModel, draft: InsightDraft) {
 }
 
 function rewriteItemActions(context: InsightRuleContext, item: InsightRewriteItem, itemIndex: number) {
+    const actions = [
+        ...(item.primaryAction
+            ? [
+                  {
+                      ...item.primaryAction,
+                      priority: 'primary' as RecommendedActionPriority,
+                  },
+              ]
+            : []),
+        ...item.actions,
+    ];
+
     return normalizeInsightActions(
-        item.actions
+        actions
             .map((action, actionIndex) => rewriteActionToInsightAction(context, action, `ai-${actionKind(action)}-${itemIndex + 1}-${actionIndex + 1}`))
             .filter((action): action is RecommendedInsightAction => !!action),
     );
 }
 
-function buildFindingFromSource(params: { source: InsightFact | InsightPattern; summary: string; actions: RecommendedInsightAction[] }): InsightStructuredFinding {
+function sourceInsightLevel(source: InsightFact | InsightPattern, rewriteLevel?: InsightLevel): InsightLevel {
+    if (rewriteLevel === 'primary' || rewriteLevel === 'secondary' || rewriteLevel === 'info') return rewriteLevel;
+
+    if ('kind' in source) {
+        if (source.kind === 'outlier') return 'primary';
+        if (source.kind === 'spike' || source.kind === 'drop' || source.kind === 'correlation') return 'secondary';
+        return 'secondary';
+    }
+
+    if (source.type === 'measure_spread') return 'primary';
+    if (source.type === 'risk_signal' || source.type === 'dominant_category' || source.type === 'top_dimension' || source.type === 'top_message') return 'secondary';
+    return 'info';
+}
+
+function sourcePriorityScore(source: InsightFact | InsightPattern, level: InsightLevel) {
+    const levelScore = level === 'primary' ? 1000 : level === 'secondary' ? 500 : 100;
+    if ('kind' in source) {
+        const kindScore = source.kind === 'outlier' ? 80 : source.kind === 'spike' || source.kind === 'drop' ? 50 : source.kind === 'correlation' ? 35 : 20;
+        return levelScore + kindScore + source.confidence;
+    }
+
+    const typeScore =
+        source.type === 'measure_spread'
+            ? 90
+            : source.type === 'risk_signal'
+              ? 70
+              : source.type === 'dominant_category' || source.type === 'top_dimension'
+                ? 55
+                : source.type === 'top_message'
+                  ? 45
+                  : source.type === 'low_information_dimension'
+                    ? 15
+                    : source.type === 'trend_candidate'
+                      ? 5
+                      : 0;
+
+    return levelScore + typeScore + source.confidence;
+}
+
+function sourceDedupKey(source: InsightFact | InsightPattern, summary: string) {
+    if ('kind' in source) {
+        if (source.kind === 'outlier') return `outlier:${source.columns[0] ?? ''}`;
+        if (source.kind === 'spike' || source.kind === 'drop') return `time-pattern:${source.columns[0] ?? ''}:${source.kind}`;
+        if (source.kind === 'correlation') return `correlation:${source.columns.join(':')}`;
+        return `${source.kind}:${source.columns.join(':')}`;
+    }
+
+    if (source.type === 'trend_candidate') return `weak-time:${source.columns?.[0] ?? ''}`;
+    if (source.type === 'measure_spread') return `spread:${source.columns?.[0] ?? ''}`;
+    if (source.type === 'risk_signal') return `risk:${source.columns?.[0] ?? ''}:${String(source.metrics?.value ?? '')}`;
+    if (source.type === 'dominant_category' || source.type === 'top_dimension') return `category:${source.columns?.[0] ?? ''}:${String(source.metrics?.value ?? '')}`;
+    if (source.type === 'low_information_dimension') return `low-info:${source.columns?.[0] ?? ''}`;
+    return summary.trim().toLowerCase();
+}
+
+function pickPrimaryAction(actions: RecommendedInsightAction[]) {
+    return actions.find(action => action.priority === 'primary') ?? actions[0];
+}
+
+function buildFindingFromSource(params: {
+    source: InsightFact | InsightPattern;
+    title: string;
+    summary: string;
+    actions: RecommendedInsightAction[];
+    rewriteLevel?: InsightLevel;
+}): InsightStructuredFinding {
+    const level = sourceInsightLevel(params.source, params.rewriteLevel);
+    const actions = normalizeInsightActions(params.actions);
+    const primaryAction = pickPrimaryAction(actions);
+
     return {
         id: params.source.id,
-        title: params.summary,
+        title: params.title,
         summary: params.summary,
+        level,
         severity: findingSeverity(params.source),
         confidence: confidenceBucket(params.source.confidence),
-        actions: params.actions,
+        primaryAction,
+        actions,
     };
 }
 
-function buildInsightDecision(params: { view: InsightViewModel; findings: InsightStructuredFinding[] }) {
+function normalizeFindings(findings: Array<InsightStructuredFinding & { source: InsightFact | InsightPattern }>) {
+    const seen = new Set<string>();
+    const deduped = findings
+        .filter(finding => {
+            const key = sourceDedupKey(finding.source, finding.summary);
+            const textKey = `${finding.title.trim().toLowerCase()}|${finding.summary.trim().toLowerCase()}`;
+            if (seen.has(key)) return false;
+            if (seen.has(textKey)) return false;
+            seen.add(key);
+            seen.add(textKey);
+            return true;
+        })
+        .sort((left, right) => sourcePriorityScore(right.source, right.level) - sourcePriorityScore(left.source, left.level));
+    const visible = deduped.slice(0, 5);
+
+    const primaryIndex = visible.findIndex(finding => finding.level === 'primary');
+    const promotedPrimaryIndex = primaryIndex >= 0 ? primaryIndex : visible.findIndex(finding => finding.level === 'secondary');
+
+    return visible.map((finding, index) => {
+        const isPrimary = index === promotedPrimaryIndex || (promotedPrimaryIndex < 0 && index === 0);
+        const level: InsightLevel = isPrimary ? 'primary' : finding.level === 'primary' ? 'secondary' : finding.level;
+        const actions = finding.actions;
+        const primaryAction = pickPrimaryAction(actions);
+
+        return {
+            ...finding,
+            level,
+            primaryAction,
+            actions,
+        };
+    });
+}
+
+function buildInsightDecision(params: { context: InsightRuleContext; view: InsightViewModel; findings: InsightStructuredFinding[] }) {
+    const { t } = params.context;
     const items: InsightItem[] = params.findings.map(finding => ({
         id: finding.id,
         title: finding.title,
         summary: finding.summary,
+        level: finding.level,
         severity: finding.severity,
         confidence: finding.confidence,
+        primaryAction: finding.primaryAction,
         actions: finding.actions,
     }));
+    const primary = items.find(item => item.level === 'primary') ?? items[0];
 
     return {
         title: params.view.quickSummary.title,
         impact: items[0]?.summary ?? params.view.quickSummary.subtitle ?? '',
+        mainFinding: primary
+            ? {
+                  title: primary.title,
+                  summary: primary.summary,
+                  recommendation: primary.primaryAction
+                      ? t('Insights.MainFinding.RecommendationWithAction', { action: primary.primaryAction.label })
+                      : t('Insights.MainFinding.Recommendation'),
+                  action: primary.primaryAction,
+              }
+            : undefined,
         items,
     };
 }
@@ -1342,25 +1602,35 @@ export function buildStructuredInsightView(params: { context: InsightRuleContext
     const view = params.view ?? buildInsights(params.context);
     const candidateActions = buildCandidateActionPool(view, draft);
     const findingSources = [...draft.patterns, ...draft.facts];
-    const findings = findingSources
-        .map((source, index) => {
-            const rewriteItem = view.source === 'llm' ? (view.rewriteItems?.find(item => item.id === source.id) ?? view.rewriteItems?.[index] ?? null) : null;
-            const ruleSummary = 'kind' in source ? patternToInsight(params.context, source) : factToInsight(params.context, source);
-            const summary = rewriteItem?.summary || rewriteItem?.title || (view.source === 'llm' && view.insights[index] ? view.insights[index] : ruleSummary);
-            if (!summary) return null;
-            const actions = rewriteItem ? rewriteItemActions(params.context, rewriteItem, index) : actionsForSource(source, candidateActions);
+    const findings = normalizeFindings(
+        findingSources
+            .map((source, index) => {
+                const rewriteItem = view.source === 'llm' ? (view.rewriteItems?.find(item => item.id === source.id) ?? null) : null;
+                const ruleText = 'kind' in source ? patternToInsightText(params.context, source) : factToInsightText(params.context, source);
+                const fallbackText = view.source === 'llm' && view.insights[index] ? view.insights[index] : null;
+                const title = rewriteItem?.title || ruleText?.title || fallbackText;
+                const summaryCandidate = rewriteItem?.summary || ruleText?.summary || fallbackText;
+                const summary = summaryCandidate && summaryCandidate !== title ? summaryCandidate : ruleText?.summary || summaryCandidate;
+                if (!title || !summary) return null;
+                const actions = rewriteItem ? rewriteItemActions(params.context, rewriteItem, index) : actionsForSource(source, candidateActions);
 
-            return buildFindingFromSource({
-                source,
-                summary,
-                actions: actions.length ? actions : buildFallbackItemActions(source, draft),
-            });
-        })
-        .filter((item): item is InsightStructuredFinding => !!item)
-        .slice(0, 5);
+                return {
+                    ...buildFindingFromSource({
+                        source,
+                        title,
+                        summary,
+                        actions: actions.length ? actions : buildFallbackItemActions(source, draft),
+                        rewriteLevel: rewriteItem?.level,
+                    }),
+                    source,
+                };
+            })
+            .filter((item): item is InsightStructuredFinding & { source: InsightFact | InsightPattern } => !!item),
+    ).map(({ source, ...finding }) => finding);
 
     return {
         decision: buildInsightDecision({
+            context: params.context,
             view,
             findings,
         }),

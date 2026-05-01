@@ -3,12 +3,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSetAtom } from 'jotai';
 import { useLocale, useTranslations } from 'next-intl';
-import { Sparkles, ChevronDown } from 'lucide-react';
+import { AlertTriangle, Flame, Info, Search, Sparkles } from 'lucide-react';
 import { ScrollArea } from '@/registry/new-york-v4/ui/scroll-area';
 import { Button } from '@/registry/new-york-v4/ui/button';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/registry/new-york-v4/ui/collapsible';
 import type { ResultColumnMeta, ResultSetStatsV1 } from '@/lib/client/type';
-import { buildInsights, buildInsightRewriteRequest, buildStructuredInsightView, type InsightAction, type InsightRewriteResponse } from '@/lib/client/result-set-insights';
+import {
+    buildInsights,
+    buildInsightRewriteRequest,
+    buildStructuredInsightView,
+    type InsightAction,
+    type InsightItem,
+    type InsightLevel,
+    type InsightRewriteResponse,
+} from '@/lib/client/result-set-insights';
 import { fetchInsightRewrite, getCachedInsightRewrite, makeInsightRewriteCacheKey } from '@/lib/client/result-insight-rewrite';
 import { useAtomValue } from 'jotai';
 import { activeSessionIdAtom, copilotAnalysisRequestAtom, copilotPanelOpenAtom, copilotPanelTabAtom } from '../../sql-console.store';
@@ -20,21 +27,180 @@ function Section(props: { title: string; icon: React.ReactNode; children: React.
     const { title, icon, children, description } = props;
 
     return (
-        <Collapsible defaultOpen asChild>
-            <section className="flex flex-col gap-3">
-                <CollapsibleTrigger className="group flex w-full items-start justify-between gap-3 text-left">
-                    <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                            {icon}
-                            <span>{title}</span>
+        <section className="flex flex-col gap-3">
+            <div className="space-y-1">
+                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                    {icon}
+                    <span>{title}</span>
+                </div>
+                {description ? <div className="text-xs text-muted-foreground">{description}</div> : null}
+            </div>
+            {children}
+        </section>
+    );
+}
+
+function levelLabel(level: InsightLevel, t: ReturnType<typeof useTranslations>) {
+    return t(`Insights.Levels.${level}` as any);
+}
+
+function levelClasses(level: InsightLevel) {
+    if (level === 'primary') {
+        return {
+            card: 'border-primary/20 bg-background',
+            index: 'bg-primary/10 text-primary',
+            label: 'text-primary',
+            title: 'text-foreground',
+        };
+    }
+
+    if (level === 'secondary') {
+        return {
+            card: 'border-border bg-background hover:border-primary/20',
+            index: 'bg-muted text-foreground',
+            label: 'text-muted-foreground',
+            title: 'text-foreground',
+        };
+    }
+
+    return {
+        card: 'border-border/70 bg-muted/20',
+        index: 'bg-background text-muted-foreground',
+        label: 'text-muted-foreground',
+        title: 'text-muted-foreground',
+    };
+}
+
+function SecondaryInsightRow(props: { item: InsightItem; onAction: (action: NonNullable<InsightItem['primaryAction']>) => void }) {
+    const primaryAction = props.item.primaryAction;
+
+    return (
+        <div className="group flex items-start gap-3 py-2">
+            <div className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
+            <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium leading-snug text-foreground">{props.item.title}</div>
+                {props.item.summary !== props.item.title ? <div className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{props.item.summary}</div> : null}
+            </div>
+            {primaryAction ? (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="mt-[-2px] h-7 shrink-0 px-2 text-xs font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+                    onClick={() => props.onAction(primaryAction)}
+                >
+                    {primaryAction.label}
+                </Button>
+            ) : null}
+        </div>
+    );
+}
+
+function InsightCard(props: { item: InsightItem; index: number; onAction: (action: NonNullable<InsightItem['primaryAction']>) => void; t: ReturnType<typeof useTranslations> }) {
+    const classes = levelClasses(props.item.level);
+    const primaryAction = props.item.primaryAction;
+
+    return (
+        <div className={`rounded-lg border px-4 py-3 transition-colors ${classes.card}`}>
+            <div className="flex items-start gap-3">
+                <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium ${classes.index}`}>{props.index + 1}</div>
+                <div className="min-w-0 flex-1">
+                    <div className={`text-sm font-semibold leading-snug ${classes.title}`}>{props.item.title}</div>
+                    {props.item.summary !== props.item.title ? <div className="mt-1 text-sm leading-relaxed text-muted-foreground">{props.item.summary}</div> : null}
+                    {primaryAction ? (
+                        <div className="mt-3">
+                            <Button
+                                variant={props.item.level === 'primary' ? 'default' : 'outline'}
+                                size="sm"
+                                className={
+                                    props.item.level === 'primary'
+                                        ? 'h-8 rounded-full px-3 text-xs font-medium shadow-none'
+                                        : 'h-7 rounded-full border-border bg-background px-3 text-xs font-medium text-foreground shadow-none hover:border-primary/30 hover:bg-primary/5 hover:text-primary'
+                                }
+                                onClick={() => props.onAction(primaryAction)}
+                            >
+                                <span className="truncate">{primaryAction.label}</span>
+                            </Button>
                         </div>
-                        {description ? <div className="text-xs text-muted-foreground">{description}</div> : null}
-                    </div>
-                    <ChevronDown className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-180" />
-                </CollapsibleTrigger>
-                <CollapsibleContent>{children}</CollapsibleContent>
-            </section>
-        </Collapsible>
+                    ) : null}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+function primaryImpacts(summary: string) {
+    const parts = summary
+        .split(/[。.!?；;]/)
+        .map(item => item.trim())
+        .filter(Boolean)
+        .slice(0, 2);
+
+    return parts.length ? parts : [summary];
+}
+
+type InsightLoadingScenario = 'generic' | 'logs' | 'metrics' | 'structure';
+
+function hasAnyNeedle(value: string, needles: string[]) {
+    return needles.some(needle => value.includes(needle));
+}
+
+function resolveInsightLoadingScenario(params: { columns?: ResultColumnMeta[] | null; stats?: ResultSetStatsV1 | null; sqlText?: string | null }): InsightLoadingScenario {
+    const columnNames = (params.columns ?? []).map(column => column.name.toLowerCase());
+    const joinedColumns = columnNames.join(' ');
+    const sql = params.sqlText?.toLowerCase() ?? '';
+    const text = `${sql} ${joinedColumns}`;
+    const hasLogSignal =
+        hasAnyNeedle(text, ['log', 'logs', 'event', 'trace', 'error', 'warn', 'warning', 'exception', 'timeout', 'service', 'severity', 'level', 'message']) ||
+        columnNames.some(name => name.endsWith('_ms') || hasAnyNeedle(name, ['duration', 'latency', 'elapsed']));
+
+    if (hasLogSignal) return 'logs';
+
+    const hasMeasure =
+        (params.columns ?? []).some(column => column.semanticRole === 'measure' || column.normalizedType === 'number' || column.normalizedType === 'integer') ||
+        hasAnyNeedle(text, ['amount', 'price', 'total', 'sum', 'avg', 'count', 'revenue', 'cost', 'score', 'rate']);
+
+    if (hasMeasure) return 'metrics';
+
+    const summary = params.stats?.summary;
+    if (summary?.kind === 'unknown' || summary?.kind === 'detail_table' || (params.columns?.length ?? 0) > 0) return 'structure';
+
+    return 'generic';
+}
+
+function InsightLoadingState(props: { t: ReturnType<typeof useTranslations>; scenario: InsightLoadingScenario }) {
+    const [offset, setOffset] = useState(0);
+    const checks = ['First', 'Second', 'Third'];
+    const visibleChecks = [0, 1].map(index => checks[(offset + index) % checks.length]);
+
+    useEffect(() => {
+        setOffset(Math.floor(Math.random() * checks.length));
+        const timer = window.setInterval(() => {
+            setOffset(current => (current + 1) % checks.length);
+        }, 1800);
+
+        return () => window.clearInterval(timer);
+    }, [props.scenario]);
+
+    return (
+        <div className="rounded-lg bg-muted/30 px-5 py-5">
+            <div className="flex items-start gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground ring-1 ring-border">
+                    <Search className="h-5 w-5 animate-pulse" />
+                </div>
+                <div className="min-w-0 flex-1">
+                    <div className="text-base font-semibold text-foreground">{props.t(`Insights.Loading.Scenarios.${props.scenario}.Title` as any)}</div>
+                    <div className="mt-4 text-sm text-muted-foreground">{props.t(`Insights.Loading.Scenarios.${props.scenario}.CheckingLabel` as any)}</div>
+                    <ul className="mt-2 space-y-1.5">
+                        {visibleChecks.map(key => (
+                            <li key={key} className="flex gap-2 text-sm leading-relaxed text-foreground/80">
+                                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/50" />
+                                <span>{props.t(`Insights.Loading.Scenarios.${props.scenario}.Checks.${key}` as any)}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </div>
+        </div>
     );
 }
 
@@ -56,6 +222,7 @@ export function ResultOverviewPanel(props: {
     const activeSessionId = useAtomValue(activeSessionIdAtom);
     const activeSet = useAtomValue(useMemo(() => makeActiveSetAtom(activeTabId, activeSessionId), [activeSessionId, activeTabId]));
     const [rewritten, setRewritten] = useState<InsightRewriteResponse | null>(null);
+    const [rewriteSettledKey, setRewriteSettledKey] = useState<string | null>(null);
 
     const rewriteRequest = useMemo(
         () =>
@@ -70,6 +237,8 @@ export function ResultOverviewPanel(props: {
         [columns, locale, rows, sqlText, stats, t],
     );
     const rewriteCacheKey = useMemo(() => makeInsightRewriteCacheKey(rewriteRequest), [rewriteRequest]);
+    const isInsightLoading = !!rewriteCacheKey && rewriteSettledKey !== rewriteCacheKey;
+    const insightLoadingScenario = useMemo(() => resolveInsightLoadingScenario({ columns, stats, sqlText }), [columns, sqlText, stats]);
 
     const insightView = useMemo(
         () =>
@@ -101,6 +270,15 @@ export function ResultOverviewPanel(props: {
             }),
         [columns, insightView, locale, rows, sqlText, stats, t],
     );
+    const groupedItems = useMemo(() => {
+        const mainItem = structuredInsight.decision.items.find(item => item.level === 'primary');
+
+        return {
+            primary: structuredInsight.decision.items.filter(item => item.level === 'primary' && item.id !== mainItem?.id),
+            secondary: structuredInsight.decision.items.filter(item => item.level === 'secondary'),
+            info: structuredInsight.decision.items.filter(item => item.level === 'info'),
+        };
+    }, [structuredInsight.decision.items]);
 
     const handleAction = (action: InsightAction) => {
         if (action.kind === 'analysis-suggestion') {
@@ -137,20 +315,26 @@ export function ResultOverviewPanel(props: {
     useEffect(() => {
         if (!rewriteCacheKey) {
             setRewritten(null);
+            setRewriteSettledKey(null);
             return;
         }
 
         const cached = getCachedInsightRewrite(rewriteCacheKey);
         if (cached !== undefined) {
             setRewritten(cached ?? null);
+            setRewriteSettledKey(rewriteCacheKey);
             return;
         }
 
+        setRewriteSettledKey(null);
         let cancelled = false;
 
         void (async () => {
             const payload = await fetchInsightRewrite(rewriteCacheKey);
-            if (!cancelled) setRewritten(payload);
+            if (!cancelled) {
+                setRewritten(payload);
+                setRewriteSettledKey(rewriteCacheKey);
+            }
         })();
 
         return () => {
@@ -162,41 +346,75 @@ export function ResultOverviewPanel(props: {
         <div className="flex h-full min-h-0 w-full">
             <ScrollArea className="h-full w-full">
                 <div className="flex flex-col gap-4 p-4">
-                    <Section
-                        title={t('Insights.KeyInsights.SectionTitle')}
-                        icon={<Sparkles className="h-3.5 w-3.5 text-violet-400" />}
-                        description={t('Insights.KeyInsights.Description')}
-                    >
-                        <div className="space-y-3">
-                            {structuredInsight.decision.items.length > 0 ? (
-                                structuredInsight.decision.items.map((item, index) => (
-                                    <div key={item.id} className="rounded-lg border bg-background px-4 py-3">
-                                        <div className="flex items-start gap-3">
-                                            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-                                                {index + 1}
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <div className="text-sm font-semibold leading-snug text-foreground">{item.title}</div>
-                                                {item.summary !== item.title ? <div className="mt-1 text-sm leading-relaxed text-muted-foreground">{item.summary}</div> : null}
-                                                {item.actions.length > 0 ? (
-                                                    <div className="mt-3 flex flex-wrap gap-2">
-                                                        {item.actions.map(action => (
-                                                            <Button
-                                                                key={`${item.id}:${action.id}`}
-                                                                variant={action.priority === 'primary' ? 'default' : 'outline'}
-                                                                size="sm"
-                                                                className="h-8 rounded-full px-3 text-xs"
-                                                                onClick={() => handleAction(action)}
-                                                            >
-                                                                <span className="truncate">{action.label}</span>
-                                                            </Button>
-                                                        ))}
+                    <Section title={t('Insights.KeyInsights.SectionTitle')} icon={<Sparkles className="h-3.5 w-3.5 text-muted-foreground" />}>
+                        <div className="space-y-4">
+                            {isInsightLoading ? (
+                                <InsightLoadingState t={t} scenario={insightLoadingScenario} />
+                            ) : structuredInsight.decision.items.length > 0 ? (
+                                <>
+                                    {structuredInsight.decision.mainFinding ? (
+                                        <div className="rounded-lg border bg-background px-4 py-4">
+                                            <div className="flex items-start gap-3">
+                                                <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                                                    <AlertTriangle className="h-4 w-4" />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                                                        <Flame className="h-3.5 w-3.5 text-primary" />
+                                                        <span>{t('Insights.MainFinding.Label')}</span>
                                                     </div>
-                                                ) : null}
+                                                    <div className="mt-1 text-base font-semibold leading-snug text-foreground">{structuredInsight.decision.mainFinding.title}</div>
+                                                    {structuredInsight.decision.mainFinding.summary !== structuredInsight.decision.mainFinding.title ? (
+                                                        <div className="mt-3">
+                                                            <div className="text-xs font-medium text-muted-foreground">{t('Insights.MainFinding.MeansLabel')}</div>
+                                                            <ul className="mt-2 space-y-1.5">
+                                                                {primaryImpacts(structuredInsight.decision.mainFinding.summary).map(item => (
+                                                                    <li key={item} className="flex gap-2 text-sm leading-relaxed text-foreground/85">
+                                                                        <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-primary/50" />
+                                                                        <span>{item}</span>
+                                                                    </li>
+                                                                ))}
+                                                            </ul>
+                                                        </div>
+                                                    ) : null}
+                                                    {structuredInsight.decision.mainFinding.action ? (
+                                                        <div className="mt-4">
+                                                            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                                                                {t('Insights.MainFinding.PriorityHint')}
+                                                            </div>
+                                                            <Button
+                                                                size="sm"
+                                                                className="h-8 rounded-full px-3 text-xs font-medium shadow-none"
+                                                                onClick={() => handleAction(structuredInsight.decision.mainFinding!.action!)}
+                                                            >
+                                                                <Search className="mr-1.5 h-3.5 w-3.5" />
+                                                                <span className="truncate">{structuredInsight.decision.mainFinding.action.label}</span>
+                                                            </Button>
+                                                        </div>
+                                                    ) : null}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))
+                                    ) : null}
+
+                                    {(['primary', 'secondary', 'info'] as const).map(level => {
+                                        const items = groupedItems[level];
+                                        if (!items.length) return null;
+
+                                        return (
+                                            <div key={level} className={level === 'info' ? 'space-y-1 opacity-70' : 'space-y-1'}>
+                                                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                                                    {level === 'secondary' ? <Search className="h-3.5 w-3.5" /> : null}
+                                                    {level === 'info' ? <Info className="h-3.5 w-3.5" /> : null}
+                                                    <span>{levelLabel(level, t)}</span>
+                                                </div>
+                                                {level === 'primary'
+                                                    ? items.map((item, index) => <InsightCard key={item.id} item={item} index={index} onAction={handleAction} t={t} />)
+                                                    : items.map(item => <SecondaryInsightRow key={item.id} item={item} onAction={handleAction} />)}
+                                            </div>
+                                        );
+                                    })}
+                                </>
                             ) : (
                                 <div className="rounded-lg border bg-background px-4 py-3 text-xs text-muted-foreground">{structuredInsight.narrative}</div>
                             )}

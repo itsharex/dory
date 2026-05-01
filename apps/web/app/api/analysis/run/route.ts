@@ -41,13 +41,23 @@ const insightSchema = z.object({
     decision: z.object({
         title: z.string(),
         impact: z.string(),
+        mainFinding: z
+            .object({
+                title: z.string(),
+                summary: z.string(),
+                recommendation: z.string(),
+                action: z.object({}).passthrough().optional(),
+            })
+            .optional(),
         items: z.array(
             z.object({
                 id: z.string(),
                 title: z.string(),
                 summary: z.string(),
+                level: z.enum(['primary', 'secondary', 'info']),
                 severity: z.enum(['info', 'warning', 'critical']),
                 confidence: z.enum(['high', 'medium', 'low']),
+                primaryAction: z.object({}).passthrough().optional(),
                 actions: z.array(z.object({}).passthrough()),
             }),
         ),
@@ -58,8 +68,10 @@ const insightSchema = z.object({
             id: z.string(),
             title: z.string(),
             summary: z.string(),
+            level: z.enum(['primary', 'secondary', 'info']),
             severity: z.enum(['info', 'warning', 'critical']),
             confidence: z.enum(['high', 'medium', 'low']),
+            primaryAction: z.object({}).passthrough().optional(),
             actions: z.array(z.object({}).passthrough()),
         }),
     ),

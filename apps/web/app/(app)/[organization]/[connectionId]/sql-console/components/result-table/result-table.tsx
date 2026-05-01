@@ -1,8 +1,7 @@
 'use client';
 
 import React, { Activity, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, MoreHorizontal, RefreshCw } from 'lucide-react';
-import { toast } from 'sonner';
+import { Download, MoreHorizontal, RefreshCw, Sparkles } from 'lucide-react';
 
 import VTable from './vtable';
 import { InspectorPanel } from './vtable/InspectorPanel';
@@ -173,7 +172,6 @@ export function ResultTable() {
 
     // Accumulator + one-frame flush
     const resultsRef = useRef<ResultRow[]>([]);
-    const notifiedInsightKeysRef = useRef<Set<string>>(new Set());
 
     useSessionMeta({ dbReady, tabId, sessionId, activeSet, dataVersion, getSession, setMeta, sessionStatus });
 
@@ -324,19 +322,8 @@ export function ResultTable() {
         if (!insightRewriteCacheKey || localDataLoading[tabId] || sessionMetas?.status === 'error') return;
         if (getCachedInsightRewrite(insightRewriteCacheKey) !== undefined) return;
 
-        let canceled = false;
-
-        void (async () => {
-            const payload = await fetchInsightRewrite(insightRewriteCacheKey);
-            if (canceled || !payload || notifiedInsightKeysRef.current.has(insightRewriteCacheKey)) return;
-            notifiedInsightKeysRef.current.add(insightRewriteCacheKey);
-            toast.message(t('Insights.ReadyToast'));
-        })();
-
-        return () => {
-            canceled = true;
-        };
-    }, [insightRewriteCacheKey, localDataLoading, sessionMetas?.status, tabId, t]);
+        void fetchInsightRewrite(insightRewriteCacheKey);
+    }, [insightRewriteCacheKey, localDataLoading, sessionMetas?.status, tabId]);
     const {
         activeFilters,
         filteredResults: columnFilteredResults,
@@ -917,7 +904,8 @@ export function ResultTable() {
                                     <TabsTrigger value="charts" className="h-6 px-3 text-xs cursor-pointer">
                                         {t('Results.Charts')}
                                     </TabsTrigger>
-                                    <TabsTrigger value="overview" className="h-6 px-3 text-xs cursor-pointer">
+                                    <TabsTrigger value="overview" className="h-6 gap-1.5 px-3 text-xs cursor-pointer">
+                                        <Sparkles className="h-3.5 w-3.5 text-violet-500" />
                                         {t('Insights.Title')}
                                     </TabsTrigger>
                                 </TabsList>

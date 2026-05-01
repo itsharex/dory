@@ -199,8 +199,11 @@ function testStructuredInsightCardAndActionLabels() {
     assert.ok(structured.decision.title.includes('Insights.QuickSummary.Title'));
     assert.ok(structured.decision.impact);
     assert.ok(!('recommendedActions' in structured.decision));
+    assert.ok(structured.decision.mainFinding);
     assert.ok(structured.decision.items.length > 0);
+    assert.equal(structured.decision.items.filter(item => item.level === 'primary').length, 1);
     assert.ok(structured.decision.items.some(item => item.actions.some(action => action.id === 'inspect-outliers')));
+    assert.ok(structured.decision.items.every(item => !item.primaryAction || item.actions.includes(item.primaryAction)));
     assert.ok(structured.decision.items.every(item => item.actions.every(action => action.kind !== 'analysis-suggestion' || !!action.action || !!action.sqlPreview)));
     assert.ok(draft.recommendedActions.some(action => action.id === 'inspect-outliers'));
     assert.ok(!draft.recommendedActions.some(action => action.label === 'Run'));
@@ -250,9 +253,16 @@ function testStructuredInsightActionsForRiskTrendAndOutlier() {
     const riskItem = structured.decision.items.find(item => item.id.startsWith('risk:'));
     const trendItem = structured.decision.items.find(item => item.id.startsWith('trend:') || item.id.startsWith('spike:'));
     const outlierItem = structured.decision.items.find(item => item.id.startsWith('measure-spread:') || item.id.startsWith('outlier:'));
+    const primaryItems = structured.decision.items.filter(item => item.level === 'primary');
 
+    assert.equal(primaryItems.length, 1);
+    assert.ok(outlierItem);
+    assert.equal(outlierItem.level, 'primary');
+    assert.ok(outlierItem.primaryAction?.id === 'inspect-outliers' || outlierItem.primaryAction?.id === 'view-distribution');
+    assert.equal(riskItem?.level, 'secondary');
+    assert.ok(!trendItem || trendItem.level !== 'primary');
     assert.ok(riskItem?.actions.some(action => action.id === 'group-by-service' || action.id === 'analyze-source'));
-    assert.ok(trendItem?.actions.some(action => action.id === 'view-time-trend'));
+    assert.ok(structured.decision.items.some(item => item.actions.some(action => action.id === 'view-time-trend')));
     assert.ok(outlierItem?.actions.some(action => action.id === 'inspect-outliers' || action.id === 'view-distribution'));
 }
 
@@ -294,8 +304,22 @@ function testRewriteItemsCarryTheirOwnActions() {
         items: [
             {
                 id: 'trend:created_at',
+                level: 'info' as const,
                 title: 'Order trend is visible',
                 summary: 'Order trend is visible',
+                primaryAction: {
+                    type: 'trend' as const,
+                    title: 'View created_at trend',
+                    params: {
+                        timeColumn: 'created_at',
+                        measure: {
+                            column: 'amount',
+                            aggregation: 'SUM' as const,
+                        },
+                        limit: 50,
+                    },
+                    priority: 'primary' as const,
+                },
                 actions: [
                     {
                         type: 'trend' as const,
@@ -314,8 +338,22 @@ function testRewriteItemsCarryTheirOwnActions() {
             },
             {
                 id: 'dominant:status:pending',
+                level: 'secondary' as const,
                 title: 'Pending orders are concentrated',
                 summary: 'Pending orders are concentrated',
+                primaryAction: {
+                    type: 'group' as const,
+                    title: 'Analyze by status',
+                    params: {
+                        dimensions: ['status'],
+                        measure: {
+                            column: 'amount',
+                            aggregation: 'SUM' as const,
+                        },
+                        limit: 20,
+                    },
+                    priority: 'primary' as const,
+                },
                 actions: [
                     {
                         type: 'group' as const,
@@ -344,11 +382,17 @@ function testRewriteItemsCarryTheirOwnActions() {
         view,
     });
 
-    const trendItem = structured.decision.items.find(item => item.title === 'Order trend is visible');
+    const trendItem = structured.decision.items.find(item => item.id === 'trend:created_at');
     const statusItem = structured.decision.items.find(item => item.title === 'Pending orders are concentrated');
+    const primaryItem = structured.decision.items.find(item => item.level === 'primary');
 
     assert.ok(trendItem?.actions.some(action => action.kind === 'analysis-suggestion' && action.action?.type === 'trend'));
     assert.ok(statusItem?.actions.some(action => action.kind === 'analysis-suggestion' && action.action?.type === 'group'));
+    assert.equal(trendItem?.level, 'info');
+    assert.equal(statusItem?.level, 'secondary');
+    assert.ok(primaryItem?.id.startsWith('measure-spread:') || primaryItem?.id.startsWith('outlier:'));
+    assert.ok(primaryItem?.primaryAction?.id === 'inspect-outliers' || primaryItem?.primaryAction?.id === 'view-distribution');
+    assert.equal(statusItem?.primaryAction?.kind, 'analysis-suggestion');
     assert.ok(!('recommendedActions' in structured.decision));
 }
 

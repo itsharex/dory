@@ -15,7 +15,6 @@ import { splitMultiSQL } from '@/lib/utils/split-multi-sql';
 import { profileResultSet } from '@/lib/client/result-set-ai';
 import { buildInsightRewriteRequest } from '@/lib/client/result-set-insights';
 import { fetchInsightRewrite, makeInsightRewriteCacheKey } from '@/lib/client/result-insight-rewrite';
-import { toast } from 'sonner';
 
 type RequestAITabTitle = (tab: SQLTab, options?: { force?: boolean; sqlTextOverride?: string }) => Promise<void> | void;
 
@@ -108,9 +107,7 @@ export function useSqlQueryRunner({
                     const cacheKey = makeInsightRewriteCacheKey(request);
                     if (!cacheKey) continue;
 
-                    void fetchInsightRewrite(cacheKey).then(rewrite => {
-                        if (rewrite) toast.message(t('Insights.ReadyToast'));
-                    });
+                    void fetchInsightRewrite(cacheKey);
                 } catch (error) {
                     console.warn('[useSqlQueryRunner.prefetchResultInsights] failed', {
                         sessionId: resultSet.sessionId,
@@ -128,8 +125,8 @@ export function useSqlQueryRunner({
             if (!dbReady || !tab || !userReady) return;
 
             const tabId = tab.tabId;
-            const sql = editorRef.current?.getValue() ?? (activeTab?.tabType === 'sql' ? activeTab?.content ?? '' : '');
-            const sqlText = (options?.sqlOverride ?? (tab.tabType === 'sql' ? sql ?? '' : '')).trim();
+            const sql = editorRef.current?.getValue() ?? (activeTab?.tabType === 'sql' ? (activeTab?.content ?? '') : '');
+            const sqlText = (options?.sqlOverride ?? (tab.tabType === 'sql' ? (sql ?? '') : '')).trim();
             const finalSqlText = tab.tabType === 'sql' ? applyLimitToSql(sqlText, options?.limit) : sqlText;
             let database: string | null = null;
 
@@ -252,7 +249,23 @@ export function useSqlQueryRunner({
                 }
             }
         },
-        [dbReady, userReady, activeTab, activeDatabase, query, createQuerySession, applyServerResult, prefetchResultInsights, finishQuerySession, setRunningTabs, setSessionIdMap, userId, tabs, requestAITabTitle, t],
+        [
+            dbReady,
+            userReady,
+            activeTab,
+            activeDatabase,
+            query,
+            createQuerySession,
+            applyServerResult,
+            prefetchResultInsights,
+            finishQuerySession,
+            setRunningTabs,
+            setSessionIdMap,
+            userId,
+            tabs,
+            requestAITabTitle,
+            t,
+        ],
     );
 
     const cancelQuery = useCallback(
@@ -268,7 +281,7 @@ export function useSqlQueryRunner({
             let sessionId = sessionIdMap[tabId];
             if (!sessionId) {
                 try {
-                    sessionId = localStorage.getItem(`sqlconsole:sessionId:${tabId}`) as string ?? undefined;
+                    sessionId = (localStorage.getItem(`sqlconsole:sessionId:${tabId}`) as string) ?? undefined;
                 } catch {
                     // ignore
                 }
