@@ -12,6 +12,7 @@ export async function runLLMJson<T extends z.ZodTypeAny>(args: {
     prompt: string;
     schema: T;
     temperature?: number;
+    maxOutputTokens?: number;
     maxRetries?: number;
     model?: string | null;
     context?: {
@@ -20,7 +21,7 @@ export async function runLLMJson<T extends z.ZodTypeAny>(args: {
         feature?: string;
     };
 }) {
-    const { prompt, schema, temperature = 0, maxRetries = 1, model: requestedModel, context } = args;
+    const { prompt, schema, temperature = 0, maxOutputTokens, maxRetries = 1, model: requestedModel, context } = args;
 
     let lastErr: unknown = null;
 
@@ -33,6 +34,7 @@ export async function runLLMJson<T extends z.ZodTypeAny>(args: {
                 system,
                 prompt,
                 temperature: temperature ?? preset.temperature,
+                maxOutputTokens: maxOutputTokens ?? preset.maxOutputTokens,
                 context: {
                     organizationId: context?.organizationId ?? null,
                     userId: context?.userId ?? null,
@@ -122,7 +124,10 @@ function extractFirstJsonValue(text: string) {
 }
 
 function stripJsonFence(text: string) {
-    return text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    return text
+        .replace(/^```(?:json)?\s*/i, '')
+        .replace(/\s*```$/i, '')
+        .trim();
 }
 
 function findJsonStart(text: string) {

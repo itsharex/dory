@@ -251,6 +251,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
     const workspaces = useAtomValue(analysisWorkspaceStateAtom);
     const upsertWorkspace = useSetAtom(upsertAnalysisWorkspaceAtom);
     const [sampleRows, setSampleRows] = useState<Array<Record<string, unknown>>>([]);
+    const [sampleRowsReady, setSampleRowsReady] = useState(false);
     const [analysisRows, setAnalysisRows] = useState<AnalysisRow[]>([]);
     const [runningSuggestionId, setRunningSuggestionId] = useState<string | null>(null);
     const [rewritten, setRewritten] = useState<InsightRewriteResponse | null>(null);
@@ -261,9 +262,13 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
 
     useEffect(() => {
         let canceled = false;
+        setSampleRowsReady(false);
         (async () => {
             if (!dbReady || !activeSessionId || activeSet == null || activeSet < 0) {
-                if (!canceled) setSampleRows([]);
+                if (!canceled) {
+                    setSampleRows([]);
+                    setSampleRowsReady(true);
+                }
                 return;
             }
 
@@ -273,6 +278,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
             }).catch(() => []);
             if (canceled) return;
             setSampleRows(rows.map(row => row.rowData as Record<string, unknown>).slice(0, 200));
+            setSampleRowsReady(true);
         })();
 
         return () => {
@@ -281,6 +287,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
     }, [activeSessionId, activeSet, dbReady, getResultRows]);
 
     const insightRewriteRequest = useMemo(() => {
+        if (!sampleRowsReady) return null;
         const columns = Array.isArray(sessionMetas?.columns) ? sessionMetas.columns : [];
         return buildInsightRewriteRequest({
             stats: sessionMetas?.stats,
@@ -290,7 +297,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
             locale,
             t: (key, values) => t(key as any, values),
         });
-    }, [locale, sampleRows, sessionMetas, t]);
+    }, [locale, sampleRows, sampleRowsReady, sessionMetas, t]);
     const insightRewriteCacheKey = useMemo(() => makeInsightRewriteCacheKey(insightRewriteRequest), [insightRewriteRequest]);
 
     useEffect(() => {
@@ -358,7 +365,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
             resultContext,
             draft,
             recommendedActions: structured.decision.items.flatMap(item => item.actions),
-            recommendedActionsOnly: !!rewritten?.items?.some(item => item.actions.length > 0) || !!rewritten?.recommendedSql?.trim(),
+            recommendedActionsOnly: !!rewritten?.items?.some(item => item.actions.length > 0),
             t: (key, values) => t(key as any, values),
         });
         return {

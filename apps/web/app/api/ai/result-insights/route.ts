@@ -143,7 +143,6 @@ const responseSchema = z.object({
         .optional(),
     primaryInsight: z.string().optional(),
     limitations: z.array(z.string()).max(5).optional(),
-    recommendedSql: z.string().nullable().optional(),
     items: z.array(insightItemSchema).min(1).max(5).optional(),
     recommendedActions: z.array(z.unknown()).max(5).optional(),
     alternativeActions: z
@@ -153,7 +152,6 @@ const responseSchema = z.object({
                 label: z.string(),
                 description: z.string(),
                 kind: z.enum(['drilldown', 'trend', 'distribution', 'topk', 'compare']).optional(),
-                recommendedSql: z.string().nullable().optional(),
             }),
         )
         .max(5)
@@ -349,7 +347,6 @@ function normalizeResultInsightResponse(input: z.infer<typeof responseSchema>, p
         .filter((action): action is RecommendedResultAction => !!action);
     const recommendedActions = normalizeRecommendedActions(filterAllowedActions(aiRecommendedActions, allowedColumns));
     const fallbackRecommendedActions = recommendedActions.length ? recommendedActions : buildFallbackRecommendedActions(payload, allowedColumns);
-    const recommendedSql = input.recommendedSql?.trim() || null;
     const itemsBeforeLevels = explicitItems.length
         ? explicitItems.map((item, index) => ({
               ...item,
@@ -391,9 +388,8 @@ function normalizeResultInsightResponse(input: z.infer<typeof responseSchema>, p
         primaryInsight,
         limitations: input.limitations,
         items,
-        recommendedSql,
         reasoning: input.reasoning,
-        autoRunPolicy: recommendedSql || fallbackRecommendedActions.length ? 'confirm_required' : input.autoRunPolicy,
+        autoRunPolicy: fallbackRecommendedActions.length ? 'confirm_required' : input.autoRunPolicy,
     };
 }
 
@@ -418,7 +414,8 @@ export const POST = withUserAndOrganizationHandler(async ({ req, organizationId,
             prompt: buildResultInsightsPrompt({ payload, locale }),
             schema: responseSchema,
             temperature: 0.2,
-            maxRetries: 1,
+            maxOutputTokens: 900,
+            maxRetries: 0,
             context: {
                 organizationId,
                 userId,

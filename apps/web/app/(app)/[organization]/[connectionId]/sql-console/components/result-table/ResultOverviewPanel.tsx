@@ -3,10 +3,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useSetAtom } from 'jotai';
 import { useLocale, useTranslations } from 'next-intl';
-import { AlertTriangle, Flame, Info, Search, Sparkles } from 'lucide-react';
+import { AlertTriangle, Flame, Info, RefreshCcw, Search, Sparkles } from 'lucide-react';
 import { ScrollArea } from '@/registry/new-york-v4/ui/scroll-area';
+import { Skeleton } from '@/registry/new-york-v4/ui/skeleton';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import type { ResultColumnMeta, ResultSetStatsV1 } from '@/lib/client/type';
+import { cn } from '@/lib/utils';
 import {
     buildInsights,
     buildInsightRewriteRequest,
@@ -16,22 +18,25 @@ import {
     type InsightLevel,
     type InsightRewriteResponse,
 } from '@/lib/client/result-set-insights';
-import { fetchInsightRewrite, getCachedInsightRewrite, makeInsightRewriteCacheKey } from '@/lib/client/result-insight-rewrite';
+import { fetchInsightRewrite, getCachedInsightRewrite, invalidateCachedInsightRewrite, makeInsightRewriteCacheKey } from '@/lib/client/result-insight-rewrite';
 import { useAtomValue } from 'jotai';
 import { activeSessionIdAtom, copilotAnalysisRequestAtom, copilotPanelOpenAtom, copilotPanelTabAtom } from '../../sql-console.store';
 import { copilotPromptRequestAtom } from './stores/copilot-prompt.atoms';
 import { makeActiveSetAtom } from './stores/active-set.atoms';
 import { activeTabIdAtom } from '@/shared/stores/app.store';
 
-function Section(props: { title: string; icon: React.ReactNode; children: React.ReactNode; description?: string }) {
-    const { title, icon, children, description } = props;
+function Section(props: { title: string; icon: React.ReactNode; children: React.ReactNode; description?: string; action?: React.ReactNode }) {
+    const { title, icon, children, description, action } = props;
 
     return (
         <section className="flex flex-col gap-3">
             <div className="space-y-1">
-                <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-                    {icon}
-                    <span>{title}</span>
+                <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2 text-xs font-medium text-muted-foreground">
+                        {icon}
+                        <span className="truncate">{title}</span>
+                    </div>
+                    {action ? <div className="shrink-0">{action}</div> : null}
                 </div>
                 {description ? <div className="text-xs text-muted-foreground">{description}</div> : null}
             </div>
@@ -168,36 +173,69 @@ function resolveInsightLoadingScenario(params: { columns?: ResultColumnMeta[] | 
 }
 
 function InsightLoadingState(props: { t: ReturnType<typeof useTranslations>; scenario: InsightLoadingScenario }) {
-    const [offset, setOffset] = useState(0);
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [phase, setPhase] = useState(0);
     const checks = ['First', 'Second', 'Third'];
-    const visibleChecks = [0, 1].map(index => checks[(offset + index) % checks.length]);
+    const activeCheck = checks[activeIndex % checks.length];
+    const progress = activeIndex + 1;
 
     useEffect(() => {
-        setOffset(Math.floor(Math.random() * checks.length));
+        setActiveIndex(0);
+        setPhase(0);
+        const primaryTimer = window.setTimeout(() => setPhase(1), 800);
+        const secondaryTimer = window.setTimeout(() => setPhase(2), 3800);
         const timer = window.setInterval(() => {
-            setOffset(current => (current + 1) % checks.length);
-        }, 1800);
+            setActiveIndex(current => Math.min(current + 1, checks.length - 1));
+        }, 3300);
 
-        return () => window.clearInterval(timer);
+        return () => {
+            window.clearTimeout(primaryTimer);
+            window.clearTimeout(secondaryTimer);
+            window.clearInterval(timer);
+        };
     }, [props.scenario]);
 
     return (
-        <div className="rounded-lg bg-muted/30 px-5 py-5">
-            <div className="flex items-start gap-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-background text-muted-foreground ring-1 ring-border">
-                    <Search className="h-5 w-5 animate-pulse" />
+        <div className="space-y-3" aria-live="polite">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground ring-1 ring-border">
+                    <Search className="h-3.5 w-3.5 animate-pulse" />
                 </div>
-                <div className="min-w-0 flex-1">
-                    <div className="text-base font-semibold text-foreground">{props.t(`Insights.Loading.Scenarios.${props.scenario}.Title` as any)}</div>
-                    <div className="mt-4 text-sm text-muted-foreground">{props.t(`Insights.Loading.Scenarios.${props.scenario}.CheckingLabel` as any)}</div>
-                    <ul className="mt-2 space-y-1.5">
-                        {visibleChecks.map(key => (
-                            <li key={key} className="flex gap-2 text-sm leading-relaxed text-foreground/80">
-                                <span className="mt-2 h-1 w-1 shrink-0 rounded-full bg-muted-foreground/50" />
-                                <span>{props.t(`Insights.Loading.Scenarios.${props.scenario}.Checks.${key}` as any)}</span>
-                            </li>
-                        ))}
-                    </ul>
+                <span className="min-w-0 flex-1 truncate">{props.t(`Insights.Loading.Scenarios.${props.scenario}.Title` as any)}</span>
+                <span className="shrink-0 text-xs font-normal text-muted-foreground">({progress}/3)</span>
+            </div>
+
+            <div className="rounded-lg border bg-background px-4 py-4">
+                <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>{props.t(`Insights.Loading.Scenarios.${props.scenario}.CheckingLabel` as any)}</span>
+                    <span className="text-foreground">-&gt;</span>
+                    <span className="font-medium text-foreground">{props.t(`Insights.Loading.Scenarios.${props.scenario}.Checks.${activeCheck}` as any)}</span>
+                </div>
+                <div className="mt-1 text-[11px] text-muted-foreground">{props.t('Insights.Loading.DurationHint')}</div>
+
+                <div className={cn('mt-4 rounded-lg border px-4 py-4 transition-colors duration-500', phase >= 1 ? 'border-primary/25 bg-primary/5' : 'border-border bg-muted/20')}>
+                    <div className="flex items-start gap-3">
+                        <Skeleton className={cn('mt-0.5 h-8 w-8 shrink-0 rounded-full', phase >= 1 ? 'bg-primary/20' : 'bg-muted')} />
+                        <div className="min-w-0 flex-1">
+                            <Skeleton className={cn('h-3 w-20', phase >= 1 ? 'bg-primary/20' : 'bg-muted')} />
+                            <Skeleton className={cn('mt-3 h-5 w-4/5 max-w-[360px]', phase >= 1 ? 'bg-primary/25' : 'bg-muted')} />
+                            <div className="mt-4 space-y-2">
+                                <Skeleton className="h-3 w-11/12 max-w-[420px] bg-muted" />
+                                <Skeleton className="h-3 w-3/4 max-w-[320px] bg-muted" />
+                            </div>
+                            <Skeleton className={cn('mt-4 h-8 w-40 rounded-full', phase >= 1 ? 'bg-primary/25' : 'bg-muted')} />
+                        </div>
+                    </div>
+                </div>
+
+                <div className={cn('mt-4 space-y-2 transition-opacity duration-500', phase >= 2 ? 'opacity-100' : 'opacity-40')}>
+                    {[0, 1, 2].map(index => (
+                        <div key={index} className="flex items-center gap-3 py-1.5">
+                            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/35" />
+                            <Skeleton className={cn('h-3 flex-1 bg-muted', index === 1 ? 'max-w-[72%]' : 'max-w-[84%]')} />
+                            <Skeleton className="h-6 w-16 shrink-0 rounded-full bg-muted" />
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
@@ -223,6 +261,7 @@ export function ResultOverviewPanel(props: {
     const activeSet = useAtomValue(useMemo(() => makeActiveSetAtom(activeTabId, activeSessionId), [activeSessionId, activeTabId]));
     const [rewritten, setRewritten] = useState<InsightRewriteResponse | null>(null);
     const [rewriteSettledKey, setRewriteSettledKey] = useState<string | null>(null);
+    const [refreshVersion, setRefreshVersion] = useState(0);
 
     const rewriteRequest = useMemo(
         () =>
@@ -312,6 +351,15 @@ export function ResultOverviewPanel(props: {
         });
     };
 
+    const handleRefreshInsights = () => {
+        if (!rewriteCacheKey || isInsightLoading) return;
+
+        invalidateCachedInsightRewrite(rewriteCacheKey);
+        setRewritten(null);
+        setRewriteSettledKey(null);
+        setRefreshVersion(current => current + 1);
+    };
+
     useEffect(() => {
         if (!rewriteCacheKey) {
             setRewritten(null);
@@ -340,13 +388,30 @@ export function ResultOverviewPanel(props: {
         return () => {
             cancelled = true;
         };
-    }, [rewriteCacheKey]);
+    }, [refreshVersion, rewriteCacheKey]);
 
     return (
         <div className="flex h-full min-h-0 w-full">
             <ScrollArea className="h-full w-full">
                 <div className="flex flex-col gap-4 p-4">
-                    <Section title={t('Insights.KeyInsights.SectionTitle')} icon={<Sparkles className="h-3.5 w-3.5 text-muted-foreground" />}>
+                    <Section
+                        title={t('Insights.KeyInsights.SectionTitle')}
+                        icon={<Sparkles className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                        action={
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-muted-foreground hover:bg-muted hover:text-foreground"
+                                disabled={!rewriteCacheKey || isInsightLoading}
+                                aria-label={t('Insights.KeyInsights.Refresh')}
+                                title={t('Insights.KeyInsights.Refresh')}
+                                onClick={handleRefreshInsights}
+                            >
+                                <RefreshCcw className={cn('h-3.5 w-3.5', isInsightLoading ? 'animate-spin' : null)} />
+                            </Button>
+                        }
+                    >
                         <div className="space-y-4">
                             {isInsightLoading ? (
                                 <InsightLoadingState t={t} scenario={insightLoadingScenario} />

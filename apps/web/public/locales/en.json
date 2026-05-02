@@ -1408,9 +1408,11 @@
             "KeyInsights": {
                 "SectionTitle": "Key Insights",
                 "Description": "What is most worth checking first in this result.",
-                "Empty": "No clear pattern stands out yet. Try filtering or charting this result."
+                "Empty": "No clear pattern stands out yet. Try filtering or charting this result.",
+                "Refresh": "Refresh insights"
             },
             "Loading": {
+                "DurationHint": "This usually takes about 10 seconds. Results update automatically.",
                 "Scenarios": {
                     "generic": {
                         "Title": "Analyzing result...",

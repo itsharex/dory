@@ -1406,7 +1406,49 @@
             "KeyInsights": {
                 "SectionTitle": "Key Insights",
                 "Description": "この結果でまず見るべきポイントです。",
-                "Empty": "まだ明確な傾向は見えていません。フィルタやチャートを試してください。"
+                "Empty": "まだ明確な傾向は見えていません。フィルタやチャートを試してください。",
+                "Refresh": "インサイトを更新"
+            },
+            "Loading": {
+                "DurationHint": "通常 10 秒ほどかかります。完了すると自動で更新されます。",
+                "Scenarios": {
+                    "generic": {
+                        "Title": "結果を分析中...",
+                        "CheckingLabel": "確認中:",
+                        "Checks": {
+                            "First": "異常値の有無",
+                            "Second": "ロングテール分布",
+                            "Third": "構造的な問題"
+                        }
+                    },
+                    "logs": {
+                        "Title": "ログデータを分析中...",
+                        "CheckingLabel": "確認中:",
+                        "Checks": {
+                            "First": "エラーの集中",
+                            "Second": "応答時間の異常",
+                            "Third": "変動やスパイク"
+                        }
+                    },
+                    "metrics": {
+                        "Title": "データ分布を分析中...",
+                        "CheckingLabel": "確認中:",
+                        "Checks": {
+                            "First": "極端な値",
+                            "Second": "明確なセグメント",
+                            "Third": "平均値の代表性"
+                        }
+                    },
+                    "structure": {
+                        "Title": "データ構造を確認中...",
+                        "CheckingLabel": "分析中:",
+                        "Checks": {
+                            "First": "フィールド型と分布",
+                            "Second": "主要指標の候補",
+                            "Third": "利用できる分析経路"
+                        }
+                    }
+                }
             },
             "Card": {
                 "CurrentResult": "現在の結果",

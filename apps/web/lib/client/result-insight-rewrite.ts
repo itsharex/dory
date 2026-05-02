@@ -11,6 +11,12 @@ export function getCachedInsightRewrite(cacheKey: string | null | undefined) {
     return cacheKey ? insightRewriteCache.get(cacheKey) : undefined;
 }
 
+export function invalidateCachedInsightRewrite(cacheKey: string | null | undefined) {
+    if (!cacheKey) return;
+    insightRewriteCache.delete(cacheKey);
+    insightRewriteInflight.delete(cacheKey);
+}
+
 export async function fetchInsightRewrite(cacheKey: string) {
     if (insightRewriteCache.has(cacheKey)) {
         return insightRewriteCache.get(cacheKey) ?? null;
@@ -28,12 +34,11 @@ export async function fetchInsightRewrite(cacheKey: string) {
     })
         .then(async response => {
             const payload = (await response.json().catch(() => null)) as InsightRewriteResponse | null;
-            if (payload) {
-                insightRewriteCache.set(cacheKey, payload);
-            }
+            insightRewriteCache.set(cacheKey, payload ?? null);
             return payload ?? null;
         })
         .catch(() => {
+            insightRewriteCache.set(cacheKey, null);
             return null;
         })
         .finally(() => {

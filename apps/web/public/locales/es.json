@@ -1406,7 +1406,49 @@
             "KeyInsights": {
                 "SectionTitle": "Key Insights",
                 "Description": "Lo que más conviene revisar primero en este resultado.",
-                "Empty": "Aún no destaca un patrón claro. Prueba con filtros o gráficos."
+                "Empty": "Aún no destaca un patrón claro. Prueba con filtros o gráficos.",
+                "Refresh": "Actualizar insights"
+            },
+            "Loading": {
+                "DurationHint": "Suele tardar unos 10 segundos. El resultado se actualiza automáticamente.",
+                "Scenarios": {
+                    "generic": {
+                        "Title": "Analizando resultado...",
+                        "CheckingLabel": "Estamos revisando:",
+                        "Checks": {
+                            "First": "Valores anómalos",
+                            "Second": "Distribuciones de cola larga",
+                            "Third": "Problemas estructurales"
+                        }
+                    },
+                    "logs": {
+                        "Title": "Analizando datos de logs...",
+                        "CheckingLabel": "Estamos revisando:",
+                        "Checks": {
+                            "First": "Errores concentrados",
+                            "Second": "Tiempos de respuesta anómalos",
+                            "Third": "Volatilidad o picos"
+                        }
+                    },
+                    "metrics": {
+                        "Title": "Analizando distribución de datos...",
+                        "CheckingLabel": "Estamos revisando:",
+                        "Checks": {
+                            "First": "Valores extremos",
+                            "Second": "Segmentación clara",
+                            "Third": "Si el promedio representa bien"
+                        }
+                    },
+                    "structure": {
+                        "Title": "Entendiendo la estructura de datos...",
+                        "CheckingLabel": "Estamos analizando:",
+                        "Checks": {
+                            "First": "Tipos de campos y distribuciones",
+                            "Second": "Posibles métricas clave",
+                            "Third": "Rutas de análisis disponibles"
+                        }
+                    }
+                }
             },
             "Card": {
                 "CurrentResult": "resultado actual",

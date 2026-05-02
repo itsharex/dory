@@ -36,8 +36,6 @@ import { useVTableFilters, VTableFilters } from './vtable/VTableFilters';
 import { Tabs, TabsList, TabsTrigger } from '@/registry/new-york-v4/ui/tabs';
 import type { ColumnFilter } from './vtable/type';
 import type { ResultSetViewState } from '@/lib/client/type';
-import { buildInsightRewriteRequest } from '@/lib/client/result-set-insights';
-import { fetchInsightRewrite, getCachedInsightRewrite, makeInsightRewriteCacheKey } from '@/lib/client/result-insight-rewrite';
 /* =================================== constants =================================== */
 
 const MAX_ROWS_HINT = 5_000_000; // UI hint only
@@ -304,26 +302,6 @@ export function ResultTable() {
         });
     }, [results, sessionMetas, query]);
 
-    const insightRewriteRequest = useMemo(() => {
-        if (!isResult || !sessionMetas?.stats?.summary || !Array.isArray(sessionMetas?.columns) || results.length === 0) return null;
-
-        return buildInsightRewriteRequest({
-            stats: sessionMetas.stats,
-            columns: sessionMetas.columns,
-            sqlText: sessionMetas.sqlText ?? '',
-            rows: results.slice(0, 2000).map(result => result.rowData as Record<string, unknown>),
-            locale,
-            t: (key, values) => t(key as any, values),
-        });
-    }, [isResult, locale, results, sessionMetas?.columns, sessionMetas?.sqlText, sessionMetas?.stats, t]);
-    const insightRewriteCacheKey = useMemo(() => makeInsightRewriteCacheKey(insightRewriteRequest), [insightRewriteRequest]);
-
-    useEffect(() => {
-        if (!insightRewriteCacheKey || localDataLoading[tabId] || sessionMetas?.status === 'error') return;
-        if (getCachedInsightRewrite(insightRewriteCacheKey) !== undefined) return;
-
-        void fetchInsightRewrite(insightRewriteCacheKey);
-    }, [insightRewriteCacheKey, localDataLoading, sessionMetas?.status, tabId]);
     const {
         activeFilters,
         filteredResults: columnFilteredResults,

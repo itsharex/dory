@@ -174,7 +174,6 @@ export type InsightRewriteResponse = {
     analysisState?: 'invalid' | 'weak' | 'good' | 'actionable';
     primaryInsight?: string;
     limitations?: string[];
-    recommendedSql?: string | null;
     autoRunPolicy?: 'confirm_required';
     reasoning?: {
         priorities: string[];
@@ -363,14 +362,50 @@ function rankInsightPatterns(patterns: InsightPattern[]) {
     return [...patterns].sort((left, right) => (priority.get(left.kind) ?? 20) - (priority.get(right.kind) ?? 20) || right.confidence - left.confidence).slice(0, 3);
 }
 
-function compactProfileColumns(stats: ResultSetStatsV1) {
-    return Object.values(stats.columns).map(profile => ({
+function compactProfileColumns(stats: ResultSetStatsV1, keyColumns: InsightKeyColumns, facts: InsightFact[], patterns: InsightPattern[]) {
+    const priorityColumns = new Set(
+        [
+            keyColumns.time,
+            ...keyColumns.measures.slice(0, 4),
+            ...keyColumns.dimensions.slice(0, 4),
+            ...facts.flatMap(fact => fact.columns ?? []),
+            ...patterns.flatMap(pattern => pattern.columns ?? []),
+        ].filter((column): column is string => !!column),
+    );
+    const profiles = Object.values(stats.columns);
+    const rankedProfiles = [
+        ...profiles.filter(profile => priorityColumns.has(profile.name)),
+        ...profiles.filter(profile => !priorityColumns.has(profile.name) && profile.semanticRole !== 'identifier'),
+        ...profiles.filter(profile => !priorityColumns.has(profile.name) && profile.semanticRole === 'identifier'),
+    ];
+
+    return rankedProfiles.slice(0, 16).map(profile => ({
         name: profile.name,
         semanticRole: profile.semanticRole,
         distinctCount: profile.distinctCount ?? null,
         topValueShare: profile.topValueShare ?? null,
-        topK: profile.semanticRole === 'dimension' || profile.semanticRole === 'text' ? (profile.topK?.slice(0, 3) ?? []) : [],
+        topK:
+            profile.semanticRole === 'dimension' || profile.semanticRole === 'text'
+                ? (profile.topK?.slice(0, 2).map(item => ({
+                      value: truncateInsightSampleValue(item.value),
+                      count: item.count,
+                  })) ?? [])
+                : [],
     }));
+}
+
+function truncateInsightSampleValue(value: unknown) {
+    const text = String(value ?? '');
+    return text.length > 120 ? `${text.slice(0, 117)}...` : text;
+}
+
+function compactRepresentativeRow(row: Record<string, unknown>, columns: string[]) {
+    const entries = columns
+        .filter(column => Object.prototype.hasOwnProperty.call(row, column))
+        .slice(0, 8)
+        .map(column => [column, typeof row[column] === 'string' ? truncateInsightSampleValue(row[column]) : row[column]]);
+
+    return Object.fromEntries(entries);
 }
 
 function rowSignature(row: Record<string, unknown>) {
@@ -1061,18 +1096,6 @@ function buildRewriteActions(context: InsightRuleContext, rewritten?: InsightRew
     const seen = new Set<string>();
     const merged: Array<InsightAction & { priority?: RecommendedActionPriority }> = [];
 
-    const primarySql = rewritten?.recommendedSql?.trim();
-    if (primarySql) {
-        merged.push({
-            id: 'ai-recommended-sql',
-            label: rewritten?.primaryInsight ?? context.t('Insights.Analysis.AiDecision.DefaultLabel'),
-            kind: 'analysis-suggestion',
-            suggestionId: 'ai-recommended-sql',
-            sqlPreview: primarySql,
-            priority: 'primary',
-        });
-    }
-
     for (const [itemIndex, item] of (rewritten?.items ?? []).entries()) {
         for (const [actionIndex, action] of item.actions.entries()) {
             if (!isValidResultAction(action, context)) continue;
@@ -1331,16 +1354,31 @@ export function buildInsightRewriteRequest(context: InsightRuleContext): Insight
 
     const draft = buildInsightDraft(context);
     const compactPatterns = rankInsightPatterns(draft.patterns);
+    const compactFacts = rankInsightFacts(draft.facts);
+    const profileColumns = compactProfileColumns(context.stats, draft.keyColumns, compactFacts, compactPatterns);
+    const sampleColumns = Array.from(
+        new Set(
+            [
+                draft.keyColumns.time,
+                ...draft.keyColumns.measures.slice(0, 3),
+                ...draft.keyColumns.dimensions.slice(0, 3),
+                ...compactPatterns.flatMap(pattern => pattern.columns),
+                ...compactFacts.flatMap(fact => fact.columns ?? []),
+            ].filter((column): column is string => !!column),
+        ),
+    );
 
     return {
         locale: context.locale,
         sqlText: context.sqlText ?? null,
         summary: context.stats.summary,
         keyColumns: draft.keyColumns,
-        facts: rankInsightFacts(draft.facts),
+        facts: compactFacts,
         patterns: compactPatterns,
-        profileColumns: compactProfileColumns(context.stats),
-        sampleRows: selectRepresentativeSampleRows(context.rows, draft.keyColumns, compactPatterns),
+        profileColumns,
+        sampleRows: selectRepresentativeSampleRows(context.rows, draft.keyColumns, compactPatterns)
+            .slice(0, 3)
+            .map(row => compactRepresentativeRow(row, sampleColumns.length ? sampleColumns : profileColumns.map(column => column.name))),
     };
 }
 
