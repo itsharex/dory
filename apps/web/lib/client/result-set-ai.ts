@@ -1,5 +1,7 @@
 'use client';
 
+import { buildResultAutoChartProfile, type ResultAutoChartProfile } from '@/lib/analysis/result-chart-profile';
+
 export type NormalizedColumnType = 'string' | 'integer' | 'number' | 'boolean' | 'date' | 'datetime' | 'json' | 'array' | 'unknown';
 
 export type ResultColumnSemanticRole = 'identifier' | 'dimension' | 'measure' | 'time' | 'text' | 'json' | 'unknown';
@@ -75,6 +77,7 @@ export interface ResultSetStatsV1 {
     summary: ResultSetSummary;
     columns: Record<string, ColumnProfile>;
     sample: ResultSampleInfo;
+    autoChartProfile?: ResultAutoChartProfile | null;
 }
 
 export interface ResultSetViewState {
@@ -600,24 +603,27 @@ export function summarizeResultSet(params: {
         isGoodForChart = true;
     }
 
-    return {
+    const summary: ResultSetStatsV1['summary'] = {
+        kind,
+        rowCount,
+        columnCount: columns.length,
+        limited,
+        limit,
+        numericColumnCount: columns.filter(column => column.normalizedType === 'integer' || column.normalizedType === 'number').length,
+        dimensionColumnCount: primaryDimensionColumns.length,
+        timeColumnCount: columns.filter(column => column.semanticRole === 'time').length,
+        identifierColumnCount: identifierColumns.length,
+        nullCellRatio,
+        duplicateRowRatio,
+        isGoodForChart,
+        recommendedChart,
+        primaryTimeColumn,
+        primaryMeasureColumns,
+        primaryDimensionColumns,
+    };
+    const baseStats: ResultSetStatsV1 = {
         summary: {
-            kind,
-            rowCount,
-            columnCount: columns.length,
-            limited,
-            limit,
-            numericColumnCount: columns.filter(column => column.normalizedType === 'integer' || column.normalizedType === 'number').length,
-            dimensionColumnCount: primaryDimensionColumns.length,
-            timeColumnCount: columns.filter(column => column.semanticRole === 'time').length,
-            identifierColumnCount: identifierColumns.length,
-            nullCellRatio,
-            duplicateRowRatio,
-            isGoodForChart,
-            recommendedChart,
-            primaryTimeColumn,
-            primaryMeasureColumns,
-            primaryDimensionColumns,
+            ...summary,
         },
         columns: columnProfiles,
         sample: {
@@ -625,6 +631,15 @@ export function summarizeResultSet(params: {
             sampleRowCount: Math.min(rows.length, AI_SAMPLE_LIMIT),
             truncatedForAI: rows.length > AI_SAMPLE_LIMIT,
         },
+    };
+
+    return {
+        ...baseStats,
+        autoChartProfile: buildResultAutoChartProfile({
+            rows,
+            columns,
+            stats: baseStats,
+        }),
     };
 }
 

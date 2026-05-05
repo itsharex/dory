@@ -238,7 +238,7 @@ function labelForKind(kind: ResultSetStatsV1['summary']['kind'], t: InsightTrans
     }
 }
 
-function labelForChart(chart: ResultSetStatsV1['summary']['recommendedChart'], t: InsightTranslate) {
+function labelForChart(chart: ResultSetStatsV1['summary']['recommendedChart'] | NonNullable<ResultSetStatsV1['autoChartProfile']>['chartState']['chartType'], t: InsightTranslate) {
     switch (chart) {
         case 'table':
             return t('Insights.Charts.Table');
@@ -506,7 +506,8 @@ function buildQuickSummary(context: InsightRuleContext, keyColumns: InsightKeyCo
     const rowCount = summary?.rowCount ?? null;
     const columnCount = summary?.columnCount ?? columns?.length ?? 0;
     const kindLabel = labelForKind(summary?.kind ?? 'unknown', t);
-    const chartStatus = summary?.isGoodForChart ? t('Insights.QuickSummary.ChartReady') : t('Insights.QuickSummary.ExplorationReady');
+    const autoChart = stats?.autoChartProfile?.emptyReason ? null : stats?.autoChartProfile?.chartState.chartType;
+    const chartStatus = summary?.isGoodForChart || autoChart ? t('Insights.QuickSummary.ChartReady') : t('Insights.QuickSummary.ExplorationReady');
 
     const title = t('Insights.QuickSummary.Title', {
         kind: kindLabel,
@@ -527,7 +528,7 @@ function buildQuickSummary(context: InsightRuleContext, keyColumns: InsightKeyCo
                   : t('Insights.TimeGrain.EventLevel'),
           })
         : t('Insights.QuickSummary.ChartHint', {
-              chart: labelForChart(summary?.recommendedChart ?? null, t),
+              chart: labelForChart(autoChart ?? summary?.recommendedChart ?? null, t),
           });
 
     return {
@@ -573,7 +574,9 @@ export function buildInsightFacts(context: InsightRuleContext): InsightFact[] {
                 kind: summary.kind,
                 rowCount: summary.rowCount ?? 0,
                 columnCount: summary.columnCount,
-                recommendedChart: summary.recommendedChart ?? 'table',
+                recommendedChart: stats?.autoChartProfile?.emptyReason
+                    ? (summary.recommendedChart ?? 'table')
+                    : (stats?.autoChartProfile?.chartState.chartType ?? summary.recommendedChart ?? 'table'),
             },
         });
     }

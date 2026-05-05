@@ -27,7 +27,7 @@ const MIN_ROWS_PER_PAGE = 50;
 const DEFAULT_ROWS_PER_PAGE = 1_000;
 const TARGET_PAGE_BYTES = 4 * 1024 * 1024;
 const YIELD_MS: number = 8;
-const RESULT_SET_PROFILE_VERSION = 1;
+const RESULT_SET_PROFILE_VERSION = 2;
 
 function translatePgliteError(key: string) {
     return translate(getClientLocale(), key);
