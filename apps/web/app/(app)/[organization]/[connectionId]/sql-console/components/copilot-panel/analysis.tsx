@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { ArrowLeft, Clipboard, FileText, Loader2, Play, Sparkles } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
@@ -226,6 +226,35 @@ function dedupeAnalysisSuggestions(suggestions: AnalysisSuggestion[]) {
         seen.add(suggestion.id);
         return true;
     });
+}
+
+function suggestionFromPendingRequest(params: { requestId: string; suggestionId: string; action?: AnalysisSuggestion['action']; sqlPreview?: string }): AnalysisSuggestion | null {
+    if (!params.action && !params.sqlPreview?.trim()) return null;
+    const title = params.action?.title ?? '继续分析';
+
+    return {
+        id: params.suggestionId,
+        kind: params.action?.type === 'trend' ? 'trend' : params.action?.type === 'distribution' ? 'distribution' : params.action?.type === 'group' ? 'drilldown' : 'topk',
+        title,
+        description: title,
+        label: title,
+        goal: title,
+        resultTitle: title,
+        stepTemplates: [
+            { id: `${params.requestId}-inspect-profile`, title: '读取 Profile 信号' },
+            { id: `${params.requestId}-run-next-sql`, title: '执行推荐 SQL' },
+            { id: `${params.requestId}-summarize-next-step`, title: '生成下一步结论' },
+        ],
+        followupPolicy: 'chain',
+        intent: {
+            type: 'generate_sql',
+            payload: {},
+        },
+        priority: 100,
+        isPrimary: true,
+        action: params.action,
+        sqlPreview: params.sqlPreview,
+    };
 }
 
 type AnalysisActionsProps = {
@@ -613,56 +642,81 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
         return optimistic.id;
     };
 
-    const handleRunSuggestion = async (suggestion: AnalysisSuggestion, requestId = `${suggestion.id}-${Date.now()}`) => {
-        if (!tabId || !activeSessionId || activeSet == null || activeSet < 0 || !connectionId || !insightBundle) {
+    const handleRunSuggestion = useCallback(
+        async (suggestion: AnalysisSuggestion, requestId = `${suggestion.id}-${Date.now()}`) => {
+            if (!tabId || !activeSessionId || activeSet == null || activeSet < 0 || !connectionId || !insightBundle) {
+                return;
+            }
+
+            handleSelectSuggestion(suggestion);
+            setRunningSuggestionId(suggestion.id);
+            const optimisticId = insertOptimisticSession(suggestion, requestId);
+
+            try {
+                const response = await runAnalysisRequest({
+                    tabId,
+                    context: {
+                        connectionId,
+                        databaseName: databaseName ?? null,
+                        resultRef: {
+                            sessionId: activeSessionId,
+                            setIndex: activeSet,
+                        },
+                        resultContext: insightBundle.resultContext,
+                        insight: insightBundle.structured,
+                    },
+                    trigger: {
+                        type: 'suggestion',
+                        suggestionId: suggestion.id,
+                        sqlPreview: suggestion.sqlPreview ?? null,
+                        action: suggestion.action ?? null,
+                    },
+                });
+
+                const sourceRef = {
+                    sessionId: activeSessionId,
+                    setIndex: activeSet,
+                };
+
+                await applyServerResult(response.query);
+                persistAnalysisSession(sourceRef.sessionId, sourceRef.setIndex, response.session, optimisticId ?? undefined);
+            } catch (error) {
+                toast.error(error instanceof Error ? error.message : t('Insights.Analysis.Errors.RunFailed'));
+            } finally {
+                setRunningSuggestionId(null);
+            }
+        },
+        [
+            activeSessionId,
+            activeSet,
+            applyServerResult,
+            connectionId,
+            databaseName,
+            handleSelectSuggestion,
+            insightBundle,
+            insertOptimisticSession,
+            persistAnalysisSession,
+            t,
+            tabId,
+        ],
+    );
+
+    useEffect(() => {
+        if (!analysisRequest?.id || !activeSessionId || activeSet == null || activeSet < 0 || !insightBundle) return;
+        if (handledRequestIdsRef.current.has(analysisRequest.id)) return;
+        if (analysisRequest.sourceResultRef && (analysisRequest.sourceResultRef.sessionId !== activeSessionId || analysisRequest.sourceResultRef.setIndex !== activeSet)) {
             return;
         }
 
-        handleSelectSuggestion(suggestion);
-        setRunningSuggestionId(suggestion.id);
-        const optimisticId = insertOptimisticSession(suggestion, requestId);
-
-        try {
-            const response = await runAnalysisRequest({
-                tabId,
-                context: {
-                    connectionId,
-                    databaseName: databaseName ?? null,
-                    resultRef: {
-                        sessionId: activeSessionId,
-                        setIndex: activeSet,
-                    },
-                    resultContext: insightBundle.resultContext,
-                    insight: insightBundle.structured,
-                },
-                trigger: {
-                    type: 'suggestion',
-                    suggestionId: suggestion.id,
-                    sqlPreview: suggestion.sqlPreview ?? null,
-                    action: suggestion.action ?? null,
-                },
+        const suggestion =
+            workspaceSuggestions.find(item => item.id === analysisRequest.suggestionId) ??
+            insightBundle.suggestions.find(item => item.id === analysisRequest.suggestionId) ??
+            suggestionFromPendingRequest({
+                requestId: analysisRequest.id,
+                suggestionId: analysisRequest.suggestionId,
+                action: analysisRequest.action,
+                sqlPreview: analysisRequest.sqlPreview,
             });
-
-            const sourceRef = {
-                sessionId: activeSessionId,
-                setIndex: activeSet,
-            };
-
-            await applyServerResult(response.query);
-            persistAnalysisSession(sourceRef.sessionId, sourceRef.setIndex, response.session, optimisticId ?? undefined);
-        } catch (error) {
-            toast.error(error instanceof Error ? error.message : t('Insights.Analysis.Errors.RunFailed'));
-        } finally {
-            setRunningSuggestionId(null);
-        }
-    };
-
-    useEffect(() => {
-        if (!analysisRequest?.id || !workspace || !activeSessionId || activeSet == null || activeSet < 0) return;
-        if (handledRequestIdsRef.current.has(analysisRequest.id)) return;
-        if (analysisRequest.sourceResultRef?.sessionId !== activeSessionId || analysisRequest.sourceResultRef?.setIndex !== activeSet) return;
-
-        const suggestion = workspaceSuggestions.find(item => item.id === analysisRequest.suggestionId);
         if (!suggestion) {
             setAnalysisRequest(null);
             return;
@@ -684,7 +738,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
         ).finally(() => {
             setAnalysisRequest(null);
         });
-    }, [activeSessionId, activeSet, analysisRequest, setAnalysisRequest, workspace, workspaceSuggestions]);
+    }, [activeSessionId, activeSet, analysisRequest, handleRunSuggestion, insightBundle, setAnalysisRequest, workspaceSuggestions]);
 
     if (!activeSessionId || activeSet == null || activeSet < 0 || !insightBundle) {
         return null;

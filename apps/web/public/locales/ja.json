@@ -1364,6 +1364,7 @@
         },
         "Insights": {
             "Title": "Insights",
+            "Beta": "Beta",
             "Subtitle": "現在の結果セットを人向けに説明する軽量レイヤーです。",
             "Loading": "現在の結果セットを解析しています...",
             "Kinds": {

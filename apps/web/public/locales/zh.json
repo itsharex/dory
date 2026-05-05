@@ -1368,6 +1368,7 @@
         },
         "Insights": {
             "Title": "洞察",
+            "Beta": "Beta",
             "Subtitle": "面向当前结果集的轻量解释层。",
             "Loading": "正在分析当前结果集...",
             "Kinds": {

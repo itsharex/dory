@@ -1366,6 +1366,7 @@
         },
         "Insights": {
             "Title": "Insights",
+            "Beta": "Beta",
             "Subtitle": "A lightweight explanation layer for the current result set.",
             "Loading": "Profiling the current result set...",
             "Kinds": {

@@ -14,7 +14,7 @@ import type {
     RunAnalysisRequest,
     RunAnalysisResponse,
 } from '@/lib/analysis/types';
-import { actionToSql } from '@/lib/analysis/result-actions';
+import { actionToSql, type ResultAction } from '@/lib/analysis/result-actions';
 import { enhanceAnalysisSummaryWithAi } from './ai-summary';
 
 function nowIso() {
@@ -94,6 +94,86 @@ function formatValue(value: unknown) {
     if (typeof value === 'number') return Number.isFinite(value) ? value.toLocaleString('en-US') : '—';
     if (typeof value === 'string') return value;
     return JSON.stringify(value);
+}
+
+function compactRowFacts(row: Record<string, unknown>, columns: Array<{ name: string }>, limit = 4) {
+    return columns
+        .slice(0, limit)
+        .map(column => `${column.name}: ${formatValue(row[column.name])}`)
+        .filter(item => !item.endsWith(': —'));
+}
+
+function summarizeActionResult(params: { action: ResultAction; title: string; rows: Array<Record<string, unknown>>; columns: Array<{ name: string }> }) {
+    const { action, title, rows, columns } = params;
+    const first = rows[0] ?? {};
+    const facts = compactRowFacts(first, columns);
+
+    if (!rows.length) {
+        return {
+            analysisState: 'invalid' as const,
+            limitations: ['推荐操作没有返回可分析结果。'],
+            summary: '推荐操作没有返回结果，无法形成下一步判断。',
+            headline: title,
+            keyFindings: ['没有可用结果'],
+            recordHighlights: [],
+            sections: [],
+        };
+    }
+
+    if (action.type === 'distribution') {
+        const column = action.params.column;
+        const minValue = formatValue(first.min_value);
+        const avgValue = formatValue(first.avg_value);
+        const maxValue = formatValue(first.max_value);
+        const totalRows = formatValue(first.total_rows);
+
+        return {
+            analysisState: 'good' as const,
+            limitations: [],
+            summary: `${column} 的分布范围是 ${minValue} 到 ${maxValue}，平均值为 ${avgValue}。这个结果用于判断该字段是否集中、偏斜或存在异常边界。`,
+            headline: `${column} 分布已计算`,
+            keyFindings: [`${column} 平均值为 ${avgValue}`, `${column} 范围为 ${minValue} 到 ${maxValue}`, `统计覆盖 ${totalRows} 行`],
+            recordHighlights: [
+                { label: 'min', value: minValue },
+                { label: 'avg', value: avgValue },
+                { label: 'max', value: maxValue },
+            ],
+            sections: [
+                {
+                    id: 'distribution-statistics',
+                    title: '分布统计',
+                    items: facts.length ? facts : [`min_value: ${minValue}`, `avg_value: ${avgValue}`, `max_value: ${maxValue}`],
+                },
+            ],
+        };
+    }
+
+    const firstLabelColumn = columns.find(column => !/count|total|sum|avg|min|max|value/i.test(column.name))?.name ?? columns[0]?.name;
+    const firstValueColumn = columns.find(column => column.name !== firstLabelColumn)?.name ?? firstLabelColumn;
+    const leader = firstLabelColumn ? formatValue(first[firstLabelColumn]) : '第一项';
+    const leaderValue = firstValueColumn ? formatValue(first[firstValueColumn]) : null;
+
+    return {
+        analysisState: 'good' as const,
+        limitations: [],
+        summary: leaderValue ? `${title} 的首要结果是 ${leader}，对应数值为 ${leaderValue}。` : `${title} 的首要结果是 ${leader}。`,
+        headline: `${title} 已完成`,
+        keyFindings: facts.length ? facts : [leaderValue ? `${leader}: ${leaderValue}` : leader],
+        recordHighlights: rows.slice(0, 5).map((row, index) => ({
+            label: firstLabelColumn ? formatValue(row[firstLabelColumn]) : `row_${index + 1}`,
+            value: firstValueColumn ? formatValue(row[firstValueColumn]) : formatValue(row[columns[0]?.name ?? 'value']),
+        })),
+        sections: [
+            {
+                id: 'action-result-values',
+                title: '结果明细',
+                items: rows
+                    .slice(0, 5)
+                    .map(row => compactRowFacts(row, columns).join(' · '))
+                    .filter(Boolean),
+            },
+        ],
+    };
 }
 
 function genericAiDrivenSpec(params: { suggestionId: string; sqlPreview: string; context: ResultContext; locale: Locale }): AnalysisSpec {
@@ -811,32 +891,12 @@ export async function runAnalysis(params: {
                         { id: 'summarize-next-step', title: '生成下一步结论' },
                     ],
                     summarize({ rows, columns }) {
-                        const first = rows[0] ?? {};
-                        const firstColumn = columns[0]?.name;
-                        return {
-                            analysisState: rows.length ? 'good' : 'invalid',
-                            limitations: rows.length ? [] : ['没有返回可分析结果。'],
-                            summary: rows.length ? `已执行推荐操作，返回 ${rows.length} 行结果。` : '推荐操作没有返回结果。',
-                            headline: params.request.trigger.action!.title,
-                            keyFindings: rows.length ? [`返回 ${rows.length} 行结果`] : ['没有返回结果'],
-                            recordHighlights: rows.slice(0, 5).map((row, index) => ({
-                                label: firstColumn ? formatValue(row[firstColumn]) : `row_${index + 1}`,
-                                value: formatValue(row[columns[1]?.name ?? firstColumn ?? 'value']),
-                            })),
-                            sections: [
-                                {
-                                    id: 'action-result',
-                                    title: 'Action result',
-                                    items: rows.slice(0, 5).map(
-                                        (row, index) =>
-                                            columns
-                                                .slice(0, 3)
-                                                .map(column => `${column.name}: ${formatValue(row[column.name])}`)
-                                                .join(' · ') || `row_${index + 1}`,
-                                    ),
-                                },
-                            ],
-                        };
+                        return summarizeActionResult({
+                            action: params.request.trigger.action!,
+                            title: params.request.trigger.action!.title,
+                            rows,
+                            columns,
+                        });
                     },
                     buildFollowups,
                 }),

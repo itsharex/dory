@@ -1364,6 +1364,7 @@
         },
         "Insights": {
             "Title": "Insights",
+            "Beta": "Beta",
             "Subtitle": "Una capa ligera de explicación para el resultado actual.",
             "Loading": "Analizando el resultado actual...",
             "Kinds": {
