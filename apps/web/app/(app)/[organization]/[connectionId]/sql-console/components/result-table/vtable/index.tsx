@@ -215,6 +215,7 @@ export default function VTable({
 
     const [sortBy, setSortBy] = useState<string | null>(initialSort?.column ?? null);
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(initialSort?.direction ?? 'asc');
+    const lastEmittedSortRef = useRef<{ column: string; direction: 'asc' | 'desc' } | null>(initialSort ?? null);
     const sortedResults = useMemo(() => {
         if (!sortBy) return filteredResults;
         const isNumericCol = numericColumns.has(sortBy);
@@ -314,11 +315,16 @@ export default function VTable({
     }, [onStatsChange, sortedResults.length, results]);
 
     useEffect(() => {
+        if (areSortStatesEqual(lastEmittedSortRef.current, initialSort)) {
+            return;
+        }
+
         if (!initialSort) {
             if (sortBy !== null) {
                 setSortBy(null);
                 setSortDirection('asc');
             }
+            lastEmittedSortRef.current = null;
             return;
         }
 
@@ -328,6 +334,7 @@ export default function VTable({
         if (sortDirection !== initialSort.direction) {
             setSortDirection(initialSort.direction);
         }
+        lastEmittedSortRef.current = initialSort;
     }, [initialSort, sortBy, sortDirection]);
 
     const handleSort = useCallback(
@@ -355,7 +362,6 @@ export default function VTable({
 
     const gridContainerRef = useRef<HTMLDivElement | null>(null);
     const gridRef = useRef<MultiGrid | null>(null);
-    const lastEmittedSortRef = useRef<{ column: string; direction: 'asc' | 'desc' } | null>(null);
     const lastEmittedSelectedRowsRef = useRef<number[]>(selectedRowIndexes ?? []);
 
     useEffect(() => {
