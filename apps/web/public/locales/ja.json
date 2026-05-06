@@ -1085,7 +1085,9 @@
             "ShortcutNewTab": "新しいタブ: Cmd/Ctrl+Option/Alt+L",
             "ShortcutToggleCopilot": "Copilot を開く: Cmd/Ctrl+I",
             "ShortcutFormat": "SQL を整形: Shift+Cmd/Ctrl+F",
-            "NewConsole": "新しいコンソール"
+            "NewConsole": "新しいコンソール",
+            "OrDivider": "または",
+            "AskAI": "AI に SQL 作成を依頼"
         },
         "Editor": {
             "NoActiveTab": "アクティブなタブがありません",
@@ -1366,7 +1368,47 @@
             "Title": "Insights",
             "Beta": "Beta",
             "Subtitle": "現在の結果セットを人向けに説明する軽量レイヤーです。",
-            "Loading": "現在の結果セットを解析しています...",
+            "Loading": {
+                "DurationHint": "通常 10 秒ほどかかります。完了すると自動で更新されます。",
+                "Scenarios": {
+                    "generic": {
+                        "Title": "結果を分析中...",
+                        "CheckingLabel": "確認中:",
+                        "Checks": {
+                            "First": "異常値の有無",
+                            "Second": "ロングテール分布",
+                            "Third": "構造的な問題"
+                        }
+                    },
+                    "logs": {
+                        "Title": "ログデータを分析中...",
+                        "CheckingLabel": "確認中:",
+                        "Checks": {
+                            "First": "エラーの集中",
+                            "Second": "応答時間の異常",
+                            "Third": "変動やスパイク"
+                        }
+                    },
+                    "metrics": {
+                        "Title": "データ分布を分析中...",
+                        "CheckingLabel": "確認中:",
+                        "Checks": {
+                            "First": "極端な値",
+                            "Second": "明確なセグメント",
+                            "Third": "平均値の代表性"
+                        }
+                    },
+                    "structure": {
+                        "Title": "データ構造を確認中...",
+                        "CheckingLabel": "分析中:",
+                        "Checks": {
+                            "First": "フィールド型と分布",
+                            "Second": "主要指標の候補",
+                            "Third": "利用できる分析経路"
+                        }
+                    }
+                }
+            },
             "Kinds": {
                 "SingleValue": "単一値",
                 "TimeSeries": "時系列",
@@ -1410,47 +1452,6 @@
                 "Empty": "まだ明確な傾向は見えていません。フィルタやチャートを試してください。",
                 "Refresh": "インサイトを更新"
             },
-            "Loading": {
-                "DurationHint": "通常 10 秒ほどかかります。完了すると自動で更新されます。",
-                "Scenarios": {
-                    "generic": {
-                        "Title": "結果を分析中...",
-                        "CheckingLabel": "確認中:",
-                        "Checks": {
-                            "First": "異常値の有無",
-                            "Second": "ロングテール分布",
-                            "Third": "構造的な問題"
-                        }
-                    },
-                    "logs": {
-                        "Title": "ログデータを分析中...",
-                        "CheckingLabel": "確認中:",
-                        "Checks": {
-                            "First": "エラーの集中",
-                            "Second": "応答時間の異常",
-                            "Third": "変動やスパイク"
-                        }
-                    },
-                    "metrics": {
-                        "Title": "データ分布を分析中...",
-                        "CheckingLabel": "確認中:",
-                        "Checks": {
-                            "First": "極端な値",
-                            "Second": "明確なセグメント",
-                            "Third": "平均値の代表性"
-                        }
-                    },
-                    "structure": {
-                        "Title": "データ構造を確認中...",
-                        "CheckingLabel": "分析中:",
-                        "Checks": {
-                            "First": "フィールド型と分布",
-                            "Second": "主要指標の候補",
-                            "Third": "利用できる分析経路"
-                        }
-                    }
-                }
-            },
             "Card": {
                 "CurrentResult": "現在の結果",
                 "OutlierHeadline": "警告: {column} に異常に高い値があります",
@@ -1462,6 +1463,19 @@
                 "LowInformationLine": "{count} rows が {value} に集中しているため（{share}）、このフィールドの分布分析には情報増分がありません。",
                 "DimensionHeadline": "警告: {column} は強く集中しています",
                 "DimensionLine": "{value} が支配的なセグメントとして目立ちます。"
+            },
+            "Decision": {
+                "OutlierTitle": "{column} の少数の高い値の行が結果全体を押し上げています",
+                "OutlierImpact": "先にそれらの行を確認しないと、平均ベースの分析は誤解を招く可能性があります。",
+                "RiskTitle": "{column} は集中したリスクセグメントを示しています",
+                "RiskImpact": "全体を要約する前に、次のステップでそのセグメントを切り出すべきです。",
+                "LowInformationTitle": "{column} は十分な分析シグナルを追加していません",
+                "LowInformationImpact": "このフィールドを続けても結果の説明にはつながりにくいため、より情報量の多いディメンションへ移ります。",
+                "ConcentrationTitle": "{column} が現在の結果を集中させています",
+                "ConcentrationImpact": "この集中はセグメント間の違いを隠すため、結論を出す前に分解して確認します。",
+                "TrendTitle": "{column} を次の時間軸チェックに使うべきです",
+                "TrendImpact": "トレンド表示により、結果が安定しているのか特定期間に左右されているのか確認できます。",
+                "DefaultImpact": "最初の推奨アクションを使い、この結果をより具体的な次の結果へ進めます。"
             },
             "Messages": {
                 "PrimaryCategory": "{column} は {value} が中心で、およそ {share} を占めます。",
@@ -1488,11 +1502,27 @@
             },
             "RecommendedActions": {
                 "SectionTitle": "Recommended Actions",
-                "Description": "ここから続けて分析できる方向です。"
+                "Description": "ここから続けて分析できる方向です。",
+                "FirstStep": "推奨される最初のステップ",
+                "Empty": "まだすぐ実行できるアクションはありません。"
+            },
+            "MainFinding": {
+                "Label": "主な発見",
+                "Recommendation": "推奨される次のステップ: 最も強いシグナルにまず注目します。",
+                "RecommendationWithAction": "推奨される次のステップ: {action}。",
+                "MeansLabel": "これは次を意味します:",
+                "PriorityHint": "推奨ステップ 1"
+            },
+            "Levels": {
+                "primary": "主要",
+                "secondary": "補助",
+                "info": "情報"
             },
             "Actions": {
                 "InspectOutliers": "異常サンプルを見る",
                 "InspectHighValueRows": "高い {column} の行を見る",
+                "FindHighestRows": "{column} が最も高い行を探す",
+                "LocateSlowRequests": "遅いリクエストを特定",
                 "AnalyzeSource": "原因を分析する",
                 "AnalyzeByColumn": "{column} で分析",
                 "ViewDistribution": "分布を見る",
@@ -1572,6 +1602,7 @@
                 "ApplyResult": "結果を適用",
                 "NoGeneratedSql": "この分析で生成された SQL はありません。",
                 "SqlCopied": "SQL をコピーしました。",
+                "LimitationsTitle": "制限",
                 "AiDecision": {
                     "DefaultLabel": "推奨分析を続ける",
                     "DefaultDescription": "AI が Profile から次の分析ステップを選びました。",
@@ -1626,6 +1657,12 @@
                     "AdjustQuery": "Adjust query",
                     "SummarizeLimitation": "Summarize limitation"
                 },
+                "FallbackActions": {
+                    "ViewTrendByColumn": "{column} のトレンドを見る",
+                    "AnalyzeByColumn": "{column} で分析",
+                    "ViewDistributionByColumn": "{column} の分布を見る",
+                    "InspectHighRowsByColumn": "{column} の高い値の行を確認"
+                },
                 "Server": {
                     "ContinueRecommendedAnalysis": "推奨分析を続ける",
                     "RunRecommendedAnalysis": "推奨分析を実行",
@@ -1648,7 +1685,67 @@
                         "InspectProfile": "Profile シグナルを読む",
                         "RunNextSql": "推奨 SQL を実行",
                         "SummarizeNextStep": "次の結果を要約"
-                    }
+                    },
+                    "ActionResultNoRowsLimitation": "The recommended action returned no analyzable result.",
+                    "ActionResultNoRowsSummary": "The recommended action returned no rows, so no next-step judgment can be formed.",
+                    "ActionDistributionSummary": "{column} ranges from {minValue} to {maxValue}, with an average of {avgValue}. Use this result to judge concentration, skew, or boundary outliers.",
+                    "ActionDistributionHeadline": "{column} distribution calculated",
+                    "ActionDistributionAverageFinding": "{column} average is {avgValue}",
+                    "ActionDistributionRangeFinding": "{column} ranges from {minValue} to {maxValue}",
+                    "ActionDistributionRowsFinding": "Statistics cover {totalRows} rows",
+                    "DistributionStatisticsTitle": "Distribution statistics",
+                    "FirstItem": "First item",
+                    "ActionLeaderSummaryWithValue": "The leading result for {title} is {leader}, with value {value}.",
+                    "ActionLeaderSummary": "The leading result for {title} is {leader}.",
+                    "ActionCompletedHeadline": "{title} completed",
+                    "ResultDetailsTitle": "Result details",
+                    "OutlierHeadlineWithValue": "Found {value} as the highest value",
+                    "OutlierHeadline": "Outlier samples located",
+                    "OutlierMaxFinding": "{column} highest value is {value}",
+                    "OutlierRowsReturnedFinding": "Highest-value samples returned",
+                    "OutlierRowsCountFinding": "Extracted {count} anomalous candidate rows",
+                    "NoOutlierRowsFinding": "No displayable anomalous samples were returned",
+                    "SourceHeadline": "Main source is {value}",
+                    "NoSourceHeadline": "No anomaly source found",
+                    "SourceTopFinding": "{value} has the highest row count at {count}",
+                    "SourceGroupsFinding": "Returned {count} source groups",
+                    "NoSourceGroupsFinding": "No usable source groups were returned",
+                    "ServiceHeadline": "{value} is the main anomaly source",
+                    "NoServiceHeadline": "No service source found",
+                    "ServiceTopFinding": "{value} has the highest total_rows",
+                    "ServiceSortedFinding": "Top {count} services sorted",
+                    "NoServiceGroupsFinding": "No service group results were returned",
+                    "DistributionHeadline": "Distribution maximum is {value}",
+                    "NoDistributionHeadline": "No distribution result generated",
+                    "DistributionRangeFinding": "Maximum {maxValue} is clearly above minimum {minValue}",
+                    "DistributionAverageFinding": "Average is about {avgValue}",
+                    "NoDistributionSummaryFinding": "No distribution summary was returned",
+                    "TrendHeadline": "Trend covers {count} time buckets",
+                    "NoTrendHeadline": "No trend data returned",
+                    "TrendBucketRangeFinding": "Starts at {first}, ends at {last}",
+                    "TrendPointCountFinding": "Returned {count} time points",
+                    "NoTrendDataFinding": "No trend data was returned",
+                    "FilteredHeadline": "Filtered {count} anomalous rows",
+                    "NoFilteredHeadline": "No rows matched the anomaly condition",
+                    "FilteredReadyFinding": "Anomaly subset is ready for continued analysis",
+                    "FilteredSizeFinding": "Current subset size is {count} rows",
+                    "NoFilteredRowsFinding": "No matching anomaly subset was returned",
+                    "LowVarianceLimitation": "{value} covers every returned row in the current result, so this field has no variance.",
+                    "LowVarianceSummary": "{count} / {total} rows are {value}. Continuing on this field adds no information gain; move to a richer participant, repository, or time dimension.",
+                    "LowVarianceHeadline": "Current result lacks field diversity",
+                    "LowVarianceAllRowsFinding": "{value} covers all returned rows",
+                    "LowVarianceNotUsefulFinding": "This field distribution is not useful as the next analysis target",
+                    "LowVarianceNextStepFinding": "Move directly to aggregation or time trend analysis",
+                    "NoTopValuesLimitation": "No top values were returned, so the distribution cannot be explained further.",
+                    "TopValueHeadline": "{value} is the most common value",
+                    "NoTopValuesHeadline": "No top values returned",
+                    "TopValueFinding": "Top value is {value}",
+                    "TopValueCountFinding": "Frequency is {count}",
+                    "NoTopValuesFinding": "No top values were returned",
+                    "PatternHeadline": "{value} remains the main group",
+                    "NoPatternHeadline": "No pattern comparison result returned",
+                    "PatternComparedFinding": "Pattern-related group comparison completed",
+                    "NoPatternRowsFinding": "No pattern comparison rows were returned"
                 },
                 "Kinds": {
                     "trend": "トレンド",
@@ -1710,7 +1807,9 @@
                     "TopMessages": "View top values",
                     "ViewDistribution": "View distribution",
                     "InspectOutliers": "View anomalous samples",
-                    "FilterOutliers": "Filter anomalous rows"
+                    "FilterOutliers": "Filter anomalous rows",
+                    "GroupByService": "{column} でグループ分析",
+                    "PatternFollowUp": "このパターンを追う"
                 },
                 "SuggestionTitles": {
                     "ViewTimeTrend": "Trend {column} over time",

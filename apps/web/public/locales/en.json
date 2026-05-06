@@ -1368,7 +1368,47 @@
             "Title": "Insights",
             "Beta": "Beta",
             "Subtitle": "A lightweight explanation layer for the current result set.",
-            "Loading": "Profiling the current result set...",
+            "Loading": {
+                "DurationHint": "This usually takes about 10 seconds. Results update automatically.",
+                "Scenarios": {
+                    "generic": {
+                        "Title": "Analyzing result...",
+                        "CheckingLabel": "Checking for:",
+                        "Checks": {
+                            "First": "Anomalous values",
+                            "Second": "Long-tail distributions",
+                            "Third": "Structural issues"
+                        }
+                    },
+                    "logs": {
+                        "Title": "Analyzing log data...",
+                        "CheckingLabel": "Checking for:",
+                        "Checks": {
+                            "First": "Concentrated errors",
+                            "Second": "Abnormal response times",
+                            "Third": "Volatility or spikes"
+                        }
+                    },
+                    "metrics": {
+                        "Title": "Analyzing data distribution...",
+                        "CheckingLabel": "Checking for:",
+                        "Checks": {
+                            "First": "Extreme values",
+                            "Second": "Clear segmentation",
+                            "Third": "Whether averages are representative"
+                        }
+                    },
+                    "structure": {
+                        "Title": "Understanding data structure...",
+                        "CheckingLabel": "Analyzing:",
+                        "Checks": {
+                            "First": "Field types and distributions",
+                            "Second": "Possible key metrics",
+                            "Third": "Available analysis paths"
+                        }
+                    }
+                }
+            },
             "Kinds": {
                 "SingleValue": "Single value",
                 "TimeSeries": "Time series",
@@ -1411,47 +1451,6 @@
                 "Description": "What is most worth checking first in this result.",
                 "Empty": "No clear pattern stands out yet. Try filtering or charting this result.",
                 "Refresh": "Refresh insights"
-            },
-            "Loading": {
-                "DurationHint": "This usually takes about 10 seconds. Results update automatically.",
-                "Scenarios": {
-                    "generic": {
-                        "Title": "Analyzing result...",
-                        "CheckingLabel": "Checking for:",
-                        "Checks": {
-                            "First": "Anomalous values",
-                            "Second": "Long-tail distributions",
-                            "Third": "Structural issues"
-                        }
-                    },
-                    "logs": {
-                        "Title": "Analyzing log data...",
-                        "CheckingLabel": "Checking for:",
-                        "Checks": {
-                            "First": "Concentrated errors",
-                            "Second": "Abnormal response times",
-                            "Third": "Volatility or spikes"
-                        }
-                    },
-                    "metrics": {
-                        "Title": "Analyzing data distribution...",
-                        "CheckingLabel": "Checking for:",
-                        "Checks": {
-                            "First": "Extreme values",
-                            "Second": "Clear segmentation",
-                            "Third": "Whether averages are representative"
-                        }
-                    },
-                    "structure": {
-                        "Title": "Understanding data structure...",
-                        "CheckingLabel": "Analyzing:",
-                        "Checks": {
-                            "First": "Field types and distributions",
-                            "Second": "Possible key metrics",
-                            "Third": "Available analysis paths"
-                        }
-                    }
-                }
             },
             "Card": {
                 "CurrentResult": "current result",
@@ -1603,6 +1602,7 @@
                 "ApplyResult": "Apply result",
                 "NoGeneratedSql": "No generated SQL is available for this analysis.",
                 "SqlCopied": "SQL copied.",
+                "LimitationsTitle": "Limitations",
                 "AiDecision": {
                     "DefaultLabel": "Continue recommended analysis",
                     "DefaultDescription": "AI selected the next analysis step from the Profile.",
@@ -1656,6 +1656,12 @@
                     "SummarizeAnalysis": "Summarize analysis",
                     "AdjustQuery": "Adjust query",
                     "SummarizeLimitation": "Summarize limitation"
+                },
+                "FallbackActions": {
+                    "ViewTrendByColumn": "View trend by {column}",
+                    "AnalyzeByColumn": "Analyze by {column}",
+                    "ViewDistributionByColumn": "View {column} distribution",
+                    "InspectHighRowsByColumn": "Inspect high {column} rows"
                 },
                 "SuggestionDescriptions": {
                     "ViewTimeTrend": "Break the result down over time to check whether it clusters in specific periods.",
@@ -1716,7 +1722,67 @@
                         "InspectProfile": "Read Profile signals",
                         "RunNextSql": "Run recommended SQL",
                         "SummarizeNextStep": "Summarize the next result"
-                    }
+                    },
+                    "ActionResultNoRowsLimitation": "The recommended action returned no analyzable result.",
+                    "ActionResultNoRowsSummary": "The recommended action returned no rows, so no next-step judgment can be formed.",
+                    "ActionDistributionSummary": "{column} ranges from {minValue} to {maxValue}, with an average of {avgValue}. Use this result to judge concentration, skew, or boundary outliers.",
+                    "ActionDistributionHeadline": "{column} distribution calculated",
+                    "ActionDistributionAverageFinding": "{column} average is {avgValue}",
+                    "ActionDistributionRangeFinding": "{column} ranges from {minValue} to {maxValue}",
+                    "ActionDistributionRowsFinding": "Statistics cover {totalRows} rows",
+                    "DistributionStatisticsTitle": "Distribution statistics",
+                    "FirstItem": "First item",
+                    "ActionLeaderSummaryWithValue": "The leading result for {title} is {leader}, with value {value}.",
+                    "ActionLeaderSummary": "The leading result for {title} is {leader}.",
+                    "ActionCompletedHeadline": "{title} completed",
+                    "ResultDetailsTitle": "Result details",
+                    "OutlierHeadlineWithValue": "Found {value} as the highest value",
+                    "OutlierHeadline": "Outlier samples located",
+                    "OutlierMaxFinding": "{column} highest value is {value}",
+                    "OutlierRowsReturnedFinding": "Highest-value samples returned",
+                    "OutlierRowsCountFinding": "Extracted {count} anomalous candidate rows",
+                    "NoOutlierRowsFinding": "No displayable anomalous samples were returned",
+                    "SourceHeadline": "Main source is {value}",
+                    "NoSourceHeadline": "No anomaly source found",
+                    "SourceTopFinding": "{value} has the highest row count at {count}",
+                    "SourceGroupsFinding": "Returned {count} source groups",
+                    "NoSourceGroupsFinding": "No usable source groups were returned",
+                    "ServiceHeadline": "{value} is the main anomaly source",
+                    "NoServiceHeadline": "No service source found",
+                    "ServiceTopFinding": "{value} has the highest total_rows",
+                    "ServiceSortedFinding": "Top {count} services sorted",
+                    "NoServiceGroupsFinding": "No service group results were returned",
+                    "DistributionHeadline": "Distribution maximum is {value}",
+                    "NoDistributionHeadline": "No distribution result generated",
+                    "DistributionRangeFinding": "Maximum {maxValue} is clearly above minimum {minValue}",
+                    "DistributionAverageFinding": "Average is about {avgValue}",
+                    "NoDistributionSummaryFinding": "No distribution summary was returned",
+                    "TrendHeadline": "Trend covers {count} time buckets",
+                    "NoTrendHeadline": "No trend data returned",
+                    "TrendBucketRangeFinding": "Starts at {first}, ends at {last}",
+                    "TrendPointCountFinding": "Returned {count} time points",
+                    "NoTrendDataFinding": "No trend data was returned",
+                    "FilteredHeadline": "Filtered {count} anomalous rows",
+                    "NoFilteredHeadline": "No rows matched the anomaly condition",
+                    "FilteredReadyFinding": "Anomaly subset is ready for continued analysis",
+                    "FilteredSizeFinding": "Current subset size is {count} rows",
+                    "NoFilteredRowsFinding": "No matching anomaly subset was returned",
+                    "LowVarianceLimitation": "{value} covers every returned row in the current result, so this field has no variance.",
+                    "LowVarianceSummary": "{count} / {total} rows are {value}. Continuing on this field adds no information gain; move to a richer participant, repository, or time dimension.",
+                    "LowVarianceHeadline": "Current result lacks field diversity",
+                    "LowVarianceAllRowsFinding": "{value} covers all returned rows",
+                    "LowVarianceNotUsefulFinding": "This field distribution is not useful as the next analysis target",
+                    "LowVarianceNextStepFinding": "Move directly to aggregation or time trend analysis",
+                    "NoTopValuesLimitation": "No top values were returned, so the distribution cannot be explained further.",
+                    "TopValueHeadline": "{value} is the most common value",
+                    "NoTopValuesHeadline": "No top values returned",
+                    "TopValueFinding": "Top value is {value}",
+                    "TopValueCountFinding": "Frequency is {count}",
+                    "NoTopValuesFinding": "No top values were returned",
+                    "PatternHeadline": "{value} remains the main group",
+                    "NoPatternHeadline": "No pattern comparison result returned",
+                    "PatternComparedFinding": "Pattern-related group comparison completed",
+                    "NoPatternRowsFinding": "No pattern comparison rows were returned"
                 },
                 "Kinds": {
                     "trend": "Trend",
@@ -1741,7 +1807,9 @@
                     "TopMessages": "View top values",
                     "ViewDistribution": "Inspect amount distribution",
                     "InspectOutliers": "Inspect high-value rows",
-                    "FilterOutliers": "Exclude anomalous rows"
+                    "FilterOutliers": "Exclude anomalous rows",
+                    "GroupByService": "Group by {column}",
+                    "PatternFollowUp": "Follow up on this pattern"
                 },
                 "SuggestionTitles": {
                     "ViewTimeTrend": "Inspect {column} trend",

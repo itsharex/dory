@@ -1,9 +1,10 @@
 import { z } from 'zod';
 import { withUserAndOrganizationHandler } from '@/app/api/utils/with-organization-handler';
-import { getApiLocale } from '@/app/api/utils/i18n';
+import { getApiLocale, translateApi } from '@/app/api/utils/i18n';
 import { proxyAiRouteIfNeeded } from '@/app/api/utils/cloud-ai-proxy';
 import { buildResultInsightsPrompt } from '@/lib/ai/prompts';
 import { runLLMJson } from '@/lib/copilot/action/server/llm-json';
+import type { Locale } from '@/lib/i18n/routing';
 
 export const runtime = 'nodejs';
 
@@ -237,8 +238,16 @@ function mergePrimaryAction(
     return normalizeRecommendedActions(merged).slice(0, 3);
 }
 
-function title(locale: string, zh: string, en: string) {
-    return locale.toLowerCase().startsWith('zh') ? zh : en;
+function normalizeLocale(locale: string): Locale {
+    const normalized = locale.toLowerCase();
+    if (normalized.startsWith('zh')) return 'zh';
+    if (normalized.startsWith('ja')) return 'ja';
+    if (normalized.startsWith('es')) return 'es';
+    return 'en';
+}
+
+function fallbackActionTitle(locale: string, key: string, values: Record<string, unknown>) {
+    return translateApi(`SqlConsole.Insights.Analysis.FallbackActions.${key}`, values, normalizeLocale(locale));
 }
 
 function buildFallbackRecommendedActions(payload: z.infer<typeof requestSchema>, allowedColumns: Set<string>) {
@@ -260,7 +269,7 @@ function buildFallbackRecommendedActions(payload: z.infer<typeof requestSchema>,
     if (timeColumn) {
         actions.push({
             type: 'trend',
-            title: title(locale, `查看 ${timeColumn} 趋势`, `View trend by ${timeColumn}`),
+            title: fallbackActionTitle(locale, 'ViewTrendByColumn', { column: timeColumn }),
             params: {
                 timeColumn,
                 measure: primaryMeasure
@@ -277,7 +286,7 @@ function buildFallbackRecommendedActions(payload: z.infer<typeof requestSchema>,
     if (primaryDimension) {
         actions.push({
             type: 'group',
-            title: title(locale, `按 ${primaryDimension} 分组分析`, `Analyze by ${primaryDimension}`),
+            title: fallbackActionTitle(locale, 'AnalyzeByColumn', { column: primaryDimension }),
             params: {
                 dimensions: [primaryDimension],
                 measure: primaryMeasure
@@ -294,7 +303,7 @@ function buildFallbackRecommendedActions(payload: z.infer<typeof requestSchema>,
     if (primaryMeasure) {
         actions.push({
             type: 'distribution',
-            title: title(locale, `查看 ${primaryMeasure} 分布`, `View ${primaryMeasure} distribution`),
+            title: fallbackActionTitle(locale, 'ViewDistributionByColumn', { column: primaryMeasure }),
             params: {
                 column: primaryMeasure,
             },
@@ -304,7 +313,7 @@ function buildFallbackRecommendedActions(payload: z.infer<typeof requestSchema>,
     if (outlierColumn && typeof outlierValue === 'number' && Number.isFinite(outlierValue) && (!allowedColumns.size || allowedColumns.has(outlierColumn))) {
         actions.push({
             type: 'filter',
-            title: title(locale, `检查 ${outlierColumn} 高值行`, `Inspect high ${outlierColumn} rows`),
+            title: fallbackActionTitle(locale, 'InspectHighRowsByColumn', { column: outlierColumn }),
             params: {
                 column: outlierColumn,
                 operator: '>',

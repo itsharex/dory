@@ -1370,7 +1370,47 @@
             "Title": "洞察",
             "Beta": "Beta",
             "Subtitle": "面向当前结果集的轻量解释层。",
-            "Loading": "正在分析当前结果集...",
+            "Loading": {
+                "DurationHint": "通常需要约 10 秒，完成后会自动更新。",
+                "Scenarios": {
+                    "generic": {
+                        "Title": "正在分析结果...",
+                        "CheckingLabel": "我们正在检测：",
+                        "Checks": {
+                            "First": "是否存在异常值",
+                            "Second": "是否存在长尾分布",
+                            "Third": "是否存在结构性问题"
+                        }
+                    },
+                    "logs": {
+                        "Title": "正在分析日志数据...",
+                        "CheckingLabel": "我们正在检测：",
+                        "Checks": {
+                            "First": "错误日志是否集中",
+                            "Second": "响应时间是否异常",
+                            "Third": "是否存在波动或突刺"
+                        }
+                    },
+                    "metrics": {
+                        "Title": "正在分析数据分布...",
+                        "CheckingLabel": "我们正在检测：",
+                        "Checks": {
+                            "First": "是否存在极端值",
+                            "Second": "是否存在明显分层",
+                            "Third": "平均值是否具有代表性"
+                        }
+                    },
+                    "structure": {
+                        "Title": "正在理解数据结构...",
+                        "CheckingLabel": "我们正在分析：",
+                        "Checks": {
+                            "First": "字段类型与分布",
+                            "Second": "可能的关键指标",
+                            "Third": "可用的分析路径"
+                        }
+                    }
+                }
+            },
             "Kinds": {
                 "SingleValue": "单值结果",
                 "TimeSeries": "时间序列",
@@ -1413,47 +1453,6 @@
                 "Description": "这次结果里最值得先看的点。",
                 "Empty": "暂时没有特别明显的模式，可以先试试筛选或图表。",
                 "Refresh": "刷新洞察"
-            },
-            "Loading": {
-                "DurationHint": "通常需要约 10 秒，完成后会自动更新。",
-                "Scenarios": {
-                    "generic": {
-                        "Title": "正在分析结果...",
-                        "CheckingLabel": "我们正在检测：",
-                        "Checks": {
-                            "First": "是否存在异常值",
-                            "Second": "是否存在长尾分布",
-                            "Third": "是否存在结构性问题"
-                        }
-                    },
-                    "logs": {
-                        "Title": "正在分析日志数据...",
-                        "CheckingLabel": "我们正在检测：",
-                        "Checks": {
-                            "First": "错误日志是否集中",
-                            "Second": "响应时间是否异常",
-                            "Third": "是否存在波动或突刺"
-                        }
-                    },
-                    "metrics": {
-                        "Title": "正在分析数据分布...",
-                        "CheckingLabel": "我们正在检测：",
-                        "Checks": {
-                            "First": "是否存在极端值",
-                            "Second": "是否存在明显分层",
-                            "Third": "平均值是否具有代表性"
-                        }
-                    },
-                    "structure": {
-                        "Title": "正在理解数据结构...",
-                        "CheckingLabel": "我们正在分析：",
-                        "Checks": {
-                            "First": "字段类型与分布",
-                            "Second": "可能的关键指标",
-                            "Third": "可用的分析路径"
-                        }
-                    }
-                }
             },
             "Card": {
                 "CurrentResult": "当前结果",
@@ -1605,6 +1604,7 @@
                 "ApplyResult": "应用结果",
                 "NoGeneratedSql": "这次分析没有生成 SQL。",
                 "SqlCopied": "SQL 已复制。",
+                "LimitationsTitle": "限制",
                 "AiDecision": {
                     "DefaultLabel": "继续推荐分析",
                     "DefaultDescription": "AI 已基于 Profile 选择下一步分析。",
@@ -1658,6 +1658,12 @@
                     "SummarizeAnalysis": "生成分析结论",
                     "AdjustQuery": "调整查询",
                     "SummarizeLimitation": "说明限制"
+                },
+                "FallbackActions": {
+                    "ViewTrendByColumn": "查看 {column} 趋势",
+                    "AnalyzeByColumn": "按 {column} 分组分析",
+                    "ViewDistributionByColumn": "查看 {column} 分布",
+                    "InspectHighRowsByColumn": "检查 {column} 高值行"
                 },
                 "SuggestionDescriptions": {
                     "ViewTimeTrend": "按时间拆解当前结果，确认是否集中在某些时段。",
@@ -1718,7 +1724,67 @@
                         "InspectProfile": "读取 Profile 信号",
                         "RunNextSql": "执行推荐 SQL",
                         "SummarizeNextStep": "生成下一步结论"
-                    }
+                    },
+                    "ActionResultNoRowsLimitation": "推荐操作没有返回可分析结果。",
+                    "ActionResultNoRowsSummary": "推荐操作没有返回结果，无法形成下一步判断。",
+                    "ActionDistributionSummary": "{column} 的分布范围是 {minValue} 到 {maxValue}，平均值为 {avgValue}。这个结果用于判断该字段是否集中、偏斜或存在异常边界。",
+                    "ActionDistributionHeadline": "{column} 分布已计算",
+                    "ActionDistributionAverageFinding": "{column} 平均值为 {avgValue}",
+                    "ActionDistributionRangeFinding": "{column} 范围为 {minValue} 到 {maxValue}",
+                    "ActionDistributionRowsFinding": "统计覆盖 {totalRows} 行",
+                    "DistributionStatisticsTitle": "分布统计",
+                    "FirstItem": "第一项",
+                    "ActionLeaderSummaryWithValue": "{title} 的首要结果是 {leader}，对应数值为 {value}。",
+                    "ActionLeaderSummary": "{title} 的首要结果是 {leader}。",
+                    "ActionCompletedHeadline": "{title} 已完成",
+                    "ResultDetailsTitle": "结果明细",
+                    "OutlierHeadlineWithValue": "发现 {value} 为最高值",
+                    "OutlierHeadline": "已定位异常样本",
+                    "OutlierMaxFinding": "{column} 的最高值为 {value}",
+                    "OutlierRowsReturnedFinding": "已返回最高值样本",
+                    "OutlierRowsCountFinding": "共提取 {count} 行异常候选样本",
+                    "NoOutlierRowsFinding": "没有返回可展示的异常样本",
+                    "SourceHeadline": "主要来源为 {value}",
+                    "NoSourceHeadline": "未找到异常来源",
+                    "SourceTopFinding": "{value} 的行数最高，为 {count}",
+                    "SourceGroupsFinding": "已返回 {count} 个来源分组",
+                    "NoSourceGroupsFinding": "未返回可用的来源分组",
+                    "ServiceHeadline": "{value} 是主要异常来源",
+                    "NoServiceHeadline": "未找到 service 来源",
+                    "ServiceTopFinding": "{value} 的 total_rows 最高",
+                    "ServiceSortedFinding": "前 {count} 个 service 已完成排序",
+                    "NoServiceGroupsFinding": "没有返回 service 分组结果",
+                    "DistributionHeadline": "分布最高值为 {value}",
+                    "NoDistributionHeadline": "未生成分布结果",
+                    "DistributionRangeFinding": "最大值 {maxValue} 明显高于最小值 {minValue}",
+                    "DistributionAverageFinding": "平均值约为 {avgValue}",
+                    "NoDistributionSummaryFinding": "没有返回分布摘要",
+                    "TrendHeadline": "趋势覆盖 {count} 个时间分桶",
+                    "NoTrendHeadline": "未返回趋势数据",
+                    "TrendBucketRangeFinding": "起始分桶 {first}，结束分桶 {last}",
+                    "TrendPointCountFinding": "已返回 {count} 个时间点",
+                    "NoTrendDataFinding": "没有返回趋势数据",
+                    "FilteredHeadline": "已过滤出 {count} 行异常数据",
+                    "NoFilteredHeadline": "没有符合条件的异常数据",
+                    "FilteredReadyFinding": "异常子集已准备好用于继续分析",
+                    "FilteredSizeFinding": "当前子集大小为 {count} 行",
+                    "NoFilteredRowsFinding": "没有返回符合条件的异常子集",
+                    "LowVarianceLimitation": "{value} 覆盖当前结果的全部返回行，该字段没有区分度。",
+                    "LowVarianceSummary": "{count} / {total} 行都是 {value}，继续分析这个字段没有信息增益。建议转向更有区分度的参与者、仓库或时间维度。",
+                    "LowVarianceHeadline": "当前结果缺少字段多样性",
+                    "LowVarianceAllRowsFinding": "{value} 覆盖全部返回行",
+                    "LowVarianceNotUsefulFinding": "该字段分布不适合作为继续分析目标",
+                    "LowVarianceNextStepFinding": "建议直接进入聚合或时间趋势分析",
+                    "NoTopValuesLimitation": "没有返回高频值，无法继续解释分布。",
+                    "TopValueHeadline": "{value} 是最常见的值",
+                    "NoTopValuesHeadline": "未返回高频值",
+                    "TopValueFinding": "最高频值为 {value}",
+                    "TopValueCountFinding": "频次为 {count}",
+                    "NoTopValuesFinding": "没有返回高频值",
+                    "PatternHeadline": "{value} 仍然是主要分组",
+                    "NoPatternHeadline": "未返回模式对比结果",
+                    "PatternComparedFinding": "已完成模式相关分组对比",
+                    "NoPatternRowsFinding": "没有返回模式对比结果"
                 },
                 "Kinds": {
                     "trend": "趋势",
@@ -1743,7 +1809,9 @@
                     "TopMessages": "看哪些内容最多",
                     "ViewDistribution": "查看金额分布",
                     "InspectOutliers": "查看高值记录",
-                    "FilterOutliers": "排除异常订单"
+                    "FilterOutliers": "排除异常订单",
+                    "GroupByService": "按 {column} 分组分析",
+                    "PatternFollowUp": "继续分析这个模式"
                 },
                 "SuggestionTitles": {
                     "ViewTimeTrend": "查看 {column} 趋势",
