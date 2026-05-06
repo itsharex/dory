@@ -15,7 +15,7 @@ import {
     DropdownMenuTrigger,
 } from '@/registry/new-york-v4/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/registry/new-york-v4/ui/tooltip';
-import { Copy, Download, EllipsisVertical, FileImage, RotateCcw, Settings2 } from 'lucide-react';
+import { CircleDotDashed, Copy, Download, EllipsisVertical, FileImage, RotateCcw, Settings2 } from 'lucide-react';
 
 import { ComboboxSubmenu, type ComboboxSubmenuGroup, type ComboboxSubmenuOption } from '@/components/ui/combobox-submenu';
 import { ChartCombobox, ChartSelect, type ChartState, type MetricOption, NONE_VALUE } from './chart-shared';
@@ -120,50 +120,18 @@ export function ChartControlBar(props: {
                     ) : null}
                 </div>
                 <TooltipProvider delayDuration={150}>
-                    <DropdownMenu>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        type="button"
-                                        size="icon"
-                                        variant="ghost"
-                                        aria-label="More chart actions"
-                                        className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground"
-                                    >
-                                        <EllipsisVertical className="h-3.5 w-3.5" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                            </TooltipTrigger>
-                            <TooltipContent side="top">More</TooltipContent>
-                        </Tooltip>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuSub>
-                                <DropdownMenuSubTrigger>
-                                    <Download />
-                                    Download
-                                </DropdownMenuSubTrigger>
-                                <DropdownMenuSubContent>
-                                    <DropdownMenuItem onSelect={onCopyPng} disabled={!canExportChart}>
-                                        <Copy />
-                                        Copy PNG
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={onExportPng} disabled={!canExportChart}>
-                                        <FileImage />
-                                        PNG
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={onExportSvg} disabled={!canExportChart}>
-                                        <FileImage />
-                                        SVG
-                                    </DropdownMenuItem>
-                                </DropdownMenuSubContent>
-                            </DropdownMenuSub>
-                            <DropdownMenuItem onSelect={onResetAuto} disabled={chartStateIsAuto}>
-                                <RotateCcw />
-                                Reset chart
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <span
+                                aria-label={bucketHint ? 'Auto-bucketed enabled' : 'Auto-bucketed disabled'}
+                                className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground/45', bucketHint && 'text-muted-foreground/65')}
+                                role="status"
+                            >
+                                <CircleDotDashed className="h-3.5 w-3.5" />
+                            </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">{bucketHint ?? 'Auto-bucketed disabled'}</TooltipContent>
+                    </Tooltip>
                     <Popover>
                         <Tooltip>
                             <TooltipTrigger asChild>
@@ -227,9 +195,52 @@ export function ChartControlBar(props: {
                             </div>
                         </PopoverContent>
                     </Popover>
+                    <DropdownMenu>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        type="button"
+                                        size="icon"
+                                        variant="ghost"
+                                        aria-label="More chart actions"
+                                        className="h-7 w-7 cursor-pointer text-muted-foreground hover:text-foreground"
+                                    >
+                                        <EllipsisVertical className="h-3.5 w-3.5" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="top">More</TooltipContent>
+                        </Tooltip>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuSub>
+                                <DropdownMenuSubTrigger>
+                                    <Download />
+                                    Download
+                                </DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent>
+                                    <DropdownMenuItem onSelect={onCopyPng} disabled={!canExportChart}>
+                                        <Copy />
+                                        Copy PNG
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={onExportPng} disabled={!canExportChart}>
+                                        <FileImage />
+                                        PNG
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={onExportSvg} disabled={!canExportChart}>
+                                        <FileImage />
+                                        SVG
+                                    </DropdownMenuItem>
+                                </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                            <DropdownMenuItem onSelect={onResetAuto} disabled={chartStateIsAuto}>
+                                <RotateCcw />
+                                Reset chart
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </TooltipProvider>
             </div>
-            {bucketHint ? <div className="mt-1 text-center text-[11px] leading-tight text-muted-foreground/50">{bucketHint}</div> : null}
         </div>
     );
 }
