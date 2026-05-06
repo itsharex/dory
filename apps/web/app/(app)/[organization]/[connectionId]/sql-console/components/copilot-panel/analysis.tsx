@@ -82,13 +82,13 @@ function RecordHighlightList(props: { records: NonNullable<AnalysisSession['outc
     );
 }
 
-function LimitationList(props: { limitations?: string[] }) {
+function LimitationList(props: { limitations?: string[]; t: ReturnType<typeof useTranslations> }) {
     const limitations = props.limitations ?? [];
     if (!limitations.length) return null;
 
     return (
         <div className="space-y-2">
-            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">Limitations</div>
+            <div className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted-foreground">{props.t('Insights.Analysis.LimitationsTitle')}</div>
             <div className="space-y-2">
                 {limitations.map(item => (
                     <div key={item} className="rounded-lg border bg-muted/30 px-3 py-2 text-sm leading-relaxed text-foreground">
@@ -228,9 +228,15 @@ function dedupeAnalysisSuggestions(suggestions: AnalysisSuggestion[]) {
     });
 }
 
-function suggestionFromPendingRequest(params: { requestId: string; suggestionId: string; action?: AnalysisSuggestion['action']; sqlPreview?: string }): AnalysisSuggestion | null {
+function suggestionFromPendingRequest(params: {
+    requestId: string;
+    suggestionId: string;
+    action?: AnalysisSuggestion['action'];
+    sqlPreview?: string;
+    t: ReturnType<typeof useTranslations>;
+}): AnalysisSuggestion | null {
     if (!params.action && !params.sqlPreview?.trim()) return null;
-    const title = params.action?.title ?? '继续分析';
+    const title = params.action?.title ?? params.t('Insights.Analysis.AiDecision.DefaultLabel');
 
     return {
         id: params.suggestionId,
@@ -241,9 +247,9 @@ function suggestionFromPendingRequest(params: { requestId: string; suggestionId:
         goal: title,
         resultTitle: title,
         stepTemplates: [
-            { id: `${params.requestId}-inspect-profile`, title: '读取 Profile 信号' },
-            { id: `${params.requestId}-run-next-sql`, title: '执行推荐 SQL' },
-            { id: `${params.requestId}-summarize-next-step`, title: '生成下一步结论' },
+            { id: `${params.requestId}-inspect-profile`, title: params.t('Insights.Analysis.Steps.InspectProfile') },
+            { id: `${params.requestId}-run-next-sql`, title: params.t('Insights.Analysis.Steps.RunNextSql') },
+            { id: `${params.requestId}-summarize-next-step`, title: params.t('Insights.Analysis.Steps.SummarizeNextStep') },
         ],
         followupPolicy: 'chain',
         intent: {
@@ -716,6 +722,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                 suggestionId: analysisRequest.suggestionId,
                 action: analysisRequest.action,
                 sqlPreview: analysisRequest.sqlPreview,
+                t,
             });
         if (!suggestion) {
             setAnalysisRequest(null);
@@ -806,7 +813,7 @@ export default function AnalysisActions(props: AnalysisActionsProps) {
                             <div className="rounded-lg border bg-background px-4 py-3">
                                 {selectedSession.outcome ? (
                                     <div className="space-y-4">
-                                        <LimitationList limitations={selectedSession.outcome.limitations} />
+                                        <LimitationList limitations={selectedSession.outcome.limitations} t={t} />
 
                                         <KeyFindingList findings={selectedSession.outcome.keyFindings} t={t} />
 

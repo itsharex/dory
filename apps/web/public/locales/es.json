@@ -1085,7 +1085,9 @@
             "ShortcutNewTab": "Nueva pestaña: Cmd/Ctrl+Option/Alt+L",
             "ShortcutToggleCopilot": "Abrir Copilot: Cmd/Ctrl+I",
             "ShortcutFormat": "Formatear SQL: Shift+Cmd/Ctrl+F",
-            "NewConsole": "Nueva consola"
+            "NewConsole": "Nueva consola",
+            "OrDivider": "o",
+            "AskAI": "Pedir a la IA que escriba SQL"
         },
         "Editor": {
             "NoActiveTab": "No hay pestaña activa",
@@ -1366,7 +1368,47 @@
             "Title": "Insights",
             "Beta": "Beta",
             "Subtitle": "Una capa ligera de explicación para el resultado actual.",
-            "Loading": "Analizando el resultado actual...",
+            "Loading": {
+                "DurationHint": "Suele tardar unos 10 segundos. El resultado se actualiza automáticamente.",
+                "Scenarios": {
+                    "generic": {
+                        "Title": "Analizando resultado...",
+                        "CheckingLabel": "Estamos revisando:",
+                        "Checks": {
+                            "First": "Valores anómalos",
+                            "Second": "Distribuciones de cola larga",
+                            "Third": "Problemas estructurales"
+                        }
+                    },
+                    "logs": {
+                        "Title": "Analizando datos de logs...",
+                        "CheckingLabel": "Estamos revisando:",
+                        "Checks": {
+                            "First": "Errores concentrados",
+                            "Second": "Tiempos de respuesta anómalos",
+                            "Third": "Volatilidad o picos"
+                        }
+                    },
+                    "metrics": {
+                        "Title": "Analizando distribución de datos...",
+                        "CheckingLabel": "Estamos revisando:",
+                        "Checks": {
+                            "First": "Valores extremos",
+                            "Second": "Segmentación clara",
+                            "Third": "Si el promedio representa bien"
+                        }
+                    },
+                    "structure": {
+                        "Title": "Entendiendo la estructura de datos...",
+                        "CheckingLabel": "Estamos analizando:",
+                        "Checks": {
+                            "First": "Tipos de campos y distribuciones",
+                            "Second": "Posibles métricas clave",
+                            "Third": "Rutas de análisis disponibles"
+                        }
+                    }
+                }
+            },
             "Kinds": {
                 "SingleValue": "Valor único",
                 "TimeSeries": "Serie temporal",
@@ -1410,47 +1452,6 @@
                 "Empty": "Aún no destaca un patrón claro. Prueba con filtros o gráficos.",
                 "Refresh": "Actualizar insights"
             },
-            "Loading": {
-                "DurationHint": "Suele tardar unos 10 segundos. El resultado se actualiza automáticamente.",
-                "Scenarios": {
-                    "generic": {
-                        "Title": "Analizando resultado...",
-                        "CheckingLabel": "Estamos revisando:",
-                        "Checks": {
-                            "First": "Valores anómalos",
-                            "Second": "Distribuciones de cola larga",
-                            "Third": "Problemas estructurales"
-                        }
-                    },
-                    "logs": {
-                        "Title": "Analizando datos de logs...",
-                        "CheckingLabel": "Estamos revisando:",
-                        "Checks": {
-                            "First": "Errores concentrados",
-                            "Second": "Tiempos de respuesta anómalos",
-                            "Third": "Volatilidad o picos"
-                        }
-                    },
-                    "metrics": {
-                        "Title": "Analizando distribución de datos...",
-                        "CheckingLabel": "Estamos revisando:",
-                        "Checks": {
-                            "First": "Valores extremos",
-                            "Second": "Segmentación clara",
-                            "Third": "Si el promedio representa bien"
-                        }
-                    },
-                    "structure": {
-                        "Title": "Entendiendo la estructura de datos...",
-                        "CheckingLabel": "Estamos analizando:",
-                        "Checks": {
-                            "First": "Tipos de campos y distribuciones",
-                            "Second": "Posibles métricas clave",
-                            "Third": "Rutas de análisis disponibles"
-                        }
-                    }
-                }
-            },
             "Card": {
                 "CurrentResult": "resultado actual",
                 "OutlierHeadline": "Advertencia: {column} tiene valores inusualmente altos",
@@ -1462,6 +1463,19 @@
                 "LowInformationLine": "{count} filas se concentran en {value} ({share}), así que este campo no aporta información para analizar distribución.",
                 "DimensionHeadline": "Advertencia: {column} está muy concentrada",
                 "DimensionLine": "{value} destaca como el segmento dominante."
+            },
+            "Decision": {
+                "OutlierTitle": "Un pequeño conjunto de filas altas en {column} está elevando el resultado",
+                "OutlierImpact": "El análisis basado en promedios puede ser engañoso si no revisas esas filas primero.",
+                "RiskTitle": "{column} apunta a un segmento de riesgo concentrado",
+                "RiskImpact": "El siguiente paso debería aislar ese segmento antes de resumir todo el resultado.",
+                "LowInformationTitle": "{column} no aporta suficiente señal analítica",
+                "LowInformationImpact": "Seguir con este campo no explicará el resultado; cambia a una dimensión más rica.",
+                "ConcentrationTitle": "{column} está concentrando el resultado actual",
+                "ConcentrationImpact": "Esta concentración puede ocultar diferencias entre segmentos; conviene desglosarla antes de concluir.",
+                "TrendTitle": "{column} debería guiar la siguiente revisión temporal",
+                "TrendImpact": "Una vista de tendencia puede mostrar si el resultado es estable o depende de un periodo concreto.",
+                "DefaultImpact": "Usa la primera acción recomendada para convertir este resultado en un siguiente resultado más preciso."
             },
             "Messages": {
                 "PrimaryCategory": "{column} está dominada por {value}, con cerca de {share}.",
@@ -1488,11 +1502,27 @@
             },
             "RecommendedActions": {
                 "SectionTitle": "Recommended Actions",
-                "Description": "Direcciones para seguir analizando desde aquí."
+                "Description": "Direcciones para seguir analizando desde aquí.",
+                "FirstStep": "Primer paso sugerido",
+                "Empty": "Aún no hay una acción lista para ejecutar."
+            },
+            "MainFinding": {
+                "Label": "Hallazgo principal",
+                "Recommendation": "Siguiente paso recomendado: enfocarse primero en la señal más fuerte.",
+                "RecommendationWithAction": "Siguiente paso recomendado: {action}.",
+                "MeansLabel": "Esto significa:",
+                "PriorityHint": "Paso recomendado 1"
+            },
+            "Levels": {
+                "primary": "Principal",
+                "secondary": "Secundario",
+                "info": "Información"
             },
             "Actions": {
                 "InspectOutliers": "Ver muestras anómalas",
                 "InspectHighValueRows": "Ver filas altas de {column}",
+                "FindHighestRows": "Encontrar las filas más altas de {column}",
+                "LocateSlowRequests": "Localizar solicitudes lentas",
                 "AnalyzeSource": "Analizar origen",
                 "AnalyzeByColumn": "Analizar por {column}",
                 "ViewDistribution": "Ver distribución",
@@ -1572,6 +1602,7 @@
                 "ApplyResult": "Aplicar resultado",
                 "NoGeneratedSql": "No hay SQL generado para este análisis.",
                 "SqlCopied": "SQL copiado.",
+                "LimitationsTitle": "Limitaciones",
                 "AiDecision": {
                     "DefaultLabel": "Continuar análisis recomendado",
                     "DefaultDescription": "La IA eligió el siguiente paso de análisis a partir del Profile.",
@@ -1626,6 +1657,12 @@
                     "AdjustQuery": "Adjust query",
                     "SummarizeLimitation": "Summarize limitation"
                 },
+                "FallbackActions": {
+                    "ViewTrendByColumn": "Ver tendencia por {column}",
+                    "AnalyzeByColumn": "Analizar por {column}",
+                    "ViewDistributionByColumn": "Ver distribución de {column}",
+                    "InspectHighRowsByColumn": "Revisar filas altas de {column}"
+                },
                 "Server": {
                     "ContinueRecommendedAnalysis": "Continuar análisis recomendado",
                     "RunRecommendedAnalysis": "Ejecutar análisis recomendado",
@@ -1648,7 +1685,67 @@
                         "InspectProfile": "Leer señales del Profile",
                         "RunNextSql": "Ejecutar SQL recomendado",
                         "SummarizeNextStep": "Resumir el siguiente resultado"
-                    }
+                    },
+                    "ActionResultNoRowsLimitation": "The recommended action returned no analyzable result.",
+                    "ActionResultNoRowsSummary": "The recommended action returned no rows, so no next-step judgment can be formed.",
+                    "ActionDistributionSummary": "{column} ranges from {minValue} to {maxValue}, with an average of {avgValue}. Use this result to judge concentration, skew, or boundary outliers.",
+                    "ActionDistributionHeadline": "{column} distribution calculated",
+                    "ActionDistributionAverageFinding": "{column} average is {avgValue}",
+                    "ActionDistributionRangeFinding": "{column} ranges from {minValue} to {maxValue}",
+                    "ActionDistributionRowsFinding": "Statistics cover {totalRows} rows",
+                    "DistributionStatisticsTitle": "Distribution statistics",
+                    "FirstItem": "First item",
+                    "ActionLeaderSummaryWithValue": "The leading result for {title} is {leader}, with value {value}.",
+                    "ActionLeaderSummary": "The leading result for {title} is {leader}.",
+                    "ActionCompletedHeadline": "{title} completed",
+                    "ResultDetailsTitle": "Result details",
+                    "OutlierHeadlineWithValue": "Found {value} as the highest value",
+                    "OutlierHeadline": "Outlier samples located",
+                    "OutlierMaxFinding": "{column} highest value is {value}",
+                    "OutlierRowsReturnedFinding": "Highest-value samples returned",
+                    "OutlierRowsCountFinding": "Extracted {count} anomalous candidate rows",
+                    "NoOutlierRowsFinding": "No displayable anomalous samples were returned",
+                    "SourceHeadline": "Main source is {value}",
+                    "NoSourceHeadline": "No anomaly source found",
+                    "SourceTopFinding": "{value} has the highest row count at {count}",
+                    "SourceGroupsFinding": "Returned {count} source groups",
+                    "NoSourceGroupsFinding": "No usable source groups were returned",
+                    "ServiceHeadline": "{value} is the main anomaly source",
+                    "NoServiceHeadline": "No service source found",
+                    "ServiceTopFinding": "{value} has the highest total_rows",
+                    "ServiceSortedFinding": "Top {count} services sorted",
+                    "NoServiceGroupsFinding": "No service group results were returned",
+                    "DistributionHeadline": "Distribution maximum is {value}",
+                    "NoDistributionHeadline": "No distribution result generated",
+                    "DistributionRangeFinding": "Maximum {maxValue} is clearly above minimum {minValue}",
+                    "DistributionAverageFinding": "Average is about {avgValue}",
+                    "NoDistributionSummaryFinding": "No distribution summary was returned",
+                    "TrendHeadline": "Trend covers {count} time buckets",
+                    "NoTrendHeadline": "No trend data returned",
+                    "TrendBucketRangeFinding": "Starts at {first}, ends at {last}",
+                    "TrendPointCountFinding": "Returned {count} time points",
+                    "NoTrendDataFinding": "No trend data was returned",
+                    "FilteredHeadline": "Filtered {count} anomalous rows",
+                    "NoFilteredHeadline": "No rows matched the anomaly condition",
+                    "FilteredReadyFinding": "Anomaly subset is ready for continued analysis",
+                    "FilteredSizeFinding": "Current subset size is {count} rows",
+                    "NoFilteredRowsFinding": "No matching anomaly subset was returned",
+                    "LowVarianceLimitation": "{value} covers every returned row in the current result, so this field has no variance.",
+                    "LowVarianceSummary": "{count} / {total} rows are {value}. Continuing on this field adds no information gain; move to a richer participant, repository, or time dimension.",
+                    "LowVarianceHeadline": "Current result lacks field diversity",
+                    "LowVarianceAllRowsFinding": "{value} covers all returned rows",
+                    "LowVarianceNotUsefulFinding": "This field distribution is not useful as the next analysis target",
+                    "LowVarianceNextStepFinding": "Move directly to aggregation or time trend analysis",
+                    "NoTopValuesLimitation": "No top values were returned, so the distribution cannot be explained further.",
+                    "TopValueHeadline": "{value} is the most common value",
+                    "NoTopValuesHeadline": "No top values returned",
+                    "TopValueFinding": "Top value is {value}",
+                    "TopValueCountFinding": "Frequency is {count}",
+                    "NoTopValuesFinding": "No top values were returned",
+                    "PatternHeadline": "{value} remains the main group",
+                    "NoPatternHeadline": "No pattern comparison result returned",
+                    "PatternComparedFinding": "Pattern-related group comparison completed",
+                    "NoPatternRowsFinding": "No pattern comparison rows were returned"
                 },
                 "Kinds": {
                     "trend": "Tendencia",
@@ -1710,7 +1807,9 @@
                     "TopMessages": "View top values",
                     "ViewDistribution": "View distribution",
                     "InspectOutliers": "View anomalous samples",
-                    "FilterOutliers": "Filter anomalous rows"
+                    "FilterOutliers": "Filter anomalous rows",
+                    "GroupByService": "Agrupar por {column}",
+                    "PatternFollowUp": "Seguir este patrón"
                 },
                 "SuggestionTitles": {
                     "ViewTimeTrend": "Trend {column} over time",

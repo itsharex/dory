@@ -367,49 +367,59 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                             ) : null}
                         </div>
 
-                        {/* Ask */}
-                        <TabsContent value="ask" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden" forceMount>
-                            <Activity mode={subTab === 'ask' ? 'visible' : 'hidden'}>
-                                <AskTab
-                                    chat={chat}
-                                    copilotEnvelope={copilotEnvelope}
-                                    actionsState={actionsState}
-                                    initialPrompt={promptRequest?.prompt ?? null}
-                                    onInitialPromptConsumed={() => {
-                                        if (!promptRequest?.id) return;
-                                        setPromptRequest(prev => (prev?.id === promptRequest.id ? null : prev));
-                                    }}
-                                    onExecuteAction={onExecuteAction}
-                                    onGoToActions={() => setSubTab('action')}
-                                />
-                            </Activity>
-                        </TabsContent>
+                        <div className="relative min-h-0 flex-1 overflow-hidden">
+                            {/* Ask */}
+                            <TabsContent value="ask" className="absolute inset-0 mt-0 min-h-0 data-[state=inactive]:pointer-events-none data-[state=inactive]:invisible" forceMount>
+                                <Activity mode={subTab === 'ask' ? 'visible' : 'hidden'}>
+                                    <AskTab
+                                        chat={chat}
+                                        copilotEnvelope={copilotEnvelope}
+                                        actionsState={actionsState}
+                                        initialPrompt={promptRequest?.prompt ?? null}
+                                        onInitialPromptConsumed={() => {
+                                            if (!promptRequest?.id) return;
+                                            setPromptRequest(prev => (prev?.id === promptRequest.id ? null : prev));
+                                        }}
+                                        onExecuteAction={onExecuteAction}
+                                        onGoToActions={() => setSubTab('action')}
+                                    />
+                                </Activity>
+                            </TabsContent>
 
-                        {/* Action */}
-                        <TabsContent value="action" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden" forceMount>
-                            <Activity mode={subTab === 'action' ? 'visible' : 'hidden'}>
-                                <ActionTab
-                                    input={actionInput}
-                                    onApplySql={handleApplySqlWithEvent}
-                                    onExecuted={handleActionExecuted}
-                                    autoRun={autoRunRequest ? { intent: autoRunRequest.intent, requestId: autoRunRequest.id } : null}
-                                    onAutoRunHandled={requestId => {
-                                        setActionRequest(prev => (prev?.id === requestId ? null : prev));
-                                    }}
-                                    analysisRequestId={analysisRequest?.id ?? null}
-                                    tabId={activeTabId}
-                                    connectionId={tabConnectionId ?? currentConnection?.connection.id ?? null}
-                                    databaseName={activeDatabase || null}
-                                />
-                            </Activity>
-                        </TabsContent>
+                            {/* Action */}
+                            <TabsContent
+                                value="action"
+                                className="absolute inset-0 mt-0 min-h-0 data-[state=inactive]:pointer-events-none data-[state=inactive]:invisible"
+                                forceMount
+                            >
+                                <Activity mode={subTab === 'action' ? 'visible' : 'hidden'}>
+                                    <ActionTab
+                                        input={actionInput}
+                                        onApplySql={handleApplySqlWithEvent}
+                                        onExecuted={handleActionExecuted}
+                                        autoRun={autoRunRequest ? { intent: autoRunRequest.intent, requestId: autoRunRequest.id } : null}
+                                        onAutoRunHandled={requestId => {
+                                            setActionRequest(prev => (prev?.id === requestId ? null : prev));
+                                        }}
+                                        analysisRequestId={analysisRequest?.id ?? null}
+                                        tabId={activeTabId}
+                                        connectionId={tabConnectionId ?? currentConnection?.connection.id ?? null}
+                                        databaseName={activeDatabase || null}
+                                    />
+                                </Activity>
+                            </TabsContent>
 
-                        {/* Context */}
-                        <TabsContent value="context" className="flex-1 min-h-0 mt-0 data-[state=inactive]:hidden" forceMount>
-                            <Activity mode={subTab === 'context' ? 'visible' : 'hidden'}>
-                                <ContextTab copilotEnvelope={copilotEnvelope} sessionMeta={sessionMeta} activeTabCoreFields={activeTabCoreFields} />
-                            </Activity>
-                        </TabsContent>
+                            {/* Context */}
+                            <TabsContent
+                                value="context"
+                                className="absolute inset-0 mt-0 min-h-0 data-[state=inactive]:pointer-events-none data-[state=inactive]:invisible"
+                                forceMount
+                            >
+                                <Activity mode={subTab === 'context' ? 'visible' : 'hidden'}>
+                                    <ContextTab copilotEnvelope={copilotEnvelope} sessionMeta={sessionMeta} activeTabCoreFields={activeTabCoreFields} />
+                                </Activity>
+                            </TabsContent>
+                        </div>
                     </Tabs>
                 )}
             </div>

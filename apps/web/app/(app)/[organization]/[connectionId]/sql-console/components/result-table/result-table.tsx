@@ -860,7 +860,7 @@ export function ResultTable() {
         return (
             <div className="flex h-full min-h-0 flex-col bg-card mb-2" data-testid="result-table-content">
                 <div className="border-b bg-muted/30">
-                    <div className="flex items-center justify-between gap-3 w-full px-2 py-1">
+                    <div className="flex min-h-12 items-center justify-between gap-3 w-full px-2 py-1">
                         <Tabs
                             value={currentViewMode}
                             onValueChange={value => {
@@ -914,7 +914,7 @@ export function ResultTable() {
                                 />
                             </div>
                         ) : (
-                            <div className="flex-1" />
+                            <div className="h-10 flex-1" />
                         )}
                         <div className="flex items-center gap-1.5 mr-2">
                             {isResult && currentViewMode === 'table' && (
@@ -942,13 +942,15 @@ export function ResultTable() {
                     </div>
                 </div>
                 {currentViewMode === 'overview' ? (
-                    <ResultOverviewPanel
-                        stats={sessionMetas.stats}
-                        columns={sessionMetas.columns}
-                        rowCount={results.length}
-                        sqlText={sessionMetas.sqlText}
-                        rows={results.slice(0, 2000).map(result => result.rowData as Record<string, unknown>)}
-                    />
+                    <div className="flex min-h-0 flex-1 overflow-hidden">
+                        <ResultOverviewPanel
+                            stats={sessionMetas.stats}
+                            columns={sessionMetas.columns}
+                            rowCount={results.length}
+                            sqlText={sessionMetas.sqlText}
+                            rows={results.slice(0, 2000).map(result => result.rowData as Record<string, unknown>)}
+                        />
+                    </div>
                 ) : currentViewMode === 'table' ? (
                     <>
                         <div className="flex-1 min-h-0">

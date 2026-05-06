@@ -103,18 +103,25 @@ function compactRowFacts(row: Record<string, unknown>, columns: Array<{ name: st
         .filter(item => !item.endsWith(': —'));
 }
 
-function summarizeActionResult(params: { action: ResultAction; title: string; rows: Array<Record<string, unknown>>; columns: Array<{ name: string }> }) {
+type AnalysisTranslator = (key: string, values?: Record<string, unknown>) => string;
+
+function createAnalysisTranslator(locale: Locale): AnalysisTranslator {
+    return (key, values) => translate(locale, `SqlConsole.Insights.Analysis.${key}`, values);
+}
+
+function summarizeActionResult(params: { action: ResultAction; title: string; rows: Array<Record<string, unknown>>; columns: Array<{ name: string }>; t: AnalysisTranslator }) {
     const { action, title, rows, columns } = params;
+    const { t } = params;
     const first = rows[0] ?? {};
     const facts = compactRowFacts(first, columns);
 
     if (!rows.length) {
         return {
             analysisState: 'invalid' as const,
-            limitations: ['推荐操作没有返回可分析结果。'],
-            summary: '推荐操作没有返回结果，无法形成下一步判断。',
+            limitations: [t('Server.ActionResultNoRowsLimitation')],
+            summary: t('Server.ActionResultNoRowsSummary'),
             headline: title,
-            keyFindings: ['没有可用结果'],
+            keyFindings: [t('Server.NoUsableRowsFinding')],
             recordHighlights: [],
             sections: [],
         };
@@ -130,9 +137,13 @@ function summarizeActionResult(params: { action: ResultAction; title: string; ro
         return {
             analysisState: 'good' as const,
             limitations: [],
-            summary: `${column} 的分布范围是 ${minValue} 到 ${maxValue}，平均值为 ${avgValue}。这个结果用于判断该字段是否集中、偏斜或存在异常边界。`,
-            headline: `${column} 分布已计算`,
-            keyFindings: [`${column} 平均值为 ${avgValue}`, `${column} 范围为 ${minValue} 到 ${maxValue}`, `统计覆盖 ${totalRows} 行`],
+            summary: t('Server.ActionDistributionSummary', { column, minValue, maxValue, avgValue }),
+            headline: t('Server.ActionDistributionHeadline', { column }),
+            keyFindings: [
+                t('Server.ActionDistributionAverageFinding', { column, avgValue }),
+                t('Server.ActionDistributionRangeFinding', { column, minValue, maxValue }),
+                t('Server.ActionDistributionRowsFinding', { totalRows }),
+            ],
             recordHighlights: [
                 { label: 'min', value: minValue },
                 { label: 'avg', value: avgValue },
@@ -141,7 +152,7 @@ function summarizeActionResult(params: { action: ResultAction; title: string; ro
             sections: [
                 {
                     id: 'distribution-statistics',
-                    title: '分布统计',
+                    title: t('Server.DistributionStatisticsTitle'),
                     items: facts.length ? facts : [`min_value: ${minValue}`, `avg_value: ${avgValue}`, `max_value: ${maxValue}`],
                 },
             ],
@@ -150,14 +161,14 @@ function summarizeActionResult(params: { action: ResultAction; title: string; ro
 
     const firstLabelColumn = columns.find(column => !/count|total|sum|avg|min|max|value/i.test(column.name))?.name ?? columns[0]?.name;
     const firstValueColumn = columns.find(column => column.name !== firstLabelColumn)?.name ?? firstLabelColumn;
-    const leader = firstLabelColumn ? formatValue(first[firstLabelColumn]) : '第一项';
+    const leader = firstLabelColumn ? formatValue(first[firstLabelColumn]) : t('Server.FirstItem');
     const leaderValue = firstValueColumn ? formatValue(first[firstValueColumn]) : null;
 
     return {
         analysisState: 'good' as const,
         limitations: [],
-        summary: leaderValue ? `${title} 的首要结果是 ${leader}，对应数值为 ${leaderValue}。` : `${title} 的首要结果是 ${leader}。`,
-        headline: `${title} 已完成`,
+        summary: leaderValue ? t('Server.ActionLeaderSummaryWithValue', { title, leader, value: leaderValue }) : t('Server.ActionLeaderSummary', { title, leader }),
+        headline: t('Server.ActionCompletedHeadline', { title }),
         keyFindings: facts.length ? facts : [leaderValue ? `${leader}: ${leaderValue}` : leader],
         recordHighlights: rows.slice(0, 5).map((row, index) => ({
             label: firstLabelColumn ? formatValue(row[firstLabelColumn]) : `row_${index + 1}`,
@@ -166,7 +177,7 @@ function summarizeActionResult(params: { action: ResultAction; title: string; ro
         sections: [
             {
                 id: 'action-result-values',
-                title: '结果明细',
+                title: t('Server.ResultDetailsTitle'),
                 items: rows
                     .slice(0, 5)
                     .map(row => compactRowFacts(row, columns).join(' · '))
@@ -177,23 +188,23 @@ function summarizeActionResult(params: { action: ResultAction; title: string; ro
 }
 
 function genericAiDrivenSpec(params: { suggestionId: string; sqlPreview: string; context: ResultContext; locale: Locale }): AnalysisSpec {
-    const t = (key: string, values?: Record<string, unknown>) => translate(params.locale, `SqlConsole.Insights.Analysis.Server.${key}`, values);
-    const title = params.suggestionId === 'ai-primary-next-step' ? t('ContinueRecommendedAnalysis') : t('RunRecommendedAnalysis');
+    const t = createAnalysisTranslator(params.locale);
+    const title = params.suggestionId === 'ai-primary-next-step' ? t('Server.ContinueRecommendedAnalysis') : t('Server.RunRecommendedAnalysis');
     return {
         suggestionId: params.suggestionId,
         title,
         kind: 'drilldown',
-        goal: t('RecommendedAnalysisGoal'),
-        description: t('RecommendedAnalysisDescription'),
+        goal: t('Server.RecommendedAnalysisGoal'),
+        description: t('Server.RecommendedAnalysisDescription'),
         resultTitle: title,
         stepTemplates: [
-            { id: 'inspect-profile', title: t('Steps.InspectProfile') },
-            { id: 'run-next-sql', title: t('Steps.RunNextSql') },
-            { id: 'summarize-next-step', title: t('Steps.SummarizeNextStep') },
+            { id: 'inspect-profile', title: t('Server.Steps.InspectProfile') },
+            { id: 'run-next-sql', title: t('Server.Steps.RunNextSql') },
+            { id: 'summarize-next-step', title: t('Server.Steps.SummarizeNextStep') },
         ],
         buildSql() {
             if (!isReadOnlySelect(params.sqlPreview)) {
-                throw new Error(t('ReadOnlySelectError'));
+                throw new Error(t('Server.ReadOnlySelectError'));
             }
             return params.sqlPreview.trim().replace(/;+\s*$/, '');
         },
@@ -201,19 +212,23 @@ function genericAiDrivenSpec(params: { suggestionId: string; sqlPreview: string;
             const firstNumeric = columns.find(column => /count|total|events|rows|value/i.test(column.name))?.name ?? columns.find(column => column.name !== columns[0]?.name)?.name;
             const firstLabel = columns.find(column => column.name !== firstNumeric)?.name ?? columns[0]?.name;
             const first = rows[0] ?? {};
-            const leader = firstLabel ? formatValue(first[firstLabel]) : t('FirstGroup');
+            const leader = firstLabel ? formatValue(first[firstLabel]) : t('Server.FirstGroup');
             const leaderValue = firstNumeric ? formatValue(first[firstNumeric]) : null;
             return {
                 analysisState: rows.length ? 'good' : 'invalid',
-                limitations: rows.length ? [] : [t('NoRecommendedRowsLimitation')],
-                summary: rows.length ? (leaderValue ? t('LeaderSummaryWithValue', { leader, value: leaderValue }) : t('LeaderSummary', { leader })) : t('NoRecommendedRowsSummary'),
-                headline: rows.length ? t('LeaderHeadline', { leader }) : t('NoRecommendedRowsHeadline'),
+                limitations: rows.length ? [] : [t('Server.NoRecommendedRowsLimitation')],
+                summary: rows.length
+                    ? leaderValue
+                        ? t('Server.LeaderSummaryWithValue', { leader, value: leaderValue })
+                        : t('Server.LeaderSummary', { leader })
+                    : t('Server.NoRecommendedRowsSummary'),
+                headline: rows.length ? t('Server.LeaderHeadline', { leader }) : t('Server.NoRecommendedRowsHeadline'),
                 keyFindings: rows.length
                     ? [
-                          leaderValue ? t('LeaderFindingWithValue', { leader, value: leaderValue }) : t('LeaderFinding', { leader }),
-                          t('CandidateGroupsFinding', { count: formatValue(rows.length) }),
+                          leaderValue ? t('Server.LeaderFindingWithValue', { leader, value: leaderValue }) : t('Server.LeaderFinding', { leader }),
+                          t('Server.CandidateGroupsFinding', { count: formatValue(rows.length) }),
                       ]
-                    : [t('NoUsableRowsFinding')],
+                    : [t('Server.NoUsableRowsFinding')],
                 recordHighlights: rows.slice(0, 5).map((row, index) => ({
                     label: firstLabel ? formatValue(row[firstLabel]) : `row_${index + 1}`,
                     value: firstNumeric ? formatValue(row[firstNumeric]) : formatValue(row[columns[0]?.name ?? 'value']),
@@ -221,7 +236,7 @@ function genericAiDrivenSpec(params: { suggestionId: string; sqlPreview: string;
                 sections: [
                     {
                         id: 'recommended-sql-result',
-                        title: t('RecommendedSqlResultTitle'),
+                        title: t('Server.RecommendedSqlResultTitle'),
                         items: rows.slice(0, 5).map((row, index) => {
                             const label = firstLabel ? formatValue(row[firstLabel]) : `row_${index + 1}`;
                             const value = firstNumeric ? formatValue(row[firstNumeric]) : '';
@@ -231,7 +246,7 @@ function genericAiDrivenSpec(params: { suggestionId: string; sqlPreview: string;
                 ],
             };
         },
-        buildFollowups: buildFollowups,
+        buildFollowups,
     };
 }
 
@@ -255,6 +270,7 @@ type AnalysisSpec = {
         columns: Array<{ name: string; type: string | null }>;
         rowCount: number;
         sqlText: string;
+        locale: Locale;
     }) => AnalysisSuggestion[];
 };
 
@@ -290,7 +306,9 @@ function buildFollowups(params: {
     columns: Array<{ name: string; type: string | null }>;
     rowCount: number;
     sqlText: string;
+    locale: Locale;
 }): AnalysisSuggestion[] {
+    const t = createAnalysisTranslator(params.locale);
     const nextContext: ResultContext = {
         resultSetId: params.resultRef,
         sqlText: params.sqlText,
@@ -322,13 +340,13 @@ function buildFollowups(params: {
                 kind: 'drilldown',
                 title: `Break down by ${serviceColumn}`,
                 description: `Identify which ${serviceColumn} contributes most.`,
-                label: '按 service 分组分析',
-                goal: 'Locate the source of the anomaly.',
-                resultTitle: 'Source breakdown',
+                label: t('Actions.GroupByColumn', { column: serviceColumn }),
+                goal: t('SuggestionGoals.GroupByService'),
+                resultTitle: t('ResultTitles.SourceBreakdown'),
                 stepTemplates: [
-                    { id: 'pick-dimension', title: '识别来源字段' },
-                    { id: 'group-source', title: '按来源分组统计' },
-                    { id: 'summarize-source', title: '生成来源结论' },
+                    { id: 'pick-dimension', title: t('Steps.PickDimension') },
+                    { id: 'group-source', title: t('Steps.GroupSource') },
+                    { id: 'summarize-source', title: t('Steps.SummarizeSource') },
                 ],
                 priority: 92,
             }),
@@ -342,13 +360,13 @@ function buildFollowups(params: {
                 kind: 'trend',
                 title: `Trend ${timeColumn} over time`,
                 description: `Track whether the pattern changes over ${timeColumn}.`,
-                label: '查看时间趋势',
-                goal: 'Inspect change over time.',
-                resultTitle: 'Time trend',
+                label: t('Actions.ViewTimeTrend'),
+                goal: t('SuggestionGoals.ViewTimeTrend'),
+                resultTitle: t('ResultTitles.TimeTrend'),
                 stepTemplates: [
-                    { id: 'inspect-axis', title: '确认时间字段' },
-                    { id: 'bucket-series', title: '按时间聚合结果' },
-                    { id: 'summarize-trend', title: '生成趋势结论' },
+                    { id: 'inspect-axis', title: t('Steps.InspectAxis') },
+                    { id: 'bucket-series', title: t('Steps.BucketSeries') },
+                    { id: 'summarize-trend', title: t('Steps.SummarizeTrend') },
                 ],
                 priority: 88,
             }),
@@ -362,13 +380,13 @@ function buildFollowups(params: {
                 kind: 'distribution',
                 title: `Profile ${measureColumn} distribution`,
                 description: `Quantify the spread and tail of ${measureColumn}.`,
-                label: '查看分布',
-                goal: 'Understand the distribution shape.',
-                resultTitle: 'Distribution',
+                label: t('Actions.ViewDistribution'),
+                goal: t('SuggestionGoals.ViewDistribution'),
+                resultTitle: t('ResultTitles.Distribution'),
                 stepTemplates: [
-                    { id: 'scan-distribution', title: '扫描分布区间' },
-                    { id: 'measure-tail', title: '识别长尾与峰值' },
-                    { id: 'summarize-distribution', title: '生成分布结论' },
+                    { id: 'scan-distribution', title: t('Steps.ScanDistribution') },
+                    { id: 'measure-tail', title: t('Steps.MeasureTail') },
+                    { id: 'summarize-distribution', title: t('Steps.SummarizeDistribution') },
                 ],
                 priority: 85,
             }),
@@ -381,14 +399,14 @@ function buildFollowups(params: {
                 id: 'filter-outliers',
                 kind: 'compare',
                 title: `Filter high ${measureColumn} rows`,
-                description: `Keep the anomalous rows for the next analysis step.`,
-                label: '过滤异常数据',
-                goal: 'Focus on abnormal rows only.',
-                resultTitle: 'Filtered anomaly set',
+                description: t('SuggestionDescriptions.FilterOutliersWithColumn', { column: measureColumn }),
+                label: t('Actions.FilterOutliers'),
+                goal: t('SuggestionGoals.FilterOutliers'),
+                resultTitle: t('ResultTitles.FilteredAnomalySet'),
                 stepTemplates: [
-                    { id: 'find-threshold', title: '确定异常阈值' },
-                    { id: 'filter-rows', title: '过滤异常数据' },
-                    { id: 'summarize-filtered', title: '生成过滤结果' },
+                    { id: 'find-threshold', title: t('Steps.FindThreshold') },
+                    { id: 'filter-rows', title: t('Steps.FilterRows') },
+                    { id: 'summarize-filtered', title: t('Steps.SummarizeFiltered') },
                 ],
                 priority: 82,
             }),
@@ -404,7 +422,8 @@ function distributionSummary(rows: Array<Record<string, unknown>>, columns: Arra
     return labels.slice(0, 3).map(label => `${label}: ${formatValue(first[label])}`);
 }
 
-function specsForContext(context: ResultContext): Record<string, AnalysisSpec> {
+function specsForContext(context: ResultContext, locale: Locale): Record<string, AnalysisSpec> {
+    const t = createAnalysisTranslator(locale);
     const source = sourceQuery(context.sqlText);
     const timeColumn = detectTimeColumn(context);
     const serviceColumn = detectDimensionColumn(context, 'service');
@@ -415,15 +434,15 @@ function specsForContext(context: ResultContext): Record<string, AnalysisSpec> {
     return {
         'inspect-outliers': {
             suggestionId: 'inspect-outliers',
-            title: '定位异常样本',
+            title: t('Actions.InspectOutliers'),
             kind: 'topk',
-            goal: 'Locate anomalous rows.',
-            description: 'Review the highest rows to understand what is driving the extreme values.',
-            resultTitle: 'Outlier samples',
+            goal: t('SuggestionGoals.InspectOutliers'),
+            description: t('SuggestionDescriptions.InspectOutliers'),
+            resultTitle: t('ResultTitles.OutlierSamples'),
             stepTemplates: [
-                { id: 'find-peak', title: '查找最大值' },
-                { id: 'extract-top', title: '提取 Top 20 行' },
-                { id: 'summarize-outliers', title: '生成展示结果' },
+                { id: 'find-peak', title: t('Steps.FindPeak') },
+                { id: 'extract-top', title: t('Steps.ExtractTop') },
+                { id: 'summarize-outliers', title: t('Steps.SummarizeOutliers') },
             ],
             buildSql() {
                 if (!measureColumn) {
@@ -441,10 +460,10 @@ ${limitClause(20)}`;
                     summary: rows.length
                         ? `Found ${formatValue(maxValue)} as the highest observed value and collected the top anomalous rows.`
                         : 'No anomalous rows were returned.',
-                    headline: measure ? `发现 ${formatValue(maxValue)} 为最高值` : '已定位异常样本',
+                    headline: measure ? t('Server.OutlierHeadlineWithValue', { value: formatValue(maxValue) }) : t('Server.OutlierHeadline'),
                     keyFindings: [
-                        measure ? `${measure} 的最高值为 ${formatValue(maxValue)}` : '已返回最高值样本',
-                        rows.length ? `共提取 ${rows.length} 行异常候选样本` : '没有返回可展示的异常样本',
+                        measure ? t('Server.OutlierMaxFinding', { column: measure, value: formatValue(maxValue) }) : t('Server.OutlierRowsReturnedFinding'),
+                        rows.length ? t('Server.OutlierRowsCountFinding', { count: formatValue(rows.length) }) : t('Server.NoOutlierRowsFinding'),
                     ],
                     recordHighlights: rows.slice(0, 5).map((row, index) => ({
                         label: String(row[serviceColumn ?? dimensionColumn ?? columns[0]?.name ?? `row_${index + 1}`] ?? `row_${index + 1}`),
@@ -471,15 +490,15 @@ ${limitClause(20)}`;
         },
         'analyze-source': {
             suggestionId: 'analyze-source',
-            title: '分析来源',
+            title: t('Actions.AnalyzeSource'),
             kind: 'drilldown',
-            goal: 'Find the segment behind the issue.',
-            description: 'Break the result down by the most relevant dimension to find the likely source.',
-            resultTitle: 'Source analysis',
+            goal: t('SuggestionGoals.AnalyzeSource'),
+            description: t('SuggestionDescriptions.AnalyzeSource'),
+            resultTitle: t('ResultTitles.SourceAnalysis'),
             stepTemplates: [
-                { id: 'pick-dimension', title: '识别关键维度' },
-                { id: 'group-source', title: '执行来源拆解' },
-                { id: 'summarize-source', title: '生成来源结论' },
+                { id: 'pick-dimension', title: t('Steps.PickDimension') },
+                { id: 'group-source', title: t('Steps.GroupSource') },
+                { id: 'summarize-source', title: t('Steps.SummarizeSource') },
             ],
             buildSql() {
                 const column = serviceColumn ?? dimensionColumn;
@@ -498,10 +517,13 @@ ${limitClause(20)}`;
                     summary: rows.length
                         ? `The leading segment is ${formatValue(first.dimension)} with ${formatValue(first.total_rows)} rows.`
                         : 'No source segments were returned.',
-                    headline: rows.length ? `主要来源为 ${formatValue(first.dimension)}` : '未找到异常来源',
+                    headline: rows.length ? t('Server.SourceHeadline', { value: formatValue(first.dimension) }) : t('Server.NoSourceHeadline'),
                     keyFindings: rows.length
-                        ? [`${formatValue(first.dimension)} 的行数最高，为 ${formatValue(first.total_rows)}`, `已返回 ${rows.length} 个来源分组`]
-                        : ['未返回可用的来源分组'],
+                        ? [
+                              t('Server.SourceTopFinding', { value: formatValue(first.dimension), count: formatValue(first.total_rows) }),
+                              t('Server.SourceGroupsFinding', { count: formatValue(rows.length) }),
+                          ]
+                        : [t('Server.NoSourceGroupsFinding')],
                     recordHighlights: rows.slice(0, 5).map(row => ({
                         label: formatValue(row.dimension),
                         value: formatValue(row.total_rows),
@@ -519,15 +541,15 @@ ${limitClause(20)}`;
         },
         'group-by-service': {
             suggestionId: 'group-by-service',
-            title: '按 service 分组分析',
+            title: t('Actions.GroupByService', { column: 'service' }),
             kind: 'drilldown',
-            goal: 'Locate the source of the anomaly.',
-            description: 'Break the result down by service to identify the main contributor.',
-            resultTitle: 'Service breakdown',
+            goal: t('SuggestionGoals.GroupByService'),
+            description: t('SuggestionDescriptions.GroupByService'),
+            resultTitle: t('ResultTitles.SourceBreakdown'),
             stepTemplates: [
-                { id: 'pick-dimension', title: '识别来源字段' },
-                { id: 'group-source', title: '按来源分组统计' },
-                { id: 'summarize-source', title: '生成来源结论' },
+                { id: 'pick-dimension', title: t('Steps.PickDimension') },
+                { id: 'group-source', title: t('Steps.GroupSource') },
+                { id: 'summarize-source', title: t('Steps.SummarizeSource') },
             ],
             buildSql() {
                 const column = serviceColumn ?? dimensionColumn;
@@ -546,8 +568,10 @@ ${limitClause(20)}`;
                     summary: rows.length
                         ? `${formatValue(first.service)} is the largest service bucket with ${formatValue(first.total_rows)} rows.`
                         : 'No service groups were returned.',
-                    headline: rows.length ? `${formatValue(first.service)} 是主要异常来源` : '未找到 service 来源',
-                    keyFindings: rows.length ? [`${formatValue(first.service)} 的 total_rows 最高`, `前 ${rows.length} 个 service 已完成排序`] : ['没有返回 service 分组结果'],
+                    headline: rows.length ? t('Server.ServiceHeadline', { value: formatValue(first.service) }) : t('Server.NoServiceHeadline'),
+                    keyFindings: rows.length
+                        ? [t('Server.ServiceTopFinding', { value: formatValue(first.service) }), t('Server.ServiceSortedFinding', { count: formatValue(rows.length) })]
+                        : [t('Server.NoServiceGroupsFinding')],
                     recordHighlights: rows.slice(0, 5).map(row => ({
                         label: formatValue(row.service),
                         value: formatValue(row.total_rows),
@@ -565,15 +589,15 @@ ${limitClause(20)}`;
         },
         'view-distribution': {
             suggestionId: 'view-distribution',
-            title: '查看分布',
+            title: t('Actions.ViewDistribution'),
             kind: 'distribution',
-            goal: 'Understand the distribution shape.',
-            description: 'Quantify the leading measure distribution and tail behavior.',
-            resultTitle: 'Distribution',
+            goal: t('SuggestionGoals.ViewDistribution'),
+            description: t('SuggestionDescriptions.ViewDistribution'),
+            resultTitle: t('ResultTitles.Distribution'),
             stepTemplates: [
-                { id: 'scan-distribution', title: '扫描分布区间' },
-                { id: 'measure-tail', title: '识别长尾与峰值' },
-                { id: 'summarize-distribution', title: '生成分布结论' },
+                { id: 'scan-distribution', title: t('Steps.ScanDistribution') },
+                { id: 'measure-tail', title: t('Steps.MeasureTail') },
+                { id: 'summarize-distribution', title: t('Steps.SummarizeDistribution') },
             ],
             buildSql() {
                 if (!measureColumn) {
@@ -592,10 +616,13 @@ FROM ${source}`;
                     summary: rows.length
                         ? `The measure spans from ${formatValue(row.min_value)} to ${formatValue(row.max_value)} with an average of ${formatValue(row.avg_value)}.`
                         : 'No distribution summary was returned.',
-                    headline: rows.length ? `分布最高值为 ${formatValue(row.max_value)}` : '未生成分布结果',
+                    headline: rows.length ? t('Server.DistributionHeadline', { value: formatValue(row.max_value) }) : t('Server.NoDistributionHeadline'),
                     keyFindings: rows.length
-                        ? [`最大值 ${formatValue(row.max_value)} 明显高于最小值 ${formatValue(row.min_value)}`, `平均值约为 ${formatValue(row.avg_value)}`]
-                        : ['没有返回分布摘要'],
+                        ? [
+                              t('Server.DistributionRangeFinding', { maxValue: formatValue(row.max_value), minValue: formatValue(row.min_value) }),
+                              t('Server.DistributionAverageFinding', { avgValue: formatValue(row.avg_value) }),
+                          ]
+                        : [t('Server.NoDistributionSummaryFinding')],
                     recordHighlights: rows.length
                         ? [
                               { label: 'Min', value: formatValue(row.min_value) },
@@ -617,15 +644,15 @@ FROM ${source}`;
         },
         'view-time-trend': {
             suggestionId: 'view-time-trend',
-            title: '查看时间趋势',
+            title: t('Actions.ViewTimeTrend'),
             kind: 'trend',
-            goal: 'Inspect change over time.',
-            description: 'Aggregate over time and check whether the pattern clusters in a period.',
-            resultTitle: 'Time trend',
+            goal: t('SuggestionGoals.ViewTimeTrend'),
+            description: t('SuggestionDescriptions.ViewTimeTrend'),
+            resultTitle: t('ResultTitles.TimeTrend'),
             stepTemplates: [
-                { id: 'inspect-axis', title: '确认时间字段' },
-                { id: 'bucket-series', title: '按时间聚合结果' },
-                { id: 'summarize-trend', title: '生成趋势结论' },
+                { id: 'inspect-axis', title: t('Steps.InspectAxis') },
+                { id: 'bucket-series', title: t('Steps.BucketSeries') },
+                { id: 'summarize-trend', title: t('Steps.SummarizeTrend') },
             ],
             buildSql() {
                 const bucketColumn = timeColumn ?? dimensionColumn;
@@ -645,10 +672,13 @@ ${limitClause(50)}`;
                     summary: rows.length
                         ? `The series spans ${rows.length} buckets, from ${formatValue(first.bucket)} to ${formatValue(last.bucket)}.`
                         : 'No time buckets were returned.',
-                    headline: rows.length ? `趋势覆盖 ${rows.length} 个时间分桶` : '未返回趋势数据',
+                    headline: rows.length ? t('Server.TrendHeadline', { count: formatValue(rows.length) }) : t('Server.NoTrendHeadline'),
                     keyFindings: rows.length
-                        ? [`起始分桶 ${formatValue(first.bucket)}，结束分桶 ${formatValue(last.bucket)}`, `已返回 ${rows.length} 个时间点`]
-                        : ['没有返回趋势数据'],
+                        ? [
+                              t('Server.TrendBucketRangeFinding', { first: formatValue(first.bucket), last: formatValue(last.bucket) }),
+                              t('Server.TrendPointCountFinding', { count: formatValue(rows.length) }),
+                          ]
+                        : [t('Server.NoTrendDataFinding')],
                     recordHighlights: rows.slice(0, 5).map(row => ({
                         label: formatValue(row.bucket),
                         value: formatValue(row.total_rows),
@@ -666,15 +696,15 @@ ${limitClause(50)}`;
         },
         'filter-outliers': {
             suggestionId: 'filter-outliers',
-            title: '过滤异常数据',
+            title: t('Actions.FilterOutliers'),
             kind: 'compare',
-            goal: 'Focus on abnormal rows only.',
-            description: 'Keep the highest rows so the next step can focus on the anomalous subset.',
-            resultTitle: 'Filtered anomaly set',
+            goal: t('SuggestionGoals.FilterOutliers'),
+            description: t('SuggestionDescriptions.FilterOutliers'),
+            resultTitle: t('ResultTitles.FilteredAnomalySet'),
             stepTemplates: [
-                { id: 'find-threshold', title: '确定异常阈值' },
-                { id: 'filter-rows', title: '过滤异常数据' },
-                { id: 'summarize-filtered', title: '生成过滤结果' },
+                { id: 'find-threshold', title: t('Steps.FindThreshold') },
+                { id: 'filter-rows', title: t('Steps.FilterRows') },
+                { id: 'summarize-filtered', title: t('Steps.SummarizeFiltered') },
             ],
             buildSql() {
                 if (!measureColumn) {
@@ -690,8 +720,10 @@ ${limitClause(50)}`;
             summarize({ rows, columns }) {
                 return {
                     summary: rows.length ? `Filtered ${rows.length} rows into the anomaly-focused subset.` : 'No rows matched the anomaly filter.',
-                    headline: rows.length ? `已过滤出 ${rows.length} 行异常数据` : '没有符合条件的异常数据',
-                    keyFindings: rows.length ? ['异常子集已准备好用于继续分析', `当前子集大小为 ${rows.length} 行`] : ['没有返回符合条件的异常子集'],
+                    headline: rows.length ? t('Server.FilteredHeadline', { count: formatValue(rows.length) }) : t('Server.NoFilteredHeadline'),
+                    keyFindings: rows.length
+                        ? [t('Server.FilteredReadyFinding'), t('Server.FilteredSizeFinding', { count: formatValue(rows.length) })]
+                        : [t('Server.NoFilteredRowsFinding')],
                     recordHighlights: rows.slice(0, 5).map((row, index) => ({
                         label: formatValue(row[columns[0]?.name ?? `row_${index + 1}`]),
                         value: formatValue(row[measureColumn ?? columns[1]?.name ?? columns[0]?.name ?? 'value']),
@@ -715,15 +747,15 @@ ${limitClause(50)}`;
         },
         'top-messages': {
             suggestionId: 'top-messages',
-            title: '看哪些内容最多',
+            title: t('Actions.TopMessages'),
             kind: 'topk',
-            goal: '看看哪些文本出现得最多。',
-            description: '找出出现最多的内容，先判断这次结果主要被哪类信息带动。',
-            resultTitle: '高频内容',
+            goal: t('SuggestionGoals.TopMessages'),
+            description: t('SuggestionDescriptions.TopMessages'),
+            resultTitle: t('ResultTitles.TopMessages'),
             stepTemplates: [
-                { id: 'pick-field', title: '识别文本字段' },
-                { id: 'rank-values', title: '提取高频值' },
-                { id: 'summarize-values', title: '生成高频值结论' },
+                { id: 'pick-field', title: t('Steps.PickField') },
+                { id: 'rank-values', title: t('Steps.RankValues') },
+                { id: 'summarize-values', title: t('Steps.SummarizeValues') },
             ],
             buildSql() {
                 const column = messageColumn ?? dimensionColumn;
@@ -748,10 +780,18 @@ ${limitClause(20)}`;
                 if (rows.length && singleValue) {
                     return {
                         analysisState: 'weak',
-                        limitations: [`${formatValue(first.value)} 覆盖当前结果的全部返回行，该字段没有区分度。`],
-                        summary: `${formatValue(first.total_rows)} / ${formatValue(totalRows || first.total_rows)} 行都是 ${formatValue(first.value)}，继续分析这个字段没有信息增益。建议转向更有区分度的参与者、仓库或时间维度。`,
-                        headline: '当前结果缺少字段多样性',
-                        keyFindings: [`${formatValue(first.value)} 覆盖全部返回行`, '该字段分布不适合作为继续分析目标', '建议直接进入聚合或时间趋势分析'],
+                        limitations: [t('Server.LowVarianceLimitation', { value: formatValue(first.value) })],
+                        summary: t('Server.LowVarianceSummary', {
+                            count: formatValue(first.total_rows),
+                            total: formatValue(totalRows || first.total_rows),
+                            value: formatValue(first.value),
+                        }),
+                        headline: t('Server.LowVarianceHeadline'),
+                        keyFindings: [
+                            t('Server.LowVarianceAllRowsFinding', { value: formatValue(first.value) }),
+                            t('Server.LowVarianceNotUsefulFinding'),
+                            t('Server.LowVarianceNextStepFinding'),
+                        ],
                         recordHighlights: rows.slice(0, 5).map(row => ({
                             label: formatValue(row.value),
                             value: formatValue(row.total_rows),
@@ -767,10 +807,12 @@ ${limitClause(20)}`;
                 }
                 return {
                     analysisState: rows.length ? 'good' : 'invalid',
-                    limitations: rows.length ? [] : ['没有返回高频值，无法继续解释分布。'],
+                    limitations: rows.length ? [] : [t('Server.NoTopValuesLimitation')],
                     summary: rows.length ? `${formatValue(first.value)} is the most common value with ${formatValue(first.total_rows)} rows.` : 'No top values were returned.',
-                    headline: rows.length ? `${formatValue(first.value)} 是最常见的值` : '未返回高频值',
-                    keyFindings: rows.length ? [`最高频值为 ${formatValue(first.value)}`, `频次为 ${formatValue(first.total_rows)}`] : ['没有返回高频值'],
+                    headline: rows.length ? t('Server.TopValueHeadline', { value: formatValue(first.value) }) : t('Server.NoTopValuesHeadline'),
+                    keyFindings: rows.length
+                        ? [t('Server.TopValueFinding', { value: formatValue(first.value) }), t('Server.TopValueCountFinding', { count: formatValue(first.total_rows) })]
+                        : [t('Server.NoTopValuesFinding')],
                     recordHighlights: rows.slice(0, 5).map(row => ({
                         label: formatValue(row.value),
                         value: formatValue(row.total_rows),
@@ -788,15 +830,15 @@ ${limitClause(20)}`;
         },
         'pattern-follow-up': {
             suggestionId: 'pattern-follow-up',
-            title: '继续分析这个模式',
+            title: t('Actions.PatternFollowUp'),
             kind: 'compare',
-            goal: 'Continue investigating the strongest pattern.',
-            description: 'Compare the strongest detected pattern against the most relevant dimension.',
-            resultTitle: 'Pattern follow-up',
+            goal: t('SuggestionGoals.Default'),
+            description: t('SuggestionDescriptions.PatternFollowUp'),
+            resultTitle: t('ResultTitles.Default'),
             stepTemplates: [
-                { id: 'inspect-pattern', title: '确认异常模式' },
-                { id: 'compare-segments', title: '对比相关分组' },
-                { id: 'summarize-pattern', title: '生成模式结论' },
+                { id: 'inspect-pattern', title: t('Steps.InspectPattern') },
+                { id: 'compare-segments', title: t('Steps.CompareSegments') },
+                { id: 'summarize-pattern', title: t('Steps.SummarizePattern') },
             ],
             buildSql() {
                 const column = dimensionColumn;
@@ -820,8 +862,8 @@ ${limitClause(20)}`;
                 const first = rows[0] ?? {};
                 return {
                     summary: rows.length ? `The strongest segment remains ${formatValue(first.dimension)}.` : 'No pattern comparison rows were returned.',
-                    headline: rows.length ? `${formatValue(first.dimension)} 仍然是主要分组` : '未返回模式对比结果',
-                    keyFindings: rows.length ? ['已完成模式相关分组对比'] : ['没有返回模式对比结果'],
+                    headline: rows.length ? t('Server.PatternHeadline', { value: formatValue(first.dimension) }) : t('Server.NoPatternHeadline'),
+                    keyFindings: rows.length ? [t('Server.PatternComparedFinding')] : [t('Server.NoPatternRowsFinding')],
                     recordHighlights: rows.slice(0, 5).map(row => ({
                         label: formatValue(row.dimension),
                         value: formatValue(row.max_value ?? row.total_rows),
@@ -864,17 +906,19 @@ export async function runAnalysis(params: {
     organizationId?: string | null;
     userId?: string | null;
 }): Promise<RunAnalysisResponse> {
+    const locale = params.locale ?? routing.defaultLocale;
+    const t = createAnalysisTranslator(locale);
     const analysisRunId = randomUUID();
     const resultSessionId = randomUUID();
     const createdAt = nowIso();
-    const specs = specsForContext(params.request.context.resultContext);
+    const specs = specsForContext(params.request.context.resultContext, locale);
     const sqlPreview = params.request.trigger.sqlPreview?.trim();
     const spec = sqlPreview
         ? genericAiDrivenSpec({
               suggestionId: params.request.trigger.suggestionId,
               sqlPreview,
               context: params.request.context.resultContext,
-              locale: params.locale ?? routing.defaultLocale,
+              locale,
           })
         : params.request.trigger.action
           ? {
@@ -886,9 +930,9 @@ export async function runAnalysis(params: {
                     description: params.request.trigger.action.title,
                     resultTitle: params.request.trigger.action.title,
                     stepTemplates: [
-                        { id: 'inspect-profile', title: '读取 Profile 信号' },
-                        { id: 'run-next-sql', title: '执行推荐 SQL' },
-                        { id: 'summarize-next-step', title: '生成下一步结论' },
+                        { id: 'inspect-profile', title: t('Server.Steps.InspectProfile') },
+                        { id: 'run-next-sql', title: t('Server.Steps.RunNextSql') },
+                        { id: 'summarize-next-step', title: t('Server.Steps.SummarizeNextStep') },
                     ],
                     summarize({ rows, columns }) {
                         return summarizeActionResult({
@@ -896,6 +940,7 @@ export async function runAnalysis(params: {
                             title: params.request.trigger.action!.title,
                             rows,
                             columns,
+                            t,
                         });
                     },
                     buildFollowups,
@@ -973,7 +1018,7 @@ export async function runAnalysis(params: {
         });
         const rowCount = result.rowCount ?? rows.length;
         const outcomeCore = await enhanceAnalysisSummaryWithAi({
-            locale: params.locale ?? routing.defaultLocale,
+            locale,
             organizationId: params.organizationId ?? null,
             userId: params.userId ?? null,
             sql,
@@ -995,6 +1040,7 @@ export async function runAnalysis(params: {
             columns,
             rowCount,
             sqlText: sql,
+            locale,
         });
 
         const outcome: AnalysisOutcome = {
@@ -1059,7 +1105,7 @@ export async function runAnalysis(params: {
             query,
         };
     } catch (error) {
-        const message = error instanceof Error ? error.message : 'Analysis failed.';
+        const message = error instanceof Error ? error.message : t('Errors.RunFailed');
         const updatedAt = nowIso();
         const runningStep = session.steps.find(step => step.status === 'running')?.id ?? session.steps[session.steps.length - 1]?.id;
         session.status = 'error';
@@ -1085,7 +1131,7 @@ export async function runAnalysis(params: {
         });
         session.outcome = {
             summary: message,
-            headline: '分析执行失败',
+            headline: t('Errors.RunFailed'),
             keyFindings: [message],
             recordHighlights: [],
             sections: [
