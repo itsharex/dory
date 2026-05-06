@@ -2,6 +2,7 @@ import { MAX_HISTORY_MESSAGES } from './compose';
 import { renderPromptEntry } from './render';
 import { buildSchemaContext, getDefaultSchemaSampleLimits, SCHEMA_PROMPT } from './contexts/schema';
 import { SYSTEM_PROMPT } from './system/core';
+import { buildResultInsightsPrompt } from './tasks/result.insights';
 import { buildSchemaExplanationPrompt } from './tasks/schema.explain';
 import { buildColumnTaggingPrompt } from './tasks/schema.tag';
 import { buildColumnLinesForPrompt, buildTableSummaryPrompt } from './tasks/schema.summary';
@@ -21,6 +22,7 @@ export * from './policy/output';
 export * from './policy/safety';
 export * from './system/core';
 export * from './contexts/schema';
+export * from './tasks/result.insights';
 export * from './tasks/schema.explain';
 export * from './tasks/schema.tag';
 export * from './tasks/schema.summary';
@@ -36,6 +38,7 @@ export * from './tasks/sql.chart-builder';
 export const promptRegistry = {
     'system.core': SYSTEM_PROMPT,
     'schema.context.template': SCHEMA_PROMPT,
+    'result.insights': buildResultInsightsPrompt,
     'schema.explain': buildSchemaExplanationPrompt,
     'schema.tag': buildColumnTaggingPrompt,
     'schema.summary': buildTableSummaryPrompt,
@@ -65,6 +68,7 @@ export {
     SQL_RUNNER_GUIDE,
     CHART_BUILDER_GUIDE,
     CHART_BUILDER_TOOL_DESCRIPTION,
+    buildResultInsightsPrompt,
     buildSchemaContext,
     getDefaultSchemaSampleLimits,
     buildSchemaExplanationPrompt,

@@ -1149,6 +1149,7 @@
             "ToggleLabel": "AI",
             "Context": {
                 "SqlTitle": "SQL Context",
+                "EditorTitle": "Editor Context",
                 "SqlLabel": "SQL",
                 "SqlEmpty": "No SQL available",
                 "SelectionLabel": "Selection",
@@ -1162,6 +1163,17 @@
                 "EmptyValue": "—",
                 "TableFactsTitle": "Table Facts",
                 "RowCountLabel": "Row count",
+                "ColumnCountLabel": "Columns",
+                "StatusLabel": "Status",
+                "ProfileLabel": "Profile",
+                "ProfileReady": "Ready",
+                "ProfilePending": "Pending",
+                "ResultSetTitle": "Result Set Context",
+                "ResultKindLabel": "Kind",
+                "ChartLabel": "Chart",
+                "ProfileColumnsLabel": "Profile columns",
+                "DistinctShort": "distinct {value}",
+                "TopShareShort": "top {value}",
                 "PrimaryKeyLabel": "Primary key",
                 "TableLabel": "Table",
                 "RawCopilot": "Raw Copilot Context",
@@ -1181,6 +1193,8 @@
             },
             "Actions": {
                 "Title": "Actions",
+                "SqlTitle": "SQL Actions",
+                "SqlDescription": "Fix, optimize, or rewrite the current SQL.",
                 "Empty": "No actions available",
                 "RequiresLastRun": "Requires the last SQL run",
                 "RequiresError": "Requires an execution error",
@@ -1349,6 +1363,396 @@
             "ResultTab": "Result {index}",
             "WaitingForResults": "Waiting for results...",
             "DownloadCsvTitle": "Download CSV"
+        },
+        "Insights": {
+            "Title": "Insights",
+            "Beta": "Beta",
+            "Subtitle": "A lightweight explanation layer for the current result set.",
+            "Loading": "Profiling the current result set...",
+            "Kinds": {
+                "SingleValue": "Single value",
+                "TimeSeries": "Time series",
+                "AggregatedTable": "Aggregated table",
+                "DetailTable": "Detail table",
+                "Unknown": "Unknown"
+            },
+            "Charts": {
+                "Table": "Table-first",
+                "Bar": "Bar-ready",
+                "Line": "Line-ready",
+                "Pie": "Pie-ready",
+                "Metric": "Metric-ready",
+                "Scatter": "Scatter-ready",
+                "Unknown": "Exploration-ready"
+            },
+            "QuickSummary": {
+                "SectionTitle": "Quick Summary",
+                "Description": "The basic shape of this result.",
+                "Title": "{kind} · {rows} rows · {columns} columns · {chartStatus}",
+                "ChartReady": "Chart-ready",
+                "ExplorationReady": "Exploration-ready",
+                "TimeDetail": "Primary time: {column} ({grain})",
+                "ChartHint": "Suggested next view: {chart}"
+            },
+            "TimeGrain": {
+                "Detail": "{grain}",
+                "EventLevel": "event-level",
+                "second": "second-level",
+                "minute": "minute-level",
+                "hour": "hour-level",
+                "day": "day-level",
+                "week": "week-level",
+                "month": "month-level",
+                "quarter": "quarter-level",
+                "year": "year-level"
+            },
+            "KeyInsights": {
+                "SectionTitle": "Key Insights",
+                "Description": "What is most worth checking first in this result.",
+                "Empty": "No clear pattern stands out yet. Try filtering or charting this result.",
+                "Refresh": "Refresh insights"
+            },
+            "Loading": {
+                "DurationHint": "This usually takes about 10 seconds. Results update automatically.",
+                "Scenarios": {
+                    "generic": {
+                        "Title": "Analyzing result...",
+                        "CheckingLabel": "Checking for:",
+                        "Checks": {
+                            "First": "Anomalous values",
+                            "Second": "Long-tail distributions",
+                            "Third": "Structural issues"
+                        }
+                    },
+                    "logs": {
+                        "Title": "Analyzing log data...",
+                        "CheckingLabel": "Checking for:",
+                        "Checks": {
+                            "First": "Concentrated errors",
+                            "Second": "Abnormal response times",
+                            "Third": "Volatility or spikes"
+                        }
+                    },
+                    "metrics": {
+                        "Title": "Analyzing data distribution...",
+                        "CheckingLabel": "Checking for:",
+                        "Checks": {
+                            "First": "Extreme values",
+                            "Second": "Clear segmentation",
+                            "Third": "Whether averages are representative"
+                        }
+                    },
+                    "structure": {
+                        "Title": "Understanding data structure...",
+                        "CheckingLabel": "Analyzing:",
+                        "Checks": {
+                            "First": "Field types and distributions",
+                            "Second": "Possible key metrics",
+                            "Third": "Available analysis paths"
+                        }
+                    }
+                }
+            },
+            "Card": {
+                "CurrentResult": "current result",
+                "OutlierHeadline": "Warning: {column} contains unusually high values",
+                "OutlierMaxLine": "The highest rows can distort the overall read.",
+                "LongTailLine": "The distribution has a long tail that can mislead aggregate analysis.",
+                "RiskHeadline": "Warning: {column} shows a risky concentration",
+                "RiskLine": "{value} takes about {share} of the current result.",
+                "LowInformationHeadline": "{column} has no useful variance in this result",
+                "LowInformationLine": "{count} rows are concentrated in {value} ({share}), so this field has no information gain for distribution analysis.",
+                "DimensionHeadline": "Warning: {column} is highly concentrated",
+                "DimensionLine": "{value} stands out as the dominant segment."
+            },
+            "Decision": {
+                "OutlierTitle": "A small set of high {column} rows is pulling the result upward",
+                "OutlierImpact": "Average-based analysis can become misleading unless you inspect those rows first.",
+                "RiskTitle": "{column} points to a concentrated risk segment",
+                "RiskImpact": "The next step should isolate the segment before summarizing the whole result.",
+                "LowInformationTitle": "{column} does not add enough analytical signal",
+                "LowInformationImpact": "Continuing on this field will not explain the result, so move to a richer dimension.",
+                "ConcentrationTitle": "{column} is concentrating the current result",
+                "ConcentrationImpact": "This concentration can hide differences between segments, so break it down before drawing conclusions.",
+                "TrendTitle": "{column} should drive the next time-based check",
+                "TrendImpact": "A trend view can reveal whether the result is stable or driven by a specific period.",
+                "DefaultImpact": "Use the recommended first action to turn this result into a more precise next result."
+            },
+            "Messages": {
+                "PrimaryCategory": "{column} is led by {value} at about {share}.",
+                "LowInformationDimension": "{column} lacks variance: {count} rows are concentrated in {value} ({share}). Switch to another dimension for the next step.",
+                "RiskCategory": "{value} accounts for about {share} in {column}, which is worth checking first.",
+                "TopDimension": "{value} is one of the most active values in {column} ({count} rows).",
+                "TopMessage": "A common message is “{value}” ({count} rows).",
+                "TimeTrend": "This result is well-suited for a time trend on {column} to spot spikes and shifts.",
+                "MeasureSpread": "{column} has a long-tail shape that can distort aggregate analysis.",
+                "HighCardinality": "{column} looks high-cardinality, so it is better used for filtering than headline summaries.",
+                "SpikePattern": "{bucket} stands out as a period that can drive the overall trend.",
+                "DropPattern": "{bucket} falls below the surrounding pattern and can change the trend reading.",
+                "OutlierPattern": "{column} contains extreme values that can distort the summary.",
+                "CorrelationPattern": "{left} and {right} tend to move together in this sample (correlation {correlation})."
+            },
+            "KeyColumns": {
+                "SectionTitle": "Key Columns",
+                "Description": "Columns you are most likely to use next.",
+                "Time": "Time",
+                "Measure": "Measure",
+                "Dimensions": "Dimensions",
+                "Identifier": "Identifier",
+                "Empty": "Not detected"
+            },
+            "RecommendedActions": {
+                "SectionTitle": "Recommended Actions",
+                "Description": "The next step is ordered for you.",
+                "FirstStep": "Suggested first step",
+                "Empty": "No ready-to-run action is available yet."
+            },
+            "MainFinding": {
+                "Label": "Main finding",
+                "Recommendation": "Recommended next step: focus on the strongest signal first.",
+                "RecommendationWithAction": "Recommended next step: {action}.",
+                "MeansLabel": "This means:",
+                "PriorityHint": "Recommended step 1"
+            },
+            "Levels": {
+                "primary": "Primary",
+                "secondary": "Secondary",
+                "info": "Info"
+            },
+            "Actions": {
+                "InspectOutliers": "Inspect high-value rows",
+                "InspectHighValueRows": "View high {column} rows",
+                "FindHighestRows": "Find highest {column} rows",
+                "LocateSlowRequests": "Locate slow requests",
+                "AnalyzeSource": "Analyze source",
+                "AnalyzeByColumn": "Analyze by {column}",
+                "ViewDistribution": "Inspect amount distribution",
+                "ViewColumnDistribution": "View {column} distribution",
+                "GroupByService": "Group by {column}",
+                "ViewTimeTrend": "Inspect order trend",
+                "ViewTimeTrendByColumn": "View {column} trend",
+                "FilterOutliers": "Exclude anomalous rows",
+                "ExcludeHighValueRows": "Exclude high {column} rows",
+                "TopMessages": "View top values",
+                "PatternFollowUp": "Follow up on this pattern",
+                "ExplainResult": "Explain this result"
+            },
+            "ActionPrompts": {
+                "CurrentResult": "the current result",
+                "TimeErrorTrend": "Use the current result and SQL ({sql}) to suggest the next query for tracking error trends over time with {timeColumn}. Explain what to group by and why.",
+                "ServiceErrorBreakdown": "Use the current result and SQL ({sql}) to suggest the next query for breaking down errors by {serviceColumn}. Keep the recommendation focused and practical.",
+                "TopMessages": "Use the current result and SQL ({sql}) to suggest the next query for reviewing top values in {messageColumn}. Mention the best chart or table view to use.",
+                "PatternFollowUp": "Use the current result and SQL ({sql}) to investigate this pattern: {pattern}. Focus on columns {columns}. Suggest the next query and explain why it should help.",
+                "ExplainResult": "Explain what this result means in plain language, what stands out, and what to ask next. Base your answer on the current result and SQL ({sql})."
+            },
+            "Source": {
+                "Llm": "Rewritten with AI",
+                "Rules": "Based on rule analysis"
+            },
+            "Profile": {
+                "Title": "Profile (Advanced)",
+                "Description": "Detailed signals and column stats used to build the insights.",
+                "SignalsTitle": "Quick Signals",
+                "NullRatio": "Null ratio",
+                "DuplicateRows": "Duplicate rows",
+                "ChartReadiness": "Chart-ready",
+                "RowCount": "Rows",
+                "Yes": "Yes",
+                "No": "No",
+                "HighlightedColumns": "Key column roles",
+                "ColumnStatsTitle": "Column Stats",
+                "ColumnStatLine": "Distinct {distinct} · Null {nulls}"
+            },
+            "Analysis": {
+                "Empty": "Select a result to start analysis.",
+                "CurrentInsightTitle": "Current Insight",
+                "CurrentInsightDescription": "The active issue and its ready-to-run entry points.",
+                "AvailableActionsTitle": "All Actions",
+                "AvailableActionsDescription": "A toolbox of available analysis actions for the current result.",
+                "ProcessTitle": "Analysis Process",
+                "ProcessDescription": "Explainable execution flow for the selected analysis.",
+                "ResultTitle": "Analysis Result",
+                "ResultDescription": "Key findings, examples, and supporting evidence.",
+                "NextActionsTitle": "Next Actions",
+                "NextActionsDescription": "Continue the analysis chain with another predefined action.",
+                "HistoryTitle": "History",
+                "HistoryDescription": "Recent analysis sessions for the current result chain.",
+                "RunningTitle": "Analyzing: {title}",
+                "RunningDescription": "Running the selected analysis action.",
+                "LoadingStatus": "Loading",
+                "LoadingTitle": "Analyzing",
+                "LoadingDescription": "Generating the conclusion and result. This page will update automatically.",
+                "ResultPending": "Analysis results will appear here after execution.",
+                "RecordHighlightsTitle": "Top records",
+                "OpenResult": "Open result",
+                "NoNextActions": "No follow-up actions are available yet.",
+                "Starting": "Starting analysis...",
+                "ClickToRun": "Click to run now",
+                "StepLabel": "Step {index}. {title}",
+                "ActionPageSubtitle": "Explain, analyze, generate, and continue.",
+                "ConclusionTitle": "Analysis conclusion",
+                "ConclusionDescription": "The main judgment from this step and why it matters.",
+                "WhyRunTitle": "Why this analysis",
+                "KeyFindingsTitle": "Key findings",
+                "SupportingDetailsTitle": "Supporting details",
+                "GeneratedSqlTitle": "Generated SQL",
+                "GeneratedSqlDescription": "SQL used to reproduce this analysis result.",
+                "VisualResultTitle": "Result preview",
+                "VisualResultEmpty": "No chartable result rows are available for this analysis.",
+                "CopySql": "Copy SQL",
+                "ApplyResult": "Apply result",
+                "NoGeneratedSql": "No generated SQL is available for this analysis.",
+                "SqlCopied": "SQL copied.",
+                "AiDecision": {
+                    "DefaultLabel": "Continue recommended analysis",
+                    "DefaultDescription": "AI selected the next analysis step from the Profile.",
+                    "InvalidTitle": "This result is not analyzable yet",
+                    "InvalidDescription": "The result is empty or lacks usable fields. Adjust the SQL or expand the range first.",
+                    "AdjustQueryLabel": "Adjust query range",
+                    "InvalidGoal": "Collect analyzable data before continuing.",
+                    "InvalidResultTitle": "Analysis blocked",
+                    "InvalidReason": "The current result does not have enough evidence for continued analysis.",
+                    "GroupByTitle": "Group by {column}",
+                    "TimeTrendTitle": "Trend by {column}",
+                    "LowDensityDescription": "{column} has low information density. Move to a more useful aggregation.",
+                    "NextAxisDescription": "Based on the Profile, {column} is a better next analysis axis.",
+                    "GroupByLabel": "Continue: group by {column}",
+                    "TimeTrendLabel": "Continue: view {column} trend",
+                    "GroupByGoal": "Identify which {column} contributes the most activity.",
+                    "TimeTrendGoal": "Check whether activity clusters over {column}.",
+                    "GroupByResultTitle": "{column} breakdown",
+                    "TimeTrendResultTitle": "{column} trend",
+                    "LowDensityReason": "{column} is too concentrated to explain the result well.",
+                    "NextAxisReason": "Choose {column} as the highest-value next analysis dimension."
+                },
+                "Steps": {
+                    "InspectProfile": "Read Profile signals",
+                    "RunNextSql": "Run recommended SQL",
+                    "SummarizeNextStep": "Summarize the next result",
+                    "InspectAxis": "Confirm time field",
+                    "BucketSeries": "Aggregate by time",
+                    "SummarizeTrend": "Summarize trend",
+                    "PickSource": "Identify source field",
+                    "GroupSource": "Group by source",
+                    "SummarizeSource": "Summarize source",
+                    "PickDimension": "Identify key dimension",
+                    "PickField": "Identify text field",
+                    "RankValues": "Rank top values",
+                    "SummarizeValues": "Summarize top values",
+                    "FindPeak": "Find maximum value",
+                    "ExtractTop": "Extract top 20 rows",
+                    "SummarizeOutliers": "Summarize samples",
+                    "ScanDistribution": "Scan distribution",
+                    "MeasureTail": "Measure tail and peaks",
+                    "SummarizeDistribution": "Summarize distribution",
+                    "FindThreshold": "Find anomaly threshold",
+                    "FilterRows": "Filter anomalous rows",
+                    "SummarizeFiltered": "Summarize filtered result",
+                    "InspectPattern": "Inspect pattern",
+                    "CompareSegments": "Compare segments",
+                    "SummarizePattern": "Summarize pattern",
+                    "InspectResult": "Inspect current result",
+                    "RunAnalysis": "Run analysis query",
+                    "SummarizeAnalysis": "Summarize analysis",
+                    "AdjustQuery": "Adjust query",
+                    "SummarizeLimitation": "Summarize limitation"
+                },
+                "SuggestionDescriptions": {
+                    "ViewTimeTrend": "Break the result down over time to check whether it clusters in specific periods.",
+                    "GroupByService": "Break down by service or source to find the largest contributor.",
+                    "AnalyzeSource": "Break down by the most relevant dimension to locate the main source.",
+                    "TopMessages": "Find the most frequent content to see what drives this result.",
+                    "InspectOutliers": "Review the highest-value samples to understand where outliers come from.",
+                    "ViewDistribution": "Quantify the main measure distribution, tail, and concentration.",
+                    "FilterOutliers": "Narrow the result to the anomalous subset for continued analysis.",
+                    "PatternFollowUp": "Follow up on the strongest pattern and compare related segments.",
+                    "Default": "Continue drilling into the current result.",
+                    "ViewTimeTrendWithColumn": "Check whether the issue changes over {column}.",
+                    "GroupByColumn": "Identify which {column} contributes the most.",
+                    "TopMessagesWithColumn": "Find the most frequent {column} values to see what drives this result.",
+                    "ViewDistributionWithColumn": "Find the highest values and quantify the long tail for {column}.",
+                    "InspectOutliersWithColumn": "Review the highest rows for {column}.",
+                    "FilterOutliersWithColumn": "Keep abnormal rows and continue analyzing them by {column}."
+                },
+                "SuggestionGoals": {
+                    "TopMessages": "See which text values appear most often.",
+                    "Default": "Continue the current analysis.",
+                    "ViewTimeTrend": "Inspect change over time.",
+                    "GroupByService": "Locate the source of the anomaly.",
+                    "AnalyzeSource": "Find the segment behind the issue.",
+                    "ViewDistribution": "Understand the distribution shape.",
+                    "InspectOutliers": "Locate anomalous rows.",
+                    "FilterOutliers": "Focus on abnormal rows only."
+                },
+                "ResultTitles": {
+                    "TopMessages": "Top values",
+                    "Default": "Analysis result",
+                    "TimeTrend": "Time trend",
+                    "SourceBreakdown": "Source breakdown",
+                    "SourceAnalysis": "Source analysis",
+                    "Distribution": "Distribution",
+                    "OutlierSamples": "Outlier samples",
+                    "FilteredAnomalySet": "Filtered anomaly set"
+                },
+                "Server": {
+                    "ContinueRecommendedAnalysis": "Continue recommended analysis",
+                    "RunRecommendedAnalysis": "Run recommended analysis",
+                    "RecommendedAnalysisGoal": "Move to the next useful analysis step after confirmation.",
+                    "RecommendedAnalysisDescription": "Run the confirmed recommended SQL and summarize whether the result is more useful.",
+                    "ReadOnlySelectError": "Recommended SQL must be a single read-only SELECT statement.",
+                    "FirstGroup": "Top group",
+                    "NoRecommendedRowsLimitation": "The recommended SQL returned no rows. Adjust the direction or expand the range.",
+                    "LeaderSummaryWithValue": "{leader} is the most prominent group in this result, with {value} records.",
+                    "LeaderSummary": "{leader} is the group most worth checking first.",
+                    "NoRecommendedRowsSummary": "The recommended SQL did not return an analyzable result.",
+                    "LeaderHeadline": "{leader} deserves attention first",
+                    "NoRecommendedRowsHeadline": "The next analysis returned no result",
+                    "LeaderFindingWithValue": "{leader} contributed {value} records",
+                    "LeaderFinding": "{leader} ranked first",
+                    "CandidateGroupsFinding": "This step returned {count} candidate groups",
+                    "NoUsableRowsFinding": "No usable result was returned",
+                    "RecommendedSqlResultTitle": "Recommended SQL result",
+                    "Steps": {
+                        "InspectProfile": "Read Profile signals",
+                        "RunNextSql": "Run recommended SQL",
+                        "SummarizeNextStep": "Summarize the next result"
+                    }
+                },
+                "Kinds": {
+                    "trend": "Trend",
+                    "topk": "Top values",
+                    "drilldown": "Breakdown",
+                    "distribution": "Distribution",
+                    "compare": "Compare"
+                },
+                "StepStatus": {
+                    "pending": "Pending",
+                    "running": "Running",
+                    "done": "Done",
+                    "error": "Error"
+                },
+                "Errors": {
+                    "RunFailed": "Failed to run analysis."
+                },
+                "Actions": {
+                    "ViewTimeTrend": "Inspect order trend",
+                    "GroupByColumn": "Group by {column}",
+                    "AnalyzeSource": "Analyze source",
+                    "TopMessages": "View top values",
+                    "ViewDistribution": "Inspect amount distribution",
+                    "InspectOutliers": "Inspect high-value rows",
+                    "FilterOutliers": "Exclude anomalous rows"
+                },
+                "SuggestionTitles": {
+                    "ViewTimeTrend": "Inspect {column} trend",
+                    "GroupByColumn": "Break down by {column}",
+                    "AnalyzeSource": "Analyze likely source",
+                    "TopMessages": "View top values in {column}",
+                    "ViewDistribution": "Inspect {column} distribution",
+                    "InspectOutliers": "Inspect high {column} rows",
+                    "FilterOutliers": "Exclude high {column} rows"
+                }
+            }
         },
         "Overview": {
             "Status": "Status",

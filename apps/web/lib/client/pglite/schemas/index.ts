@@ -51,6 +51,9 @@ export const queryResultSet = pgTable(
 
         title: text('title'),
         columns: jsonb('columns'), // Suggested: [{ name, type, ... }]
+        stats: jsonb('stats'),
+        viewState: jsonb('view_state'),
+        aiProfileVersion: integer('ai_profile_version').notNull().default(1),
         rowCount: integer('row_count'),
 
         limited: boolean('limited').notNull().default(false),

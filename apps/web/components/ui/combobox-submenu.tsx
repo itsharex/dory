@@ -241,7 +241,7 @@ export function ComboboxSubmenu({
     };
 
     return (
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
             {label ? <span className="mr-1 text-[11px] font-medium text-muted-foreground/80">{label}</span> : null}
             <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>

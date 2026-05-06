@@ -114,9 +114,13 @@ function testRange(raw: any, filter: ColumnFilter) {
 export function useVTableFilters({
     results,
     storageKey,
+    initialFilters,
+    disableStorage = false,
 }: {
     results: ResultRow[];
     storageKey?: string;
+    initialFilters?: ColumnFilter[];
+    disableStorage?: boolean;
 }) {
     const hydratedStorageKeyRef = useRef<string | undefined>(undefined);
 
@@ -131,6 +135,12 @@ export function useVTableFilters({
     }, []);
 
     const [activeFilters, setActiveFilters] = useState<ColumnFilter[]>(() => {
+        if (initialFilters) {
+            return initialFilters;
+        }
+        if (disableStorage) {
+            return [];
+        }
         return readStoredFilters(storageKey);
     });
     const [filterDraft, setFilterDraft] = useState<FilterDraft>({
@@ -143,16 +153,25 @@ export function useVTableFilters({
 
     useLayoutEffect(() => {
         hydratedStorageKeyRef.current = storageKey;
+        if (initialFilters) {
+            setActiveFilters(initialFilters);
+            return;
+        }
+        if (disableStorage) {
+            setActiveFilters([]);
+            return;
+        }
         setActiveFilters(readStoredFilters(storageKey));
-    }, [readStoredFilters, storageKey]);
+    }, [disableStorage, initialFilters, readStoredFilters, storageKey]);
 
     useEffect(() => {
+        if (disableStorage) return;
         if (!storageKey) return;
         if (hydratedStorageKeyRef.current !== storageKey) return;
         try {
             localStorage.setItem(`${storageKey}:filters`, JSON.stringify(activeFilters));
         } catch {}
-    }, [activeFilters, storageKey]);
+    }, [activeFilters, disableStorage, storageKey]);
 
     const filteredResults = useMemo(() => {
         if (activeFilters.length === 0) return results;
@@ -198,6 +217,10 @@ export function useVTableFilters({
         setActiveFilters([]);
     }, []);
 
+    const replaceFilters = useCallback((filters: ColumnFilter[]) => {
+        setActiveFilters(filters);
+    }, []);
+
     const getColumnFilter = useCallback(
         (column: string) => filtersByColumn.get(column),
         [filtersByColumn],
@@ -222,6 +245,7 @@ export function useVTableFilters({
         setColumnFilter,
         removeFilter,
         clearAllFilters,
+        replaceFilters,
         getColumnFilter,
         getColumnFilterPopoverProps,
     };

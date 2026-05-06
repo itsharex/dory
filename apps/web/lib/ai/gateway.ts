@@ -433,7 +433,7 @@ function emitDebug(debug: AiDebugInfo, options?: AiDebugOptions) {
         return;
     }
     if (typeof process !== 'undefined' && process.env.AI_DEBUG === '1') {
-        console.debug('[ai][debug]', JSON.stringify(debug));
+        // console.debug('[ai][debug]', JSON.stringify(debug));
     }
 }
 

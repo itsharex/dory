@@ -1147,6 +1147,7 @@
             "ToggleLabel": "AI",
             "Context": {
                 "SqlTitle": "SQL コンテキスト",
+                "EditorTitle": "エディターコンテキスト",
                 "SqlLabel": "SQL",
                 "SqlEmpty": "利用可能な SQL がありません",
                 "SelectionLabel": "選択範囲",
@@ -1160,6 +1161,17 @@
                 "EmptyValue": "—",
                 "TableFactsTitle": "テーブル情報",
                 "RowCountLabel": "行数",
+                "ColumnCountLabel": "列数",
+                "StatusLabel": "ステータス",
+                "ProfileLabel": "プロファイル",
+                "ProfileReady": "準備完了",
+                "ProfilePending": "保留中",
+                "ResultSetTitle": "結果セットコンテキスト",
+                "ResultKindLabel": "種類",
+                "ChartLabel": "チャート",
+                "ProfileColumnsLabel": "プロファイル列",
+                "DistinctShort": "distinct {value}",
+                "TopShareShort": "top {value}",
                 "PrimaryKeyLabel": "主キー",
                 "TableLabel": "テーブル",
                 "RawCopilot": "生の Copilot コンテキスト",
@@ -1179,6 +1191,8 @@
             },
             "Actions": {
                 "Title": "アクション",
+                "SqlTitle": "SQL アクション",
+                "SqlDescription": "現在の SQL を修正、最適化、または書き換えます。",
                 "Empty": "利用可能なアクションがありません",
                 "RequiresLastRun": "直前の SQL 実行結果が必要です",
                 "RequiresError": "実行エラーが必要です",
@@ -1347,6 +1361,367 @@
             "ResultTab": "結果 {index}",
             "WaitingForResults": "結果を待機中...",
             "DownloadCsvTitle": "CSV をダウンロード"
+        },
+        "Insights": {
+            "Title": "Insights",
+            "Beta": "Beta",
+            "Subtitle": "現在の結果セットを人向けに説明する軽量レイヤーです。",
+            "Loading": "現在の結果セットを解析しています...",
+            "Kinds": {
+                "SingleValue": "単一値",
+                "TimeSeries": "時系列",
+                "AggregatedTable": "集計テーブル",
+                "DetailTable": "明細テーブル",
+                "Unknown": "不明"
+            },
+            "Charts": {
+                "Table": "表で確認向き",
+                "Bar": "棒グラフ向き",
+                "Line": "折れ線グラフ向き",
+                "Pie": "円グラフ向き",
+                "Metric": "メトリック向き",
+                "Scatter": "散布図向き",
+                "Unknown": "探索向き"
+            },
+            "QuickSummary": {
+                "SectionTitle": "Quick Summary",
+                "Description": "この結果の基本的な形です。",
+                "Title": "{kind} · {rows} rows · {columns} columns · {chartStatus}",
+                "ChartReady": "グラフ向き",
+                "ExplorationReady": "探索向き",
+                "TimeDetail": "主要な時間列: {column}（{grain}）",
+                "ChartHint": "次に見るなら: {chart}"
+            },
+            "TimeGrain": {
+                "Detail": "{grain}",
+                "EventLevel": "イベント粒度",
+                "second": "秒粒度",
+                "minute": "分粒度",
+                "hour": "時間粒度",
+                "day": "日粒度",
+                "week": "週粒度",
+                "month": "月粒度",
+                "quarter": "四半期粒度",
+                "year": "年粒度"
+            },
+            "KeyInsights": {
+                "SectionTitle": "Key Insights",
+                "Description": "この結果でまず見るべきポイントです。",
+                "Empty": "まだ明確な傾向は見えていません。フィルタやチャートを試してください。",
+                "Refresh": "インサイトを更新"
+            },
+            "Loading": {
+                "DurationHint": "通常 10 秒ほどかかります。完了すると自動で更新されます。",
+                "Scenarios": {
+                    "generic": {
+                        "Title": "結果を分析中...",
+                        "CheckingLabel": "確認中:",
+                        "Checks": {
+                            "First": "異常値の有無",
+                            "Second": "ロングテール分布",
+                            "Third": "構造的な問題"
+                        }
+                    },
+                    "logs": {
+                        "Title": "ログデータを分析中...",
+                        "CheckingLabel": "確認中:",
+                        "Checks": {
+                            "First": "エラーの集中",
+                            "Second": "応答時間の異常",
+                            "Third": "変動やスパイク"
+                        }
+                    },
+                    "metrics": {
+                        "Title": "データ分布を分析中...",
+                        "CheckingLabel": "確認中:",
+                        "Checks": {
+                            "First": "極端な値",
+                            "Second": "明確なセグメント",
+                            "Third": "平均値の代表性"
+                        }
+                    },
+                    "structure": {
+                        "Title": "データ構造を確認中...",
+                        "CheckingLabel": "分析中:",
+                        "Checks": {
+                            "First": "フィールド型と分布",
+                            "Second": "主要指標の候補",
+                            "Third": "利用できる分析経路"
+                        }
+                    }
+                }
+            },
+            "Card": {
+                "CurrentResult": "現在の結果",
+                "OutlierHeadline": "警告: {column} に異常に高い値があります",
+                "OutlierMaxLine": "最大値は {value} で、明らかに高すぎる可能性があります。",
+                "LongTailLine": "分布はロングテールで、p50 は {p50}、p95 は {p95} です。",
+                "RiskHeadline": "警告: {column} にリスク集中があります",
+                "RiskLine": "{value} は現在の結果の約 {share} を占めます。",
+                "LowInformationHeadline": "{column} には有用なばらつきがありません",
+                "LowInformationLine": "{count} rows が {value} に集中しているため（{share}）、このフィールドの分布分析には情報増分がありません。",
+                "DimensionHeadline": "警告: {column} は強く集中しています",
+                "DimensionLine": "{value} が支配的なセグメントとして目立ちます。"
+            },
+            "Messages": {
+                "PrimaryCategory": "{column} は {value} が中心で、およそ {share} を占めます。",
+                "LowInformationDimension": "{column} はばらつきが不足しています。{count} rows が {value} に集中しています（{share}）。次は別のディメンションを見るのが有効です。",
+                "RiskCategory": "{column} の中で {value} が約 {share} を占めており、優先的に確認する価値があります。",
+                "TopDimension": "{value} は {column} の中でも特に多い値の一つです（{count} rows）。",
+                "TopMessage": "よく見られる内容は「{value}」です（{count} rows）。",
+                "TimeTrend": "{column} を軸に時系列で見ると、急増や変化を見つけやすい結果です。",
+                "MeasureSpread": "{column} にはばらつきがあり、p50 は {p50} 前後、p95 は {p95} 前後です。",
+                "HighCardinality": "{column} は高カーディナリティに見えるため、要約よりフィルタ用途に向いています。",
+                "SpikePattern": "{bucket} は明確なスパイクで、通常水準 {baseline} に対して {value} まで上がっています。",
+                "DropPattern": "{bucket} は通常水準 {baseline} を下回り、{value} まで落ちています。",
+                "OutlierPattern": "{column} には極端な値があり、サンプルでは {value} 付近が見られます。",
+                "CorrelationPattern": "このサンプルでは {left} と {right} が一緒に動く傾向があります（相関 {correlation}）。"
+            },
+            "KeyColumns": {
+                "SectionTitle": "Key Columns",
+                "Description": "次に使う可能性が高い列です。",
+                "Time": "Time",
+                "Measure": "Measure",
+                "Dimensions": "Dimensions",
+                "Identifier": "Identifier",
+                "Empty": "未検出"
+            },
+            "RecommendedActions": {
+                "SectionTitle": "Recommended Actions",
+                "Description": "ここから続けて分析できる方向です。"
+            },
+            "Actions": {
+                "InspectOutliers": "異常サンプルを見る",
+                "InspectHighValueRows": "高い {column} の行を見る",
+                "AnalyzeSource": "原因を分析する",
+                "AnalyzeByColumn": "{column} で分析",
+                "ViewDistribution": "分布を見る",
+                "ViewColumnDistribution": "{column} の分布を見る",
+                "GroupByService": "{column} でグループ分析",
+                "ViewTimeTrend": "時系列を見る",
+                "ViewTimeTrendByColumn": "{column} の傾向を見る",
+                "FilterOutliers": "異常行を絞り込む",
+                "ExcludeHighValueRows": "高い {column} の行を除外",
+                "TopMessages": "上位値を見る",
+                "PatternFollowUp": "このパターンを追う",
+                "ExplainResult": "この結果を説明する"
+            },
+            "ActionPrompts": {
+                "CurrentResult": "現在の結果",
+                "TimeErrorTrend": "現在の結果と SQL（{sql}）をもとに、{timeColumn} を使って error の時系列傾向を見る次のクエリ案を提案してください。どう集計すべきかも説明してください。",
+                "ServiceErrorBreakdown": "現在の結果と SQL（{sql}）をもとに、{serviceColumn} ごとに error を分解して見る次のクエリ案を提案してください。実用的にまとめてください。",
+                "TopMessages": "現在の結果と SQL（{sql}）をもとに、{messageColumn} の上位値を確認する次のクエリ案を提案してください。適した表示方法も添えてください。",
+                "PatternFollowUp": "現在の結果と SQL（{sql}）をもとに、このパターンをさらに調べてください: {pattern}。対象列は {columns} です。次に試すクエリと理由を提案してください。",
+                "ExplainResult": "現在の結果と SQL（{sql}）をもとに、この結果が何を意味するか、何が目立つか、次に何を聞くべきかを平易に説明してください。"
+            },
+            "Source": {
+                "Llm": "AI で書き換え済み",
+                "Rules": "ルール分析ベース"
+            },
+            "Profile": {
+                "Title": "Profile (Advanced)",
+                "Description": "Insights の元になった詳細シグナルと列統計です。",
+                "SignalsTitle": "Quick Signals",
+                "NullRatio": "Null 比率",
+                "DuplicateRows": "重複行",
+                "ChartReadiness": "グラフ向き",
+                "RowCount": "行数",
+                "Yes": "はい",
+                "No": "いいえ",
+                "HighlightedColumns": "主要な列ロール",
+                "ColumnStatsTitle": "Column Stats",
+                "ColumnStatLine": "Distinct {distinct} · Null {nulls}"
+            },
+            "Analysis": {
+                "Empty": "分析を始めるには結果を選択してください。",
+                "CurrentInsightTitle": "現在の Insight",
+                "CurrentInsightDescription": "現在の問題と、すぐ実行できる入り口です。",
+                "AvailableActionsTitle": "分析アクション",
+                "AvailableActionsDescription": "現在の結果から分析を続け、データを結論に変換します。",
+                "ProcessTitle": "分析プロセス",
+                "ProcessDescription": "選択した分析の説明可能な実行フローです。",
+                "ResultTitle": "分析結果",
+                "ResultDescription": "重要な発見、例、根拠をここにまとめます。",
+                "NextActionsTitle": "次のアクション",
+                "NextActionsDescription": "別の定義済みアクションで分析チェーンを続けます。",
+                "HistoryTitle": "履歴",
+                "HistoryDescription": "現在の結果チェーンに対する最近の分析セッションです。",
+                "RunningTitle": "分析中: {title}",
+                "RunningDescription": "選択した分析アクションを実行しています。",
+                "LoadingStatus": "Loading",
+                "LoadingTitle": "分析しています",
+                "LoadingDescription": "結論と結果を生成しています。完了すると自動で更新されます。",
+                "ResultPending": "分析結果は実行後にここへ表示されます。",
+                "RecordHighlightsTitle": "主要レコード",
+                "OpenResult": "結果を開く",
+                "NoNextActions": "まだフォローアップアクションはありません。",
+                "Starting": "分析を開始しています...",
+                "ClickToRun": "クリックして実行",
+                "StepLabel": "Step {index}. {title}",
+                "ActionPageSubtitle": "説明、分析、生成、継続を行います。",
+                "ConclusionTitle": "分析の結論",
+                "ConclusionDescription": "このステップで最も重要な判断と、その理由です。",
+                "WhyRunTitle": "この分析を行う理由",
+                "KeyFindingsTitle": "主な発見",
+                "SupportingDetailsTitle": "補足根拠",
+                "GeneratedSqlTitle": "生成された SQL",
+                "GeneratedSqlDescription": "この分析結果を再現するために使った SQL です。",
+                "VisualResultTitle": "結果プレビュー",
+                "VisualResultEmpty": "この分析で直接グラフ化できる結果行はありません。",
+                "CopySql": "SQL をコピー",
+                "ApplyResult": "結果を適用",
+                "NoGeneratedSql": "この分析で生成された SQL はありません。",
+                "SqlCopied": "SQL をコピーしました。",
+                "AiDecision": {
+                    "DefaultLabel": "推奨分析を続ける",
+                    "DefaultDescription": "AI が Profile から次の分析ステップを選びました。",
+                    "InvalidTitle": "This result is not analyzable yet",
+                    "InvalidDescription": "The result is empty or lacks usable fields. Adjust the SQL or expand the range first.",
+                    "AdjustQueryLabel": "Adjust query range",
+                    "InvalidGoal": "Collect analyzable data before continuing.",
+                    "InvalidResultTitle": "Analysis blocked",
+                    "InvalidReason": "The current result does not have enough evidence for continued analysis.",
+                    "GroupByTitle": "Group by {column}",
+                    "TimeTrendTitle": "Trend by {column}",
+                    "LowDensityDescription": "{column} has low information density. Move to a more useful aggregation.",
+                    "NextAxisDescription": "Based on the Profile, {column} is a better next analysis axis.",
+                    "GroupByLabel": "Continue: group by {column}",
+                    "TimeTrendLabel": "Continue: view {column} trend",
+                    "GroupByGoal": "Identify which {column} contributes the most activity.",
+                    "TimeTrendGoal": "Check whether activity clusters over {column}.",
+                    "GroupByResultTitle": "{column} breakdown",
+                    "TimeTrendResultTitle": "{column} trend",
+                    "LowDensityReason": "{column} has information density {density} and top value share {share}.",
+                    "NextAxisReason": "Choose {column} as the highest-value next analysis dimension."
+                },
+                "Steps": {
+                    "InspectProfile": "Profile シグナルを読む",
+                    "RunNextSql": "推奨 SQL を実行",
+                    "SummarizeNextStep": "次の結果を要約",
+                    "InspectAxis": "Confirm time field",
+                    "BucketSeries": "Aggregate by time",
+                    "SummarizeTrend": "Summarize trend",
+                    "PickSource": "Identify source field",
+                    "GroupSource": "Group by source",
+                    "SummarizeSource": "Summarize source",
+                    "PickDimension": "Identify key dimension",
+                    "PickField": "Identify text field",
+                    "RankValues": "Rank top values",
+                    "SummarizeValues": "Summarize top values",
+                    "FindPeak": "Find maximum value",
+                    "ExtractTop": "Extract top 20 rows",
+                    "SummarizeOutliers": "Summarize samples",
+                    "ScanDistribution": "Scan distribution",
+                    "MeasureTail": "Measure tail and peaks",
+                    "SummarizeDistribution": "Summarize distribution",
+                    "FindThreshold": "Find anomaly threshold",
+                    "FilterRows": "Filter anomalous rows",
+                    "SummarizeFiltered": "Summarize filtered result",
+                    "InspectPattern": "Inspect pattern",
+                    "CompareSegments": "Compare segments",
+                    "SummarizePattern": "Summarize pattern",
+                    "InspectResult": "Inspect current result",
+                    "RunAnalysis": "Run analysis query",
+                    "SummarizeAnalysis": "Summarize analysis",
+                    "AdjustQuery": "Adjust query",
+                    "SummarizeLimitation": "Summarize limitation"
+                },
+                "Server": {
+                    "ContinueRecommendedAnalysis": "推奨分析を続ける",
+                    "RunRecommendedAnalysis": "推奨分析を実行",
+                    "RecommendedAnalysisGoal": "確認後、次に有用な分析ステップへ進みます。",
+                    "RecommendedAnalysisDescription": "確認済みの推奨 SQL を実行し、結果がより有用かを要約します。",
+                    "ReadOnlySelectError": "推奨 SQL は単一の読み取り専用 SELECT 文である必要があります。",
+                    "FirstGroup": "先頭グループ",
+                    "NoRecommendedRowsLimitation": "推奨 SQL は結果を返しませんでした。分析方向を調整するか範囲を広げてください。",
+                    "LeaderSummaryWithValue": "{leader} はこの結果で最も目立つグループで、{value} 件あります。",
+                    "LeaderSummary": "{leader} は最初に確認すべきグループです。",
+                    "NoRecommendedRowsSummary": "推奨 SQL は分析可能な結果を返しませんでした。",
+                    "LeaderHeadline": "{leader} を最初に見るべきです",
+                    "NoRecommendedRowsHeadline": "次の分析は結果を返しませんでした",
+                    "LeaderFindingWithValue": "{leader} は {value} 件を占めています",
+                    "LeaderFinding": "{leader} が 1 位です",
+                    "CandidateGroupsFinding": "このステップでは {count} 個の候補グループが返りました",
+                    "NoUsableRowsFinding": "利用できる結果は返りませんでした",
+                    "RecommendedSqlResultTitle": "推奨 SQL の結果",
+                    "Steps": {
+                        "InspectProfile": "Profile シグナルを読む",
+                        "RunNextSql": "推奨 SQL を実行",
+                        "SummarizeNextStep": "次の結果を要約"
+                    }
+                },
+                "Kinds": {
+                    "trend": "トレンド",
+                    "topk": "頻出値",
+                    "drilldown": "内訳",
+                    "distribution": "分布",
+                    "compare": "比較"
+                },
+                "StepStatus": {
+                    "pending": "待機中",
+                    "running": "実行中",
+                    "done": "完了",
+                    "error": "エラー"
+                },
+                "Errors": {
+                    "RunFailed": "分析を実行できませんでした。"
+                },
+                "SuggestionDescriptions": {
+                    "ViewTimeTrend": "Break the result down over time to check whether it clusters in specific periods.",
+                    "GroupByService": "Break down by service or source to find the largest contributor.",
+                    "AnalyzeSource": "Break down by the most relevant dimension to locate the main source.",
+                    "TopMessages": "Find the most frequent content to see what drives this result.",
+                    "InspectOutliers": "Review the highest-value samples to understand where outliers come from.",
+                    "ViewDistribution": "Quantify the main measure distribution, tail, and concentration.",
+                    "FilterOutliers": "Narrow the result to the anomalous subset for continued analysis.",
+                    "PatternFollowUp": "Follow up on the strongest pattern and compare related segments.",
+                    "Default": "Continue drilling into the current result.",
+                    "ViewTimeTrendWithColumn": "Check whether the issue changes over {column}.",
+                    "GroupByColumn": "Identify which {column} contributes the most.",
+                    "TopMessagesWithColumn": "Find the most frequent {column} values to see what drives this result.",
+                    "ViewDistributionWithColumn": "Find the highest values and quantify the long tail for {column}.",
+                    "InspectOutliersWithColumn": "Review the highest rows for {column}.",
+                    "FilterOutliersWithColumn": "Keep abnormal rows and continue analyzing them by {column}."
+                },
+                "SuggestionGoals": {
+                    "TopMessages": "See which text values appear most often.",
+                    "Default": "Continue the current analysis.",
+                    "ViewTimeTrend": "Inspect change over time.",
+                    "GroupByService": "Locate the source of the anomaly.",
+                    "AnalyzeSource": "Find the segment behind the issue.",
+                    "ViewDistribution": "Understand the distribution shape.",
+                    "InspectOutliers": "Locate anomalous rows.",
+                    "FilterOutliers": "Focus on abnormal rows only."
+                },
+                "ResultTitles": {
+                    "TopMessages": "Top values",
+                    "Default": "Analysis result",
+                    "TimeTrend": "Time trend",
+                    "SourceBreakdown": "Source breakdown",
+                    "SourceAnalysis": "Source analysis",
+                    "Distribution": "Distribution",
+                    "OutlierSamples": "Outlier samples",
+                    "FilteredAnomalySet": "Filtered anomaly set"
+                },
+                "Actions": {
+                    "ViewTimeTrend": "View time trend",
+                    "GroupByColumn": "Group by {column}",
+                    "AnalyzeSource": "Analyze source",
+                    "TopMessages": "View top values",
+                    "ViewDistribution": "View distribution",
+                    "InspectOutliers": "View anomalous samples",
+                    "FilterOutliers": "Filter anomalous rows"
+                },
+                "SuggestionTitles": {
+                    "ViewTimeTrend": "Trend {column} over time",
+                    "GroupByColumn": "Break down by {column}",
+                    "AnalyzeSource": "Analyze likely source",
+                    "TopMessages": "View top values in {column}",
+                    "ViewDistribution": "Profile {column} distribution",
+                    "InspectOutliers": "Inspect outliers in {column}",
+                    "FilterOutliers": "Filter high {column} rows"
+                }
+            }
         },
         "Overview": {
             "Status": "状態",

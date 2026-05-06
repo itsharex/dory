@@ -76,8 +76,8 @@ export function useSqlQueryRunner({
             if (!dbReady || !tab || !userReady) return;
 
             const tabId = tab.tabId;
-            const sql = editorRef.current?.getValue() ?? (activeTab?.tabType === 'sql' ? activeTab?.content ?? '' : '');
-            const sqlText = (options?.sqlOverride ?? (tab.tabType === 'sql' ? sql ?? '' : '')).trim();
+            const sql = editorRef.current?.getValue() ?? (activeTab?.tabType === 'sql' ? (activeTab?.content ?? '') : '');
+            const sqlText = (options?.sqlOverride ?? (tab.tabType === 'sql' ? (sql ?? '') : '')).trim();
             const finalSqlText = tab.tabType === 'sql' ? applyLimitToSql(sqlText, options?.limit) : sqlText;
             let database: string | null = null;
 
@@ -199,7 +199,22 @@ export function useSqlQueryRunner({
                 }
             }
         },
-        [dbReady, userReady, activeTab, activeDatabase, query, createQuerySession, applyServerResult, finishQuerySession, setRunningTabs, setSessionIdMap, userId, tabs, requestAITabTitle, t],
+        [
+            dbReady,
+            userReady,
+            activeTab,
+            activeDatabase,
+            query,
+            createQuerySession,
+            applyServerResult,
+            finishQuerySession,
+            setRunningTabs,
+            setSessionIdMap,
+            userId,
+            tabs,
+            requestAITabTitle,
+            t,
+        ],
     );
 
     const cancelQuery = useCallback(
@@ -215,7 +230,7 @@ export function useSqlQueryRunner({
             let sessionId = sessionIdMap[tabId];
             if (!sessionId) {
                 try {
-                    sessionId = localStorage.getItem(`sqlconsole:sessionId:${tabId}`) as string ?? undefined;
+                    sessionId = (localStorage.getItem(`sqlconsole:sessionId:${tabId}`) as string) ?? undefined;
                 } catch {
                     // ignore
                 }

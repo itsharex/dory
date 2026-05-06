@@ -440,7 +440,6 @@ export function useSqlMonacoEditor({
 }: UseSqlMonacoEditorProps) {
     const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
     const monacoRef = useRef<typeof import('monaco-editor') | null>(null);
-    const dtCompletionDisposableRef = useRef<Monaco.IDisposable | null>(null);
     const tablesRef = useRef<any[]>([]);
     const activeDatabaseRef = useRef<string>('');
     const databasesRef = useRef<any[]>([]);
@@ -524,6 +523,7 @@ export function useSqlMonacoEditor({
 
         let disposed = false;
         let localEditor: Monaco.editor.IStandaloneCodeEditor | null = null;
+        let dtCompletionDisposable: Monaco.IDisposable | null = null;
         let contentDisposable: Monaco.IDisposable | null = null;
         let selectionDisposable: Monaco.IDisposable | null = null;
         const placeholderWidgets = new Map<number, Monaco.editor.IContentWidget>();
@@ -531,19 +531,22 @@ export function useSqlMonacoEditor({
         (async () => {
             ensureMonacoWorkerFactory();
             const monaco = await import('monaco-editor');
+            if (disposed || !containerRef.current) return;
+
             monacoRef.current = monaco;
             const dialectConfig = getSqlDialectConfigForConnectionType(currentConnectionType);
             const languageId = dialectConfig.monacoLanguageId;
 
             const parser = await getSqlDialectParser(dialectConfig.dialect);
+            if (disposed || !containerRef.current) return;
+
             console.log(`[useSqlMonacoEditor] Loaded parser for dialect=${dialectConfig.dialect}`);
 
             monaco.editor.defineTheme('github-dark', vsPlusTheme.darkThemeData);
             monaco.editor.defineTheme('github-light', vsPlusTheme.lightThemeData);
             monaco.editor.setTheme(editorThemeRef.current);
 
-            dtCompletionDisposableRef.current?.dispose();
-            dtCompletionDisposableRef.current = registerDtSqlCompletion(
+            dtCompletionDisposable = registerDtSqlCompletion(
                 monaco,
                 languageId,
                 parser,
@@ -698,8 +701,7 @@ export function useSqlMonacoEditor({
                 localEditor?.removeContentWidget(widget);
             }
             placeholderWidgets.clear();
-            dtCompletionDisposableRef.current?.dispose();
-            dtCompletionDisposableRef.current = null;
+            dtCompletionDisposable?.dispose();
             localEditor?.dispose();
             editorRef.current = null;
             setSelectionByTab(prev => {

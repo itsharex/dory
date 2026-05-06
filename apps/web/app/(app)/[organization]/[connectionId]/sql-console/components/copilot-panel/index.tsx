@@ -7,6 +7,7 @@ import { Loader2, X } from 'lucide-react';
 import { useChatSessions } from '../../../chatbot/core/session-controller';
 import type { CopilotEnvelopeV1 } from '../../../chatbot/copilot/types/copilot-envelope';
 import { createCopilotFixInputFromExecution, createCopilotSQLContextEnvelope } from '../../../chatbot/copilot/copilot-envelope';
+import type { CopilotResultSetContext } from '../../../chatbot/copilot/types/copilot-context-sql';
 import type { CopilotFixInput } from '../../../chatbot/copilot/types/copilot-fix-input';
 import type { ActionIntent, ActionResult } from '@/lib/copilot/action/types';
 import { useSqlCopilotExecutor } from '../../hooks/useSqlCopilotExecutor';
@@ -16,7 +17,8 @@ import { useTranslations } from 'next-intl';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { activeDatabaseAtom, currentConnectionAtom } from '@/shared/stores/app.store';
 import { currentSessionMetaAtom } from '../result-table/stores/result-table.atoms';
-import { copilotActionRequestAtom, editorSelectionByTabAtom } from '../../sql-console.store';
+import { copilotPromptRequestAtom } from '../result-table/stores/copilot-prompt.atoms';
+import { copilotActionRequestAtom, copilotAnalysisRequestAtom, copilotPanelTabAtom, editorSelectionByTabAtom } from '../../sql-console.store';
 import type { SQLEditorHandle } from '../sql-editor';
 import AskTab, { type ActionsState } from './ask';
 import ContextTab from './context';
@@ -45,8 +47,11 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
     const sessionMeta = useAtomValue(currentSessionMetaAtom);
     const selectionByTab = useAtomValue(editorSelectionByTabAtom);
     const [actionRequest, setActionRequest] = useAtom(copilotActionRequestAtom);
+    const [analysisRequest, setAnalysisRequest] = useAtom(copilotAnalysisRequestAtom);
+    const [promptRequest, setPromptRequest] = useAtom(copilotPromptRequestAtom);
+    const [panelTab, setPanelTab] = useAtom(copilotPanelTabAtom);
 
-    const [subTab, setSubTab] = useState<SubTabKey>('ask');
+    const [subTab, setSubTab] = useState<SubTabKey>(panelTab === 'ask' || panelTab === 'context' ? panelTab : 'action');
     const [actionsState, setActionsState] = useState<ActionsState | null>(null);
     const [copilotEnvelope, setCopilotEnvelope] = useState<CopilotEnvelopeV1 | null>(null);
     const activeTabCoreFields = activeTab
@@ -73,6 +78,24 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
     const sessionErrorCode = (sessionMeta as any)?.errorCode ?? null;
     const sessionFinishedAt = (sessionMeta as any)?.finishedAt ?? null;
     const sessionStartedAt = (sessionMeta as any)?.startedAt ?? null;
+    const resultSetContext = useMemo<CopilotResultSetContext | null>(() => {
+        if (!sessionMeta || !(sessionMeta as any)?.sessionId) return null;
+
+        return {
+            sessionId: (sessionMeta as any).sessionId ?? null,
+            setIndex: (sessionMeta as any).setIndex ?? null,
+            title: (sessionMeta as any).title ?? null,
+            sqlText: typeof (sessionMeta as any).sqlText === 'string' ? (sessionMeta as any).sqlText : null,
+            status: (sessionMeta as any).status ?? null,
+            rowCount: (sessionMeta as any).rowCount ?? null,
+            limited: (sessionMeta as any).limited ?? null,
+            limit: (sessionMeta as any).limit ?? null,
+            durationMs: (sessionMeta as any).durationMs ?? null,
+            columns: (sessionMeta as any).columns ?? null,
+            stats: (sessionMeta as any).stats ?? null,
+            aiProfileVersion: (sessionMeta as any).aiProfileVersion ?? null,
+        };
+    }, [sessionMeta]);
 
     const tabId = activeTab?.tabId;
     const tabName = activeTab?.tabName;
@@ -101,6 +124,7 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                 selection: editorSelection,
                 baselineDatabase: activeDatabase || null,
                 dialect: (currentConnection as any)?.connection?.type ?? 'unknown',
+                resultSet: resultSetContext,
                 updatedAt: lastUpdatedAt ?? undefined,
                 meta: {
                     tabId,
@@ -126,6 +150,7 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
         (currentConnection as any)?.connection?.type,
         sessionFinishedAt,
         sessionStartedAt,
+        resultSetContext,
         tabContent,
         tabName,
         editorSelection,
@@ -134,10 +159,8 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
     const actionInput: CopilotFixInput | null = useMemo(() => {
         const hasErrorMessage = typeof sessionErrorMessage === 'string' && !!sessionErrorMessage.trim();
         const selectedSql =
-            editorSelection && typeof tabContent === 'string' && editorSelection.end > editorSelection.start
-                ? tabContent.slice(editorSelection.start, editorSelection.end)
-                : '';
-        const editorSql = selectedSql.trim() ? selectedSql : (typeof tabContent === 'string' ? tabContent : '');
+            editorSelection && typeof tabContent === 'string' && editorSelection.end > editorSelection.start ? tabContent.slice(editorSelection.start, editorSelection.end) : '';
+        const editorSql = selectedSql.trim() ? selectedSql : typeof tabContent === 'string' ? tabContent : '';
         const sourceSql = sqlTextFromResult.trim() ? sqlTextFromResult : editorSql;
 
         if (!sourceSql.trim()) return null;
@@ -284,6 +307,24 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
         }
     }, [actionRequest?.id]);
 
+    useEffect(() => {
+        if (promptRequest?.id) {
+            setSubTab('ask');
+        }
+    }, [promptRequest?.id]);
+
+    useEffect(() => {
+        if (analysisRequest?.id) {
+            setSubTab('action');
+        }
+    }, [analysisRequest?.id]);
+
+    useEffect(() => {
+        if (panelTab !== subTab) {
+            setPanelTab(subTab);
+        }
+    }, [panelTab, setPanelTab, subTab]);
+
     return (
         <div className="flex h-full min-h-0 flex-col border-t">
             <div className="flex-1 min-h-0">
@@ -298,7 +339,15 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                         <Loader2 className="h-5 w-5 animate-spin" />
                     </div>
                 ) : (
-                    <Tabs value={subTab} onValueChange={v => setSubTab(v as SubTabKey)} className="flex h-full min-h-0 flex-col">
+                    <Tabs
+                        value={subTab}
+                        onValueChange={v => {
+                            const next = v as SubTabKey;
+                            setSubTab(next);
+                            setPanelTab(next);
+                        }}
+                        className="flex h-full min-h-0 flex-col"
+                    >
                         <div className="flex items-center justify-between border-b px-4 py-3">
                             <TabsList className="h-8">
                                 <TabsTrigger value="ask" className="h-7 px-3 text-xs">
@@ -325,6 +374,11 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                                     chat={chat}
                                     copilotEnvelope={copilotEnvelope}
                                     actionsState={actionsState}
+                                    initialPrompt={promptRequest?.prompt ?? null}
+                                    onInitialPromptConsumed={() => {
+                                        if (!promptRequest?.id) return;
+                                        setPromptRequest(prev => (prev?.id === promptRequest.id ? null : prev));
+                                    }}
                                     onExecuteAction={onExecuteAction}
                                     onGoToActions={() => setSubTab('action')}
                                 />
@@ -342,6 +396,10 @@ export default function CopilotPanel({ tabs, activeTabId, activeTab, updateTab, 
                                     onAutoRunHandled={requestId => {
                                         setActionRequest(prev => (prev?.id === requestId ? null : prev));
                                     }}
+                                    analysisRequestId={analysisRequest?.id ?? null}
+                                    tabId={activeTabId}
+                                    connectionId={tabConnectionId ?? currentConnection?.connection.id ?? null}
+                                    databaseName={activeDatabase || null}
                                 />
                             </Activity>
                         </TabsContent>

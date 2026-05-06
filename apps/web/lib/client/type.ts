@@ -1,3 +1,5 @@
+import type { AIResultContextPayload, ResultColumnMeta, ResultSetStatsV1, ResultSetViewState } from './result-set-ai';
+
 // ==== Row data (for frontend rendering) ====
 export interface TabResult {
     tabId: string; // Source tab (lookup from session)
@@ -53,6 +55,9 @@ export interface DBHook {
 
             title?: string | null;
             columns?: unknown; // Suggested shape: [{name,type,...}]
+            stats?: ResultSetStatsV1 | null;
+            viewState?: ResultSetViewState | null;
+            aiProfileVersion?: number | null;
             rowCount?: number | null;
             affectedRows?: number | null;
             status?: 'success' | 'error';
@@ -67,6 +72,8 @@ export interface DBHook {
             durationMs?: number | null;
         },
     ): Promise<void>;
+
+    updateResultSetViewState(sessionId: string, setIndex: number, viewState: ResultSetViewState | null): Promise<void>;
 
     // Write rows in batches; split pages and compress into query_result_page
     // ★ Supports both any[] (raw rows) and {rowData:any}[]
@@ -112,6 +119,9 @@ export interface DBHook {
             sqlOp?: string | null;
             title?: string | null;
             columns?: unknown | null;
+            stats?: ResultSetStatsV1 | null;
+            viewState?: ResultSetViewState | null;
+            aiProfileVersion?: number | null;
             rowCount?: number | null;
             affectedRows?: number | null;
             status: 'success' | 'error';
@@ -159,7 +169,10 @@ export interface QueryResultSetRow {
     sqlOp: string | null; // ★ New: operation type
 
     title: string | null;
-    columns: unknown; // Your column definition shape
+    columns: ResultColumnMeta[] | null;
+    stats: ResultSetStatsV1 | null;
+    viewState: ResultSetViewState | null;
+    aiProfileVersion: number;
     rowCount: number | null;
     affectedRows: number | null;
 
@@ -209,7 +222,10 @@ export type ResultSetMeta = {
     sqlOp: string | null;
 
     title: string | null;
-    columns: unknown | null;
+    columns: ResultColumnMeta[] | null;
+    stats: ResultSetStatsV1 | null;
+    viewState: ResultSetViewState | null;
+    aiProfileVersion: number;
     rowCount: number | null;
 
     limited: boolean;
@@ -227,3 +243,5 @@ export type ResultSetMeta = {
     finishedAt?: number | null; // Return ms
     durationMs: number | null;
 };
+
+export type { AIResultContextPayload, ResultColumnMeta, ResultSetStatsV1, ResultSetViewState };

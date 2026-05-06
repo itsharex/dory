@@ -37,7 +37,8 @@ export function ChartCanvas(props: {
         mode?: { append?: boolean },
     ) => void;
 }) {
-    const { chartType, chartConfig, aggregated, effectiveGroupKey, chartColors, xAxisLabel, yAxisLabel, emptyMessage, timelineSliderEnabled, chartRootRef, onApplyChartFilter } = props;
+    const { chartType, chartConfig, aggregated, effectiveGroupKey, chartColors, xAxisLabel, yAxisLabel, emptyMessage, timelineSliderEnabled, chartRootRef, onApplyChartFilter } =
+        props;
     const primaryChartColor = chartColors[0] ?? 'var(--primary)';
     const clickFilterEnabled = chartType !== 'line';
     const supportsTimeline = chartType === 'line' || chartType === 'bar' || chartType === 'histogram';
@@ -191,12 +192,8 @@ export function ChartCanvas(props: {
 
         const startDatum = aggregated.data[brushSelection.startIndex] as Record<string, unknown> | undefined;
         const endDatum = aggregated.data[brushSelection.endIndex] as Record<string, unknown> | undefined;
-        const startFilter = startDatum?.__xBrushFilter as
-            | { col: string; kind: 'range'; from: string; to: string; valueType: 'number' | 'date'; label: string }
-            | undefined;
-        const endFilter = endDatum?.__xBrushFilter as
-            | { col: string; kind: 'range'; from: string; to: string; valueType: 'number' | 'date'; label: string }
-            | undefined;
+        const startFilter = startDatum?.__xBrushFilter as { col: string; kind: 'range'; from: string; to: string; valueType: 'number' | 'date'; label: string } | undefined;
+        const endFilter = endDatum?.__xBrushFilter as { col: string; kind: 'range'; from: string; to: string; valueType: 'number' | 'date'; label: string } | undefined;
 
         if (!startFilter || !endFilter || startFilter.col !== endFilter.col || startFilter.valueType !== endFilter.valueType) {
             return null;
@@ -248,16 +245,13 @@ export function ChartCanvas(props: {
                         <ChartContainer config={chartConfig} className="aspect-auto h-full w-full overflow-hidden">
                             <LineChart accessibilityLayer data={aggregated.data} margin={{ left: 8, right: 8, top: 8 }}>
                                 <CartesianGrid vertical={false} />
-                                <XAxis
-                                    dataKey="xLabel"
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickMargin={10}
-                                    minTickGap={24}
-                                    tickFormatter={value => String(value).slice(0, 18)}
-                                />
+                                <XAxis dataKey="xLabel" tickLine={false} axisLine={false} tickMargin={10} minTickGap={24} tickFormatter={value => String(value).slice(0, 18)} />
                                 <YAxis tickLine={false} axisLine={false} width={56} />
-                                <ChartTooltip content={<ChartFilterTooltipContent filterEnabled={clickFilterEnabled} chartConfig={chartConfig} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} />} />
+                                <ChartTooltip
+                                    content={
+                                        <ChartFilterTooltipContent filterEnabled={clickFilterEnabled} chartConfig={chartConfig} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} />
+                                    }
+                                />
                                 {aggregated.series.map(series => (
                                     <Line
                                         key={series.key}
@@ -275,13 +269,7 @@ export function ChartCanvas(props: {
                                                 className={clickFilterEnabled ? 'cursor-pointer' : undefined}
                                                 onClick={
                                                     clickFilterEnabled
-                                                        ? event =>
-                                                              handleDatumClick(
-                                                                  dotProps.payload as Record<string, unknown>,
-                                                                  series.key,
-                                                                  series.label,
-                                                                  event.shiftKey,
-                                                              )
+                                                        ? event => handleDatumClick(dotProps.payload as Record<string, unknown>, series.key, series.label, event.shiftKey)
                                                         : undefined
                                                 }
                                             />
@@ -305,16 +293,14 @@ export function ChartCanvas(props: {
                         <ChartContainer config={chartConfig} className="aspect-auto h-full w-full overflow-hidden">
                             <BarChart accessibilityLayer data={aggregated.data} margin={{ left: 8, right: 8, top: 8 }}>
                                 <CartesianGrid vertical={false} />
-                                <XAxis
-                                    dataKey="xLabel"
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickMargin={10}
-                                    minTickGap={24}
-                                    tickFormatter={value => String(value).slice(0, 18)}
-                                />
+                                <XAxis dataKey="xLabel" tickLine={false} axisLine={false} tickMargin={10} minTickGap={24} tickFormatter={value => String(value).slice(0, 18)} />
                                 <YAxis tickLine={false} axisLine={false} width={56} />
-                                <ChartTooltip cursor={false} content={<ChartFilterTooltipContent filterEnabled={clickFilterEnabled} chartConfig={chartConfig} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} />} />
+                                <ChartTooltip
+                                    cursor={false}
+                                    content={
+                                        <ChartFilterTooltipContent filterEnabled={clickFilterEnabled} chartConfig={chartConfig} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} />
+                                    }
+                                />
                                 {aggregated.series.map(series => (
                                     <Bar
                                         key={series.key}
@@ -350,16 +336,14 @@ export function ChartCanvas(props: {
                         <ChartContainer config={chartConfig} className="aspect-auto h-full w-full overflow-hidden">
                             <BarChart accessibilityLayer data={histogramData} margin={{ left: 8, right: 8, top: 8 }}>
                                 <CartesianGrid vertical={false} />
-                                <XAxis
-                                    dataKey="xLabel"
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickMargin={10}
-                                    minTickGap={24}
-                                    tickFormatter={value => String(value).slice(0, 18)}
-                                />
+                                <XAxis dataKey="xLabel" tickLine={false} axisLine={false} tickMargin={10} minTickGap={24} tickFormatter={value => String(value).slice(0, 18)} />
                                 <YAxis tickLine={false} axisLine={false} width={56} />
-                                <ChartTooltip cursor={false} content={<ChartFilterTooltipContent filterEnabled={clickFilterEnabled} chartConfig={chartConfig} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} />} />
+                                <ChartTooltip
+                                    cursor={false}
+                                    content={
+                                        <ChartFilterTooltipContent filterEnabled={clickFilterEnabled} chartConfig={chartConfig} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} />
+                                    }
+                                />
                                 <Bar
                                     dataKey="__histValue"
                                     fill={primaryChartColor}
@@ -392,7 +376,15 @@ export function ChartCanvas(props: {
                             <PieChart accessibilityLayer margin={{ left: 8, right: 8, top: 8, bottom: 8 }}>
                                 <ChartTooltip
                                     cursor={false}
-                                    content={<ChartFilterTooltipContent filterEnabled={clickFilterEnabled} chartConfig={chartConfig} xAxisLabel={xAxisLabel} yAxisLabel={yAxisLabel} hideLabel />}
+                                    content={
+                                        <ChartFilterTooltipContent
+                                            filterEnabled={clickFilterEnabled}
+                                            chartConfig={chartConfig}
+                                            xAxisLabel={xAxisLabel}
+                                            yAxisLabel={yAxisLabel}
+                                            hideLabel
+                                        />
+                                    }
                                 />
                                 <Pie
                                     data={pieData}
@@ -412,7 +404,10 @@ export function ChartCanvas(props: {
                                     }
                                 >
                                     {pieData.map((datum, index) => (
-                                        <Cell key={`${String((datum as Record<string, unknown>).xLabel ?? index)}`} fill={chartColors[index % chartColors.length] ?? primaryChartColor} />
+                                        <Cell
+                                            key={`${String((datum as Record<string, unknown>).xLabel ?? index)}`}
+                                            fill={chartColors[index % chartColors.length] ?? primaryChartColor}
+                                        />
                                     ))}
                                 </Pie>
                             </PieChart>
@@ -431,7 +426,8 @@ export function ChartCanvas(props: {
                                     className="cursor-pointer"
                                     onClick={(data, _index, event) =>
                                         handleDatumClick(
-                                            ((data as unknown as { payload?: Record<string, unknown> } | undefined)?.payload ?? (data as unknown as Record<string, unknown> | undefined)),
+                                            (data as unknown as { payload?: Record<string, unknown> } | undefined)?.payload ??
+                                                (data as unknown as Record<string, unknown> | undefined),
                                             ALL_SERIES_KEY,
                                             'Value',
                                             Boolean((event as React.MouseEvent<SVGElement> | undefined)?.shiftKey),
@@ -468,14 +464,7 @@ export function ChartCanvas(props: {
                                                     type="button"
                                                     className="h-8 rounded-sm border border-border/40 text-[11px] tabular-nums text-foreground"
                                                     style={{ backgroundColor: `color-mix(in oklab, ${primaryChartColor} ${Math.round(alpha * 100)}%, transparent)` }}
-                                                    onClick={event =>
-                                                        handleDatumClick(
-                                                            datum as Record<string, unknown>,
-                                                            series.key,
-                                                            series.label,
-                                                            event.shiftKey,
-                                                        )
-                                                    }
+                                                    onClick={event => handleDatumClick(datum as Record<string, unknown>, series.key, series.label, event.shiftKey)}
                                                     title={`${series.label}: ${value.toLocaleString()}`}
                                                 >
                                                     {value.toLocaleString()}
@@ -493,7 +482,9 @@ export function ChartCanvas(props: {
     );
 }
 
-function ScatterTooltipContent(props: React.ComponentProps<typeof ChartTooltipContent> & { yAxisLabel: string; active?: boolean; payload?: Array<{ payload?: Record<string, unknown> }> }) {
+function ScatterTooltipContent(
+    props: React.ComponentProps<typeof ChartTooltipContent> & { yAxisLabel: string; active?: boolean; payload?: Array<{ payload?: Record<string, unknown> }> },
+) {
     const { active, payload, yAxisLabel } = props;
     if (!active || !payload?.length) {
         return null;
@@ -518,7 +509,16 @@ function ScatterTooltipContent(props: React.ComponentProps<typeof ChartTooltipCo
     );
 }
 
-function ChartFilterTooltipContent(props: React.ComponentProps<typeof ChartTooltipContent> & { filterEnabled?: boolean; chartConfig: ChartConfig; xAxisLabel: string; yAxisLabel: string; active?: boolean; payload?: Array<Record<string, unknown>> }) {
+function ChartFilterTooltipContent(
+    props: React.ComponentProps<typeof ChartTooltipContent> & {
+        filterEnabled?: boolean;
+        chartConfig: ChartConfig;
+        xAxisLabel: string;
+        yAxisLabel: string;
+        active?: boolean;
+        payload?: Array<Record<string, unknown>>;
+    },
+) {
     const { filterEnabled, chartConfig, xAxisLabel, yAxisLabel } = props;
     if (!props.active || !props.payload?.length) {
         return null;

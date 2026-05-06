@@ -104,13 +104,10 @@ export function ChartSelect(props: { label: string; value: string; onValueChange
     const { label, value, onValueChange, options, disabled = false } = props;
 
     return (
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
             <span className="mr-1 text-[11px] font-medium text-muted-foreground/80">{label}</span>
             <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-                <SelectTrigger
-                    size="control"
-                    className="min-w-[104px] justify-between border bg-background/50 text-muted-foreground shadow-none hover:bg-background/70"
-                >
+                <SelectTrigger size="control" className="min-w-[104px] justify-between border bg-background/50 text-muted-foreground shadow-none hover:bg-background/70">
                     <SelectValue placeholder={label} />
                 </SelectTrigger>
                 <SelectContent align="start">
@@ -141,7 +138,7 @@ export function ChartCombobox(props: {
     const displayLabel = selected?.label ?? placeholder ?? label;
 
     return (
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
             <span className="mr-1 text-[11px] font-medium text-muted-foreground/80">{label}</span>
             <Popover open={open} onOpenChange={setOpen}>
                 <PopoverTrigger asChild>

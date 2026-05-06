@@ -18,6 +18,7 @@ import { dataVersionAtom, bumpDataVersionAtom } from './client.store';
 import { encodeRows, toArrayBuffer, decodeRow } from '../utils/binary-codec';
 import { translate } from '@/lib/i18n/i18n';
 import { getClientLocale } from '@/lib/i18n/client-locale';
+import { profileResultSet, type ResultSetStatsV1, type ResultSetViewState } from './result-set-ai';
 
 // ---------------- Concurrency and pagination params ----------------
 const WORKER_COUNT = Math.max(1, Math.min(3, typeof navigator !== 'undefined' && (navigator as any).hardwareConcurrency ? (navigator as any).hardwareConcurrency - 1 : 2));
@@ -26,6 +27,7 @@ const MIN_ROWS_PER_PAGE = 50;
 const DEFAULT_ROWS_PER_PAGE = 1_000;
 const TARGET_PAGE_BYTES = 4 * 1024 * 1024;
 const YIELD_MS: number = 8;
+const RESULT_SET_PROFILE_VERSION = 2;
 
 function translatePgliteError(key: string) {
     return translate(getClientLocale(), key);
@@ -148,6 +150,9 @@ export function useDB() {
 
                 title: meta.title ?? null,
                 columns: meta.columns as any,
+                stats: (meta.stats ?? null) as any,
+                viewState: (meta.viewState ?? null) as any,
+                aiProfileVersion: meta.aiProfileVersion ?? RESULT_SET_PROFILE_VERSION,
                 rowCount: meta.rowCount ?? null,
                 affectedRows: meta.affectedRows ?? null,
                 // Only allow 'success' or 'error' for status
@@ -173,6 +178,9 @@ export function useDB() {
                         sqlOp: values.sqlOp,
                         title: values.title,
                         columns: values.columns,
+                        stats: values.stats,
+                        viewState: values.viewState,
+                        aiProfileVersion: values.aiProfileVersion,
                         rowCount: values.rowCount,
                         affectedRows: values.affectedRows,
                         status: values.status,
@@ -193,6 +201,21 @@ export function useDB() {
         [bumpDataVersion],
     );
 
+    const updateResultSetViewState = useCallback(
+        async (sessionId: string, setIndex: number, viewState: ResultSetViewState | null) => {
+            if (!ormRef.current) throw new Error(translatePgliteError('Client.Pglite.DbNotInitialized'));
+
+            await ormRef.current
+                .update(queryResultSet)
+                .set({
+                    viewState: (viewState ?? null) as any,
+                })
+                .where(and(eq(queryResultSet.sessionId, sessionId), eq(queryResultSet.setIndex, setIndex)))
+                .execute();
+        },
+        [],
+    );
+
 
     const listResultSetsMeta = useCallback(
         async (sessionId: string): Promise<ResultSetMeta[] | null> => {
@@ -207,6 +230,9 @@ export function useDB() {
 
                     title: queryResultSet.title,
                     columns: queryResultSet.columns,
+                    stats: queryResultSet.stats,
+                    viewState: queryResultSet.viewState,
+                    aiProfileVersion: queryResultSet.aiProfileVersion,
                     rowCount: queryResultSet.rowCount,
                     affectedRows: queryResultSet.affectedRows,
                     status: queryResultSet.status,
@@ -237,6 +263,10 @@ export function useDB() {
                 ...r,
                 startedAt: r.startedAt ? new Date(r.startedAt as any).getTime() : null,
                 finishedAt: r.finishedAt ? new Date(r.finishedAt as any).getTime() : null,
+                columns: (r.columns ?? null) as any,
+                stats: (r.stats ?? null) as ResultSetStatsV1 | null,
+                viewState: (r.viewState ?? null) as ResultSetViewState | null,
+                aiProfileVersion: r.aiProfileVersion ?? RESULT_SET_PROFILE_VERSION,
                 status: r.status as 'success' | 'error',
             }));
         },
@@ -331,6 +361,9 @@ export function useDB() {
                             sqlOp: null,
                             title: null,
                             columns: null,
+                            stats: null,
+                            viewState: null,
+                            aiProfileVersion: RESULT_SET_PROFILE_VERSION,
                             rowCount: 0,
                             affectedRows: null,
                             status: 'success',
@@ -651,6 +684,52 @@ export function useDB() {
         return rows?.[0] ?? null;
     }, []);
 
+    const profileAndPersistResultSet = useCallback(
+        async (params: {
+            sessionId: string;
+            setIndex: number;
+            sqlText: string;
+            rawColumns: unknown;
+            rows: any[];
+            rowCount?: number | null;
+            limited?: boolean | null;
+            limit?: number | null;
+        }) => {
+            if (!ormRef.current) return;
+            if (!Array.isArray(params.rows)) return;
+
+            try {
+                const objectRows = params.rows.filter((row): row is Record<string, unknown> => !!row && typeof row === 'object' && !Array.isArray(row));
+                const { columns, stats } = profileResultSet({
+                    sqlText: params.sqlText,
+                    rawColumns: params.rawColumns,
+                    rows: objectRows,
+                    rowCount: params.rowCount ?? objectRows.length,
+                    limited: params.limited ?? false,
+                    limit: params.limit ?? null,
+                });
+
+                await ormRef.current
+                    .update(queryResultSet)
+                    .set({
+                        columns: columns as any,
+                        stats: stats as any,
+                        aiProfileVersion: RESULT_SET_PROFILE_VERSION,
+                    })
+                    .where(and(eq(queryResultSet.sessionId, params.sessionId), eq(queryResultSet.setIndex, params.setIndex)))
+                    .execute();
+                bumpDataVersion();
+            } catch (error) {
+                console.warn('[useDB.profileAndPersistResultSet] failed', {
+                    sessionId: params.sessionId,
+                    setIndex: params.setIndex,
+                    error,
+                });
+            }
+        },
+        [bumpDataVersion],
+    );
+
     // ============ One-shot persist: apply backend response (recommended) ============
 
     /**
@@ -684,6 +763,9 @@ export function useDB() {
                 sqlOp?: string | null;
                 title?: string | null;
                 columns?: unknown | null;
+                stats?: ResultSetStatsV1 | null;
+                viewState?: ResultSetViewState | null;
+                aiProfileVersion?: number | null;
                 rowCount?: number | null;
                 limited?: boolean | null;
                 limit?: number | null;
@@ -754,6 +836,9 @@ export function useDB() {
                             sqlOp: r.sqlOp ?? null,
                             title: r.title ?? null,
                             columns: (r.columns ?? null) as any,
+                            stats: (r.stats ?? null) as any,
+                            viewState: (r.viewState ?? null) as any,
+                            aiProfileVersion: r.aiProfileVersion ?? RESULT_SET_PROFILE_VERSION,
                             rowCount: r.rowCount ?? null,
                             limited: r.limited ?? false,
                             limit: r.limit ?? null,
@@ -776,6 +861,9 @@ export function useDB() {
                             sqlOp: sql`excluded.sql_op`,
                             title: sql`excluded.title`,
                             columns: sql`excluded.columns`,
+                            stats: sql`excluded.stats`,
+                            viewState: sql`excluded.view_state`,
+                            aiProfileVersion: sql`excluded.ai_profile_version`,
                             rowCount: sql`excluded.row_count`,
                             limited: sql`excluded.limited`,
                             limit: sql`excluded.limit`,
@@ -806,8 +894,27 @@ export function useDB() {
             }
 
             bumpDataVersion();
+
+            for (let k = 0; k < payload.queryResultSets.length; k++) {
+                const resultSet = payload.queryResultSets[k];
+                if (!resultSet || resultSet.status !== 'success') continue;
+
+                const rows = payload.results[k] ?? [];
+                queueMicrotask(() => {
+                    void profileAndPersistResultSet({
+                        sessionId: s.sessionId,
+                        setIndex: resultSet.setIndex,
+                        sqlText: resultSet.sqlText,
+                        rawColumns: resultSet.columns,
+                        rows,
+                        rowCount: resultSet.rowCount ?? rows.length,
+                        limited: resultSet.limited ?? false,
+                        limit: resultSet.limit ?? null,
+                    });
+                });
+            }
         },
-        [insertResultRows, safeInsertPages, bumpDataVersion],
+        [insertResultRows, safeInsertPages, bumpDataVersion, profileAndPersistResultSet],
     );
 
     // ============ Exports ============
@@ -821,6 +928,7 @@ export function useDB() {
             createQuerySession,
             finishQuerySession,
             upsertResultSetMeta,
+            updateResultSetViewState,
             listResultSetsMeta,
 
             insertResultRows,
@@ -838,6 +946,7 @@ export function useDB() {
             createQuerySession,
             finishQuerySession,
             upsertResultSetMeta,
+            updateResultSetViewState,
             listResultSetsMeta,
             insertResultRows,
             getResultRows,

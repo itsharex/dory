@@ -1,7 +1,7 @@
 'use client';
 
 import React, { Activity, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Download, MoreHorizontal, RefreshCw } from 'lucide-react';
+import { Download, MoreHorizontal, RefreshCw, Sparkles } from 'lucide-react';
 
 import VTable from './vtable';
 import { InspectorPanel } from './vtable/InspectorPanel';
@@ -26,24 +26,87 @@ import { DebugPanel, DebugPayload } from './components/DebugPanel';
 import { makeSetUserPickedAtom, makeActiveSetAtom, makeAutoSetActiveSetAtom, makeSetActiveSetAtom, makeUserPickedAtom } from './stores/active-set.atoms';
 import { useAutoJumpToLastResult } from './hooks/useAutoJumpToLastResult';
 import { SQLErrorAlert } from './components/SQLErrorAlert';
+import { ResultOverviewPanel } from './ResultOverviewPanel';
 import { VTableSearchBar } from './components/TableSearchBar';
 import { Charts } from './components/charts';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/registry/new-york-v4/ui/dropdown-menu';
 import { Button } from '@/registry/new-york-v4/ui/button';
 import { useVTableFilters, VTableFilters } from './vtable/VTableFilters';
 import { Tabs, TabsList, TabsTrigger } from '@/registry/new-york-v4/ui/tabs';
+import type { ColumnFilter } from './vtable/type';
+import type { ResultSetViewState } from '@/lib/client/type';
 /* =================================== constants =================================== */
 
 const MAX_ROWS_HINT = 5_000_000; // UI hint only
 const OVERVIEW_SET = -1;
 
+function serializeViewFilters(filters: ColumnFilter[]): NonNullable<ResultSetViewState['filters']> {
+    return filters.map(filter => ({
+        column: filter.col,
+        op: filter.op,
+        value:
+            filter.kind === 'range'
+                ? {
+                      from: filter.value,
+                      to: filter.valueTo,
+                      rangeValueType: filter.rangeValueType,
+                  }
+                : {
+                      value: filter.value,
+                      caseSensitive: filter.caseSensitive ?? false,
+                  },
+    }));
+}
+
+function deserializeViewFilters(filters: ResultSetViewState['filters']): ColumnFilter[] {
+    return (filters ?? []).map(filter => {
+        const payload = filter.value;
+        if (filter.op === 'range' && payload && typeof payload === 'object') {
+            const range = payload as { from?: unknown; to?: unknown; rangeValueType?: unknown };
+            return {
+                col: String(filter.column),
+                kind: 'range',
+                op: 'range',
+                value: range.from == null ? undefined : String(range.from),
+                valueTo: range.to == null ? undefined : String(range.to),
+                rangeValueType: range.rangeValueType === 'date' ? 'date' : 'number',
+            };
+        }
+
+        const scalar = payload && typeof payload === 'object' ? (payload as { value?: unknown; caseSensitive?: unknown }) : null;
+        const rawValue = scalar ? scalar.value : payload;
+        const isNumeric =
+            typeof rawValue === 'number' ||
+            (typeof rawValue === 'string' &&
+                rawValue.trim() !== '' &&
+                Number.isFinite(Number(rawValue)) &&
+                !['contains', 'equals', 'startsWith', 'endsWith', 'empty', 'notEmpty', 'regex'].includes(filter.op));
+
+        return {
+            col: String(filter.column),
+            kind: isNumeric ? 'number' : 'string',
+            op: filter.op as any,
+            value: rawValue == null ? undefined : String(rawValue),
+            caseSensitive: scalar?.caseSensitive === true,
+        };
+    });
+}
+
+function areNumberArraysEqual(left: number[] | undefined, right: number[] | undefined) {
+    if (left === right) return true;
+    if (!left || !right) return !left && !right;
+    if (left.length !== right.length) return false;
+    return left.every((value, index) => value === right[index]);
+}
+
 /* =================================== component =================================== */
 
 export function ResultTable() {
     const t = useTranslations('SqlConsole');
+    const locale = useLocale();
     const [viewModesByKey, setViewModesByKey] = useAtom(viewModesByTabAtom);
-    const [currentViewMode, setCurrentViewMode] = useState<'table' | 'charts'>('table');
+    const [currentViewMode, setCurrentViewMode] = useState<'overview' | 'table' | 'charts'>('table');
     const [inspectorOpen, setInspectorOpen] = useState(false);
     const [inspectorMode, setInspectorMode] = useState<'cell' | 'row' | null>(null);
     const [inspectorPayload, setInspectorPayload] = useState<any>(null);
@@ -61,7 +124,7 @@ export function ResultTable() {
     const sessionIdFromAtom = useAtomValue(activeSessionIdAtom);
     const sessionId = sessionIdFromAtom ?? (typeof window !== 'undefined' ? (localStorage.getItem(`sqlconsole:sessionId:${tabId}`) ?? undefined) : undefined);
 
-    const { dbReady, listResultSetIndices, listResultSetsMeta, getResultRows, clearResults, dataVersion, getSession } = useDB();
+    const { dbReady, listResultSetIndices, listResultSetsMeta, getResultRows, clearResults, dataVersion, getSession, updateResultSetViewState } = useDB();
 
     // Session status
     const [sessionStatus, setSessionStatus] = useState<'running' | 'success' | 'error' | 'canceled' | null>(null);
@@ -123,6 +186,10 @@ export function ResultTable() {
     const shouldShowLimitNotice = isResult && limited;
 
     const [query, setQuery] = useState('');
+    const [sortState, setSortState] = useState<{ column: string; direction: 'asc' | 'desc' } | null>(null);
+    const [selectedRowIndexes, setSelectedRowIndexes] = useState<number[]>([]);
+    const hydratedViewStateKeyRef = useRef<string | null>(null);
+    const persistedViewStateRef = useRef<string | null>(null);
     const [chartStatesByKey, setChartStatesByKey] = useAtom(chartStatesByKeyAtom);
     const [chartStateVersionByTab, setChartStateVersionByTab] = useState<Record<string, number>>({});
     const [chartSnapshotsBySet, setChartSnapshotsBySet] = useState<Record<number, { rows: Array<{ rowData: Record<string, unknown> }>; columnsRaw?: unknown }>>({});
@@ -234,16 +301,51 @@ export function ResultTable() {
             return true;
         });
     }, [results, sessionMetas, query]);
+
     const {
         activeFilters,
         filteredResults: columnFilteredResults,
         setColumnFilter,
         removeFilter,
         clearAllFilters,
+        replaceFilters,
     } = useVTableFilters({
         results: filteredResults,
         storageKey,
+        disableStorage: true,
     });
+
+    useEffect(() => {
+        if (!sessionId || activeSet < 0) {
+            hydratedViewStateKeyRef.current = null;
+            setQuery('');
+            setSortState(null);
+            setSelectedRowIndexes([]);
+            replaceFilters([]);
+            return;
+        }
+
+        const viewStateKey = `${sessionId}:${activeSet}`;
+        if (hydratedViewStateKeyRef.current === viewStateKey) {
+            return;
+        }
+
+        hydratedViewStateKeyRef.current = viewStateKey;
+        const viewState = (sessionMetas.viewState ?? null) as ResultSetViewState | null;
+        persistedViewStateRef.current = JSON.stringify({
+            searchText: viewState?.searchText ?? undefined,
+            sorts: viewState?.sorts?.[0] ? [viewState.sorts[0]] : undefined,
+            filters: viewState?.filters ?? undefined,
+            hiddenColumns: [],
+            pinnedColumns: [],
+            selectedRowIndexes: viewState?.selectedRowIndexes?.length ? viewState.selectedRowIndexes : undefined,
+        });
+
+        setQuery(viewState?.searchText ?? '');
+        setSortState(viewState?.sorts?.[0] ?? null);
+        setSelectedRowIndexes(viewState?.selectedRowIndexes ?? []);
+        replaceFilters(deserializeViewFilters(viewState?.filters));
+    }, [activeSet, replaceFilters, sessionId, sessionMetas.viewState]);
 
     useEffect(() => {
         if (activeSet < 0) {
@@ -262,6 +364,33 @@ export function ResultTable() {
         }));
     }, [activeSet, columnFilteredResults, localDataLoading, sessionMetas.columns, tabId]);
 
+    useEffect(() => {
+        if (!sessionId || activeSet < 0) {
+            return;
+        }
+
+        const timeoutId = window.setTimeout(() => {
+            const nextViewState = {
+                searchText: query || undefined,
+                sorts: sortState ? [sortState] : undefined,
+                filters: activeFilters.length > 0 ? serializeViewFilters(activeFilters) : undefined,
+                hiddenColumns: [],
+                pinnedColumns: [],
+                selectedRowIndexes: selectedRowIndexes.length > 0 ? selectedRowIndexes : undefined,
+            };
+            const serialized = JSON.stringify(nextViewState);
+            if (persistedViewStateRef.current === serialized) {
+                return;
+            }
+            persistedViewStateRef.current = serialized;
+            void updateResultSetViewState(sessionId, activeSet, nextViewState);
+        }, 250);
+
+        return () => {
+            window.clearTimeout(timeoutId);
+        };
+    }, [activeFilters, activeSet, query, selectedRowIndexes, sessionId, sortState, updateResultSetViewState]);
+
     const stats = useMemo(
         () => ({
             filteredCount: columnFilteredResults.length,
@@ -271,6 +400,14 @@ export function ResultTable() {
     );
 
     const onStatsChange = useCallback(() => {}, []);
+    const handleSelectedRowIndexesChange = useCallback((next: number[]) => {
+        setSelectedRowIndexes(prev => {
+            if (areNumberArraysEqual(prev, next)) {
+                return prev;
+            }
+            return next;
+        });
+    }, []);
 
     /* ---------- Reset on Tab switch ---------- */
     useEffect(() => {
@@ -381,10 +518,10 @@ export function ResultTable() {
 
         const key = makeCacheKey(tabId, sessionId, activeSet);
 
-        // Cache short-circuit (same dataVersion)
+        // Cache short-circuit. Metadata updates can bump surrounding state without changing rows.
         if (key) {
             const cached = RESULTS_CACHE.get(key);
-            if (cached && cached.dataVersion === dataVersion) {
+            if (cached?.fullyLoaded) {
                 hydrateFromCache(key, {
                     setResults,
                     resultsRef,
@@ -718,6 +855,8 @@ export function ResultTable() {
         if (execMetaBySet?.[activeSet]?.errorMessage) {
             return <SQLErrorAlert message={execMetaBySet?.[activeSet]?.errorMessage} sql={execMetaBySet?.[activeSet]?.sqlText} />;
         }
+        const showSharedFilterBar = currentViewMode === 'table' || currentViewMode === 'charts';
+
         return (
             <div className="flex h-full min-h-0 flex-col bg-card mb-2" data-testid="result-table-content">
                 <div className="border-b bg-muted/30">
@@ -725,7 +864,7 @@ export function ResultTable() {
                         <Tabs
                             value={currentViewMode}
                             onValueChange={value => {
-                                if (value === 'table' || value === 'charts') {
+                                if (value === 'overview' || value === 'table' || value === 'charts') {
                                     setCurrentViewMode(value);
                                     setViewModesByKey(prev => {
                                         if (prev[viewModeKey] === value) return prev;
@@ -745,29 +884,40 @@ export function ResultTable() {
                                     <TabsTrigger value="charts" className="h-6 px-3 text-xs cursor-pointer">
                                         {t('Results.Charts')}
                                     </TabsTrigger>
+                                    <TabsTrigger value="overview" className="h-6 gap-1.5 px-3 text-xs cursor-pointer">
+                                        <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+                                        {t('Insights.Title')}
+                                        <span className="rounded border border-border bg-background/70 px-1 py-0 text-[9px] font-medium leading-3 text-muted-foreground">
+                                            {t('Insights.Beta')}
+                                        </span>
+                                    </TabsTrigger>
                                 </TabsList>
                             </div>
                         </Tabs>
-                        <div className="flex min-w-0 flex-1 flex-row">
-                            <VTableSearchBar
-                                query={query}
-                                className="w-96 max-w-full"
-                                onQueryChange={setQuery}
-                                onClearQuery={() => setQuery('')}
-                                filteredCount={stats.filteredCount}
-                                totalCount={stats.totalCount}
-                            />
-                            <VTableFilters
-                                activeFilters={activeFilters}
-                                columnsRaw={sessionMetas.columns ?? []}
-                                onUpsertFilter={setColumnFilter}
-                                onRemoveFilter={removeFilter}
-                                onClearAllFilters={clearAllFilters}
-                                className="border-0 bg-transparent px-0 py-0"
-                            />
-                        </div>
+                        {showSharedFilterBar ? (
+                            <div className="flex min-w-0 flex-1 flex-row">
+                                <VTableSearchBar
+                                    query={query}
+                                    className="w-96 max-w-full"
+                                    onQueryChange={setQuery}
+                                    onClearQuery={() => setQuery('')}
+                                    filteredCount={stats.filteredCount}
+                                    totalCount={stats.totalCount}
+                                />
+                                <VTableFilters
+                                    activeFilters={activeFilters}
+                                    columnsRaw={sessionMetas.columns ?? []}
+                                    onUpsertFilter={setColumnFilter}
+                                    onRemoveFilter={removeFilter}
+                                    onClearAllFilters={clearAllFilters}
+                                    className="border-0 bg-transparent px-0 py-0"
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex-1" />
+                        )}
                         <div className="flex items-center gap-1.5 mr-2">
-                            {isResult && (
+                            {isResult && currentViewMode === 'table' && (
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
                                         <Button
@@ -791,7 +941,15 @@ export function ResultTable() {
                         </div>
                     </div>
                 </div>
-                {currentViewMode === 'table' ? (
+                {currentViewMode === 'overview' ? (
+                    <ResultOverviewPanel
+                        stats={sessionMetas.stats}
+                        columns={sessionMetas.columns}
+                        rowCount={results.length}
+                        sqlText={sessionMetas.sqlText}
+                        rows={results.slice(0, 2000).map(result => result.rowData as Record<string, unknown>)}
+                    />
+                ) : currentViewMode === 'table' ? (
                     <>
                         <div className="flex-1 min-h-0">
                             <VTable
@@ -806,6 +964,10 @@ export function ResultTable() {
                                 onRemoveFilter={removeFilter}
                                 onClearAllFilters={clearAllFilters}
                                 showFiltersBar={false}
+                                initialSort={sortState}
+                                selectedRowIndexes={selectedRowIndexes}
+                                onSortChange={setSortState}
+                                onSelectedRowIndexesChange={handleSelectedRowIndexesChange}
                             />
                         </div>
                         <InspectorPanel
@@ -824,7 +986,8 @@ export function ResultTable() {
                     <div className="flex min-h-0 flex-1">
                         {chartSetIndices.map(setIndex => {
                             const setChartStateKey = tabId ? `tab:${tabId}:set:${setIndex}` : 'unknown';
-                            const snapshot = chartSnapshotsBySet[setIndex] ?? (setIndex === activeSet ? { rows: columnFilteredResults, columnsRaw: sessionMetas.columns } : undefined);
+                            const snapshot =
+                                chartSnapshotsBySet[setIndex] ?? (setIndex === activeSet ? { rows: columnFilteredResults, columnsRaw: sessionMetas.columns } : undefined);
                             if (!snapshot) {
                                 return null;
                             }
@@ -840,6 +1003,7 @@ export function ResultTable() {
                                             key={`${setChartStateKey}:${setVersion}`}
                                             rows={snapshot.rows}
                                             columnsRaw={snapshot.columnsRaw}
+                                            resultStats={setIndex === activeSet ? sessionMetas.stats : undefined}
                                             stateKey={setChartStateKey}
                                             initialState={setInitialState}
                                             stateSyncEnabled={visible ? !localDataLoading[tabId] : false}
